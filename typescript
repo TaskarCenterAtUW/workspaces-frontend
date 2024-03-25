@@ -1,0 +1,15 @@
+Script started on 2024-03-25 11:18:07-07:00 [TERM="xterm-256color" TTY="/dev/cons0" COLUMNS="-1" LINES="-1"]
+[6n
+> dev
+> nuxt dev
+
+[90m[32mNuxt [1m3.10.2[22m[90m with Nitro [1m2.8.1[22m[39m
+[get-port] Unable to find an available port (tried 3000 on host "localhost"). Using alternative port 3001.
+
+[32m  ➜ Local:   [39m [36m[4mhttp://localhost:[1m3001[22m/[24m[39m
+[90m  ➜ Network:  use [37m--host[90m to expose[39m
+
+[36mℹ[39m Vite client warmed up in 4467ms
+[90m[[90mnitro[90m][39m [32m✔[39m Nitro built in 836 ms
+
+Script done on 2024-03-25 11:18:20-07:00 [COMMAND_EXIT_CODE="130"]
