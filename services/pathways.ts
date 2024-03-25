@@ -1,0 +1,286 @@
+import {
+  BlobReader,
+  BlobWriter,
+  TextReader,
+  TextWriter,
+  ZipReader,
+  ZipWriter
+} from '@zip.js/zip.js';
+
+import { parseCsv } from '~/util/csv';
+import * as xml from '~/util/xml';
+
+const PATHWAYS_FILES = new Set([
+  'levels.txt',
+  'pathways.txt',
+  'stops.txt'
+]);
+
+export async function openTdeiPathwaysArchive(zip: Blob) {
+  const blobReader = new BlobReader(zip);
+  const zipReader = new ZipReader(blobReader);
+  const entries = await zipReader.getEntries();
+
+  const filePromises = [];
+
+  for (const e of entries) {
+    if (PATHWAYS_FILES.has(e.filename)) {
+      const textWriter = new TextWriter();
+
+      filePromises.push(new Promise(async (resolve, reject) => {
+        const csv = await e.getData(textWriter);
+        resolve([ e.filename, await parseCsv(csv) ]);
+      }));
+    }
+  }
+
+  const map = new Map(await Promise.all(filePromises));
+  console.log(map)
+  return map;
+}
+
+export function pathways2osc(changesetId: number, dataset) {
+  const oscDoc = xml.parse(
+    '<osmChange version="0.6"><create /><modify /><delete /></osmChange>',
+    'application/xml'
+  );
+  const createNode = oscDoc.firstChild.firstChild;
+  const stopNodeIdMap = new Map();
+  let currentId = -1;
+
+  for (const stop of dataset.get('stops.txt') ?? []) {
+    const node = xml.makeNode(oscDoc, 'node', {
+      id: currentId,
+      changeset: changesetId,
+      version: 1,
+      lat: stop.stop_lat.trim(),
+      lon: stop.stop_lon.trim()
+    });
+
+    for (const [k, v] of Object.entries(stop)) {
+      if (k !== 'stop_lat' && k !== 'stop_lon') {
+        node.appendChild(xml.makeNode(oscDoc, 'tag', { k, v }));
+      }
+    }
+
+    stopNodeIdMap.set(stop.stop_id, currentId);
+    createNode.appendChild(node);
+    currentId--;
+  }
+
+  for (const pathway of dataset.get('pathways.txt') ?? []) {
+    const way = xml.makeNode(oscDoc, 'way', {
+      id: currentId,
+      changeset: changesetId,
+      version: 1
+    });
+
+    way.appendChild(xml.makeNode(oscDoc, 'nd', {
+      ref: stopNodeIdMap.get(pathway.from_stop_id)
+    }));
+    way.appendChild(xml.makeNode(oscDoc, 'nd', {
+      ref: stopNodeIdMap.get(pathway.to_stop_id)
+    }));
+
+    for (const [k, v] of Object.entries(pathway)) {
+      way.appendChild(xml.makeNode(oscDoc, 'tag', { k, v }));
+    }
+
+    createNode.appendChild(way);
+    currentId--;
+  }
+
+  return xml.serialize(oscDoc);
+}
+
+function makeStopColumnMap() {
+  const map = new Map([
+    ['stop_id', ''],
+    ['stop_name', ''],
+    ['stop_lat', ''],
+    ['stop_lon', ''],
+    ['location_type', ''],
+  ]);
+
+  map.reset = () => {
+    map.forEach((val, key) => { map.set(key, ''); });
+  }
+
+  return map;
+}
+
+function makePathwayColumnMap() {
+  const map = new Map([
+    ['pathway_id', ''],
+    ['from_stop_id', ''],
+    ['to_stop_id', ''],
+    ['pathway_mode', ''],
+    ['is_bidirectional', ''],
+  ]);
+
+  map.reset = () => {
+    map.forEach((val, key) => { map.set(key, ''); });
+  }
+
+  return map;
+}
+
+export async function buildPathwaysCsvArchive(elements): Blob {
+  let levelsCsv = 'level_id,level_index\n';
+  let stopsCsv = 'stop_id,stop_name,stop_lat,stop_lon,location_type\n';
+  let pathwaysCsv = 'pathway_id,from_stop_id,to_stop_id,pathway_mode,is_bidirectional\n';
+
+  const stopNodeIdMap = new Map();
+  const stopColumnMap = makeStopColumnMap();
+  const pathwayColumnMap = makePathwayColumnMap();
+
+  for (const element of elements) {
+    if (element.type === 'node') {
+      stopColumnMap.reset();
+      stopColumnMap.set('stop_id', element.tags.stop_id);
+      stopColumnMap.set('stop_lat', element.lat);
+      stopColumnMap.set('stop_lon', element.lon);
+      stopColumnMap.set('stop_name', element.tags.stop_name);
+      stopColumnMap.set('location_type', element.tags.location_type);
+
+      stopsCsv += Array.from(stopColumnMap.values()).join(',');
+      stopsCsv += '\n';
+      stopNodeIdMap.set(element.id, element.tags.stop_id);
+    } else {
+      pathwayColumnMap.reset();
+      pathwayColumnMap.set('pathway_id', element.tags.pathway_id);
+      pathwayColumnMap.set('from_stop_id', stopNodeIdMap.get(element.nodes[0]));
+      pathwayColumnMap.set('to_stop_id', stopNodeIdMap.get(element.nodes[1]));
+      pathwayColumnMap.set('pathway_mode', element.tags.pathway_mode);
+      pathwayColumnMap.set('is_bidirectional', element.tags.is_bidirectional);
+
+      pathwaysCsv += Array.from(pathwayColumnMap.values()).join(',');
+      pathwaysCsv += '\n';
+    }
+  }
+
+  const blobWriter = new BlobWriter('application/zip');
+  const zipWriter = new ZipWriter(blobWriter);
+
+  await Promise.all([
+    zipWriter.add('levels.txt', new TextReader(levelsCsv)),
+    zipWriter.add('pathways.txt', new TextReader(pathwaysCsv)),
+    zipWriter.add('stops.txt', new TextReader(pathwaysCsv))
+  ]);
+
+  zipWriter.close();
+
+  return await blobWriter.getData();
+}
+
+export class PathwaysEditorManager {
+  #baseUrl: string;
+  #osmUrl: string;
+  #tdeiAuth: TdeiAuthStore;
+
+  constructor(baseUrl: string, osmUrl: string, tdeiAuth: TdeiAuthStore) {
+    this.#baseUrl = baseUrl;
+    this.#osmUrl = osmUrl.replace(/\/+$/, '');
+    this.#tdeiAuth = tdeiAuth;
+
+    this.loaded = ref(false);
+    this.containerNode = document.createElement('div');
+    this.editorContext = null;
+  }
+
+  load() {
+    if (this.loaded.value) {
+      return
+    }
+
+    const style = document.createElement('link');
+    style.setAttribute('href', this.#baseUrl + 'iD.css');
+    style.setAttribute('type', 'text/css');
+    style.setAttribute('rel', 'stylesheet');
+    document.head.appendChild(style);
+
+    const script = document.createElement('script');
+    script.src = this.#baseUrl + 'iD.js';
+    script.async = true;
+    script.onload = this.#onLoaded.bind(this);
+    document.body.appendChild(script);
+  }
+
+  init(workspaceId: number) {
+    const osmConnection = { url: this.#osmUrl, apiUrl: this.#osmUrl };
+
+    this.editorContext.workspaceId = workspaceId;
+    this.editorContext.connection().apiConnections([osmConnection]);
+    this.editorContext.init();
+    this.editorContext.connection().switch(osmConnection);
+    this.#patchEditor();
+
+    return Promise.resolve();
+  }
+
+  switchWorkspace(workspaceId: number) {
+    this.editorContext.workspaceId = workspaceId;
+
+    // Induce the editor to re-read the configuration from the URL hash:
+    window.dispatchEvent(new HashChangeEvent('hashchange', {
+      newUrl: window.location.href,
+      oldUrl: window.location.href
+    }));
+
+    this.editorContext.reset();
+
+    return Promise.resolve();
+  }
+
+  #onLoaded() {
+    this.loaded.value = true;
+
+    this.editorContext = window.iD.coreContext();
+    this.editorContext.embed(true);
+    this.editorContext.containerNode(this.containerNode);
+    this.editorContext.assetPath(this.#baseUrl);
+    this.editorContext.setsDocumentTitle(false);
+
+    console.info('Pathways editor loaded', window.iD);
+  }
+
+  #patchEditor() {
+    const pathwaysOsmService = this.editorContext.connection();
+    const pathwaysOsmClient = pathwaysOsmService.oauthClient;
+
+    pathwaysOsmClient.xhr = this.#wrapXhr(pathwaysOsmClient.xhr);
+    pathwaysOsmClient.authenticated = () => this.#tdeiAuth.ok;
+
+    // Don't bother to fetch user details when uploading changesets:
+    pathwaysOsmService.userDetails = (callback) => { callback('dummy error') };
+  }
+
+  #wrapXhr(innerXhr) {
+    return (options, callback) => {
+      if (!options.headers) {
+        options.headers = {};
+      }
+
+      const tokenHeader = 'Bearer ' + this.#tdeiAuth.accessToken;
+
+      if (options.headers instanceof Headers) {
+        options.headers.set('X-Workspace', this.editorContext.workspaceId);
+        options.headers.set('Authorization', tokenHeader);
+      } else if (options.headers instanceof Array) {
+        options.headers.push(['X-Workspace', this.editorContext.workspaceId]);
+        options.headers.push('Authorization', tokenHeader);
+      } else {
+        options.headers['X-Workspace'] = this.editorContext.workspaceId;
+
+        // Don't let osm-auth overwrite our auth header:
+        Object.defineProperty(options.headers, 'Authorization', {
+          value: tokenHeader,
+          writable: false,
+          enumerable: true
+        });
+      }
+
+      return innerXhr(options, callback);
+    };
+  }
+}

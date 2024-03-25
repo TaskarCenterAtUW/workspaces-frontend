@@ -1,0 +1,36 @@
+@import "theme.scss";
+@import "bootstrap/scss/bootstrap.scss";
+
+html, body, #__nuxt {
+  width: 100%;
+  height: 100%;
+}
+
+/* Vue page transitions */
+.fade-enter-active, .fade-leave-active,
+.layout-enter-active, .layout-leave-active,
+.page-enter-active, .page-leave-active {
+  transition: opacity 0.3s;
+}
+.fade-enter, .fade-leave-active,
+.layout-enter, .layout-leave-active,
+.page-enter-from, .page-leave-to {
+  opacity: 0;
+}
+
+a[aria-disabled="true"] {
+  pointer-events: none;
+  cursor: not-allowed;
+  text-decoration: none;
+  opacity: 0.5;
+}
+
+label > .form-control:first-child,
+label > .form-select:first-child {
+  margin-top: $form-label-margin-bottom;
+}
+
+.editor-container {
+  width: 100%;
+  height: 100%;
+}

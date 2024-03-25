@@ -1,0 +1,25 @@
+{
+  "name": "workspaces",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@zip.js/zip.js": "^2.7.41",
+    "bootstrap": "^5.3.3",
+    "js-cookie": "^3.0.5",
+    "nuxt": "^3.10.2",
+    "papaparse": "^5.5.1",
+    "vue": "^3.4.19",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "sass": "1.77.6",
+    "sass-loader": "^14.1.0"
+  }
+}
