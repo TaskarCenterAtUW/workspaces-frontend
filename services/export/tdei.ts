@@ -1,7 +1,7 @@
 import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
 
 import { OsmApiClient } from '~/services/osm';
-import { buildPathwaysCsvArchive } from '~/services/pathways';
+import { buildPathwaysCsvArchive, openTdeiPathwaysArchive } from '~/services/pathways';
 import { TdeiClient, TdeiClientError, TdeiConversionError } from '~/services/tdei';
 import * as geojson from '~/util/geojson'
 
@@ -10,7 +10,8 @@ const status = {
   bbox: 'Finding workspace bounds...',
   exportOsm: 'Fetching workspace data...',
   convertOsm: 'Converting workspace data...',
-  checkDerived: 'Checking derived from dataset...',
+  checkDerived: 'Checking previous dataset...',
+  downloadDerived: 'Fetching previous dataset...',
   upload: 'Uploading dataset to TDEI...',
   complete: 'Upload complete.'
 };
@@ -117,13 +118,15 @@ export class TdeiExporter {
   async _exportPathwaysToTdei(workspace, metadata): Promise<number> {
     this._context.status = status.exportOsm;
     const elements = await this._osmClient.getWorkspaceData(workspace.id);
+    const derivedFromDatasetId = await this._filterNonexistentDataset(workspace.tdeiRecordId);
+    const derivedFromDataset = await this._fetchPathwaysDataset(derivedFromDatasetId);
 
     this._context.status = status.convertOsm;
-    const csvZip = await buildPathwaysCsvArchive(elements);
+    const csvZip = await buildPathwaysCsvArchive(elements, derivedFromDataset);
 
     this._context.status = status.upload;
     const jobId = await this._tdeiClient.uploadPathwaysDataset(
-      (await this._filterNonexistentDataset(workspace.tdeiRecordId)),
+      derivedFromDatasetId,
       workspace.tdeiProjectGroupId,
       workspace.tdeiServiceId,
       csvZip,
@@ -148,5 +151,16 @@ export class TdeiExporter {
     }
 
     return undefined;
+  }
+
+  async _fetchPathwaysDataset(tdeiRecordId: string) {
+    if (!tdeiRecordId) {
+      return undefined;
+    }
+
+    const zip = await this._tdeiClient.downloadPathwaysDataset(tdeiRecordId);
+    const { dataset } = await this._tdeiClient.openDatasetArchive(zip);
+
+    return await openTdeiPathwaysArchive(dataset, false, false);
   }
 }

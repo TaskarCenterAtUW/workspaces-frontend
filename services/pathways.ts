@@ -8,6 +8,7 @@ import {
 } from '@zip.js/zip.js';
 
 import { parseCsv } from '~/util/csv';
+import { createEmptyGtfsDataset, createGtfsArchive } from '~/util/gtfs';
 import * as xml from '~/util/xml';
 
 const PATHWAYS_FILES = new Set([
@@ -16,7 +17,11 @@ const PATHWAYS_FILES = new Set([
   'stops.txt'
 ]);
 
-export async function openTdeiPathwaysArchive(zip: Blob) {
+export async function openTdeiPathwaysArchive(
+  zip: Blob,
+  parseObjects: boolean = true,
+  filterPathways: boolean = true
+) {
   const blobReader = new BlobReader(zip);
   const zipReader = new ZipReader(blobReader);
   const entries = await zipReader.getEntries();
@@ -24,18 +29,23 @@ export async function openTdeiPathwaysArchive(zip: Blob) {
   const filePromises = [];
 
   for (const e of entries) {
-    if (PATHWAYS_FILES.has(e.filename)) {
+    if (!filterPathways || PATHWAYS_FILES.has(e.filename)) {
       const textWriter = new TextWriter();
 
       filePromises.push(new Promise(async (resolve, reject) => {
         const csv = await e.getData(textWriter);
-        resolve([ e.filename, await parseCsv(csv) ]);
+
+        if (parseObjects) {
+          resolve([ e.filename, await parseCsv(csv) ]);
+        } else {
+          resolve([ e.filename, csv ]);
+        }
       }));
     }
   }
 
   const map = new Map(await Promise.all(filePromises));
-  console.log(map)
+
   return map;
 }
 
@@ -125,9 +135,12 @@ function makePathwayColumnMap() {
   return map;
 }
 
-export async function buildPathwaysCsvArchive(elements): Blob {
-  let levelsCsv = 'level_id,level_index\n';
-  let stopsCsv = 'stop_id,stop_name,stop_lat,stop_lon,location_type\n';
+export async function buildPathwaysCsvArchive(elements, gtfsFiles: Map): Blob {
+  if (!gtfsFiles) {
+    gtfsFiles = createEmptyGtfsDataset();
+  }
+
+  let stopsCsv = 'stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station,level_id\n';
   let pathwaysCsv = 'pathway_id,from_stop_id,to_stop_id,pathway_mode,is_bidirectional\n';
 
   const stopNodeIdMap = new Map();
@@ -142,6 +155,8 @@ export async function buildPathwaysCsvArchive(elements): Blob {
       stopColumnMap.set('stop_lon', element.lon);
       stopColumnMap.set('stop_name', element.tags.stop_name);
       stopColumnMap.set('location_type', element.tags.location_type);
+      stopColumnMap.set('parent_station', element.tags.parent_station);
+      stopColumnMap.set('level_id', element.tags.level_id);
 
       stopsCsv += Array.from(stopColumnMap.values()).join(',');
       stopsCsv += '\n';
@@ -159,18 +174,10 @@ export async function buildPathwaysCsvArchive(elements): Blob {
     }
   }
 
-  const blobWriter = new BlobWriter('application/zip');
-  const zipWriter = new ZipWriter(blobWriter);
+  gtfsFiles.set('pathways.txt', pathwaysCsv);
+  gtfsFiles.set('stops.txt', stopsCsv);
 
-  await Promise.all([
-    zipWriter.add('levels.txt', new TextReader(levelsCsv)),
-    zipWriter.add('pathways.txt', new TextReader(pathwaysCsv)),
-    zipWriter.add('stops.txt', new TextReader(pathwaysCsv))
-  ]);
-
-  zipWriter.close();
-
-  return await blobWriter.getData();
+  return await createGtfsArchive(gtfsFiles);
 }
 
 export class PathwaysEditorManager {
