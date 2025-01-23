@@ -396,9 +396,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return changeset;
   }
 
-  async getOsmChange(workspaceId: WorkspaceId, changesetId: number)
-    : Promise<OsmChange>
-  {
+  async getOsmChangeXml(workspaceId: WorkspaceId, changesetId: number): Promise<string> {
     const response = await this._get(`changeset/${changesetId}/download`, {
       headers: {
         ...this._requestHeaders,
@@ -406,8 +404,11 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
         'X-Workspace': workspaceId,
       },
     });
+    return await response.text();
+  }
 
-    const osmChange = parseOsmChangeXml(await response.text());
+  async getOsmChange(workspaceId: WorkspaceId, changesetId: number): Promise<OsmChange> {
+    const osmChange = parseOsmChangeXml(await this.getOsmChangeXml(workspaceId, changesetId));
 
     for (const type of OSMCHANGE_ACTION_TYPES) {
       for (const element of osmChange[type] ?? []) {
