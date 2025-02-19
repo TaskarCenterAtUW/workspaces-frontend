@@ -17,8 +17,8 @@ FROM nginx
 
 COPY --from=builder /app/.output/public /usr/share/nginx/html/
 
-RUN echo "This is $CODE_VERSION"
-RUN echo "This is $CODE_VERSION" > /usr/share/nginx/html/VERSION
+RUN echo "This is ${CODE_VERSION}"
+RUN echo "This is ${CODE_VERSION}" > /usr/share/nginx/html/VERSION
 
 RUN chown -R nginx:nginx /usr/share/nginx/html/
 
