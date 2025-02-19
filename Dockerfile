@@ -14,11 +14,13 @@ RUN npm install
 RUN npm run generate
 
 FROM nginx
-
 COPY --from=builder /app/.output/public /usr/share/nginx/html/
 
-RUN echo "This is ${CODE_VERSION}"
-RUN echo "This is ${CODE_VERSION}" > /usr/share/nginx/html/VERSION
+# https://stackoverflow.com/questions/44438637/arg-substitution-in-run-command-not-working-for-dockerfile
+ARG CODE_VERSION
+
+RUN echo This is $CODE_VERSION
+RUN echo This is $CODE_VERSION > /usr/share/nginx/html/VERSION
 
 RUN chown -R nginx:nginx /usr/share/nginx/html/
 
