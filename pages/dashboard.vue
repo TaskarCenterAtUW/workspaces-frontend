@@ -45,10 +45,12 @@
                 Edit
               </nuxt-link>
               <div class="btn-group">
+                <!--
                 <a :href="currentTasksHref" class="btn" target="_blank">
                   <app-icon variant="checklist" size="24" />
                   <span class="d-none d-sm-inline">Tasks</span>
                 </a>
+                -->
                 <nuxt-link class="btn" :to="currentExportRoute" :aria-disabled="!currentWorkspacePolygon">
                   <app-icon variant="drive_folder_upload" size="24" />
                   <span class="d-none d-sm-inline">Export</span>
