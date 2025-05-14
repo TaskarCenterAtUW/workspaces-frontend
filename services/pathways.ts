@@ -11,7 +11,7 @@ import { parseCsv } from '~/util/csv';
 import { createEmptyGtfsDataset, createGtfsArchive } from '~/util/gtfs';
 import * as xml from '~/util/xml';
 
-const DATASET_FILE = 'dataset.zip';
+const CHANGESET_FILE = 'changeset';
 
 const PATHWAYS_FILES = new Set([
   'levels.txt',
@@ -31,7 +31,7 @@ export async function openTdeiPathwaysArchive(
   // if we are opening a TDEI archive then entries are zipped up,
   // otherwise the legacy Workspaces archive has everything in a single directory
   for (const x of entries) {
-    if (x.filename === DATASET_FILE) {
+    if (!x.filename.startsWith(CHANGESET_FILE) && x.filename.endsWith('.zip')) {
       const subzipBlob = await x.getData(new BlobWriter());
       const subzipFileReader = new BlobReader(subzipBlob);
       const subzipReader = new ZipReader(subzipFileReader);
