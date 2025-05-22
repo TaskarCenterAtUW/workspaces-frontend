@@ -217,6 +217,27 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return await response.json();
   }
 
+  async getExportBbox(id: number) {
+    const bbox = await this.getWorkspaceBbox(id);
+
+    if (bbox === undefined) {
+      return undefined
+    }
+
+    // Passing the exact bounding box to the OSM map call may lose nodes on the
+    // bounds. We grow the bounding box here to ensure that we export the whole
+    // workspace. A bounding box of "-180,-90,180,90" covering the entire Earth
+    // would be ideal, but this crashes CGImap's "map" endpoint as it allocates
+    // memory for every tile in the coordinate space.
+    //
+    // TODO: consider implementing a dedicated endpoint for exporting the whole
+    // workspace instead of reusing the existing "map" API.
+    //
+    const pad = 0.0000001;
+
+    return `${bbox.min_lon},${bbox.min_lat},${bbox.max_lon + pad},${bbox.max_lat + pad}`;
+  }
+
   async createChangeset(workspaceId: number): number {
     const doc = xml.parse('<osm><changeset></changeset></osm>');
     const changesetNode = doc.firstChild.firstChild;
@@ -243,13 +264,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async getWorkspaceData(workspaceId: number): Promise<Array> {
-    const bbox = await this.getWorkspaceBbox(workspaceId);
-
-    if (bbox === undefined) {
-      return undefined
-    }
-
-    const bboxParam = `${bbox.min_lon},${bbox.min_lat},${bbox.max_lon},${bbox.max_lat}`;
+    const bboxParam = await this.getExportBbox(workspaceId);
     const response = await this._get(`map.json?bbox=${bboxParam}`, {
       headers: {
         ...this._requestHeaders,
@@ -262,13 +277,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async exportWorkspaceXml(workspaceId: number): Promise<Blob> {
-    const bbox = await this.getWorkspaceBbox(workspaceId);
-
-    if (bbox === undefined) {
-      return undefined
-    }
-
-    const bboxParam = `${bbox.min_lon},${bbox.min_lat},${bbox.max_lon},${bbox.max_lat}`;
+    const bboxParam = await this.getExportBbox(workspaceId);
     const response = await this._get(`map?bbox=${bboxParam}`, {
       headers: {
         ...this._requestHeaders,
