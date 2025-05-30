@@ -19,8 +19,8 @@ COPY --from=builder /app/.output/public /usr/share/nginx/html/
 # https://stackoverflow.com/questions/44438637/arg-substitution-in-run-command-not-working-for-dockerfile
 ARG CODE_VERSION
 
-RUN echo This is (frontend, cgimap, osmrails, pathways, rapid, taskingmanager) $CODE_VERSION
-RUN echo This is (frontend, cgimap, osmrails, pathways, rapid, taskingmanager) $CODE_VERSION > /usr/share/nginx/html/VERSION
+RUN echo "This is (frontend, cgimap, osmrails, pathways, rapid, taskingmanager) $CODE_VERSION"
+RUN echo "This is (frontend, cgimap, osmrails, pathways, rapid, taskingmanager) $CODE_VERSION" > /usr/share/nginx/html/VERSION
 
 RUN chown -R nginx:nginx /usr/share/nginx/html/
 
