@@ -211,6 +211,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     const response = await this._get(`workspaces/${id}/bbox.json`);
 
     if (response.status === 204) {
+      console.warn(`Workspace ${id} has no bounding box`);
       return undefined
     }
 
@@ -230,6 +231,30 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     });
 
     return Number(await response.text());
+  }
+
+  async getChangesets(workspaceId: number) {
+    const response = await this._get('changesets', {
+      headers: {
+        'Content-Type': 'application/xml',
+        'Authorization': this._requestHeaders['Authorization'],
+        'X-Workspace': workspaceId
+      }
+    });
+
+    return await response.text();
+  }
+
+  async getChangesetContents(workspaceId: number, changesetId: number): Promise<string> {
+    const response = await this._get(`changeset/${changesetId}/download`, {
+      headers: {
+        'Content-Type': 'application/xml',
+        'Authorization': this._requestHeaders['Authorization'],
+        'X-Workspace': workspaceId
+      }
+    });
+
+    return await response.text();
   }
 
   async uploadChangeset(workspaceId: number, changesetId: number, changesetXml: string) {

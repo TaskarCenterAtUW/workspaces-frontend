@@ -245,10 +245,12 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     projectGroupId: string,
     serviceId: string,
     dataset,
+    changeset,
     metadata
   ) {
     const body = new FormData();
     body.append('dataset', new File([dataset], 'dataset.zip', { type: 'application/x-zip-compressed' }));
+    body.append('changeset', new File([changeset], 'changeset.zip', { type: 'application/x-zip-compressed' }));
     body.append('metadata', new File([JSON.stringify(metadata)], 'metadata.json', { type: 'application/json' }));
 
     let resource = `osw/upload/${projectGroupId}/${serviceId}`;

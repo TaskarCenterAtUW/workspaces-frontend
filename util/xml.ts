@@ -19,3 +19,19 @@ export function makeNode(doc: XMLDocument, tag: string, attrs: object): Element 
 
   return node;
 }
+
+export function pullAttributesByName(input: string, attributeName: string, elementName: string): Array<string> {
+  const doc = parse(input);
+  const elements = doc.getElementsByTagName(elementName);
+  const attributes = [];
+  var curAttribute;
+
+  for (let i = 0; i < elements.length; i++) {
+    curAttribute = elements[i].getAttribute(attributeName);
+    if (curAttribute) {
+      attributes.push(curAttribute);
+    }
+  }
+
+  return attributes;
+}

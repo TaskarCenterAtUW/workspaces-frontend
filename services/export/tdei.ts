@@ -1,14 +1,16 @@
-import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
+import { BlobReader, BlobWriter, TextReader, ZipReader, ZipWriter } from '@zip.js/zip.js';
 
 import { OsmApiClient } from '~/services/osm';
 import { buildPathwaysCsvArchive, openTdeiPathwaysArchive } from '~/services/pathways';
 import { TdeiClient, TdeiClientError, TdeiConversionError } from '~/services/tdei';
-import * as geojson from '~/util/geojson'
+import * as geojson from '~/util/geojson';
+import * as xml from '~/util/xml';
 
 const status = {
   idle: 'Idle',
   bbox: 'Finding workspace bounds...',
   exportOsm: 'Fetching workspace data...',
+  changesetOsm: 'Retrieving changesets...',
   convertOsm: 'Converting workspace data...',
   checkDerived: 'Checking previous dataset...',
   downloadDerived: 'Fetching previous dataset...',
@@ -101,12 +103,16 @@ export class TdeiExporter {
     this._context.status = status.convertOsm;
     const oswZip = await this._tdeiClient.convertDataset(osm, 'osm', 'osw', workspace.tdeiProjectGroupId);
 
+    this._context.status = status.changesetOsm;
+    const changesetZip = await this._buildChangesetZip(workspace.id);
+
     this._context.status = status.upload;
     const jobId = await this._tdeiClient.uploadOswDataset(
       (await this._filterNonexistentDataset(workspace.tdeiRecordId)),
       workspace.tdeiProjectGroupId,
       workspace.tdeiServiceId,
       oswZip,
+      changesetZip,
       { dataset_detail: metadata }
     );
 
@@ -162,5 +168,25 @@ export class TdeiExporter {
     const { dataset } = await this._tdeiClient.openDatasetArchive(zip);
 
     return await openTdeiPathwaysArchive(dataset, false, false);
+  }
+
+  async _buildChangesetZip(workspaceId: number): Promise<Blob> {
+    const changesetsXml = await this._osmClient.getChangesets(workspaceId);
+    const changesetsIdList = xml.pullAttributesByName(changesetsXml, 'id', 'changeset');
+
+    const blobWriter = new BlobWriter('application/zip');
+    const zipWriter = new ZipWriter(blobWriter);
+    await zipWriter.add('changesets.xml', new TextReader(changesetsXml), { type: 'application/xml' });
+
+    var curChangesetResponse;
+    var curChangesetXml;
+    for (let j = 0; j < changesetsIdList.length; j++) {
+      curChangesetResponse = await this._osmClient.getChangesetContents(workspaceId, changesetsIdList[j]);
+      curChangesetXml = await curChangesetResponse.text();
+      await zipWriter.add(`changeset-${changesetsIdList[j]}.xml`, new TextReader(curChangesetXml), { type: 'application/xml' });
+    }
+
+    zipWriter.close();
+    return await blobWriter.getData();
   }
 }
