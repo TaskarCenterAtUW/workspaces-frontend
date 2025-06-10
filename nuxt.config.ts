@@ -35,5 +35,9 @@ export default defineNuxtConfig({
     }
   },
 
+  modules: [
+    '@nuxt/test-utils/module'
+  ],
+
   compatibilityDate: '2024-10-24'
 })

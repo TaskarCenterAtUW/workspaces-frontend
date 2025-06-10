@@ -19,7 +19,9 @@
     "vue-router": "^4.2.5"
   },
   "devDependencies": {
+    "@nuxt/test-utils": "^3.10.2",
     "sass": "1.77.6",
-    "sass-loader": "^14.1.0"
+    "sass-loader": "^14.1.0",
+    "vitest": "^3.2.3"
   }
 }
