@@ -11,7 +11,7 @@
 </template>
 
 <script setup lang="ts">
-  import { tdeiUserClient } from '~/services/index'
+  import { tdeiClient } from '~/services/index'
   
   const model = defineModel({ required: true });
   const props = defineProps({
@@ -29,7 +29,7 @@
   watch(projectGroupId, (val) => refreshDatasets());
 
   async function refreshDatasets() {
-    datasets.value = (await tdeiUserClient.getDatasetsByProjectGroup(props.projectGroupId))
+    datasets.value = (await tdeiClient.getDatasetsByProjectGroup(props.projectGroupId))
         .sort((a, b) => a.name.localeCompare(b.name));
     
     if (!model.value && datasets.length > 0) {

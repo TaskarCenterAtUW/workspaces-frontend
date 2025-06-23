@@ -209,6 +209,13 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     return (await response.json())[0];
   }
 
+  async getDatasetsByProjectGroup(projectGroupId: string) {
+    const response = await this._get(`datasets?tdei_project_group_id=${projectGroupId}`);
+
+    return (await response.json())
+      .map(d => ({ id: d.tdei_dataset_id, name: d.metadata.dataset_detail.name }));
+  }
+
   async downloadOswDataset(tdeiRecordId: string, format: string = 'osw'): Blob {
     const response = await this._sendTest(`osw/${tdeiRecordId}?format=${format}`, 'GET');
 
@@ -404,13 +411,6 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
 
     return (await response.json())
       .map(p => ({ id: p.tdei_project_group_id, name: p.project_group_name }));
-  }
-
-  async getDatasetsByProjectGroup(projectGroupId: string) {
-    const response = await this._get(`datasets?tdei_project_group_id=${projectGroupId}`);
-
-    return (await response.json())
-      .map(d => ({ id: d.tdei_dataset_id, name: d.dataset_detail.name }));
   }
 
   async getMyServices(projectGroupId: string, type: string = 'all') {
