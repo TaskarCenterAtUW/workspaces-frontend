@@ -28,6 +28,16 @@
                 required
               />
             </label>
+
+            <label class="d-block mb-3">
+              Dataset
+              <dataset-picker
+                v-model="projectGroupId"
+                :project-group-id="projectGroupId"
+                :disabled="context.active"
+                required
+              />
+            </label>
           </div><!-- .card-body -->
 
           <div class="card-footer">
