@@ -29,7 +29,7 @@
               />
             </label>
 
-            <label class="d-block mb-3">
+            <label v-if="!$route.query.tdeiRecordId" class="d-block mb-3">
               Dataset
               <dataset-picker
                 v-model="tdeiRecordId"
