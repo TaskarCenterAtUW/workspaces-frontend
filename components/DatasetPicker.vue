@@ -16,12 +16,14 @@
   const model = defineModel({ required: true });
   const props = defineProps({
     projectGroupId: {
-        type: String,
-        required: true
+        type: String
+    },
+    tdeiRecordId: {
+        type: String
     }
   });
 
-  const { projectGroupId } = toRefs(props);
+  const { projectGroupId, tdeiRecordId } = toRefs(props);
   const datasets = ref([]);
 
   watch(projectGroupId, (val) => refreshDatasets());

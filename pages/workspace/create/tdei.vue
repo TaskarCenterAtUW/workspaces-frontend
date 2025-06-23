@@ -32,7 +32,7 @@
             <label class="d-block mb-3">
               Dataset
               <dataset-picker
-                v-model="projectGroupId"
+                v-model="tdeiRecordId"
                 :project-group-id="projectGroupId"
                 :disabled="context.active"
                 required
