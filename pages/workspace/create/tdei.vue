@@ -139,12 +139,14 @@ const importer = new TdeiImporter(workspacesClient, tdeiClient, osmClient, conte
 
 const loading = reactive(new LoadingContext());
 const route = useRoute();
-const tdeiRecordId = route.query.tdeiRecordId;
+const tdeiRecordId = ref(route.query.tdeiRecordId);
 const datasetRequested = tdeiRecordId?.length ?? false;
 const record = reactive({});
 const map = ref({});
 const workspaceTitle = ref('');
 const projectGroupId = ref(null);
+
+watch(tdeiRecordId, (val) => getDatasetInfo(val));
 
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
@@ -152,9 +154,9 @@ const complete = computed(() =>
     && tdeiRecordId !== undefined
 );
 
-async function getDatasetInfo(route, params) {
+async function getDatasetInfo(id: string) {
   await loading.wrap(tdeiClient, async (client) => {
-    const info = await client.getDatasetInfo(tdeiRecordId);
+    const info = await client.getDatasetInfo(id);
 
     if (!info) {
       return;
@@ -164,16 +166,19 @@ async function getDatasetInfo(route, params) {
       record[prop] = info[prop];
     }
 
-    workspaceTitle.value = record.metadata?.dataset_detail?.name ?? '';
-    projectGroupId.value = record.project_group.tdei_project_group_id;
-  })
+
+  });
+
+  await nextTick();
+  initMap();
 }
 
 onMounted(async () => {
   if (datasetRequested) {
-    await getDatasetInfo(route);
-    await nextTick();
-    initMap();
+    await getDatasetInfo(tdeiRecordId);
+
+    workspaceTitle.value = record.metadata?.dataset_detail?.name ?? '';
+    projectGroupId.value = record.project_group.tdei_project_group_id;
   }
 })
 
