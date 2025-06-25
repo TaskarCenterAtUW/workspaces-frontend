@@ -139,8 +139,7 @@ const importer = new TdeiImporter(workspacesClient, tdeiClient, osmClient, conte
 
 const loading = reactive(new LoadingContext());
 const route = useRoute();
-const tdeiRecordId = ref(route.query.tdeiRecordId);
-const datasetRequested = tdeiRecordId?.length ?? false;
+const tdeiRecordId = ref('');
 const record = reactive({});
 const map = ref({});
 const workspaceTitle = ref('');
@@ -170,16 +169,15 @@ async function getDatasetInfo(id: string) {
   });
 
   await nextTick();
+
+  workspaceTitle.value = record.metadata?.dataset_detail?.name ?? '';
+  projectGroupId.value = record.project_group.tdei_project_group_id;
+  
   initMap();
 }
 
 onMounted(async () => {
-  if (datasetRequested) {
-    await getDatasetInfo(tdeiRecordId);
-
-    workspaceTitle.value = record.metadata?.dataset_detail?.name ?? '';
-    projectGroupId.value = record.project_group.tdei_project_group_id;
-  }
+  tdeiRecordId.value = route.query.tdeiRecordId?.toString() || '';
 })
 
 function initMap() {
