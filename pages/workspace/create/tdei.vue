@@ -139,7 +139,7 @@ const importer = new TdeiImporter(workspacesClient, tdeiClient, osmClient, conte
 
 const loading = reactive(new LoadingContext());
 const route = useRoute();
-const tdeiRecordId = ref('');
+const tdeiRecordId = ref(null);
 const record = reactive({});
 const map = ref({});
 const workspaceTitle = ref('');
@@ -150,21 +150,25 @@ watch(tdeiRecordId, (val) => getDatasetInfo(val));
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
     && projectGroupId.value !== null
-    && tdeiRecordId !== undefined
+    && tdeiRecordId !== null
 );
 
 async function getDatasetInfo(id: string) {
+  if (id === null) {
+    for (const prop in record) {
+      record[prop] = '';
+    }
+
+    workspaceTitle.value = '';
+    return;
+  }
+
   await loading.wrap(tdeiClient, async (client) => {
     const info = await client.getDatasetInfo(id);
-
-    if (!info) {
-      return;
-    }
 
     for (const prop in info) {
       record[prop] = info[prop];
     }
-
 
   });
 
@@ -172,12 +176,13 @@ async function getDatasetInfo(id: string) {
 
   workspaceTitle.value = record.metadata?.dataset_detail?.name ?? '';
   projectGroupId.value = record.project_group.tdei_project_group_id;
-  
+  tdeiRecordId.value = record.tdei_dataset_id;
+
   initMap();
 }
 
 onMounted(async () => {
-  tdeiRecordId.value = route.query.tdeiRecordId?.toString() || '';
+  tdeiRecordId.value = route.query.tdeiRecordId?.toString() || null;
 })
 
 function initMap() {
@@ -199,7 +204,7 @@ async function create() {
   const workspaceId = await importer.import({
     title: workspaceTitle.value,
     type: record.data_type,
-    tdeiRecordId: record.tdei_dataset_id,
+    tdeiRecordId: tdeiRecordId.value,
     tdeiProjectGroupId: projectGroupId.value,
     tdeiServiceId: record.service.tdei_service_id,
     tdeiMetadata: JSON.stringify(record),
