@@ -15,11 +15,11 @@ export function bboxToPolygon(
       type: 'Polygon',
       coordinates: [
         [
-          [minLat, minLon],
-          [minLat, maxLon],
-          [maxLat, maxLon],
-          [maxLat, minLon],
-          [minLat, minLon],
+          [minLon, minLat],
+          [minLon, maxLat],
+          [maxLon, maxLat],
+          [maxLon, minLat],
+          [minLon, minLat]
         ]
       ]
     }
