@@ -1,4 +1,5 @@
 <template>
+    <input type="text" v-model="searchText" placeholder="Filter datasets..." aria-label="Dataset Filter" class="form-control" />
     <select
       v-model="model"
       class="dataset-picker form-select"
@@ -21,18 +22,20 @@
   });
 
   const { projectGroupId } = toRefs(props);
+  const searchText = ref('');
   const datasets = ref([]);
-  refreshDatasets(projectGroupId.value);
+  refreshDatasets(projectGroupId.value, searchText.value);
 
-  watch(projectGroupId, (val) => refreshDatasets(val));
+  watch(projectGroupId, (val) => refreshDatasets(val, searchText.value));
+  watch(searchText, (val) => refreshDatasets(projectGroupId.value, val));
 
-  async function refreshDatasets(id: string) {
-    datasets.value = (await tdeiClient.getDatasetsByProjectGroup(id))
+  async function refreshDatasets(id: string, name: string) {
+    datasets.value = (await tdeiClient.getDatasetsByProjectGroupAndName(id, name))
         .sort((a, b) => a.name.localeCompare(b.name));
     
-    if (!model.value && datasets.value.length > 0) {
-        model.value = datasets.value[0].id;
-    }
+    //if (!model.value && datasets.value.length > 0) {
+    //    model.value = datasets.value[0].id;
+    //}
 
     if (datasets.value.length === 0) {
         model.value = null;
