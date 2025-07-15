@@ -29,13 +29,9 @@
   watch(projectGroupId, (val) => refreshDatasets(val, searchText.value));
   watch(searchText, (val) => refreshDatasets(projectGroupId.value, val));
 
-  async function refreshDatasets(id: string, name: string) {
-    datasets.value = (await tdeiClient.getDatasetsByProjectGroupAndName(id, name))
+  async function refreshDatasets(projectGroupId: string, name: string) {
+    datasets.value = (await tdeiClient.getDatasetsByProjectGroupAndName(projectGroupId, name))
         .sort((a, b) => a.name.localeCompare(b.name));
-    
-    //if (!model.value && datasets.value.length > 0) {
-    //    model.value = datasets.value[0].id;
-    //}
 
     if (datasets.value.length === 0) {
         model.value = null;
