@@ -17,7 +17,8 @@
   const model = defineModel({ required: true });
   const props = defineProps({
     projectGroupId: {
-        type: String
+        type: String,
+        required: true
     }
   });
 
