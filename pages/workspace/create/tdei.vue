@@ -28,6 +28,16 @@
                 required
               />
             </label>
+
+            <label v-if="!$route.query.tdeiRecordId" class="d-block mb-3">
+              Dataset
+              <dataset-picker
+                v-model="tdeiRecordId"
+                :project-group-id="projectGroupId"
+                :disabled="context.active"
+                required
+              />
+            </label>
           </div><!-- .card-body -->
 
           <div class="card-footer">
@@ -129,42 +139,50 @@ const importer = new TdeiImporter(workspacesClient, tdeiClient, osmClient, conte
 
 const loading = reactive(new LoadingContext());
 const route = useRoute();
-const tdeiRecordId = route.query.tdeiRecordId;
-const datasetRequested = tdeiRecordId?.length ?? false;
+const tdeiRecordId = ref(null);
 const record = reactive({});
 const map = ref({});
 const workspaceTitle = ref('');
 const projectGroupId = ref(null);
 
+watch(tdeiRecordId, (val) => getDatasetInfo(val));
+
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
     && projectGroupId.value !== null
-    && tdeiRecordId !== undefined
+    && tdeiRecordId !== null
 );
 
-async function getDatasetInfo(route, params) {
-  await loading.wrap(tdeiClient, async (client) => {
-    const info = await client.getDatasetInfo(tdeiRecordId);
-
-    if (!info) {
-      return;
+async function getDatasetInfo(id: string) {
+  if (id === null) {
+    for (const prop in record) {
+      record[prop] = '';
     }
+
+    workspaceTitle.value = '';
+    return;
+  }
+
+  await loading.wrap(tdeiClient, async (client) => {
+    const info = await client.getDatasetInfo(id);
 
     for (const prop in info) {
       record[prop] = info[prop];
     }
 
-    workspaceTitle.value = record.metadata?.dataset_detail?.name ?? '';
-    projectGroupId.value = record.project_group.tdei_project_group_id;
-  })
+  });
+
+  await nextTick();
+
+  workspaceTitle.value = record.metadata?.dataset_detail?.name ?? '';
+  projectGroupId.value = record.project_group.tdei_project_group_id;
+  tdeiRecordId.value = record.tdei_dataset_id;
+
+  initMap();
 }
 
 onMounted(async () => {
-  if (datasetRequested) {
-    await getDatasetInfo(route);
-    await nextTick();
-    initMap();
-  }
+  tdeiRecordId.value = route.query.tdeiRecordId?.toString() || null;
 })
 
 function initMap() {
@@ -186,7 +204,7 @@ async function create() {
   const workspaceId = await importer.import({
     title: workspaceTitle.value,
     type: record.data_type,
-    tdeiRecordId: record.tdei_dataset_id,
+    tdeiRecordId: tdeiRecordId.value,
     tdeiProjectGroupId: projectGroupId.value,
     tdeiServiceId: record.service.tdei_service_id,
     tdeiMetadata: JSON.stringify(record),

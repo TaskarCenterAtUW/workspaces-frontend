@@ -209,6 +209,13 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     return (await response.json())[0];
   }
 
+  async getDatasetsByProjectGroupAndName(projectGroupId: string, name: string) {
+    const response = await this._get(`datasets?tdei_project_group_id=${projectGroupId}&name=${encodeURIComponent(name)}`);
+
+    return (await response.json())
+      .map(d => ({ id: d.tdei_dataset_id, name: d.metadata.dataset_detail.name }));
+  }
+
   async downloadOswDataset(tdeiRecordId: string, format: string = 'osw'): Blob {
     const response = await this._sendTest(`osw/${tdeiRecordId}?format=${format}`, 'GET');
 
