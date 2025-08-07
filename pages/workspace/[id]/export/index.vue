@@ -47,7 +47,9 @@
               Save
             </a>
             <button v-else class="btn btn-primary" @click="download">
-              <app-spinner v-if="exporting.active" size="sm" />
+              <template v-if="downloading.active">
+              <app-spinner size="sm" />&nbsp;Preparing Download...
+              </template>
               <template v-else>
                 Start
                 <app-icon variant="arrow_circle_right" no-margin />
@@ -64,6 +66,7 @@
 import { LoadingContext } from '~/services/loading'
 import { tdeiClient, workspacesClient } from '~/services/index'
 
+const downloading = reactive(new LoadingContext());
 const exporting = reactive(new LoadingContext());
 const route = useRoute();
 const workspaceId = route.params.id;
@@ -96,7 +99,9 @@ async function exportTdei() {
 }
 
 async function download() {
-  const zip = await workspacesClient.exportWorkspaceArchive(workspace);
-  downloadUrl.value = URL.createObjectURL(zip);
+  downloading.wrap(workspacesClient, async (client) => {
+    const zip = await workspacesClient.exportWorkspaceArchive(workspace);
+    downloadUrl.value = URL.createObjectURL(zip);
+  });
 }
 </script>
