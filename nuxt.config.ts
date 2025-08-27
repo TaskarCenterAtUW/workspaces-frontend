@@ -25,15 +25,5 @@ export default defineNuxtConfig({
     '~/assets/scss/main.scss'
   ],
 
-  build: {
-    loaders: {
-      vue: {
-        compilerOptions: {
-          whitespace: 'condense'
-        }
-      }
-    }
-  },
-
   compatibilityDate: '2024-10-24'
 })

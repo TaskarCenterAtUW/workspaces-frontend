@@ -109,6 +109,11 @@
                   <th><app-icon variant="group_work" />TDEI Project Group ID</th>
                   <td>{{ currentWorkspace.tdeiProjectGroupId }}</td>
                 </tr>
+                <tr>
+                  <th><app-icon variant="dataset" />TDEI Dataset Version</th>
+                  <td>{{ currentWorkspace.tdeiMetadata.metadata?.dataset_detail?.version }}</td>
+                </tr>
+
               </tbody>
             </table>
           </div><!-- .table-responsive -->

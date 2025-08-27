@@ -1,5 +1,5 @@
 import { BaseHttpClient, BaseHttpClientError } from "~/services/http";
-import { ICancelableClient } from '~/services/loading';
+import type { ICancelableClient } from '~/services/loading';
 import { OsmApiClient } from '~/services/osm';
 import { buildPathwaysCsvArchive } from '~/services/pathways';
 import { TdeiClient } from '~/services/tdei';
@@ -52,6 +52,7 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
 
     for (const workspace of workspaces) {
       workspace.createdAt = new Date(workspace.createdAt);
+      workspace.tdeiMetadata = JSON.parse(workspace.tdeiMetadata || '{}');
     }
 
     return workspaces;

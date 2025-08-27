@@ -13,7 +13,7 @@
     "@zip.js/zip.js": "^2.7.41",
     "bootstrap": "^5.3.3",
     "js-cookie": "^3.0.5",
-    "nuxt": "^3.10.2",
+    "nuxt": "^4.0.0",
     "papaparse": "^5.5.1",
     "vue": "^3.4.19",
     "vue-router": "^4.2.5"

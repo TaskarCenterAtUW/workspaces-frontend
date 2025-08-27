@@ -1,12 +1,12 @@
 import { BaseHttpClient, BaseHttpClientError } from "~/services/http";
-import { ICancelableClient } from '~/services/loading';
-import { TdeiClient } from '~/services/tdei';
+import type { ICancelableClient } from '~/services/loading';
+import type { TdeiClient } from '~/services/tdei';
 import * as xml from '~/util/xml';
 
 function formatFeatureIdPlaceholder(attributeName: string, feature: Element) {
   const id = feature.getAttribute(attributeName);
 
-  if (id[0] !== '-') {
+  if (id && id[0] !== '-') {
     feature.setAttribute(attributeName, '-' + id);
   }
 }
