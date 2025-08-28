@@ -32,7 +32,7 @@
                 :false-value="0"
                 @change="toggleExternalAppAccess"
               >
-              Publish this workspace for external apps
+              Publish this workspace for external apps (change will take effect immediately)
             </label>
           </div>
 
@@ -42,7 +42,7 @@
               <textarea v-model.trim="longFormQuestDef" class="form-control" rows="5" />
             </label>
 
-            <button type="submit" class="btn btn-primary">Save</button>
+            <button type="submit" class="btn btn-primary">Save Quest Definition</button>
           </form>
         </div><!-- .card-body -->
       </div><!-- .card -->
@@ -80,6 +80,8 @@
 <script setup lang="ts">
 import { LoadingContext } from '~/services/loading'
 import { workspacesClient } from '~/services/index'
+import { toast } from 'vue3-toastify';
+import 'vue3-toastify/dist/index.css';
 
 const route = useRoute();
 const workspaceId = route.params.id;
@@ -100,15 +102,33 @@ async function save(details) {
 }
 
 async function rename() {
-  await save({ title: workspaceName.value });
+  try {
+    await save({ title: workspaceName.value });
+  } catch(e) {
+    toast.error('Workspace rename failed:' + e.message);
+    return;
+  }
+  toast.success('Workspace renamed successfully.');
 }
 
 async function toggleExternalAppAccess() {
-  await save({ externalAppAccess: workspace.externalAppAccess });
+  try {
+    await save({ externalAppAccess: workspace.externalAppAccess });
+  } catch(e) {
+    toast.error('External app enable/disable failed:' + e.message);
+    return;
+  }
+  toast.success('External app enable/disable set successfully.');    
 }
 
 async function saveLongFormQuestDefinition() {
-  await workspacesClient.saveLongFormQuestDefinition(workspaceId, longFormQuestDef.value);
+  try {
+    await workspacesClient.saveLongFormQuestDefinition(workspaceId, longFormQuestDef.value);
+  } catch(e) {
+    toast.error('Long form quest update failed:' + e.message);
+    return;
+  }
+  toast.success('Long form quest updated successfully.');
 }
 
 async function acceptDelete() {

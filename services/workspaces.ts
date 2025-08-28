@@ -1,8 +1,8 @@
 import { BaseHttpClient, BaseHttpClientError } from "~/services/http";
 import type { ICancelableClient } from '~/services/loading';
-import { OsmApiClient } from '~/services/osm';
+import type { OsmApiClient } from '~/services/osm';
 import { buildPathwaysCsvArchive } from '~/services/pathways';
-import { TdeiClient } from '~/services/tdei';
+import type { TdeiClient } from '~/services/tdei';
 
 export function compareWorkspaceCreatedAtDesc(a, b) {
   return b.createdAt - a.createdAt;
@@ -59,9 +59,12 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   }
 
   async getWorkspace(id: number) {
-    const response = await this._get(`workspaces/${id}`);
-
-    return await response.json();
+    try {
+      const response = await this._get(`workspaces/${id}`);
+      return await response.json();
+    } catch (e: any) {
+      return null;
+    }
   }
 
   getWorkspaceBbox(id: number) {

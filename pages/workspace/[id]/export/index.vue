@@ -35,6 +35,9 @@
             <p class="card-text">
               Save the workspace data to your device.
             </p>
+            <p><em>
+              Note: press the "Start Preparing File for Download" button to prepare the download which may take a minute; when it's ready, the button will change to "Start", when you can then press again to download the file to your device.
+            </em></p>
           </div>
           <div class="card-footer">
             <a
@@ -51,7 +54,7 @@
               <app-spinner size="sm" />&nbsp;Preparing Download...
               </template>
               <template v-else>
-                Start
+                Start Preparing File for Download
                 <app-icon variant="arrow_circle_right" no-margin />
               </template>
             </button>
@@ -65,6 +68,8 @@
 <script setup lang="ts">
 import { LoadingContext } from '~/services/loading'
 import { tdeiClient, workspacesClient } from '~/services/index'
+import { toast } from 'vue3-toastify';
+import 'vue3-toastify/dist/index.css';
 
 const downloading = reactive(new LoadingContext());
 const exporting = reactive(new LoadingContext());
@@ -99,9 +104,15 @@ async function exportTdei() {
 }
 
 async function download() {
-  downloading.wrap(workspacesClient, async (client) => {
-    const zip = await workspacesClient.exportWorkspaceArchive(workspace);
-    downloadUrl.value = URL.createObjectURL(zip);
-  });
+  try {
+    downloading.wrap(workspacesClient, async (client) => {
+      const zip = await workspacesClient.exportWorkspaceArchive(workspace);
+      downloadUrl.value = URL.createObjectURL(zip);
+      
+      toast.info(`Download is ready. Click the "Save" button to save the file to your device.`);
+    });
+  } catch(e) {
+    toast.error(`Error preparing download: ${e.message}`);
+  }
 }
 </script>
