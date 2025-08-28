@@ -1,7 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   ssr: false,
-  devtools: { enabled: false },
+  devtools: { enabled: process.env.ENV === "dev" || process.env.ENV === "local" },
 
   app: {
     head: {
@@ -25,5 +25,5 @@ export default defineNuxtConfig({
     '~/assets/scss/main.scss'
   ],
 
-  compatibilityDate: '2024-10-24'
+  compatibilityDate: '2024-10-24',
 })
