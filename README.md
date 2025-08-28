@@ -2,6 +2,8 @@
 
 Look at the [Nuxt 3 documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
 
+### ⚠️ Reminder: you must set the tag of the environment you wish to deploy in this repo, then run the deploy workflow in workspaces-stack to deploy to dev, stage or prod. 
+
 ## Dev Setup
 
 NB: This will start the dev server against the cloud-hosted backend. If you need to change both the frontend and the backend, you'll
