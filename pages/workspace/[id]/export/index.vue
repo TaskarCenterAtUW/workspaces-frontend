@@ -98,7 +98,8 @@ async function exportTdei() {
 
   exporting.wrap(workspacesClient, async (client) => {
     const jobId = await client.exportWorkspaceToTdei(workspace, metadata);
-    alert(`TDEI import job ${jobId} created sucessfully.`);
+
+    toast.info(`TDEI import job ${jobId} created sucessfully.`);
     navigateTo('/dashboard');
   });
 }

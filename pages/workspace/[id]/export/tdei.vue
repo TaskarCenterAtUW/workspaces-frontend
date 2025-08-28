@@ -77,6 +77,8 @@
 <script setup lang="ts">
 import { osmClient, tdeiClient, workspacesClient } from '~/services/index'
 import { TdeiExporter, TdeiExporterContext } from '~/services/export/tdei'
+import { toast } from 'vue3-toastify';
+import 'vue3-toastify/dist/index.css';
 
 const context = reactive(new TdeiExporterContext());
 const exporter = new TdeiExporter(tdeiClient, osmClient, context);
@@ -107,7 +109,7 @@ async function upload() {
 
   if (jobId) {
     // TODO: show a more helpful message
-    alert(`TDEI import job ${jobId} created sucessfully.`);
+    toast.info(`TDEI import job ${jobId} created sucessfully.`);
     navigateTo('/dashboard');
   }
 }
