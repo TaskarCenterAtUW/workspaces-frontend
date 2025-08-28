@@ -71,7 +71,14 @@
               <loading-spinner v-if="loadingBbox.active" />
               <template v-else>
                 <app-icon variant="info" size="48" />
-                <div>This workspace is empty.</div>
+                <div>
+                  <p style="margin-left: 10%; margin-right: 10%;">
+                    <strong>No dataset area has been specified or the dataset is empty.</strong>
+                  </p>
+                  <p style="margin-left: 10%; margin-right: 10%;">
+                    <em>To possibly resolve: ensure that a dataset area has been set in the dataset's metadata in the TDEI.</em>
+                  </p>
+                </div>
               </template>
             </div>
           </div>
@@ -111,7 +118,7 @@
                 </tr>
                 <tr>
                   <th><app-icon variant="dataset" />TDEI Dataset Version</th>
-                  <td>{{ currentWorkspace.tdeiMetadata.metadata?.dataset_detail?.version }}</td>
+                  <td>{{ currentWorkspace.tdeiMetadata?.metadata?.dataset_detail?.version ?? "N/A" }}</td>
                 </tr>
 
               </tbody>
@@ -124,8 +131,8 @@
 </template>
 
 <script lang="ts">
-let lastProjectGroupId;
-let lastWorkspaceId;
+let lastProjectGroupId:string;
+let lastWorkspaceId:string;
 </script>
 
 <script setup lang="ts">
