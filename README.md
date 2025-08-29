@@ -16,8 +16,8 @@ export VITE_TDEI_API_URL=https://api-dev.tdei.us/api/v1/
 export VITE_TDEI_USER_API_URL=https://portal-api-dev.tdei.us/api/v1/
 export VITE_API_URL=https://api.workspaces-dev.sidewalks.washington.edu/api/v1/
 export VITE_OSM_URL=https://osm.workspaces-dev.sidewalks.washington.edu/
-export VITE_RAPID_URL=https://rapid.workspaces-dev.sidewalks.washington.edu
-export VITE_PATHWAYS_EDITOR_URL=https://pathways.workspaces-dev.sidewalks.washington.edu
+export VITE_RAPID_URL=https://rapid.workspaces-dev.sidewalks.washington.edu/
+export VITE_PATHWAYS_EDITOR_URL=https://pathways.workspaces-dev.sidewalks.washington.edu/
 export CODE_VERSION="local"
 
 # install deps

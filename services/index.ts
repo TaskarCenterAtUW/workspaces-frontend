@@ -7,7 +7,7 @@ import { WorkspacesClient } from '~/services/workspaces';
 
 const tdeiApiUrl = import.meta.env.VITE_TDEI_API_URL;
 const tdeiUserApiUrl = import.meta.env.VITE_TDEI_USER_API_URL;
-const apiUrl = import.meta.env.VITE_API_URL;;
+const apiUrl = import.meta.env.VITE_API_URL;
 const osmWebUrl = import.meta.env.VITE_OSM_URL;
 const osmApiUrl = osmWebUrl + 'api/0.6/';
 const rapidUrl = import.meta.env.VITE_RAPID_URL;
