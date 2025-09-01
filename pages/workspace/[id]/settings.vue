@@ -30,19 +30,24 @@
                 class="form-check-input"
                 :true-value="1"
                 :false-value="0"
-                @change="toggleExternalAppAccess"
               >
               Publish this workspace for external apps (change will take effect immediately)
             </label>
           </div>
 
-          <form @submit.prevent="saveLongFormQuestDefinition">
+          <form @submit.prevent="saveExternalAppConfigurations">
             <label class="d-block form-label">
               GoInfoGame Long Form Quest JSON Definition
-              <textarea v-model.trim="longFormQuestDef" class="form-control" rows="5" />
+              <textarea v-model.trim="longFormQuestDef" class="form-control" rows="5" placeholder="Optional" />
             </label>
 
-            <button type="submit" class="btn btn-primary">Save Quest Definition</button>
+            <label class="d-block form-label">
+              Imagery JSON URL
+              <!-- <textarea v-model.trim="longFormQuestDef" class="form-control" rows="5" /> -->
+              <input v-model.trim="imageryURL" class="form-control" placeholder="Optional" />
+            </label>
+
+            <button type="submit" class="btn btn-primary">Save Configurations</button>
           </form>
         </div><!-- .card-body -->
       </div><!-- .card -->
@@ -82,6 +87,8 @@ import { LoadingContext } from '~/services/loading'
 import { workspacesClient } from '~/services/index'
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
 
 const route = useRoute();
 const workspaceId = route.params.id;
@@ -92,6 +99,8 @@ const [workspace, longFormQuestJson] = await Promise.all([
 
 const workspaceName = ref(workspace.title);
 const longFormQuestDef = ref(longFormQuestJson)
+const imageryURL = ref(workspace.imageryURL);
+
 
 const deleteAccepted = ref(false);
 const deleteAttestation = ref('');
@@ -121,14 +130,49 @@ async function toggleExternalAppAccess() {
   toast.success('External app enable/disable set successfully.');    
 }
 
-async function saveLongFormQuestDefinition() {
-  try {
-    await workspacesClient.saveLongFormQuestDefinition(workspaceId, longFormQuestDef.value);
-  } catch(e) {
-    toast.error('Long form quest update failed:' + e.message);
-    return;
+const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA
+let imagerySchema: any = null;
+
+async function saveExternalAppConfigurations() {
+  if (imageryURL.value) {
+    try {
+      if (!imagerySchema) {
+        const schemaResponse = await fetch(imagerySchemaUrl);
+        if (!schemaResponse.ok) {
+          throw new Error(`Could not fetch imagery schema: ${schemaResponse.statusText}`);
+        }
+        imagerySchema = await schemaResponse.json();
+      }
+
+      const imageryResponse = await fetch(imageryURL.value);
+      if (!imageryResponse.ok) {
+        throw new Error(`Failed to fetch imagery JSON from URL: ${imageryResponse.statusText}`);
+      }
+      const imageryJson = await imageryResponse.json();
+
+      const ajv = new Ajv({ allErrors: true });
+      addFormats(ajv);
+      const validate = ajv.compile(imagerySchema);
+      const valid = validate(imageryJson);
+      if (!valid) {
+        toast.error(`Imagery JSON is not valid: ${ajv.errorsText(validate.errors)}`);
+        return;
+      }
+    } catch (e) {
+      toast.error(`Failed to validate imagery URL: ${e.message}`);
+      return;
+    }
   }
-  toast.success('Long form quest updated successfully.');
+
+  try {
+    save({ imageryURL: imageryURL.value ?? "",
+      longFormQuestDef : longFormQuestDef.value,
+      externalAppAccess: workspace.externalAppAccess
+      })
+    toast.success('Configurations saved successfully.');
+  } catch(e) {
+    toast.error('Failed to save configurations: ' + e.message);
+  }
 }
 
 async function acceptDelete() {
