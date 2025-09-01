@@ -104,22 +104,6 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     ]);
   }
 
-  async getLongFormQuestDefinition(workspaceId: number) {
-    const response = await this._get(`workspaces/${workspaceId}/quests/long`);
-
-    if (response.status === 204) {
-      return undefined
-    }
-
-    return await response.text();
-  }
-
-  async saveLongFormQuestDefinition(workspaceId: number, definition: string): Promise {
-    await this._put(`workspaces/${workspaceId}/quests/long`, definition, {
-      headers: { ...this._requestHeaders, 'Content-Type': 'text/plain' }
-    });
-  }
-
   #setAuthHeader() {
     if (this.#tdeiClient.auth.complete) {
       this._requestHeaders.Authorization = 'Bearer ' + this.#tdeiClient.auth.accessToken;
