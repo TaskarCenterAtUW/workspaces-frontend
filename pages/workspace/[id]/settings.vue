@@ -36,21 +36,35 @@
           </div>
 
           <form @submit.prevent="saveExternalAppConfigurations">
-            <label class="d-block form-label">
+            <label class="d-block form-label mb-3">
               AVIV ScoutRoute Long Form Quest JSON Definition
-              <textarea v-model.trim="longFormQuestDef" class="form-control" rows="5" placeholder="Optional" />
-            </label>
-
-            <label class="d-block form-label">
-              Imagery JSON Definition
               <textarea
-                v-model.trim="imageryJson"
+                v-model.trim="longFormQuestDef"
                 class="form-control"
-                :class="{ 'drag-over': isDragging }"
+                :class="{ 'drag-over': isDraggingQuest }"
                 rows="5"
                 placeholder="Optional"
-                @dragover.prevent="isDragging = true"
-                @dragleave.prevent="isDragging = false"
+                @dragover.prevent="isDraggingQuest = true"
+                @dragleave.prevent="isDraggingQuest = false"
+                @drop.prevent="onQuestFileDrop"
+              />
+              <div id="imagery-help" class="form-text">
+                Paste the JSON content directly or drag and drop a JSON file.
+                See the <a :href="longFormQuestSchemaUrl" target="_blank" rel="noopener">JSON Schema</a>
+                for the required format and an <a :href="longFormQuestExampleUrl" target="_blank" rel="noopener">example</a>.
+              </div>
+            </label>
+
+            <label class="d-block form-label mb-3">
+              Imagery JSON Definition
+              <textarea
+                v-model.trim="imageryListDef"
+                class="form-control"
+                :class="{ 'drag-over': isDraggingImagery }"
+                rows="5"
+                placeholder="Optional"
+                @dragover.prevent="isDraggingImagery = true"
+                @dragleave.prevent="isDraggingImagery = false"
                 @drop.prevent="onImageryFileDrop"
               />
               <div id="imagery-help" class="form-text">
@@ -112,13 +126,14 @@ const [workspace, longFormQuestJson] = await Promise.all([
 
 const workspaceName = ref(workspace.title);
 const longFormQuestDef = ref(longFormQuestJson);
-const imageryJson = ref(workspace.imageryJson);
+const imageryListDef = ref(workspace.imageryListDef);
 
 
 const deleteAccepted = ref(false);
 const deleteAttestation = ref('');
 const deleteAttestationInput = ref(null);
-const isDragging = ref(false);
+const isDraggingImagery = ref(false);
+const isDraggingQuest = ref(false);
 
 async function save(details) {
   await workspacesClient.updateWorkspace(workspaceId, details);
@@ -146,11 +161,13 @@ async function toggleExternalAppAccess() {
 
 const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA
 const imageryExampleUrl = import.meta.env.VITE_IMAGERY_EXAMPLE_URL
+const longFormQuestSchemaUrl = import.meta.env.VITE_LONG_FORM_QUEST_SCHEMA
+const longFormQuestExampleUrl = import.meta.env.VITE_LONG_FORM_QUEST_EXAMPLE_URL
 
 let imagerySchema: any = null;
 
-function onImageryFileDrop(event: DragEvent) {
-  isDragging.value = false;
+function handleFileDrop(event: DragEvent, targetRef: Ref<string>, isDraggingRef: Ref<boolean>) {
+  isDraggingRef.value = false;
   const files = event.dataTransfer?.files;
   if (files && files[0]) {
     const file = files[0];
@@ -163,10 +180,10 @@ function onImageryFileDrop(event: DragEvent) {
       if (typeof e.target?.result === 'string') {
         try {
           const parsed = JSON.parse(e.target.result);
-          imageryJson.value = JSON.stringify(parsed, null, 2);
+          targetRef.value = JSON.stringify(parsed, null, 2);
           toast.success('JSON file loaded successfully.');
         } catch (err) {
-          imageryJson.value = e.target.result;
+          targetRef.value = e.target.result;
           toast.warn('The selected file is not valid JSON.');
         }
       }
@@ -178,8 +195,16 @@ function onImageryFileDrop(event: DragEvent) {
   }
 }
 
+function onImageryFileDrop(event: DragEvent) {
+  handleFileDrop(event, imageryListDef, isDraggingImagery);
+}
+
+function onQuestFileDrop(event: DragEvent) {
+  handleFileDrop(event, longFormQuestDef, isDraggingQuest);
+}
+
 async function saveExternalAppConfigurations() {
-  if (imageryJson.value) {
+  if (imageryListDef.value) {
     try {
       if (!imagerySchema) {
         const schemaResponse = await fetch(imagerySchemaUrl);
@@ -191,7 +216,7 @@ async function saveExternalAppConfigurations() {
 
       let parsedJson;
       try {
-        parsedJson = JSON.parse(imageryJson.value);
+        parsedJson = JSON.parse(imageryListDef.value);
       } catch (e) {
         toast.error(`Imagery definition is not valid JSON: ${e.message}`);
         return;
@@ -212,9 +237,9 @@ async function saveExternalAppConfigurations() {
   }
 
   try {
-    await save({ imageryJson: imageryJson.value ?? "",
-      longFormQuestDef : longFormQuestDef.value,
-      externalAppAccess: workspace.externalAppAccess
+    await save({ imageryListDef: imageryListDef.value ?? "",
+      longFormQuestDef : longFormQuestDef.value ?? "",
+      externalAppAccess: workspace.externalAppAccess,
       })
     toast.success('Configurations saved successfully.');
   } catch(e) {
