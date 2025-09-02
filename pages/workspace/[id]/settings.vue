@@ -42,9 +42,22 @@
             </label>
 
             <label class="d-block form-label">
-              Imagery JSON URL
-              <!-- <textarea v-model.trim="longFormQuestDef" class="form-control" rows="5" /> -->
-              <input v-model.trim="imageryURL" class="form-control" placeholder="Optional" />
+              Imagery JSON Definition
+              <textarea
+                v-model.trim="imageryJson"
+                class="form-control"
+                :class="{ 'drag-over': isDragging }"
+                rows="5"
+                placeholder="Optional"
+                @dragover.prevent="isDragging = true"
+                @dragleave.prevent="isDragging = false"
+                @drop.prevent="onImageryFileDrop"
+              />
+              <div id="imagery-help" class="form-text">
+                Paste the JSON content directly or drag and drop a JSON file.
+                See the <a :href="imagerySchemaUrl" target="_blank" rel="noopener">JSON Schema</a>
+                for the required format and an <a :href="imageryExampleUrl" target="_blank" rel="noopener">example</a>.
+              </div>
             </label>
 
             <button type="submit" class="btn btn-primary">Save Configurations</button>
@@ -98,13 +111,14 @@ const [workspace, longFormQuestJson] = await Promise.all([
 ]);
 
 const workspaceName = ref(workspace.title);
-const longFormQuestDef = ref(longFormQuestJson)
-const imageryURL = ref(workspace.imageryURL);
+const longFormQuestDef = ref(longFormQuestJson);
+const imageryJson = ref(workspace.imageryJson);
 
 
 const deleteAccepted = ref(false);
 const deleteAttestation = ref('');
 const deleteAttestationInput = ref(null);
+const isDragging = ref(false);
 
 async function save(details) {
   await workspacesClient.updateWorkspace(workspaceId, details);
@@ -131,10 +145,41 @@ async function toggleExternalAppAccess() {
 }
 
 const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA
+const imageryExampleUrl = import.meta.env.VITE_IMAGERY_EXAMPLE_URL
+
 let imagerySchema: any = null;
 
+function onImageryFileDrop(event: DragEvent) {
+  isDragging.value = false;
+  const files = event.dataTransfer?.files;
+  if (files && files[0]) {
+    const file = files[0];
+    if (!file.type.includes('json') && !file.name.endsWith('.json')) {
+      toast.error('Please drop a valid JSON file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (typeof e.target?.result === 'string') {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          imageryJson.value = JSON.stringify(parsed, null, 2);
+          toast.success('JSON file loaded successfully.');
+        } catch (err) {
+          imageryJson.value = e.target.result;
+          toast.warn('The selected file is not valid JSON.');
+        }
+      }
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read the file.');
+    };
+    reader.readAsText(file);
+  }
+}
+
 async function saveExternalAppConfigurations() {
-  if (imageryURL.value) {
+  if (imageryJson.value) {
     try {
       if (!imagerySchema) {
         const schemaResponse = await fetch(imagerySchemaUrl);
@@ -144,28 +189,30 @@ async function saveExternalAppConfigurations() {
         imagerySchema = await schemaResponse.json();
       }
 
-      const imageryResponse = await fetch(imageryURL.value);
-      if (!imageryResponse.ok) {
-        throw new Error(`Failed to fetch imagery JSON from URL: ${imageryResponse.statusText}`);
+      let parsedJson;
+      try {
+        parsedJson = JSON.parse(imageryJson.value);
+      } catch (e) {
+        toast.error(`Imagery definition is not valid JSON: ${e.message}`);
+        return;
       }
-      const imageryJson = await imageryResponse.json();
 
       const ajv = new Ajv({ allErrors: true });
       addFormats(ajv);
       const validate = ajv.compile(imagerySchema);
-      const valid = validate(imageryJson);
+      const valid = validate(parsedJson);
       if (!valid) {
         toast.error(`Imagery JSON is not valid: ${ajv.errorsText(validate.errors)}`);
         return;
       }
     } catch (e) {
-      toast.error(`Failed to validate imagery URL: ${e.message}`);
+      toast.error(`Failed to validate imagery definition: ${e.message}`);
       return;
     }
   }
 
   try {
-    save({ imageryURL: imageryURL.value ?? "",
+    await save({ imageryJson: imageryJson.value ?? "",
       longFormQuestDef : longFormQuestDef.value,
       externalAppAccess: workspace.externalAppAccess
       })
@@ -186,3 +233,11 @@ async function submitDelete() {
   navigateTo('/dashboard');
 }
 </script>
+
+<style scoped>
+.drag-over {
+  border-style: dashed;
+  border-color: var(--bs-primary);
+  background-color: var(--bs-light);
+}
+</style>
