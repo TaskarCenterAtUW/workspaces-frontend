@@ -37,7 +37,7 @@
 
           <form @submit.prevent="saveExternalAppConfigurations">
             <label class="d-block form-label">
-              GoInfoGame Long Form Quest JSON Definition
+              AVIV ScoutRoute Long Form Quest JSON Definition
               <textarea v-model.trim="longFormQuestDef" class="form-control" rows="5" placeholder="Optional" />
             </label>
 
