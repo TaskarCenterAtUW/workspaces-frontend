@@ -204,6 +204,7 @@ function onQuestFileDrop(event: DragEvent) {
 }
 
 async function saveExternalAppConfigurations() {
+  let parsedImageryJson = null;
   if (imageryListDef.value) {
     try {
       if (!imagerySchema) {
@@ -214,9 +215,8 @@ async function saveExternalAppConfigurations() {
         imagerySchema = await schemaResponse.json();
       }
 
-      let parsedJson;
       try {
-        parsedJson = JSON.parse(imageryListDef.value);
+        parsedImageryJson = JSON.parse(imageryListDef.value);
       } catch (e) {
         toast.error(`Imagery definition is not valid JSON: ${e.message}`);
         return;
@@ -225,7 +225,7 @@ async function saveExternalAppConfigurations() {
       const ajv = new Ajv({ allErrors: true });
       addFormats(ajv);
       const validate = ajv.compile(imagerySchema);
-      const valid = validate(parsedJson);
+      const valid = validate(parsedImageryJson);
       if (!valid) {
         toast.error(`Imagery JSON is not valid: ${ajv.errorsText(validate.errors)}`);
         return;
@@ -236,11 +236,22 @@ async function saveExternalAppConfigurations() {
     }
   }
 
+  let parsedLongFormQuestJson = null;
+  if (longFormQuestDef.value) {
+    try {
+      parsedLongFormQuestJson = JSON.parse(longFormQuestDef.value);
+    } catch (e) {
+      toast.error(`Long form quest definition is not valid JSON: ${e.message}`);
+      return;
+    }
+  }
+
   try {
-    await save({ imageryListDef: imageryListDef.value ?? "",
-      longFormQuestDef : longFormQuestDef.value ?? "",
+    await save({
+      imageryListDef: parsedImageryJson,
+      longFormQuestDef: parsedLongFormQuestJson,
       externalAppAccess: workspace.externalAppAccess,
-      })
+    })
     toast.success('Configurations saved successfully.');
   } catch(e) {
     toast.error('Failed to save configurations: ' + e.message);
