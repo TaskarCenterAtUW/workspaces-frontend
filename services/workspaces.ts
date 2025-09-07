@@ -52,7 +52,7 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
 
     for (const workspace of workspaces) {
       workspace.createdAt = new Date(workspace.createdAt);
-      workspace.tdeiMetadata = JSON.parse(workspace.tdeiMetadata || '{}');
+      workspace.tdeiMetadata = workspace.tdeiMetadata || '{}';
     }
 
     return workspaces;
