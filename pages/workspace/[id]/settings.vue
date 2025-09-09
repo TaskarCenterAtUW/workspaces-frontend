@@ -54,16 +54,11 @@
               <div id="imagery-help" class="form-text">
                 Paste the JSON content directly or drag and drop a JSON file.
                 See the
-                <a :href="longFormQuestSchemaUrl" target="_blank" rel="noopener"
+                <a :href="longFormQuestSchemaUrl" target="_blank"
                   >JSON Schema</a
                 >
                 for the required format and an
-                <a
-                  :href="longFormQuestExampleUrl"
-                  target="_blank"
-                  rel="noopener"
-                  >example</a
-                >.
+                <a :href="longFormQuestExampleUrl" target="_blank">example</a>.
               </div>
             </label>
 
@@ -82,13 +77,9 @@
               <div id="imagery-help" class="form-text">
                 Paste the JSON content directly or drag and drop a JSON file.
                 See the
-                <a :href="imagerySchemaUrl" target="_blank" rel="noopener"
-                  >JSON Schema</a
-                >
+                <a :href="imagerySchemaUrl" target="_blank">JSON Schema</a>
                 for the required format and an
-                <a :href="imageryExampleUrl" target="_blank" rel="noopener"
-                  >example</a
-                >.
+                <a :href="imageryExampleUrl" target="_blank">example</a>.
               </div>
             </label>
 
