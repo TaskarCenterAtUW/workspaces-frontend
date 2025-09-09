@@ -92,9 +92,7 @@
               </div>
             </label>
 
-            <button type="submit" class="btn btn-primary">
-              Save Configurations
-            </button>
+            <button type="submit" class="btn btn-primary">Save</button>
           </form>
         </div>
         <!-- .card-body -->
