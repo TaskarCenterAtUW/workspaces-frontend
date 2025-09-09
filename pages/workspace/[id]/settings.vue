@@ -15,8 +15,10 @@
 
             <button type="submit" class="btn btn-primary">Rename</button>
           </form>
-        </div><!-- .card-body -->
-      </div><!-- .card -->
+        </div>
+        <!-- .card-body -->
+      </div>
+      <!-- .card -->
 
       <div class="card mb-4">
         <div class="card-body">
@@ -30,8 +32,9 @@
                 class="form-check-input"
                 :true-value="1"
                 :false-value="0"
-              >
-              Publish this workspace for external apps (change will take effect immediately)
+              />
+              Publish this workspace for external apps (change will take effect
+              immediately)
             </label>
           </div>
 
@@ -50,8 +53,17 @@
               />
               <div id="imagery-help" class="form-text">
                 Paste the JSON content directly or drag and drop a JSON file.
-                See the <a :href="longFormQuestSchemaUrl" target="_blank" rel="noopener">JSON Schema</a>
-                for the required format and an <a :href="longFormQuestExampleUrl" target="_blank" rel="noopener">example</a>.
+                See the
+                <a :href="longFormQuestSchemaUrl" target="_blank" rel="noopener"
+                  >JSON Schema</a
+                >
+                for the required format and an
+                <a
+                  :href="longFormQuestExampleUrl"
+                  target="_blank"
+                  rel="noopener"
+                  >example</a
+                >.
               </div>
             </label>
 
@@ -69,29 +81,48 @@
               />
               <div id="imagery-help" class="form-text">
                 Paste the JSON content directly or drag and drop a JSON file.
-                See the <a :href="imagerySchemaUrl" target="_blank" rel="noopener">JSON Schema</a>
-                for the required format and an <a :href="imageryExampleUrl" target="_blank" rel="noopener">example</a>.
+                See the
+                <a :href="imagerySchemaUrl" target="_blank" rel="noopener"
+                  >JSON Schema</a
+                >
+                for the required format and an
+                <a :href="imageryExampleUrl" target="_blank" rel="noopener"
+                  >example</a
+                >.
               </div>
             </label>
 
-            <button type="submit" class="btn btn-primary">Save Configurations</button>
+            <button type="submit" class="btn btn-primary">
+              Save Configurations
+            </button>
           </form>
-        </div><!-- .card-body -->
-      </div><!-- .card -->
+        </div>
+        <!-- .card-body -->
+      </div>
+      <!-- .card -->
 
       <div class="card mb-4 border-danger">
         <div class="card-body">
           <h3 class="card-title mb-3">Delete Workspace</h3>
 
-          <p>Deleting a workspace is permanent. This action will not remove any TDEI datasets outside of Workspaces.</p>
+          <p>
+            Deleting a workspace is permanent. This action will not remove any
+            TDEI datasets outside of Workspaces.
+          </p>
 
-          <button class="btn btn-outline-danger mb-3" :disabled="deleteAccepted" @click="acceptDelete">
+          <button
+            class="btn btn-outline-danger mb-3"
+            :disabled="deleteAccepted"
+            @click="acceptDelete"
+          >
             I understand, and I want to delete this workspace
           </button>
 
           <template v-if="deleteAccepted">
             <label class="d-block mb-3">
-              <strong>To confirm, please type "delete" in the box below:</strong>
+              <strong
+                >To confirm, please type "delete" in the box below:</strong
+              >
               <input
                 ref="deleteAttestationInput"
                 v-model.trim="deleteAttestation"
@@ -99,29 +130,37 @@
               />
             </label>
 
-            <button class="btn btn-danger" :disabled="deleteAttestation !== 'delete'" @click="submitDelete">
+            <button
+              class="btn btn-danger"
+              :disabled="deleteAttestation !== 'delete'"
+              @click="submitDelete"
+            >
               Delete this workspace
             </button>
           </template>
-        </div><!-- .card-body -->
-      </div><!-- .card -->
-    </div><!-- .col -->
+        </div>
+        <!-- .card-body -->
+      </div>
+      <!-- .card -->
+    </div>
+    <!-- .col -->
   </app-page>
 </template>
 
 <script setup lang="ts">
-import { LoadingContext } from '~/services/loading'
-import { workspacesClient } from '~/services/index'
-import { toast } from 'vue3-toastify';
-import 'vue3-toastify/dist/index.css';
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
+import { LoadingContext } from "~/services/loading";
+import { workspacesClient } from "~/services/index";
+import type { Ref } from "vue";
+import { toast } from "vue3-toastify";
+import "vue3-toastify/dist/index.css";
+import Ajv from "ajv";
+import addFormats from "ajv-formats";
 
 const route = useRoute();
 const workspaceId = route.params.id;
 const [workspace, longFormQuestJson] = await Promise.all([
   workspacesClient.getWorkspace(workspaceId),
-  workspacesClient.getLongFormQuestDefinition(workspaceId)
+  workspacesClient.getLongFormQuestDefinition(workspaceId),
 ]);
 
 const workspaceName = ref(workspace.title);
@@ -137,7 +176,7 @@ if (Array.isArray(workspace.imageryList)) {
 const imageryListDef = ref(imageryListDefInit);
 
 const deleteAccepted = ref(false);
-const deleteAttestation = ref('');
+const deleteAttestation = ref("");
 const deleteAttestationInput = ref(null);
 const isDraggingImagery = ref(false);
 const isDraggingQuest = ref(false);
@@ -149,54 +188,60 @@ async function save(details) {
 async function rename() {
   try {
     await save({ title: workspaceName.value });
-  } catch(e) {
-    toast.error('Workspace rename failed:' + e.message);
+  } catch (e) {
+    toast.error("Workspace rename failed:" + e.message);
     return;
   }
-  toast.success('Workspace renamed successfully.');
+  toast.success("Workspace renamed successfully.");
 }
 
 async function toggleExternalAppAccess() {
   try {
     await save({ externalAppAccess: workspace.externalAppAccess });
-  } catch(e) {
-    toast.error('External app enable/disable failed:' + e.message);
+  } catch (e) {
+    toast.error("External app enable/disable failed:" + e.message);
     return;
   }
-  toast.success('External app enable/disable set successfully.');    
+  toast.success("External app enable/disable set successfully.");
 }
 
-const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA
-const imageryExampleUrl = import.meta.env.VITE_IMAGERY_EXAMPLE_URL
-const longFormQuestSchemaUrl = import.meta.env.VITE_LONG_FORM_QUEST_SCHEMA
-const longFormQuestExampleUrl = import.meta.env.VITE_LONG_FORM_QUEST_EXAMPLE_URL
+const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA;
+const imageryExampleUrl = import.meta.env.VITE_IMAGERY_EXAMPLE_URL;
+const longFormQuestSchemaUrl = import.meta.env.VITE_LONG_FORM_QUEST_SCHEMA;
+const longFormQuestExampleUrl = import.meta.env
+  .VITE_LONG_FORM_QUEST_EXAMPLE_URL;
 
-let imagerySchema: any = null;
+const imagerySchema: Ref<any> = ref(null);
+const longFormQuestSchema: Ref<any> = ref(null);
 
-function handleFileDrop(event: DragEvent, targetRef: Ref<string>, isDraggingRef: Ref<boolean>) {
+function handleFileDrop(
+  event: DragEvent,
+  targetRef: Ref<string>,
+  isDraggingRef: Ref<boolean>
+) {
   isDraggingRef.value = false;
   const files = event.dataTransfer?.files;
   if (files && files[0]) {
     const file = files[0];
-    if (!file.type.includes('json') && !file.name.endsWith('.json')) {
-      toast.error('Please drop a valid JSON file.');
+    if (!file.type.includes("json") && !file.name.endsWith(".json")) {
+      toast.error("Please drop a valid JSON file.");
       return;
     }
     const reader = new FileReader();
     reader.onload = (e) => {
-      if (typeof e.target?.result === 'string') {
+      if (typeof e.target?.result === "string") {
         try {
           const parsed = JSON.parse(e.target.result);
           targetRef.value = JSON.stringify(parsed, null, 2);
-          toast.success('JSON file loaded successfully.');
+          toast.success("JSON file loaded successfully.");
         } catch (err) {
           targetRef.value = e.target.result;
-          toast.warn('The selected file is not valid JSON.');
+          toast.warn("The selected file is not valid JSON.");
         }
       }
     };
     reader.onerror = () => {
-      toast.error('Failed to read the file.');
+      toast.error("Failed to read the file.");
     };
     reader.readAsText(file);
   }
@@ -210,58 +255,90 @@ function onQuestFileDrop(event: DragEvent) {
   handleFileDrop(event, longFormQuestDef, isDraggingQuest);
 }
 
+async function validateJson(
+  jsonString: string | undefined,
+  schemaUrl: string,
+  cachedSchema: Ref<any>,
+  definitionName: string
+): Promise<any | undefined> {
+  if (!jsonString) {
+    return null;
+  }
+
+  try {
+    if (!cachedSchema.value) {
+      const schemaResponse = await fetch(schemaUrl);
+      if (!schemaResponse.ok) {
+        throw new Error(
+          `Could not fetch ${definitionName.toLowerCase()} schema: ${
+            schemaResponse.statusText
+          }`
+        );
+      }
+      cachedSchema.value = await schemaResponse.json();
+      // remove "version" from the schema if exists
+      // we have version in long form quest schema which is creating problem while validating with json.
+      if (cachedSchema.value.version) {
+        delete cachedSchema.value.version;
+      }
+    }
+
+    let parsedJson;
+    try {
+      parsedJson = JSON.parse(jsonString);
+    } catch (e: any) {
+      toast.error(`${definitionName} is not valid JSON: ${e.message}`);
+      return undefined;
+    }
+
+    const ajv = new Ajv({ allErrors: true });
+    addFormats(ajv);
+    const validate = ajv.compile(cachedSchema.value);
+    const valid = validate(parsedJson);
+    if (!valid) {
+      toast.error(
+        `${definitionName} JSON is not valid: ${ajv.errorsText(
+          validate.errors
+        )}`
+      );
+      return undefined;
+    }
+
+    return parsedJson;
+  } catch (e: any) {
+    toast.error(
+      `Failed to validate ${definitionName.toLowerCase()}: ${e.message}`
+    );
+    return undefined;
+  }
+}
+
 async function saveExternalAppConfigurations() {
-  let parsedImageryJson = null;
-  if (imageryListDef.value) {
-    try {
-      if (!imagerySchema) {
-        const schemaResponse = await fetch(imagerySchemaUrl);
-        if (!schemaResponse.ok) {
-          throw new Error(`Could not fetch imagery schema: ${schemaResponse.statusText}`);
-        }
-        imagerySchema = await schemaResponse.json();
-      }
+  const parsedImageryJson = await validateJson(
+    imageryListDef.value,
+    imagerySchemaUrl,
+    imagerySchema,
+    "Imagery definition"
+  );
+  if (parsedImageryJson === undefined) return;
 
-      try {
-        parsedImageryJson = JSON.parse(imageryListDef.value);
-      } catch (e) {
-        toast.error(`Imagery definition is not valid JSON: ${e.message}`);
-        return;
-      }
-
-      const ajv = new Ajv({ allErrors: true });
-      addFormats(ajv);
-      const validate = ajv.compile(imagerySchema);
-      const valid = validate(parsedImageryJson);
-      if (!valid) {
-        toast.error(`Imagery JSON is not valid: ${ajv.errorsText(validate.errors)}`);
-        return;
-      }
-    } catch (e) {
-      toast.error(`Failed to validate imagery definition: ${e.message}`);
-      return;
-    }
-  }
-
-  let parsedLongFormQuestJson = null;
-  if (longFormQuestDef.value) {
-    try {
-      parsedLongFormQuestJson = JSON.parse(longFormQuestDef.value);
-    } catch (e) {
-      toast.error(`Long form quest definition is not valid JSON: ${e.message}`);
-      return;
-    }
-  }
+  const parsedLongFormQuestJson = await validateJson(
+    longFormQuestDef.value,
+    longFormQuestSchemaUrl,
+    longFormQuestSchema,
+    "Long form quest definition"
+  );
+  if (parsedLongFormQuestJson === undefined) return;
 
   try {
     await save({
       imageryListDef: parsedImageryJson,
       longFormQuestDef: parsedLongFormQuestJson,
       externalAppAccess: workspace.externalAppAccess,
-    })
-    toast.success('Configurations saved successfully.');
-  } catch(e) {
-    toast.error('Failed to save configurations: ' + e.message);
+    });
+    toast.success("Configurations saved successfully.");
+  } catch (e) {
+    toast.error("Failed to save configurations: " + e.message);
   }
 }
 
@@ -273,7 +350,7 @@ async function acceptDelete() {
 
 async function submitDelete() {
   await workspacesClient.deleteWorkspace(workspaceId);
-  navigateTo('/dashboard');
+  navigateTo("/dashboard");
 }
 </script>
 
