@@ -334,9 +334,9 @@ async function saveExternalAppConfigurations() {
       longFormQuestDef: parsedLongFormQuestJson,
       externalAppAccess: workspace.externalAppAccess,
     });
-    toast.success("Configurations saved successfully.");
+    toast.success("Changes saved.");
   } catch (e) {
-    toast.error("Failed to save configurations: " + e.message);
+    toast.error("Failed to save changes: " + e.message);
   }
 }
 
