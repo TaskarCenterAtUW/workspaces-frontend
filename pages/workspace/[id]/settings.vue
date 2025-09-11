@@ -154,15 +154,7 @@ const [workspace, longFormQuestJson] = await Promise.all([
 
 const workspaceName = ref(workspace.title);
 const longFormQuestDef = ref(longFormQuestJson);
-let imageryListDefInit: string;
-if (Array.isArray(workspace.imageryList)) {
-  imageryListDefInit = JSON.stringify(workspace.imageryList, null, 2);
-} else if (typeof workspace.imageryList === "string") {
-  imageryListDefInit = workspace.imageryList;
-} else {
-  imageryListDefInit = "[]";
-}
-const imageryListDef = ref(imageryListDefInit);
+const imageryListDef = ref(workspace.imageryListDef);
 
 const deleteAccepted = ref(false);
 const deleteAttestation = ref("");
@@ -311,8 +303,8 @@ async function saveExternalAppConfigurations() {
 
   try {
     await save({
-      imageryListDef: parsedImageryJson,
-      longFormQuestDef: parsedLongFormQuestJson,
+      imageryListDef: imageryListDef.value,
+      longFormQuestDef: longFormQuestDef.value,
       externalAppAccess: workspace.externalAppAccess,
     });
     toast.success("Changes saved.");
