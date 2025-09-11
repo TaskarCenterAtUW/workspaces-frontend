@@ -184,16 +184,6 @@ async function rename() {
   toast.success("Workspace renamed successfully.");
 }
 
-async function toggleExternalAppAccess() {
-  try {
-    await save({ externalAppAccess: workspace.externalAppAccess });
-  } catch (e) {
-    toast.error("External app enable/disable failed:" + e.message);
-    return;
-  }
-  toast.success("External app enable/disable set successfully.");
-}
-
 const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA;
 const imageryExampleUrl = import.meta.env.VITE_IMAGERY_EXAMPLE_URL;
 const longFormQuestSchemaUrl = import.meta.env.VITE_LONG_FORM_QUEST_SCHEMA;
