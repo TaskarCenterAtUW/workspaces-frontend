@@ -60,6 +60,9 @@
                 for the required format and an
                 <a :href="longFormQuestExampleUrl" target="_blank">example</a>.
               </div>
+              <div v-if="longFormQuestError" class="form-text text-danger">
+                {{ longFormQuestError }}
+              </div>
             </label>
 
             <label class="d-block form-label mb-3">
@@ -81,9 +84,20 @@
                 for the required format and an
                 <a :href="imageryExampleUrl" target="_blank">example</a>.
               </div>
+              <div v-if="imageryError" class="form-text text-danger">
+                {{ imageryError }}
+              </div>
             </label>
 
             <button type="submit" class="btn btn-primary">Save</button>
+            <div
+              v-if="saveStatus"
+              :class="`mt-2 form-text text-${
+                saveStatus.type === 'success' ? 'success' : 'danger'
+              }`"
+            >
+              {{ saveStatus.message }}
+            </div>
           </form>
         </div>
         <!-- .card-body -->
@@ -161,6 +175,24 @@ const deleteAttestation = ref("");
 const deleteAttestationInput = ref(null);
 const isDraggingImagery = ref(false);
 const isDraggingQuest = ref(false);
+const imageryError = ref<string | null>(null);
+const longFormQuestError = ref<string | null>(null);
+const saveStatus = ref<{ type: "success" | "error"; message: string } | null>(
+  null
+);
+
+function clearMessages() {
+  imageryError.value = null;
+  longFormQuestError.value = null;
+  saveStatus.value = null;
+}
+
+watch(
+  [longFormQuestDef, imageryListDef, () => workspace.externalAppAccess],
+  () => {
+    clearMessages();
+  }
+);
 
 async function save(details) {
   await workspacesClient.updateWorkspace(workspaceId, details);
@@ -231,9 +263,9 @@ async function validateJson(
   schemaUrl: string,
   cachedSchema: Ref<any>,
   definitionName: string
-): Promise<any | undefined> {
+): Promise<{ data: any | null; error: string | null }> {
   if (!jsonString) {
-    return null;
+    return { data: null, error: null };
   }
 
   try {
@@ -258,8 +290,10 @@ async function validateJson(
     try {
       parsedJson = JSON.parse(jsonString);
     } catch (e: any) {
-      toast.error(`${definitionName} is not valid JSON: ${e.message}`);
-      return undefined;
+      return {
+        data: null,
+        error: `${definitionName} is not valid JSON: ${e.message}`,
+      };
     }
 
     const ajv = new Ajv({ allErrors: true });
@@ -267,49 +301,62 @@ async function validateJson(
     const validate = ajv.compile(cachedSchema.value);
     const valid = validate(parsedJson);
     if (!valid) {
-      toast.error(
-        `${definitionName} JSON is not valid: ${ajv.errorsText(
+      return {
+        data: null,
+        error: `${definitionName} JSON is not valid: ${ajv.errorsText(
           validate.errors
-        )}`
-      );
-      return undefined;
+        )}`,
+      };
     }
 
-    return parsedJson;
+    return { data: parsedJson, error: null };
   } catch (e: any) {
-    toast.error(
-      `Failed to validate ${definitionName.toLowerCase()}: ${e.message}`
-    );
-    return undefined;
+    return {
+      data: null,
+      error: `Failed to validate ${definitionName.toLowerCase()}: ${e.message}`,
+    };
   }
 }
 
 async function saveExternalAppConfigurations() {
-  const parsedImageryJson = await validateJson(
+  clearMessages();
+  let hasError = false;
+  const imageryResult = await validateJson(
     imageryListDef.value,
     imagerySchemaUrl,
     imagerySchema,
     "Imagery definition"
   );
-  if (parsedImageryJson === undefined) return;
+  if (imageryResult.error) {
+    imageryError.value = imageryResult.error;
+    hasError = true;
+  }
 
-  const parsedLongFormQuestJson = await validateJson(
+  const longFormQuestResult = await validateJson(
     longFormQuestDef.value,
     longFormQuestSchemaUrl,
     longFormQuestSchema,
     "Long form quest definition"
   );
-  if (parsedLongFormQuestJson === undefined) return;
+  if (longFormQuestResult.error) {
+    longFormQuestError.value = longFormQuestResult.error;
+    hasError = true;
+  }
+
+  if (hasError) return;
 
   try {
     await save({
-      imageryListDef: imageryListDef.value,
-      longFormQuestDef: longFormQuestDef.value,
+      imageryListDef: imageryResult.data,
+      longFormQuestDef: longFormQuestResult.data,
       externalAppAccess: workspace.externalAppAccess,
     });
-    toast.success("Changes saved.");
+    saveStatus.value = { type: "success", message: "Changes saved." };
   } catch (e) {
-    toast.error("Failed to save changes: " + e.message);
+    saveStatus.value = {
+      type: "error",
+      message: "Failed to save changes: " + e.message,
+    };
   }
 }
 
