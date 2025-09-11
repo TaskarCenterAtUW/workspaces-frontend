@@ -167,8 +167,15 @@ const [workspace, longFormQuestJson] = await Promise.all([
 ]);
 
 const workspaceName = ref(workspace.title);
-const longFormQuestDef = ref(longFormQuestJson);
-const imageryListDef = ref(workspace.imageryListDef);
+const longFormQuestDef = ref("");
+if (longFormQuestJson) {
+  longFormQuestDef.value = longFormQuestJson;
+}
+let imageryListDefInit: string = "";
+if (Array.isArray(workspace.imageryListDef)) {
+  imageryListDefInit = JSON.stringify(workspace.imageryListDef, null, 2);
+}
+const imageryListDef = ref(imageryListDefInit);
 
 const deleteAccepted = ref(false);
 const deleteAttestation = ref("");
