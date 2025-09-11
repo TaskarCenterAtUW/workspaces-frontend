@@ -161,16 +161,20 @@ import addFormats from "ajv-formats";
 
 const route = useRoute();
 const workspaceId = route.params.id;
-const [workspace, longFormQuestJson] = await Promise.all([
+const [workspace] = await Promise.all([
   workspacesClient.getWorkspace(workspaceId),
-  workspacesClient.getLongFormQuestDefinition(workspaceId),
 ]);
 
 const workspaceName = ref(workspace.title);
-const longFormQuestDef = ref("");
-if (longFormQuestJson) {
-  longFormQuestDef.value = longFormQuestJson;
+let longFormQuestJson: string = "";
+if (
+  workspace.longFormQuestDef &&
+  typeof workspace.longFormQuestDef === "object" &&
+  !Array.isArray(workspace.longFormQuestDef)
+) {
+  longFormQuestJson = JSON.stringify(workspace.longFormQuestDef, null, 2);
 }
+const longFormQuestDef = ref(longFormQuestJson);
 let imageryListDefInit: string = "";
 if (Array.isArray(workspace.imageryListDef)) {
   imageryListDefInit = JSON.stringify(workspace.imageryListDef, null, 2);
