@@ -10,12 +10,10 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
-    "@nuxtjs/proxy": "^2.1.0",
     "@zip.js/zip.js": "^2.7.41",
     "bootstrap": "^5.3.3",
     "js-cookie": "^3.0.5",
     "nuxt": "^4.0.0",
-    "nuxt-api-party": "^3.0.1",
     "openapi-typescript": "^7.9.1",
     "papaparse": "^5.5.1",
     "vue": "^3.4.19",
