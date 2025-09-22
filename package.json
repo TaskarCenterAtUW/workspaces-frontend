@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@zip.js/zip.js": "^2.7.41",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "bootstrap": "^5.3.3",
     "js-cookie": "^3.0.5",
     "nuxt": "^4.0.0",

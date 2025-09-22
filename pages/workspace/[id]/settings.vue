@@ -15,8 +15,10 @@
 
             <button type="submit" class="btn btn-primary">Rename</button>
           </form>
-        </div><!-- .card-body -->
-      </div><!-- .card -->
+        </div>
+        <!-- .card-body -->
+      </div>
+      <!-- .card -->
 
       <div class="card mb-4">
         <div class="card-body">
@@ -30,36 +32,100 @@
                 class="form-check-input"
                 :true-value="1"
                 :false-value="0"
-                @change="toggleExternalAppAccess"
-              >
-              Publish this workspace for external apps (change will take effect immediately)
+              />
+              Publish this workspace for external apps (change will take effect
+              immediately)
             </label>
           </div>
 
-          <form @submit.prevent="saveLongFormQuestDefinition">
-            <label class="d-block form-label">
-              GoInfoGame Long Form Quest JSON Definition
-              <textarea v-model.trim="longFormQuestDef" class="form-control" rows="5" />
+          <form @submit.prevent="saveExternalAppConfigurations">
+            <label class="d-block form-label mb-3">
+              AVIV ScoutRoute Long Form Quest JSON Definition
+              <textarea
+                v-model.trim="longFormQuestDef"
+                class="form-control"
+                :class="{ 'drag-over': isDraggingQuest }"
+                rows="5"
+                placeholder="Optional"
+                @dragover.prevent="isDraggingQuest = true"
+                @dragleave.prevent="isDraggingQuest = false"
+                @drop.prevent="onQuestFileDrop"
+              />
+              <div id="imagery-help" class="form-text">
+                Paste the JSON content directly or drag and drop a JSON file.
+                See the
+                <a :href="longFormQuestSchemaUrl" target="_blank"
+                  >JSON Schema</a
+                >
+                for the required format and an
+                <a :href="longFormQuestExampleUrl" target="_blank">example</a>.
+              </div>
+              <div v-if="longFormQuestError" class="form-text text-danger">
+                {{ longFormQuestError }}
+              </div>
             </label>
 
-            <button type="submit" class="btn btn-primary">Save Quest Definition</button>
+            <label class="d-block form-label mb-3">
+              Imagery JSON Definition
+              <textarea
+                v-model.trim="imageryListDef"
+                class="form-control"
+                :class="{ 'drag-over': isDraggingImagery }"
+                rows="5"
+                placeholder="Optional"
+                @dragover.prevent="isDraggingImagery = true"
+                @dragleave.prevent="isDraggingImagery = false"
+                @drop.prevent="onImageryFileDrop"
+              />
+              <div id="imagery-help" class="form-text">
+                Paste the JSON content directly or drag and drop a JSON file.
+                See the
+                <a :href="imagerySchemaUrl" target="_blank">JSON Schema</a>
+                for the required format and an
+                <a :href="imageryExampleUrl" target="_blank">example</a>.
+              </div>
+              <div v-if="imageryError" class="form-text text-danger">
+                {{ imageryError }}
+              </div>
+            </label>
+
+            <button type="submit" class="btn btn-primary">Save</button>
+            <div
+              v-if="saveStatus"
+              :class="`mt-2 form-text text-${
+                saveStatus.type === 'success' ? 'success' : 'danger'
+              }`"
+            >
+              {{ saveStatus.message }}
+            </div>
           </form>
-        </div><!-- .card-body -->
-      </div><!-- .card -->
+        </div>
+        <!-- .card-body -->
+      </div>
+      <!-- .card -->
 
       <div class="card mb-4 border-danger">
         <div class="card-body">
           <h3 class="card-title mb-3">Delete Workspace</h3>
 
-          <p>Deleting a workspace is permanent. This action will not remove any TDEI datasets outside of Workspaces.</p>
+          <p>
+            Deleting a workspace is permanent. This action will not remove any
+            TDEI datasets outside of Workspaces.
+          </p>
 
-          <button class="btn btn-outline-danger mb-3" :disabled="deleteAccepted" @click="acceptDelete">
+          <button
+            class="btn btn-outline-danger mb-3"
+            :disabled="deleteAccepted"
+            @click="acceptDelete"
+          >
             I understand, and I want to delete this workspace
           </button>
 
           <template v-if="deleteAccepted">
             <label class="d-block mb-3">
-              <strong>To confirm, please type "delete" in the box below:</strong>
+              <strong
+                >To confirm, please type "delete" in the box below:</strong
+              >
               <input
                 ref="deleteAttestationInput"
                 v-model.trim="deleteAttestation"
@@ -67,35 +133,77 @@
               />
             </label>
 
-            <button class="btn btn-danger" :disabled="deleteAttestation !== 'delete'" @click="submitDelete">
+            <button
+              class="btn btn-danger"
+              :disabled="deleteAttestation !== 'delete'"
+              @click="submitDelete"
+            >
               Delete this workspace
             </button>
           </template>
-        </div><!-- .card-body -->
-      </div><!-- .card -->
-    </div><!-- .col -->
+        </div>
+        <!-- .card-body -->
+      </div>
+      <!-- .card -->
+    </div>
+    <!-- .col -->
   </app-page>
 </template>
 
 <script setup lang="ts">
-import { LoadingContext } from '~/services/loading'
-import { workspacesClient } from '~/services/index'
-import { toast } from 'vue3-toastify';
-import 'vue3-toastify/dist/index.css';
+import { LoadingContext } from "~/services/loading";
+import { workspacesClient } from "~/services/index";
+import type { Ref } from "vue";
+import { toast } from "vue3-toastify";
+import "vue3-toastify/dist/index.css";
+import Ajv from "ajv";
+import addFormats from "ajv-formats";
 
 const route = useRoute();
 const workspaceId = route.params.id;
-const [workspace, longFormQuestJson] = await Promise.all([
+const [workspace] = await Promise.all([
   workspacesClient.getWorkspace(workspaceId),
-  workspacesClient.getLongFormQuestDefinition(workspaceId)
 ]);
 
 const workspaceName = ref(workspace.title);
-const longFormQuestDef = ref(longFormQuestJson)
+let longFormQuestJson: string = "";
+if (
+  workspace.longFormQuestDef &&
+  typeof workspace.longFormQuestDef === "object" &&
+  !Array.isArray(workspace.longFormQuestDef)
+) {
+  longFormQuestJson = JSON.stringify(workspace.longFormQuestDef, null, 2);
+}
+const longFormQuestDef = ref(longFormQuestJson);
+let imageryListDefInit: string = "";
+if (Array.isArray(workspace.imageryListDef)) {
+  imageryListDefInit = JSON.stringify(workspace.imageryListDef, null, 2);
+}
+const imageryListDef = ref(imageryListDefInit);
 
 const deleteAccepted = ref(false);
-const deleteAttestation = ref('');
+const deleteAttestation = ref("");
 const deleteAttestationInput = ref(null);
+const isDraggingImagery = ref(false);
+const isDraggingQuest = ref(false);
+const imageryError = ref<string | null>(null);
+const longFormQuestError = ref<string | null>(null);
+const saveStatus = ref<{ type: "success" | "error"; message: string } | null>(
+  null
+);
+
+function clearMessages() {
+  imageryError.value = null;
+  longFormQuestError.value = null;
+  saveStatus.value = null;
+}
+
+watch(
+  [longFormQuestDef, imageryListDef, () => workspace.externalAppAccess],
+  () => {
+    clearMessages();
+  }
+);
 
 async function save(details) {
   await workspacesClient.updateWorkspace(workspaceId, details);
@@ -104,31 +212,163 @@ async function save(details) {
 async function rename() {
   try {
     await save({ title: workspaceName.value });
-  } catch(e) {
-    toast.error('Workspace rename failed:' + e.message);
+  } catch (e) {
+    toast.error("Workspace rename failed:" + e.message);
     return;
   }
-  toast.success('Workspace renamed successfully.');
+  toast.success("Workspace renamed successfully.");
 }
 
-async function toggleExternalAppAccess() {
-  try {
-    await save({ externalAppAccess: workspace.externalAppAccess });
-  } catch(e) {
-    toast.error('External app enable/disable failed:' + e.message);
-    return;
+const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA;
+const imageryExampleUrl = import.meta.env.VITE_IMAGERY_EXAMPLE_URL;
+const longFormQuestSchemaUrl = import.meta.env.VITE_LONG_FORM_QUEST_SCHEMA;
+const longFormQuestExampleUrl = import.meta.env
+  .VITE_LONG_FORM_QUEST_EXAMPLE_URL;
+
+const imagerySchema = ref<any>(null);
+const longFormQuestSchema = ref<any>(null);
+
+function handleFileDrop(
+  event: DragEvent,
+  targetRef: Ref<string>,
+  isDraggingRef: Ref<boolean>
+) {
+  isDraggingRef.value = false;
+  const files = event.dataTransfer?.files;
+  if (files && files[0]) {
+    const file = files[0];
+    if (!file.type.includes("json") && !file.name.endsWith(".json")) {
+      toast.error("Please drop a valid JSON file.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (typeof e.target?.result === "string") {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          targetRef.value = JSON.stringify(parsed, null, 2);
+          toast.success("JSON file loaded successfully.");
+        } catch (err) {
+          targetRef.value = e.target.result;
+          toast.warn("The selected file is not valid JSON.");
+        }
+      }
+    };
+    reader.onerror = () => {
+      toast.error("Failed to read the file.");
+    };
+    reader.readAsText(file);
   }
-  toast.success('External app enable/disable set successfully.');    
 }
 
-async function saveLongFormQuestDefinition() {
-  try {
-    await workspacesClient.saveLongFormQuestDefinition(workspaceId, longFormQuestDef.value);
-  } catch(e) {
-    toast.error('Long form quest update failed:' + e.message);
-    return;
+function onImageryFileDrop(event: DragEvent) {
+  handleFileDrop(event, imageryListDef, isDraggingImagery);
+}
+
+function onQuestFileDrop(event: DragEvent) {
+  handleFileDrop(event, longFormQuestDef, isDraggingQuest);
+}
+
+async function validateJson(
+  jsonString: string | undefined,
+  schemaUrl: string,
+  cachedSchema: Ref<any>,
+  definitionName: string
+): Promise<{ data: any | null; error: string | null }> {
+  if (!jsonString) {
+    return { data: null, error: null };
   }
-  toast.success('Long form quest updated successfully.');
+
+  try {
+    if (!cachedSchema.value) {
+      const schemaResponse = await fetch(schemaUrl);
+      if (!schemaResponse.ok) {
+        throw new Error(
+          `Could not fetch ${definitionName.toLowerCase()} schema: ${
+            schemaResponse.statusText
+          }`
+        );
+      }
+      cachedSchema.value = await schemaResponse.json();
+      // remove "version" from the schema if exists
+      // we have version in long form quest schema which is creating problem while validating with json.
+      if (cachedSchema.value.version) {
+        delete cachedSchema.value.version;
+      }
+    }
+
+    let parsedJson;
+    try {
+      parsedJson = JSON.parse(jsonString);
+    } catch (e: any) {
+      return {
+        data: null,
+        error: `${definitionName} is not valid JSON: ${e.message}`,
+      };
+    }
+
+    const ajv = new Ajv({ allErrors: true });
+    addFormats(ajv);
+    const validate = ajv.compile(cachedSchema.value);
+    const valid = validate(parsedJson);
+    if (!valid) {
+      return {
+        data: null,
+        error: `${definitionName} JSON is not valid: ${ajv.errorsText(
+          validate.errors
+        )}`,
+      };
+    }
+
+    return { data: parsedJson, error: null };
+  } catch (e: any) {
+    return {
+      data: null,
+      error: `Failed to validate ${definitionName.toLowerCase()}: ${e.message}`,
+    };
+  }
+}
+
+async function saveExternalAppConfigurations() {
+  clearMessages();
+  let hasError = false;
+  const imageryResult = await validateJson(
+    imageryListDef.value,
+    imagerySchemaUrl,
+    imagerySchema,
+    "Imagery definition"
+  );
+  if (imageryResult.error) {
+    imageryError.value = imageryResult.error;
+    hasError = true;
+  }
+
+  const longFormQuestResult = await validateJson(
+    longFormQuestDef.value,
+    longFormQuestSchemaUrl,
+    longFormQuestSchema,
+    "Long form quest definition"
+  );
+  if (longFormQuestResult.error) {
+    longFormQuestError.value = longFormQuestResult.error;
+    hasError = true;
+  }
+
+  if (hasError) return;
+
+  try {
+    await save({
+      imageryListDef: imageryResult.data,
+      longFormQuestDef: longFormQuestResult.data,
+      externalAppAccess: workspace.externalAppAccess,
+    });
+    saveStatus.value = { type: "success", message: "Changes saved." };
+  } catch (e) {
+    saveStatus.value = {
+      type: "error",
+      message: "Failed to save changes: " + e.message,
+    };
+  }
 }
 
 async function acceptDelete() {
@@ -139,6 +379,14 @@ async function acceptDelete() {
 
 async function submitDelete() {
   await workspacesClient.deleteWorkspace(workspaceId);
-  navigateTo('/dashboard');
+  navigateTo("/dashboard");
 }
 </script>
+
+<style scoped>
+.drag-over {
+  border-style: dashed;
+  border-color: var(--bs-primary);
+  background-color: var(--bs-light);
+}
+</style>
