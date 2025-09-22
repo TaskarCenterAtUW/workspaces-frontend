@@ -15,7 +15,7 @@
     "ajv-formats": "^3.0.1",
     "bootstrap": "^5.3.3",
     "js-cookie": "^3.0.5",
-    "nuxt": "^4.0.0",
+    "nuxt": "^4.1.0",
     "openapi-typescript": "^7.9.1",
     "papaparse": "^5.5.1",
     "vue": "^3.4.19",
