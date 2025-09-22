@@ -225,8 +225,8 @@ const longFormQuestSchemaUrl = import.meta.env.VITE_LONG_FORM_QUEST_SCHEMA;
 const longFormQuestExampleUrl = import.meta.env
   .VITE_LONG_FORM_QUEST_EXAMPLE_URL;
 
-const imagerySchema: Ref<any> = ref(null);
-const longFormQuestSchema: Ref<any> = ref(null);
+const imagerySchema = ref<any>(null);
+const longFormQuestSchema = ref<any>(null);
 
 function handleFileDrop(
   event: DragEvent,
