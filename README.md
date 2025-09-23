@@ -24,9 +24,9 @@ export VITE_IMAGERY_EXAMPLE_URL=https://raw.githubusercontent.com/TaskarCenterAt
 export VITE_LONG_FORM_QUEST_SCHEMA=https://raw.githubusercontent.com/TaskarCenterAtUW/tdei-tools/refs/heads/main/docs/quest-definition/schema.json
 export VITE_LONG_FORM_QUEST_EXAMPLE_URL=https://raw.githubusercontent.com/TaskarCenterAtUW/tdei-tools/refs/heads/main/docs/quest-definition/example.json
 
+```
 # install deps
 npm install
 
 # start dev server
 npm run dev
-```
