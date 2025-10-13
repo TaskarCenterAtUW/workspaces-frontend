@@ -4,6 +4,7 @@ import { OsmApiClient, OsmApiClientError, osm2osc } from '~/services/osm';
 import { openTdeiPathwaysArchive, pathways2osc } from '~/services/pathways';
 import { TdeiClient, TdeiClientError, TdeiConversionError } from '~/services/tdei';
 import { WorkspacesClient, WorkspacesClientError } from '~/services/workspaces';
+import { isMimeXml } from '~/util/xml';
 
 const status = {
   idle: 'Idle',
@@ -62,7 +63,7 @@ export class FileImporter {
   }
 
   async _run(data: Blob, workspace): Promise<number> {
-    if (workspace.type === 'osw') {
+    if (workspace.type === 'osw' && !isMimeXml(data.type)) {
       this._context.status = status.convertOsm;
       data = await this._tdeiClient.convertDataset(data, 'osw', 'osm', workspace.tdeiProjectGroupId);
     }

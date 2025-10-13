@@ -90,7 +90,8 @@ const complete = computed(() =>
     && projectGroupId.value !== null
     && datasetType.value !== null
     && datasetFile.value instanceof File
-    && datasetFile.value.name.endsWith('.zip')
+    && (datasetFile.value.name.endsWith('.zip')
+        || datasetFile.value.name.endsWith('.xml'))
 );
 
 function onFileChange(e) {
