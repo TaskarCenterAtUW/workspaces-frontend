@@ -8,6 +8,7 @@ import {
   ChangesetManager,
 } from '~/services/changesets';
 import { OsmApiClient } from '~/services/osm';
+import { WorkspaceMergerFactory } from '~/services/merge';
 import { PathwaysEditorManager } from '~/services/pathways';
 import { ProjectWizardClient } from '~/services/project-wizard';
 import { ReviewManager } from '~/services/review';
@@ -61,6 +62,11 @@ export const reviewManager = new ReviewManager(
   osmClient,
   tdeiClient,
   workspacesClient,
+);
+
+export const workspaceMergerFactory = new WorkspaceMergerFactory(
+  workspacesClient,
+  osmClient,
 );
 
 export const rapidManager = new RapidManager(rapidUrl, osmWebUrl, tdeiAuth);
