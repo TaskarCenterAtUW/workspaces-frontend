@@ -20,11 +20,11 @@
       </div>
       <!-- .card -->
 
-      <div class="card mb-4">
-        <div class="card-body">
+      <form class="card mb-4" @submit.prevent="saveExternalAppConfiguration">
+        <div class="card-body border-bottom">
           <h3 class="card-title mb-3">External Apps</h3>
 
-          <div class="form-check form-switch mb-3">
+          <div class="form-check form-switch">
             <label class="form-check-label">
               <input
                 v-model="workspace.externalAppAccess"
@@ -33,14 +33,42 @@
                 :true-value="1"
                 :false-value="0"
               />
-              Publish this workspace for external apps (change will take effect
-              immediately)
+              Publish this workspace for external apps
             </label>
           </div>
 
-          <form @submit.prevent="saveExternalAppConfigurations">
-            <label class="d-block form-label mb-3">
-              AVIV ScoutRoute Long Form Quest JSON Definition
+          <hr>
+
+          <h4 class="h5">AVIV ScoutRoute Long Form Quest Definitions</h4>
+
+          <div class="form-check">
+            <label class="form-check-label">
+              Define quests in Workspaces
+              <input
+                v-model="longFormQuestType"
+                class="form-check-input"
+                type="radio"
+                name="longFormQuestType"
+                value="JSON"
+              >
+            </label>
+          </div>
+          <div class="form-check">
+            <label class="form-check-label">
+              Load quest definitions from an external URL
+              <input
+                v-model="longFormQuestType"
+                class="form-check-input"
+                type="radio"
+                name="longFormQuestType"
+                value="URL"
+              >
+            </label>
+          </div>
+
+          <template v-if="longFormQuestType === 'JSON'">
+            <label class="d-block form-label mt-3">
+              JSON Quest Definition
               <textarea
                 v-model.trim="longFormQuestDef"
                 class="form-control"
@@ -51,58 +79,91 @@
                 @dragleave.prevent="isDraggingQuest = false"
                 @drop.prevent="onQuestFileDrop"
               />
-              <div id="imagery-help" class="form-text">
-                Paste the JSON content directly or drag and drop a JSON file.
-                See the
-                <a :href="longFormQuestSchemaUrl" target="_blank"
-                  >JSON Schema</a
-                >
-                for the required format and an
-                <a :href="longFormQuestExampleUrl" target="_blank">example</a>.
-              </div>
-              <div v-if="longFormQuestError" class="form-text text-danger">
-                {{ longFormQuestError }}
-              </div>
             </label>
-
-            <label class="d-block form-label mb-3">
-              Imagery JSON Definition
-              <textarea
-                v-model.trim="imageryListDef"
-                class="form-control"
-                :class="{ 'drag-over': isDraggingImagery }"
-                rows="5"
-                placeholder="Optional"
-                @dragover.prevent="isDraggingImagery = true"
-                @dragleave.prevent="isDraggingImagery = false"
-                @drop.prevent="onImageryFileDrop"
-              />
-              <div id="imagery-help" class="form-text">
-                Paste the JSON content directly or drag and drop a JSON file.
-                See the
-                <a :href="imagerySchemaUrl" target="_blank">JSON Schema</a>
-                for the required format and an
-                <a :href="imageryExampleUrl" target="_blank">example</a>.
-              </div>
-              <div v-if="imageryError" class="form-text text-danger">
-                {{ imageryError }}
-              </div>
-            </label>
-
-            <button type="submit" class="btn btn-primary">Save</button>
-            <div
-              v-if="saveStatus"
-              :class="`mt-2 form-text text-${
-                saveStatus.type === 'success' ? 'success' : 'danger'
-              }`"
-            >
-              {{ saveStatus.message }}
+            <div id="imagery-help" class="form-text">
+              Paste the JSON content directly or drag and drop a JSON file.
+              See the
+              <a :href="longFormQuestSchemaUrl" target="_blank">JSON Schema</a>
+              for the required format and an
+              <a :href="longFormQuestExampleUrl" target="_blank">example</a>.
             </div>
-          </form>
-        </div>
-        <!-- .card-body -->
-      </div>
-      <!-- .card -->
+          </template>
+
+          <template v-else-if="longFormQuestType === 'URL'">
+            <label class="d-block form-label mt-3">
+              Quest Definition URL
+              <input
+                v-model.trim="longFormQuestUrl"
+                type="text"
+                class="form-control"
+                placeholder="https://..."
+              />
+            </label>
+            <div id="imagery-help" class="form-text">
+              Enter the address of a quest definition JSON document
+              See the
+              <a :href="longFormQuestSchemaUrl" target="_blank">JSON Schema</a>
+              for the required format and an
+              <a :href="longFormQuestExampleUrl" target="_blank">example</a>.
+            </div>
+          </template>
+
+          <div v-if="longFormQuestError" class="form-text text-danger">
+            {{ longFormQuestError }}
+          </div>
+
+          <hr>
+          <button type="submit" class="btn btn-primary">Save</button>
+          <div
+            v-if="externalAppSaveStatus"
+            :class="`mt-2 form-text text-${
+              externalAppSaveStatus.type === 'success' ? 'success' : 'danger'
+            }`"
+          >
+            {{ externalAppSaveStatus.message }}
+          </div>
+        </div><!-- .card-body -->
+      </form><!-- .card -->
+
+      <form class="card mb-4" @submit.prevent="saveImageryConfiguration">
+        <div class="card-body">
+          <h3 class="card-title mb-3">Custom Imagery</h3>
+
+          <label class="d-block form-label">
+            Imagery JSON Definition
+            <textarea
+              v-model.trim="imageryListDef"
+              class="form-control"
+              :class="{ 'drag-over': isDraggingImagery }"
+              rows="5"
+              placeholder="Optional"
+              @dragover.prevent="isDraggingImagery = true"
+              @dragleave.prevent="isDraggingImagery = false"
+              @drop.prevent="onImageryFileDrop"
+            />
+            <div id="imagery-help" class="form-text">
+              Paste the JSON content directly or drag and drop a JSON file.
+              See the
+              <a :href="imagerySchemaUrl" target="_blank">JSON Schema</a>
+              for the required format and an
+              <a :href="imageryExampleUrl" target="_blank">example</a>.
+            </div>
+            <div v-if="imageryError" class="form-text text-danger">
+              {{ imageryError }}
+            </div>
+          </label>
+
+          <button type="submit" class="btn btn-primary">Save</button>
+          <div
+            v-if="imagerySaveStatus"
+            :class="`mt-2 form-text text-${
+              imagerySaveStatus.type === 'success' ? 'success' : 'danger'
+            }`"
+          >
+            {{ imagerySaveStatus.message }}
+          </div>
+        </div><!-- .card-body -->
+      </form><!-- .card -->
 
       <div class="card mb-4 border-danger">
         <div class="card-body">
@@ -123,9 +184,7 @@
 
           <template v-if="deleteAccepted">
             <label class="d-block mb-3">
-              <strong
-                >To confirm, please type "delete" in the box below:</strong
-              >
+              <strong>To confirm, please type "delete" in the box below:</strong>
               <input
                 ref="deleteAttestationInput"
                 v-model.trim="deleteAttestation"
@@ -153,6 +212,8 @@
 <script setup lang="ts">
 import { LoadingContext } from "~/services/loading";
 import { workspacesClient } from "~/services/index";
+import { isHttpUrl, normalizeUrl } from '~/util/url';
+
 import type { Ref } from "vue";
 import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
@@ -161,49 +222,53 @@ import addFormats from "ajv-formats";
 
 const route = useRoute();
 const workspaceId = route.params.id;
-const [workspace] = await Promise.all([
+const [workspace, longFormQuestSettings] = await Promise.all([
   workspacesClient.getWorkspace(workspaceId),
+  workspacesClient.getLongFormQuestSettings(workspaceId)
 ]);
 
 const workspaceName = ref(workspace.title);
-let longFormQuestJson: string = "";
-if (
-  workspace.longFormQuestDef &&
-  typeof workspace.longFormQuestDef === "object" &&
-  !Array.isArray(workspace.longFormQuestDef)
-) {
-  longFormQuestJson = JSON.stringify(workspace.longFormQuestDef, null, 2);
-}
-const longFormQuestDef = ref(longFormQuestJson);
+
+const longFormQuestType = ref(longFormQuestSettings.type);
+const longFormQuestDef = ref(longFormQuestSettings.definition);
+const longFormQuestUrl = ref(longFormQuestSettings.url);
+const longFormQuestError = ref<string | null>(null);
+const externalAppSaveStatus = ref<{ type: "success" | "error"; message: string } | null>(null);
+const isDraggingQuest = ref(false);
+
 let imageryListDefInit: string = "";
 if (Array.isArray(workspace.imageryListDef)) {
   imageryListDefInit = JSON.stringify(workspace.imageryListDef, null, 2);
 }
 const imageryListDef = ref(imageryListDefInit);
+const imageryError = ref<string | null>(null);
+const imagerySaveStatus = ref<{ type: "success" | "error"; message: string } | null>(null);
+const isDraggingImagery = ref(false);
 
 const deleteAccepted = ref(false);
 const deleteAttestation = ref("");
 const deleteAttestationInput = ref(null);
-const isDraggingImagery = ref(false);
-const isDraggingQuest = ref(false);
-const imageryError = ref<string | null>(null);
-const longFormQuestError = ref<string | null>(null);
-const saveStatus = ref<{ type: "success" | "error"; message: string } | null>(
-  null
-);
-
-function clearMessages() {
-  imageryError.value = null;
-  longFormQuestError.value = null;
-  saveStatus.value = null;
-}
 
 watch(
-  [longFormQuestDef, imageryListDef, () => workspace.externalAppAccess],
-  () => {
-    clearMessages();
-  }
+  [
+    longFormQuestType,
+    longFormQuestDef,
+    longFormQuestUrl,
+    () => workspace.externalAppAccess
+  ],
+  () => { clearExternalAppMessages(); }
 );
+watch(imageryListDef, () => { clearExternalAppMessages(); });
+
+function clearExternalAppMessages() {
+  longFormQuestError.value = null;
+  externalAppSaveStatus.value = null;
+}
+
+function clearImageryMessages() {
+  imageryError.value = null;
+  externalAppSaveStatus.value = null;
+}
 
 async function save(details) {
   await workspacesClient.updateWorkspace(workspaceId, details);
@@ -222,8 +287,7 @@ async function rename() {
 const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA;
 const imageryExampleUrl = import.meta.env.VITE_IMAGERY_EXAMPLE_URL;
 const longFormQuestSchemaUrl = import.meta.env.VITE_LONG_FORM_QUEST_SCHEMA;
-const longFormQuestExampleUrl = import.meta.env
-  .VITE_LONG_FORM_QUEST_EXAMPLE_URL;
+const longFormQuestExampleUrl = import.meta.env.VITE_LONG_FORM_QUEST_EXAMPLE_URL;
 
 const imagerySchema = ref<any>(null);
 const longFormQuestSchema = ref<any>(null);
@@ -329,42 +393,86 @@ async function validateJson(
   }
 }
 
-async function saveExternalAppConfigurations() {
-  clearMessages();
-  let hasError = false;
+async function saveExternalAppConfiguration() {
+  clearExternalAppMessages();
+
+  let type = longFormQuestType.value;
+  let definition = longFormQuestDef.value;
+  let url = longFormQuestUrl.value;
+
+  if (type === 'JSON') {
+    url = null;
+
+    if (!definition) {
+      type = 'NONE'
+    } else {
+      const validationResult = await validateJson(
+        definition,
+        longFormQuestSchemaUrl,
+        longFormQuestSchema,
+        'Long form quest definition'
+      );
+
+      if (validationResult.error) {
+        longFormQuestError.value = validationResult.error;
+        return;
+      }
+    }
+  } else if (type === 'URL') {
+    definition = null;
+
+    if (!url) {
+      type = 'NONE'
+    } else if (!isHttpUrl(url)) {
+      longFormQuestError.value = 'The URL is not valid.';
+      return;
+    } else {
+      url = normalizeUrl(url);
+    }
+  }
+
+  try {
+    await Promise.all([
+      save({ externalAppAccess: workspace.externalAppAccess }),
+      workspacesClient.saveLongFormQuestSettings(workspaceId, {
+        type,
+        definition,
+        url
+      })
+    ]);
+
+    externalAppSaveStatus.value = { type: 'success', message: 'Changes saved.' };
+    longFormQuestType.value = type;
+    longFormQuestDef.value = definition;
+    longFormQuestUrl.value = url;
+  } catch (e) {
+    externalAppSaveStatus.value = {
+      type: 'error',
+      message: 'Failed to save changes: ' + e.message,
+    };
+  }
+}
+
+async function saveImageryConfiguration() {
+  clearImageryMessages();
+
   const imageryResult = await validateJson(
     imageryListDef.value,
     imagerySchemaUrl,
     imagerySchema,
     "Imagery definition"
   );
+
   if (imageryResult.error) {
     imageryError.value = imageryResult.error;
-    hasError = true;
+    return;
   }
-
-  const longFormQuestResult = await validateJson(
-    longFormQuestDef.value,
-    longFormQuestSchemaUrl,
-    longFormQuestSchema,
-    "Long form quest definition"
-  );
-  if (longFormQuestResult.error) {
-    longFormQuestError.value = longFormQuestResult.error;
-    hasError = true;
-  }
-
-  if (hasError) return;
 
   try {
-    await save({
-      imageryListDef: imageryResult.data,
-      longFormQuestDef: longFormQuestResult.data,
-      externalAppAccess: workspace.externalAppAccess,
-    });
-    saveStatus.value = { type: "success", message: "Changes saved." };
+    await save({ imageryListDef: imageryResult.data });
+    imagerySaveStatus.value = { type: "success", message: "Changes saved." };
   } catch (e) {
-    saveStatus.value = {
+    imagerySaveStatus.value = {
       type: "error",
       message: "Failed to save changes: " + e.message,
     };
