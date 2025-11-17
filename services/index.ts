@@ -1,7 +1,15 @@
 import { reactive } from 'vue';
 import { TdeiAuthStore, TdeiClient, TdeiUserClient } from '~/services/tdei';
+import {
+  AugmentedDiffCache,
+  AugmentedDiffDb,
+  OsmChangeCache,
+  OsmChangeDb,
+  ChangesetManager,
+} from '~/services/changesets';
 import { OsmApiClient } from '~/services/osm';
 import { PathwaysEditorManager } from '~/services/pathways';
+import { ReviewManager } from '~/services/review';
 import { RapidManager } from '~/services/rapid';
 import { WorkspacesClient } from '~/services/workspaces';
 
@@ -20,6 +28,25 @@ tdeiClient.restartAutoAuthRefresh();
 
 export const osmClient = new OsmApiClient(osmWebUrl, osmApiUrl, tdeiClient);
 export const workspacesClient = new WorkspacesClient(apiUrl, tdeiClient, osmClient);
+
+const oscCacheTtl = 1000 * 60 * 60 * 24 * 45; // 45 days
+const adiffCacheTtl = oscCacheTtl;
+const oscKeypath = ['workspaceId', 'changesetId'];
+const adiffKeypath = oscKeypath;
+
+const oscCacheDb = new OsmChangeDb('osc-cache', oscCacheTtl, oscKeypath);
+const adiffCacheDb = new AugmentedDiffDb('adiff-cache', adiffCacheTtl, adiffKeypath);
+
+export const changesetManager = new ChangesetManager(
+  osmClient,
+  new OsmChangeCache(oscCacheDb),
+  new AugmentedDiffCache(adiffCacheDb));
+export const reviewManager = new ReviewManager(
+  changesetManager,
+  osmClient,
+  tdeiClient,
+  workspacesClient,
+);
 
 export const rapidManager = new RapidManager(rapidUrl, osmWebUrl, tdeiAuth);
 export const pathwaysManager = new PathwaysEditorManager(pathwaysUrl, osmWebUrl, tdeiAuth);
