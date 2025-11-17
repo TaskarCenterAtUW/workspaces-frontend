@@ -10,11 +10,15 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@osmcha/maplibre-adiff-viewer": "^1.3.1",
+    "@osmcha/osmchange-parser": "^1.0.0",
     "@zip.js/zip.js": "^2.7.41",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "bootstrap": "^5.3.3",
+    "dayjs": "^1.11.19",
     "js-cookie": "^3.0.5",
+    "maplibre-gl": "^5.10.0",
     "nuxt": "^4.0.0",
     "openapi-typescript": "^7.9.1",
     "papaparse": "^5.5.1",
@@ -23,6 +27,7 @@
     "vue3-toastify": "^0.2.8"
   },
   "devDependencies": {
+    "@types/geojson": "^7946.0.16",
     "sass": "1.77.6",
     "sass-loader": "^14.1.0"
   }

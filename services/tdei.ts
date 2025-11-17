@@ -2,6 +2,7 @@ import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
 
 import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
 import type { ICancelableClient } from '~/services/loading';
+import type { TdeiFeedback } from '~/types/tdei.ts';
 
 const MIN_TOKEN_REFRESH_MS = 10 * 1000;
 
@@ -345,6 +346,38 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     await zipReader.close();
 
     return out;
+  }
+
+  async getDatasetFeedback(tdeiDatasetId: string, showResolved: boolean = false)
+    : Promise<Array<TdeiFeedback>>
+  {
+    const feedback = [];
+    const pageSize = 50;
+    let pageNum = 1;
+    let items;
+
+    const params = new URLSearchParams();
+    params.append('tdei_dataset_id', tdeiDatasetId);
+    params.append('page_size', pageSize.toString());
+
+    if (!showResolved) {
+      params.append('status', 'open');
+    }
+
+    do {
+      params.set('page_no', pageNum.toString());
+      const response = await this._get(`osw/dataset-viewer/feedbacks?${params}`);
+      items = (await response.json()) ?? [];
+
+      for (const submission of items) {
+        submission.created_at = new Date(submission.created_at);
+        submission.updated_at = new Date(submission.updated_at);
+        submission.due_date = new Date(submission.due_date);
+        feedback.push(submission);
+      }
+    } while (items.length === pageSize);
+
+    return feedback;
   }
 
   #setAuth(username: string, body: any) {
