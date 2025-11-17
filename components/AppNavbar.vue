@@ -54,6 +54,8 @@ const auth = tdeiClient.auth
 
 <style>
 .app-navbar {
+  z-index: 900;
+
   .navbar-brand {
     display: inline-flex;
   }
