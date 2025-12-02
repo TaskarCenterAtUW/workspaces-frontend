@@ -18,3 +18,36 @@ export interface Workspace {
   externalAppAccess: WorkspaceAppAccess;
   kartaViewToken?: string;
 }
+
+export interface WorkspaceCreation {
+  type: WorkspaceType;
+  title: string;
+  description?: string;
+  tdeiRecordId?: string;
+  tdeiProjectGroupId: string;
+  tdeiServiceId?: string;
+  tdeiMetadata?: string;
+  createdBy?: string;
+  createdByName?: string;
+}
+
+export interface WorkspacePatch {
+  title?: string;
+  description?: string;
+  externalAppAccess?: WorkspaceAppAccess;
+}
+
+export type QuestSettingsType = 'JSON' | 'URL';
+
+export interface QuestSettingsPatch {
+  type: QuestSettingsType;
+  definition?: string;
+  url?: string;
+}
+
+export interface QuestSettings extends QuestSettingsPatch {
+  workspace_id: WorkspaceId;
+  modified_at: Date;
+  modified_by: string;
+  modified_by_name: string;
+}
