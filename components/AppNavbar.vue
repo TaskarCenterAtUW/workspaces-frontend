@@ -29,18 +29,21 @@
         <span class="mx-auto" />
 
         <nuxt-link v-show="!auth.ok" to="/signin" class="btn">Sign In</nuxt-link>
-        <span v-show="auth.ok" class="nav-item dropdown">
-          <a class="nav-link" href="#" id="navbarAccountMenuLink" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <b-dropdown
+          v-show="auth.ok"
+          class="nav-item"
+          placement="bottom-end"
+          :variant="null"
+          is-nav
+          no-caret
+        >
+          <template #button-content>
             <app-icon variant="account_circle" size="24" />{{ auth.displayName }}
-          </a>
-          <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarAccountMenuLink">
-            <li>
-              <nuxt-link class="dropdown-item" to="/" @click="auth.clear()">
-                <app-icon variant="logout" class="me-3" />Logout
-              </nuxt-link>
-            </li>
-          </ul>
-        </span>
+          </template>
+          <b-dropdown-item to="/" @click="auth.clear()">
+            <app-icon variant="logout" class="me-3" />Logout
+          </b-dropdown-item>
+        </b-dropdown>
       </div>
     </div>
   </nav>
