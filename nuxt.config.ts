@@ -3,7 +3,11 @@ export default defineNuxtConfig({
   ssr: false,
   sourcemap: { client: 'hidden' },
   devtools: { enabled: true },
-  modules: ['@sentry/nuxt/module', '@nuxt/eslint'],
+  modules: [
+    '@bootstrap-vue-next/nuxt',
+    '@nuxt/eslint',
+    '@sentry/nuxt/module',
+  ],
   nitro: {
     // deal with CORS issues during development
     devProxy: {
@@ -22,8 +26,6 @@ export default defineNuxtConfig({
       ],
       script: [
         { src: 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js' },
-        { src: "https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" },
-        { src: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" }
       ]
     },
     pageTransition: { name: 'page', mode: 'out-in' }
