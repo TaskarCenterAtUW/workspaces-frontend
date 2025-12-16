@@ -1,8 +1,9 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   ssr: false,
+  sourcemap: { client: 'hidden' },
   devtools: { enabled: process.env.ENV === "dev" || process.env.ENV === "local" },
-
+  modules: ['@sentry/nuxt/module'],
   app: {
     head: {
       meta: [
@@ -20,10 +21,15 @@ export default defineNuxtConfig({
     },
     pageTransition: { name: 'page', mode: 'out-in' }
   },
-
   css: [
     '~/assets/scss/main.scss'
   ],
-
   compatibilityDate: '2024-10-24',
+  sentry: {
+    org: 'taskar-center-at-uw',
+    project: 'workspaces-frontend',
+    authToken: process.env.VITE_SENTRY_AUTH_TOKEN,
+    debug: (process.env.ENV === 'dev' || process.env.ENV === 'local'),
+    environment: process.env.ENV || 'unknown',
+  },
 })
