@@ -1,15 +1,18 @@
 FROM node as builder
 
-ARG VITE_TDEI_API_URL
-ARG VITE_TDEI_USER_API_URL
-ARG VITE_API_URL
-ARG VITE_OSM_URL
-ARG VITE_RAPID_URL
-ARG VITE_PATHWAYS_EDITOR_URL
-ARG VITE_IMAGERY_SCHEMA
-ARG VITE_IMAGERY_EXAMPLE_URL
-ARG VITE_LONG_FORM_QUEST_SCHEMA
-ARG VITE_LONG_FORM_QUEST_EXAMPLE_URL
+ENV VITE_TDEI_API_URL=https://api-dev.tdei.us/api/v1/
+ENV VITE_TDEI_USER_API_URL=https://portal-api-dev.tdei.us/api/v1/
+ENV VITE_API_URL=https://api.workspaces-dev.sidewalks.washington.edu/api/v1/
+ENV VITE_OSM_URL=https://osm.workspaces-dev.sidewalks.washington.edu/
+ENV VITE_RAPID_URL=https://rapid.workspaces-dev.sidewalks.washington.edu/
+ENV VITE_PATHWAYS_EDITOR_URL=https://pathways.workspaces-dev.sidewalks.washington.edu/
+ENV VITE_IMAGERY_SCHEMA=https://raw.githubusercontent.com/TaskarCenterAtUW/tdei-tools/main/docs/imagery-layer/schema.json
+ENV VITE_IMAGERY_EXAMPLE_URL=https://raw.githubusercontent.com/TaskarCenterAtUW/tdei-tools/main/docs/imagery-layer/example.json
+ENV VITE_LONG_FORM_QUEST_SCHEMA=https://raw.githubusercontent.com/TaskarCenterAtUW/tdei-tools/refs/heads/main/docs/quest-definition/schema.json
+ENV VITE_LONG_FORM_QUEST_EXAMPLE_URL=https://raw.githubusercontent.com/TaskarCenterAtUW/tdei-tools/refs/heads/main/docs/quest-definition/example.json
+ENV VITE_SENTRY_AUTH_TOKEN=""
+ENV VITE_SENTRY_DSN=""
+
 ARG CODE_VERSION=unknown
 
 WORKDIR /app/
