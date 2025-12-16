@@ -1,4 +1,4 @@
-FROM node as builder
+FROM node:lts-slim AS builder
 
 ARG VITE_TDEI_API_URL
 ARG VITE_TDEI_USER_API_URL
