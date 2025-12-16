@@ -10,6 +10,7 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@sentry/integrations": "^7.114.0",
     "@sentry/nuxt": "^10.31.0",
     "@zip.js/zip.js": "^2.7.41",
     "ajv": "^8.17.1",
