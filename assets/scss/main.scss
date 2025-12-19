@@ -1,5 +1,12 @@
 @import "theme.scss";
 @import "bootstrap/scss/bootstrap.scss";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+:root {
+  --ws-create-color: $review-create-color;
+  --ws-modify-color: $review-modify-color;
+  --ws-delete-color: $review-delete-color;
+}
 
 html, body, #__nuxt {
   width: 100%;
@@ -33,4 +40,29 @@ label > .form-select:first-child {
 .editor-container {
   width: 100%;
   height: 100%;
+}
+
+.dropdown-menu {
+  box-shadow: $box-shadow;
+}
+
+/* Review */
+
+.bg-create {
+  background-color: $review-create-color;
+}
+.bg-modify {
+  background-color: $review-modify-color;
+}
+.bg-delete {
+  background-color: $review-delete-color;
+}
+.text-create {
+  color: #{darken($review-create-color, 27%)};
+}
+.text-modify {
+  color: $review-modify-color;
+}
+.text-delete {
+  color: #{darken($review-delete-color, 3%)};
 }
