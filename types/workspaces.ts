@@ -1,4 +1,3 @@
-
 export type WorkspaceId = number;
 export type WorkspaceType = 'osw' | 'pathways';
 export type WorkspaceAppAccess = 0 | 1 | 2;
@@ -37,7 +36,7 @@ export interface WorkspacePatch {
   externalAppAccess?: WorkspaceAppAccess;
 }
 
-export type QuestSettingsType = 'JSON' | 'URL';
+export type QuestSettingsType = 'NONE' | 'JSON' | 'URL';
 
 export interface QuestSettingsPatch {
   type: QuestSettingsType;
@@ -50,4 +49,17 @@ export interface QuestSettings extends QuestSettingsPatch {
   modified_at: Date;
   modified_by: string;
   modified_by_name: string;
+}
+
+export interface WorkspaceTeam {
+  id: number;
+  name: string;
+  member_count: number;
+}
+
+export interface User {
+  id: number;
+  auth_uid: string;
+  email: string;
+  display_name: string;
 }

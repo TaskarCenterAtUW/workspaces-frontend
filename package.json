@@ -17,6 +17,7 @@
     "@osmcha/osmchange-parser": "^1.0.0",
     "@sentry/integrations": "^7.114.0",
     "@sentry/nuxt": "^10.31.0",
+    "@sindresorhus/slugify": "^3.0.0",
     "@zip.js/zip.js": "^2.7.41",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
@@ -27,11 +28,13 @@
     "nuxt": "^4.0.0",
     "papaparse": "^5.5.1",
     "vue": "^3.4.19",
+    "vue-qrcode": "^2.2.2",
     "vue-router": "^4.2.5",
     "vue3-toastify": "^0.2.8"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.12.1",
+    "@types/bootstrap": "^5.2.10",
     "@types/geojson": "^7946.0.16",
     "eslint": "^9.39.2",
     "eslint-plugin-vue": "^10.6.2",

@@ -1,6 +1,7 @@
 @import "theme.scss";
 @import "bootstrap/scss/bootstrap.scss";
 @import "maplibre-gl/dist/maplibre-gl.css";
+@import "vue3-toastify/dist/index.css";
 
 :root {
   --ws-create-color: $review-create-color;

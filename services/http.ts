@@ -29,15 +29,15 @@ export abstract class BaseHttpClient {
     return this._send(url, 'GET', undefined, config);
   }
 
-  _post(url: string, body: any, config?: object): Promise<Response> {
+  _post(url: string, body?: any, config?: object): Promise<Response> {
     return this._send(url, 'POST', body, config);
   }
 
-  _put(url: string, body: any, config?: object): Promise<Response> {
+  _put(url: string, body?: any, config?: object): Promise<Response> {
     return this._send(url, 'PUT', body, config);
   }
 
-  _patch(url: string, body: any, config?: object): Promise<Response> {
+  _patch(url: string, body?: any, config?: object): Promise<Response> {
     return this._send(url, 'PATCH', body, config);
   }
 
