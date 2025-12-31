@@ -52,7 +52,7 @@ export class FileImporter {
 
     try {
       return await this._run(data, workspace);
-    } catch (e: any) {
+    } catch (e: unknown) {
       await this._handleError(e);
     } finally {
       this._context.active = false;
@@ -82,7 +82,7 @@ export class FileImporter {
     return workspaceId
   }
 
-  async _handleError(e: any) {
+  async _handleError(e: unknown) {
     if (this._context.status === status.convertOsm) {
       this._context.error = 'Conversion job failed: ';
     } else {
@@ -97,7 +97,7 @@ export class FileImporter {
     } else if (e instanceof TdeiConversionError) {
       this._context.error += e.job.message;
     } else {
-      this._context.error += e.toString();
+      this._context.error += String(e);
     }
   }
 }

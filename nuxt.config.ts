@@ -38,12 +38,10 @@ export default defineNuxtConfig({
     '~/assets/scss/main.scss'
   ],
   compatibilityDate: '2024-10-24',
-
-  typescript: {
-    typeCheck: {
-      eslint: {
-        files: './**/*.{ts,js,vue}'
+  eslint: {
+      config: {
+        stylistic: true
       }
     }
-  }
+
 })
