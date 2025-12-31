@@ -1,5 +1,5 @@
 export class BaseHttpClientError extends Error {
-  response: Response;
+  response: Response
 
   constructor(response: Response) {
     super(`HTTP request failed: ${response.statusText} (${response.url})`)
@@ -8,17 +8,18 @@ export class BaseHttpClientError extends Error {
 }
 
 export abstract class BaseHttpClient {
-  _baseUrl: string;
+  _baseUrl: string
   _requestHeaders = {
     'Accept': 'application/json',
     'Authorization': '',
-    'Content-Type': 'application/json'
-  };
-  _abortSignal?: AbortSignal;
+    'Content-Type': 'application/json',
+  }
+
+  _abortSignal?: AbortSignal
 
   constructor(baseUrl: string, signal?: AbortSignal) {
-    this._baseUrl = baseUrl;
-    this._abortSignal = signal;
+    this._baseUrl = baseUrl
+    this._abortSignal = signal
   }
 
   url(rest: string) {
@@ -26,23 +27,23 @@ export abstract class BaseHttpClient {
   }
 
   _get(url: string, config?: object): Promise<Response> {
-    return this._send(url, 'GET', undefined, config);
+    return this._send(url, 'GET', undefined, config)
   }
 
   _post(url: string, body: any, config?: object): Promise<Response> {
-    return this._send(url, 'POST', body, config);
+    return this._send(url, 'POST', body, config)
   }
 
   _put(url: string, body: any, config?: object): Promise<Response> {
-    return this._send(url, 'PUT', body, config);
+    return this._send(url, 'PUT', body, config)
   }
 
   _patch(url: string, body: any, config?: object): Promise<Response> {
-    return this._send(url, 'PATCH', body, config);
+    return this._send(url, 'PATCH', body, config)
   }
 
   _delete(url: string, config?: object): Promise<Response> {
-    return this._send(url, 'DELETE', undefined, config);
+    return this._send(url, 'DELETE', undefined, config)
   }
 
   async _sendTest(url: string, method: string, body?: any): Promise<Response> {
@@ -50,16 +51,16 @@ export abstract class BaseHttpClient {
       method,
       body,
       headers: {
-        'Accept': 'application/text',
-        'Authorization': this._requestHeaders.Authorization
-      }
-    });
+        Accept: 'application/text',
+        Authorization: this._requestHeaders.Authorization,
+      },
+    })
 
     if (!response.ok) {
-      throw new BaseHttpClientError(response);
+      throw new BaseHttpClientError(response)
     }
 
-    return response;
+    return response
   }
 
   async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
@@ -68,23 +69,23 @@ export abstract class BaseHttpClient {
       body,
       headers: this._requestHeaders,
       signal: this._abortSignal,
-      ...config
-    };
+      ...config,
+    }
 
     if (requestOptions.headers['Content-Type'] === 'application/json'
       && !(body instanceof FormData)
       && typeof body !== 'undefined'
       && body !== null
     ) {
-      requestOptions.body = JSON.stringify(body);
+      requestOptions.body = JSON.stringify(body)
     }
 
-    const response = await fetch(this.url(url), requestOptions);
+    const response = await fetch(this.url(url), requestOptions)
 
     if (!response.ok) {
-      throw new BaseHttpClientError(response);
+      throw new BaseHttpClientError(response)
     }
 
-    return response;
+    return response
   }
 }

@@ -1,0 +1,5 @@
+{
+  "biome.enabled": false,
+  // Required in vscode-eslint < v3.0.10 only
+  "eslint.useFlatConfig": true
+}

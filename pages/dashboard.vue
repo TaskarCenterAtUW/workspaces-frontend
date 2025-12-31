@@ -1,22 +1,39 @@
 <template>
   <app-page class="dashboard-page">
     <div class="d-flex">
-        <h2 class="visually-hidden">My Workspaces</h2>
+      <h2 class="visually-hidden">
+        My Workspaces
+      </h2>
 
-        <label for="ws_project_group_picker">Project Group</label>
-        <project-group-picker v-model="currentProjectGroup" id="ws_project_group_picker" />
+      <label for="ws_project_group_picker">Project Group</label>
+      <project-group-picker
+        id="ws_project_group_picker"
+        v-model="currentProjectGroup"
+      />
 
-        <nuxt-link class="btn btn-primary flex-shrink-0" to="/workspace/create">
-          <app-icon variant="add" size="24" />
-          New<span class="d-none d-sm-inline"> Workspace</span>
-        </nuxt-link>
+      <nuxt-link
+        class="btn btn-primary flex-shrink-0"
+        to="/workspace/create"
+      >
+        <app-icon
+          variant="add"
+          size="24"
+        />
+        New<span class="d-none d-sm-inline"> Workspace</span>
+      </nuxt-link>
     </div>
 
-    <div v-if="!currentWorkspaces" class="alert alert-info mt-4">
+    <div
+      v-if="!currentWorkspaces"
+      class="alert alert-info mt-4"
+    >
       <app-icon variant="info" />
       No workspaces exist in the selected project group.
     </div>
-    <div v-else class="row mt-4 position-relative">
+    <div
+      v-else
+      class="row mt-4 position-relative"
+    >
       <div class="col-md mb-3">
         <div class="list-group">
           <dashboard-workspace-item
@@ -30,12 +47,18 @@
       </div><!-- .col-md -->
 
       <div class="col-md workspace-details-col">
-        <div class="card" :style="currentWorkspace ? '' : 'visibility: hidden'">
+        <div
+          class="card"
+          :style="currentWorkspace ? '' : 'visibility: hidden'"
+        >
           <nav class="card-header">
             <dashboard-toolbar :workspace="currentWorkspace" />
           </nav>
 
-          <dashboard-map :workspace="currentWorkspace" @center-loaded="onCenterLoaded" />
+          <dashboard-map
+            :workspace="currentWorkspace"
+            @center-loaded="onCenterLoaded"
+          />
           <dashboard-details-table :workspace="currentWorkspace" />
         </div><!-- .card -->
       </div><!-- .col-md -->
@@ -44,81 +67,83 @@
 </template>
 
 <script lang="ts">
-let lastProjectGroupId: string;
-let lastWorkspaceId: number;
 </script>
 
 <script setup lang="ts">
-import { workspacesClient, osmClient, tdeiUserClient } from '~/services/index';
-import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
+import { workspacesClient } from '~/services/index'
+import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces'
 
-const route = useRoute();
+let lastProjectGroupId: string
+let lastWorkspaceId: number
 
-const workspaces = (await workspacesClient.getMyWorkspaces()).sort(compareWorkspaceCreatedAtDesc);
-const workspacesByProjectGroup = Map.groupBy(workspaces, w => w.tdeiProjectGroupId);
+const route = useRoute()
 
-const currentProjectGroup = ref(null);
-const currentWorkspace = ref({});
-const currentWorkspaces = computed(() => workspacesByProjectGroup.get(currentProjectGroup.value));
+const workspaces = (await workspacesClient.getMyWorkspaces()).sort(compareWorkspaceCreatedAtDesc)
+const workspacesByProjectGroup = Map.groupBy(workspaces, w => w.tdeiProjectGroupId)
+
+const currentProjectGroup = ref(null)
+const currentWorkspace = ref({})
+const currentWorkspaces = computed(() => workspacesByProjectGroup.get(currentProjectGroup.value))
 
 for (const w of workspaces) {
   if (w.tdeiMetadata?.length > 0) {
-    w.tdeiMetadata = JSON.parse(w.tdeiMetadata);
+    w.tdeiMetadata = JSON.parse(w.tdeiMetadata)
   }
 }
 
 onMounted(() => {
-  watch(currentWorkspace, (val) => { lastWorkspaceId = val.id });
-  watch(currentProjectGroup, (val) => { lastProjectGroupId = val });
-  watch(currentWorkspaces, onCurrentWorkspacesChange);
+  watch(currentWorkspace, (val) => { lastWorkspaceId = val.id })
+  watch(currentProjectGroup, (val) => { lastProjectGroupId = val })
+  watch(currentWorkspaces, onCurrentWorkspacesChange)
 
-  autoSelectPreferredView();
-  onCurrentWorkspacesChange(currentWorkspaces.value);
-});
+  autoSelectPreferredView()
+  onCurrentWorkspacesChange(currentWorkspaces.value)
+})
 
 function autoSelectPreferredView() {
   if (route.query.workspace) {
-    const workspaceId = Number(route.query.workspace);
-    const workspace = workspaces.find(w => w.id === workspaceId);
+    const workspaceId = Number(route.query.workspace)
+    const workspace = workspaces.find(w => w.id === workspaceId)
 
     if (workspace) {
-      selectWorkspace(workspace);
-      currentProjectGroup.value = workspace.tdeiProjectGroupId;
-      return;
+      selectWorkspace(workspace)
+      currentProjectGroup.value = workspace.tdeiProjectGroupId
+      return
     }
   }
 
   if (lastWorkspaceId) {
-    const workspace = workspaces.find(w => w.id === lastWorkspaceId);
+    const workspace = workspaces.find(w => w.id === lastWorkspaceId)
 
     if (workspace) {
-      selectWorkspace(workspace);
-      currentProjectGroup.value = workspace.tdeiProjectGroupId;
-      return;
+      selectWorkspace(workspace)
+      currentProjectGroup.value = workspace.tdeiProjectGroupId
+      return
     }
   }
 
   if (lastProjectGroupId) {
-    currentProjectGroup.value = lastProjectGroupId;
+    currentProjectGroup.value = lastProjectGroupId
   }
 }
 
 async function onCurrentWorkspacesChange(val) {
   if (val?.length > 0) {
     if (val[0].tdeiProjectGroupId !== currentWorkspace.value.tdeiProjectGroupId) {
-      await selectWorkspace(val[0]);
+      await selectWorkspace(val[0])
     }
-  } else {
-    currentWorkspace.value = {};
+  }
+  else {
+    currentWorkspace.value = {}
   }
 }
 
 function onCenterLoaded(center) {
-  currentWorkspace.value.center = center;
+  currentWorkspace.value.center = center
 }
 
 async function selectWorkspace(workspace) {
-  currentWorkspace.value = workspace;
+  currentWorkspace.value = workspace
 }
 </script>
 

@@ -6,27 +6,34 @@ Look at the [Nuxt 3 documentation](https://nuxt.com/docs/getting-started/introdu
 
 ## Dev Setup
 
-NB: This will start the dev server against the cloud-hosted backend. If you need to change both the frontend and the backend, you'll
-need to start a local copy of the backend (workspaces-tasking-manager) and set the environment vars appropriately below.
-
-The below values are for cloud-hosted dev:
-
 ```
+# set these e.g. to the dev TDEI instance--note: any tokens you get from these hosts must match the environment for other components
+# e.g. you can't use dev TDEI KeyCloak JWT tokens in stage or production environments. 
 export VITE_TDEI_API_URL=https://api-dev.tdei.us/api/v1/
 export VITE_TDEI_USER_API_URL=https://portal-api-dev.tdei.us/api/v1/
-export VITE_API_URL=https://api.workspaces-dev.sidewalks.washington.edu/api/v1/
-export VITE_OSM_URL=https://osm.workspaces-dev.sidewalks.washington.edu/
+
+# use your local workspaces-backend instance--or set to the dev instance of this component if not running locally
+export VITE_API_URL=http://localhost:3000/api/v1/
+export VITE_OSM_URL=http://localhost:3000/
+
+# probably want to leave these as-is
 export VITE_RAPID_URL=https://rapid.workspaces-dev.sidewalks.washington.edu/
 export VITE_PATHWAYS_EDITOR_URL=https://pathways.workspaces-dev.sidewalks.washington.edu/
-export CODE_VERSION="local"
-export VITE_IMAGERY_SCHEMA=https://raw.githubusercontent.com/TaskarCenterAtUW/tdei-tools/main/docs/imagery-layer/schema.json
-export VITE_IMAGERY_EXAMPLE_URL=https://raw.githubusercontent.com/TaskarCenterAtUW/tdei-tools/main/docs/imagery-layer/example.json
-export VITE_LONG_FORM_QUEST_SCHEMA=https://raw.githubusercontent.com/TaskarCenterAtUW/tdei-tools/refs/heads/main/docs/quest-definition/schema.json
-export VITE_LONG_FORM_QUEST_EXAMPLE_URL=https://raw.githubusercontent.com/TaskarCenterAtUW/tdei-tools/refs/heads/main/docs/quest-definition/example.json
 
-# install deps
+# probably don't need to change any of these
+export CODE_VERSION="local"
+export VITE_IMAGERY_SCHEMA=https://raw.githubusercontent.com/TaskarCenterAtUW/asr-imagery-list/refs/heads/main/schema/schema.json
+export VITE_IMAGERY_EXAMPLE_URL=https://github.com/TaskarCenterAtUW/asr-imagery-list/blob/main/examples/example.json
+export VITE_LONG_FORM_QUEST_SCHEMA=https://raw.githubusercontent.com/TaskarCenterAtUW/asr-quests/refs/heads/main/schema/schema.json
+export VITE_LONG_FORM_QUEST_EXAMPLE_URL=https://raw.githubusercontent.com/TaskarCenterAtUW/asr-quests/refs/heads/main/docs/quest-definition/example.json
+
+# install deps (first time only)
 npm install
 
 # start dev server
 npm run dev
 ```
+
+## Troubleshooting
+
+If you run ```npm run dev``` and nothing happens, check that you've set your "exports" as above. Undefined environment variables are not handled gracefully right now.

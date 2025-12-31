@@ -1,12 +1,23 @@
 <template>
   <button :class="getClasses(workspace)">
-    <div class="fw-bold">{{ workspace.title }}</div>
+    <div class="fw-bold">
+      {{ workspace.title }}
+    </div>
 
     <span class="badge bg-secondary"><app-icon variant="insert_drive_file" />{{ workspace.type }}</span>
 
-    <span v-if="workspace.externalAppAccess > 0" class="badge bg-success ms-2">
-      <app-icon v-if="workspace.externalAppAccess === 1" variant="public" />
-      <app-icon v-else variant="lock" />
+    <span
+      v-if="workspace.externalAppAccess > 0"
+      class="badge bg-success ms-2"
+    >
+      <app-icon
+        v-if="workspace.externalAppAccess === 1"
+        variant="public"
+      />
+      <app-icon
+        v-else
+        variant="lock"
+      />
       App
     </span>
   </button>
@@ -16,20 +27,20 @@
 const props = defineProps({
   workspace: {
     type: Object,
-    required: true
+    required: true,
   },
   selected: {
     type: Boolean,
-    default: false
-  }
-});
+    default: false,
+  },
+})
 
-function getClasses(workspace) {
+function getClasses() {
   return {
     'list-group-item': true,
     'list-group-item-action': true,
-    'active': props.selected
-  };
+    'active': props.selected,
+  }
 }
 </script>
 

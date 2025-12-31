@@ -1,5 +1,8 @@
 FROM node as builder
 
+# These are ARGs because nuxt bakes them into its minified version of the JS,
+# So they are actually set at build time vs. run-time
+#
 ARG VITE_TDEI_API_URL
 ARG VITE_TDEI_USER_API_URL
 ARG VITE_API_URL
@@ -10,6 +13,9 @@ ARG VITE_IMAGERY_SCHEMA
 ARG VITE_IMAGERY_EXAMPLE_URL
 ARG VITE_LONG_FORM_QUEST_SCHEMA
 ARG VITE_LONG_FORM_QUEST_EXAMPLE_URL
+ARG VITE_SENTRY_AUTH_TOKEN
+ARG VITE_SENTRY_DSN
+
 ARG CODE_VERSION=unknown
 
 WORKDIR /app/

@@ -13,13 +13,22 @@
         <tr>
           <th><app-icon variant="phonelink_setup" />App Access</th>
           <td>
-            <span v-if="workspace.externalAppAccess === 0" class="badge bg-secondary text-uppercase">
+            <span
+              v-if="workspace.externalAppAccess === 0"
+              class="badge bg-secondary text-uppercase"
+            >
               Disabled
             </span>
-            <span v-else-if="workspace.externalAppAccess === 1" class="badge bg-success text-uppercase">
+            <span
+              v-else-if="workspace.externalAppAccess === 1"
+              class="badge bg-success text-uppercase"
+            >
               Public
             </span>
-            <span v-else-if="workspace.externalAppAccess === 2" class="badge bg-success text-uppercase">
+            <span
+              v-else-if="workspace.externalAppAccess === 2"
+              class="badge bg-success text-uppercase"
+            >
               Project Group Only
             </span>
           </td>
@@ -42,12 +51,12 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps({
+defineProps({
   workspace: {
     type: Object,
-    required: true
-  }
-});
+    required: true,
+  },
+})
 </script>
 
 <style lang="scss">
