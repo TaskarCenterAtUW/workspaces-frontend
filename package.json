@@ -7,9 +7,13 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
+    "@nuxt/eslint": "^1.12.1",
+    "@nuxt/typescript-runtime": "latest",
     "@sentry/integrations": "^7.114.0",
     "@sentry/nuxt": "^10.31.0",
     "@zip.js/zip.js": "^2.7.41",
@@ -25,6 +29,11 @@
     "vue3-toastify": "^0.2.8"
   },
   "devDependencies": {
+    "@nuxt/types": "2.x",
+    "@nuxt/typescript-build": "latest",
+    "@types/geojson": "^7946.0.16",
+    "eslint": "^9.39.2",
+    "eslint-plugin-vue": "^10.6.2",
     "sass": "1.77.6",
     "sass-loader": "^14.1.0"
   }
