@@ -24,7 +24,7 @@ const props = defineProps({
   }
 });
 
-function getClasses(workspace) {
+function getClasses() {
   return {
     'list-group-item': true,
     'list-group-item-action': true,

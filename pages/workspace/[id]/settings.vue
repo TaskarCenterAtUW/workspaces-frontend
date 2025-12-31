@@ -210,7 +210,6 @@
 </template>
 
 <script setup lang="ts">
-import { LoadingContext } from "~/services/loading";
 import { workspacesClient } from "~/services/index";
 import { isHttpUrl, normalizeUrl } from '~/util/url';
 
@@ -312,7 +311,7 @@ function handleFileDrop(
           const parsed = JSON.parse(e.target.result);
           targetRef.value = JSON.stringify(parsed, null, 2);
           toast.success("JSON file loaded successfully.");
-        } catch (err) {
+        } catch {
           targetRef.value = e.target.result;
           toast.warn("The selected file is not valid JSON.");
         }

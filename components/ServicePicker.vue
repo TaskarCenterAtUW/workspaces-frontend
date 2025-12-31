@@ -28,8 +28,8 @@ const props = defineProps({
 const { projectGroupId, serviceType } = toRefs(props);
 const services = ref([]);
 
-watch(projectGroupId, (val) => refreshServices());
-watch(serviceType, (val) => refreshServices());
+watch(projectGroupId, () => refreshServices());
+watch(serviceType, () => refreshServices());
 
 refreshServices();
 

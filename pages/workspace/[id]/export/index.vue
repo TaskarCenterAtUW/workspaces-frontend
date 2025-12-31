@@ -67,7 +67,7 @@
 
 <script setup lang="ts">
 import { LoadingContext } from '~/services/loading'
-import { tdeiClient, workspacesClient } from '~/services/index'
+import { workspacesClient } from '~/services/index'
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 
@@ -76,37 +76,12 @@ const exporting = reactive(new LoadingContext());
 const route = useRoute();
 const workspaceId = route.params.id;
 const workspace = await workspacesClient.getWorkspace(workspaceId);
-const oldMetadata = workspace.tdeiMetadata ? JSON.parse(workspace.tdeiMetadata) : {};
-const datasetName = ref(workspace.title);
-const datasetVersion = ref(oldMetadata.version);
 const downloadUrl = ref(null);
 const downloadFilename = computed(() => `workspace-${workspaceId}-${workspace.type}-export.zip`);
 
-async function exportTdei() {
-  // TODO: enable metadata customization
-	const metadata = {
-		"name": datasetName.value,
-		"version": datasetVersion.value,
-		"description": oldMetadata.description ?? '',
-		"collected_by": oldMetadata.collected_by ?? 'TDEI Workspaces',
-		"collection_date": new Date().toISOString(),
-		"collection_method": oldMetadata.collection_method ?? 'manual',
-		"data_source": oldMetadata.data_source ?? '3rdParty',
-		"schema_version": oldMetadata.schema_version ?? 'v1.0',
-		"dataset_area": oldMetadata.dataset_area
-	};
-
-  exporting.wrap(workspacesClient, async (client) => {
-    const jobId = await client.exportWorkspaceToTdei(workspace, metadata);
-
-    toast.info(`TDEI import job ${jobId} created sucessfully.`);
-    navigateTo('/dashboard');
-  });
-}
-
 async function download() {
   try {
-    downloading.wrap(workspacesClient, async (client) => {
+    downloading.wrap(workspacesClient, async () => {
       const zip = await workspacesClient.exportWorkspaceArchive(workspace);
       downloadUrl.value = URL.createObjectURL(zip);
       

@@ -47,7 +47,7 @@
 </script>
 
 <script setup lang="ts">
-import { workspacesClient, osmClient, tdeiUserClient } from '~/services/index';
+import { workspacesClient } from '~/services/index';
 import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 let lastProjectGroupId: string;
 let lastWorkspaceId: number;

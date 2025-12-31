@@ -1,9 +1,6 @@
 import {
-  BlobReader,
   BlobWriter,
   TextReader,
-  TextWriter,
-  ZipReader,
   ZipWriter
 } from '@zip.js/zip.js';
 
@@ -81,7 +78,7 @@ const EMPTY_DATASET_TEMPLATE = new Map([
     []
   ),
   datasetEntry(
-    'trips.txt'
+    'trips.txt',
     [
       'route_id',
       'service_id',

@@ -41,15 +41,6 @@
   </div><!-- .table-responsive -->
 </template>
 
-<script setup lang="ts">
-const props = defineProps({
-  workspace: {
-    type: Object,
-    required: true
-  }
-});
-</script>
-
 <style lang="scss">
 .dashboard-page {
   table th {
