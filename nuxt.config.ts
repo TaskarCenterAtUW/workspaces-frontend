@@ -42,6 +42,7 @@ export default defineNuxtConfig({
     project: 'workspaces-frontend',
     authToken: process.env.VITE_SENTRY_AUTH_TOKEN,
     debug: (process.env.ENV === 'dev' || process.env.ENV === 'local'),
+    environment: process.env.ENV || 'unknown',
   },
 
 })
