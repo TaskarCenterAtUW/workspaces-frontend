@@ -4,7 +4,7 @@
         <h2 class="visually-hidden">My Workspaces</h2>
 
         <label for="ws_project_group_picker">Project Group</label>
-        <project-group-picker v-model="currentProjectGroup" id="ws_project_group_picker" />
+        <project-group-picker id="ws_project_group_picker" v-model="currentProjectGroup" />
 
         <nuxt-link class="btn btn-primary flex-shrink-0" to="/workspace/create">
           <app-icon variant="add" size="24" />
@@ -44,13 +44,13 @@
 </template>
 
 <script lang="ts">
-let lastProjectGroupId: string;
-let lastWorkspaceId: number;
 </script>
 
 <script setup lang="ts">
 import { workspacesClient, osmClient, tdeiUserClient } from '~/services/index';
 import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
+let lastProjectGroupId: string;
+let lastWorkspaceId: number;
 
 const route = useRoute();
 

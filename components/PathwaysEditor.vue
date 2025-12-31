@@ -1,5 +1,5 @@
 <template>
-  <div ref="pathwaysEditorContainer" class="editor-container"></div>
+  <div ref="pathwaysEditorContainer" class="editor-container"/>
 </template>
 
 <script setup lang="ts">

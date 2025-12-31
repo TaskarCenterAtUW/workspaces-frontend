@@ -1,5 +1,5 @@
 <template>
-  <div ref="oswEditorContainer" class="editor-container"></div>
+  <div ref="oswEditorContainer" class="editor-container"/>
 </template>
 
 <script setup lang="ts">

@@ -3,7 +3,7 @@
     <form class="card-body" @submit.prevent="submit">
       <div class="mb-3">
         <label for="username" class="form-label">TDEI Username</label>
-        <input v-model="username" class="form-control" id="username" aria-describedby="usernameHelp">
+        <input id="username" v-model="username" class="form-control" aria-describedby="usernameHelp">
         <div id="usernameHelp" class="form-text">
           Enter the same username that you provide to use the TDEI API.
         </div>
@@ -11,7 +11,7 @@
 
       <div class="mb-3">
         <label for="password" class="form-label">Password</label>
-        <input v-model="password" type="password" class="form-control" id="password">
+        <input id="password" v-model="password" type="password" class="form-control">
       </div>
 
       <button type="submit" class="btn btn-primary" :disabled="disabled">

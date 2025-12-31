@@ -38,9 +38,9 @@
               <input
                 type="file"
                 class="form-control"
-                @change="onFileChange"
                 :disabled="context.active"
                 required
+                @change="onFileChange"
               >
             </label>
           </div><!-- .card-body -->
@@ -61,8 +61,8 @@
               v-else-if="!context.complete"
               type="submit"
               class="btn btn-primary"
-              @click.prevent="create"
               :disabled="!complete || context.active"
+              @click.prevent="create"
             >
               Create Workspace
             </button>

@@ -8,7 +8,7 @@
           <div class="card-body">
             <label class="d-block mb-3">
               Workspace Title
-              <input v-model.trim="workspaceTitle" class="form-control" />
+              <input v-model.trim="workspaceTitle" class="form-control" >
             </label>
 
             <label class="d-block mb-3">

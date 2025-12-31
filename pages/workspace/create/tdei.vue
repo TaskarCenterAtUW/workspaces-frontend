@@ -56,8 +56,8 @@
               v-else-if="!context.complete"
               type="submit"
               class="btn btn-primary"
-              @click.prevent="create"
               :disabled="!complete || context.active"
+              @click.prevent="create"
             >
               Create Workspace
             </button>
@@ -150,7 +150,7 @@ watch(tdeiRecordId, (val) => getDatasetInfo(val));
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
     && projectGroupId.value !== null
-    && tdeiRecordId !== null
+    && tdeiRecordId.value !== null
 );
 
 async function getDatasetInfo(id: string) {

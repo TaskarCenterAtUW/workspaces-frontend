@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { TdeiAuthStore } from '~/services/tdei';
+import type { TdeiAuthStore } from '~/services/tdei';
 
 export class RapidManager {
   #baseUrl: string;
@@ -88,7 +88,7 @@ export class RapidManager {
       if (options.headers instanceof Headers) {
         options.headers.set('X-Workspace', this.rapidContext.workspaceId);
         options.headers.set('Authorization', tokenHeader);
-      } else if (options.headers instanceof Array) {
+      } else if (Array.isArray(options.headers)) {
         options.headers.push(['X-Workspace', this.rapidContext.workspaceId]);
         options.headers.push('Authorization', tokenHeader);
       } else {

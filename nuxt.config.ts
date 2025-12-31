@@ -3,7 +3,7 @@ export default defineNuxtConfig({
   ssr: false,
   sourcemap: { client: 'hidden' },
   devtools: { enabled: process.env.ENV === "dev" || process.env.ENV === "local" },
-  modules: ['@sentry/nuxt/module'],
+  modules: ['@sentry/nuxt/module', '@nuxt/eslint'],
   nitro: {
     // deal with CORS issues during development
     devProxy: {
@@ -37,6 +37,13 @@ export default defineNuxtConfig({
   css: [
     '~/assets/scss/main.scss'
   ],
-
   compatibilityDate: '2024-10-24',
+
+  typescript: {
+    typeCheck: {
+      eslint: {
+        files: './**/*.{ts,js,vue}'
+      }
+    }
+  }
 })

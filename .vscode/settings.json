@@ -1,0 +1,8 @@
+{
+  "biome.enabled": false,
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "vue"
+  ]
+}

@@ -1,7 +1,7 @@
 <template>
   <app-page>
     <form @submit="submit">
-      <textarea v-model="inputOsmXml"></textarea>
+      <textarea v-model="inputOsmXml"/>
       <button type="submit">Upload</button>
     </form>
   </app-page>

@@ -26,7 +26,7 @@
           <fieldset class="card-body" :disabled="context.active || context.error">
             <label class="d-block">
               Dataset Name
-              <input v-model.trim="datasetName" class="form-control" />
+              <input v-model.trim="datasetName" class="form-control" >
             </label>
             <label class="d-block mt-3">
               Project Group
@@ -42,7 +42,7 @@
             </label>
             <label class="d-block mt-3">
               Dataset Version
-              <input v-model.trim="datasetVersion" class="form-control" />
+              <input v-model.trim="datasetVersion" class="form-control" >
             </label>
           </fieldset>
           <div class="card-footer">
@@ -61,8 +61,8 @@
               v-else-if="!context.complete"
               type="submit"
               class="btn btn-primary"
-              @click.prevent="upload"
               :disabled="context.active"
+              @click.prevent="upload"
             >
               Upload
               <app-icon variant="arrow_circle_right" no-margin />

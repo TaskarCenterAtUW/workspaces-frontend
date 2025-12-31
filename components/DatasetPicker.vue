@@ -1,5 +1,5 @@
 <template>
-    <input type="text" v-model="searchText" placeholder="Start typing a dataset name to filter datasets..." aria-label="Dataset Filter" class="form-control" />
+    <input v-model="searchText" type="text" placeholder="Start typing a dataset name to filter datasets..." aria-label="Dataset Filter" class="form-control" >
     <select
       v-model="model"
       class="dataset-picker form-select"

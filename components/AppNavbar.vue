@@ -7,10 +7,10 @@
       </nuxt-link>
 
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
+        <span class="navbar-toggler-icon"/>
       </button>
 
-      <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <div id="navbarSupportedContent" class="collapse navbar-collapse">
         <ul v-show="auth.ok" class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item">
             <nuxt-link class="nav-link" aria-current="page" to="/">Home</nuxt-link>
@@ -30,7 +30,7 @@
 
         <nuxt-link v-show="!auth.ok" to="/signin" class="btn">Sign In</nuxt-link>
         <span v-show="auth.ok" class="nav-item dropdown">
-          <a class="nav-link" href="#" id="navbarAccountMenuLink" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+          <a id="navbarAccountMenuLink" class="nav-link" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
             <app-icon variant="account_circle" size="24" />{{ auth.displayName }}
           </a>
           <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarAccountMenuLink">

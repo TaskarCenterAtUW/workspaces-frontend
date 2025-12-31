@@ -37,8 +37,8 @@ async function refreshServices() {
   services.value = (await tdeiUserClient.getMyServices(props.projectGroupId, props.serviceType))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  if (!model.value && services.length > 0) {
-    model.value = services[0].id
+  if (!model.value && services.value.length > 0) {
+    model.value = services.value[0].id
   }
 }
 

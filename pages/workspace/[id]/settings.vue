@@ -10,7 +10,7 @@
           <form @submit.prevent="rename">
             <label class="d-block mb-3">
               Workspace Title
-              <input v-model.trim="workspaceName" class="form-control" />
+              <input v-model.trim="workspaceName" class="form-control" >
             </label>
 
             <button type="submit" class="btn btn-primary">Rename</button>
@@ -32,7 +32,7 @@
                 class="form-check-input"
                 :true-value="1"
                 :false-value="0"
-              />
+              >
               Publish this workspace for external apps
             </label>
           </div>
@@ -97,7 +97,7 @@
                 type="text"
                 class="form-control"
                 placeholder="https://..."
-              />
+              >
             </label>
             <div id="imagery-help" class="form-text">
               Enter the address of a quest definition JSON document
@@ -189,7 +189,7 @@
                 ref="deleteAttestationInput"
                 v-model.trim="deleteAttestation"
                 class="form-control border-danger"
-              />
+              >
             </label>
 
             <button

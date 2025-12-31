@@ -62,7 +62,7 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     try {
       const response = await this._get(`workspaces/${id}`);
       return await response.json();
-    } catch (e: any) {
+    } catch {
       return null;
     }
   }

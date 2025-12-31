@@ -1,5 +1,5 @@
 <template>
-  <div ref="editorContainer" class="editorContainer"></div>
+  <div ref="editorContainer" class="editorContainer"/>
 </template>
 
 <script setup lang="ts">

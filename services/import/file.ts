@@ -1,9 +1,7 @@
-import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
-
-import { OsmApiClient, OsmApiClientError, osm2osc } from '~/services/osm';
+import { type OsmApiClient, OsmApiClientError, osm2osc } from '~/services/osm';
 import { openTdeiPathwaysArchive, pathways2osc } from '~/services/pathways';
-import { TdeiClient, TdeiClientError, TdeiConversionError } from '~/services/tdei';
-import { WorkspacesClient, WorkspacesClientError } from '~/services/workspaces';
+import { type TdeiClient, TdeiClientError, TdeiConversionError } from '~/services/tdei';
+import { type WorkspacesClient, WorkspacesClientError } from '~/services/workspaces';
 
 const status = {
   idle: 'Idle',

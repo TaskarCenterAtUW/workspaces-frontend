@@ -1,10 +1,6 @@
 import {
   BlobReader,
   BlobWriter,
-  TextReader,
-  TextWriter,
-  ZipReader,
-  ZipWriter
 } from '@zip.js/zip.js';
 
 import { parseCsv } from '~/util/csv';
@@ -26,7 +22,7 @@ export async function openTdeiPathwaysArchive(
 ) {
   const blobReader = new BlobReader(zip);
   const zipReader = new ZipReader(blobReader);
-  var entries = await zipReader.getEntries();
+  let entries = await zipReader.getEntries();
 
   // if we are opening a TDEI archive then entries are zipped up,
   // otherwise the legacy Workspaces archive has everything in a single directory
@@ -46,11 +42,11 @@ export async function openTdeiPathwaysArchive(
     if (!filterPathways || PATHWAYS_FILES.has(e.filename)) {
       const textWriter = new TextWriter();
 
-      filePromises.push(new Promise(async (resolve, reject) => {
-        const csv = await e.getData(textWriter);
+      filePromises.push(new Promise((resolve) => {
+        const csv = e.getData(textWriter);
 
         if (parseObjects) {
-          resolve([ e.filename, await parseCsv(csv) ]);
+          resolve([ e.filename, parseCsv(csv) ]);
         } else {
           resolve([ e.filename, csv ]);
         }
@@ -287,7 +283,7 @@ export class PathwaysEditorManager {
       if (options.headers instanceof Headers) {
         options.headers.set('X-Workspace', this.editorContext.workspaceId);
         options.headers.set('Authorization', tokenHeader);
-      } else if (options.headers instanceof Array) {
+      } else if (Array.isArray(options.headers)) {
         options.headers.push(['X-Workspace', this.editorContext.workspaceId]);
         options.headers.push('Authorization', tokenHeader);
       } else {

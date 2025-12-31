@@ -5,11 +5,6 @@ import type { ICancelableClient } from '~/services/loading';
 
 const MIN_TOKEN_REFRESH_MS = 10 * 1000;
 
-const FILENAME_FORMAT_MAP = new Map([
-  ['osw', 'osw.zip'],
-  ['osm', 'osm.xml']
-]);
-
 function refreshTokenActive(refreshExpiresAt: Date) {
   return refreshExpiresAt > new Date(Date.now() + MIN_TOKEN_REFRESH_MS);
 }
