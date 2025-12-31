@@ -38,8 +38,8 @@ export default defineNuxtConfig({
     },
   },
   sentry: {
-    org: 'taskar-center-at-university-of',
-    project: 'workspaces',
+    org: 'taskar-center-at-uw',
+    project: 'workspaces-frontend',
     authToken: process.env.VITE_SENTRY_AUTH_TOKEN,
     debug: (process.env.ENV === 'dev' || process.env.ENV === 'local'),
   },
