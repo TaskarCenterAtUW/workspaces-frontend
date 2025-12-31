@@ -33,7 +33,7 @@
               Dataset
               <dataset-picker
                 v-model="tdeiRecordId"
-                :project-group-id="projectGroupId"
+                :project-group-id="projectGroupId ?? ''"
                 :disabled="context.active"
                 required
               />
