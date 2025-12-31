@@ -10,10 +10,10 @@
 </template>
 
 <script setup lang="ts">
-import { tdeiAuth } from '~/services/index';
+import { tdeiAuth } from '~/services/index'
 
 if (tdeiAuth.complete) {
-  navigateTo('/dashboard');
+  navigateTo('/dashboard')
 }
 </script>
 

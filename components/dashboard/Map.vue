@@ -1,10 +1,19 @@
 <template>
   <div class="map-container">
-    <div v-show="workspaceAreaPolygon" id="map" />
-    <div v-show="!workspaceAreaPolygon" class="missing-workspace-area-notice">
+    <div
+      v-show="workspaceAreaPolygon"
+      id="map"
+    />
+    <div
+      v-show="!workspaceAreaPolygon"
+      class="missing-workspace-area-notice"
+    >
       <loading-spinner v-if="loadingBbox.active" />
       <template v-else>
-        <app-icon variant="info" size="48" />
+        <app-icon
+          variant="info"
+          size="48"
+        />
         <div>This workspace is empty.</div>
       </template>
     </div>
@@ -12,99 +21,100 @@
 </template>
 
 <script setup lang="ts">
-import { LoadingContext } from '~/services/loading';
-import { workspacesClient } from '~/services/index';
+import { LoadingContext } from '~/services/loading'
+import { workspacesClient } from '~/services/index'
 
 const props = defineProps({
   workspace: {
     type: Object,
-    default: null
-  }
-});
+    default: null,
+  },
+})
 
-const emit = defineEmits(['centerLoaded']);
+const emit = defineEmits(['centerLoaded'])
 
-const loadingBbox = reactive(new LoadingContext());
-const map = ref(null);
-const workspaceAreaPolygon = ref(null);
+const loadingBbox = reactive(new LoadingContext())
+const map = ref(null)
+const workspaceAreaPolygon = ref(null)
 
 onMounted(() => {
   watch(
     () => props.workspace,
     (val) => {
       if (val) {
-        updateMapPreview(val);
-      } else {
-        map.value = null;
+        updateMapPreview(val)
+      }
+      else {
+        map.value = null
       }
     },
-    { immediate: true }
-  );
-});
+    { immediate: true },
+  )
+})
 
 function initMap() {
   // TODO: use Mapbox
-  map.value = L.map('map');
+  map.value = L.map('map')
 
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
-    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-  }).addTo(map.value);
+    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  }).addTo(map.value)
 }
 
 async function updateMapPreview(workspace) {
   if (workspaceAreaPolygon.value) {
-    workspaceAreaPolygon.value.remove();
+    workspaceAreaPolygon.value.remove()
     workspaceAreaPolygon.value = null
   }
 
   if (!props.workspace.id) {
-    return;
+    return
   }
 
-  await setCurrentWorkspacePolygon(workspace);
+  await setCurrentWorkspacePolygon(workspace)
 
   if (!workspaceAreaPolygon.value) {
-    return;
+    return
   }
 
   if (!map.value) {
-    initMap();
+    initMap()
   }
 
-  const bounds = workspaceAreaPolygon.value.getBounds();
+  const bounds = workspaceAreaPolygon.value.getBounds()
 
-  workspaceAreaPolygon.value.addTo(map.value);
-  map.value.fitBounds(bounds);
+  workspaceAreaPolygon.value.addTo(map.value)
+  map.value.fitBounds(bounds)
 
-  const zoom = map.value.getBoundsZoom(bounds);
-  const center = bounds.getCenter();
+  const zoom = map.value.getBoundsZoom(bounds)
+  const center = bounds.getCenter()
 
-  emit('centerLoaded', { zoom, latitude: center.lat, longitude: center.lng });
+  emit('centerLoaded', { zoom, latitude: center.lat, longitude: center.lng })
 }
 
 async function setCurrentWorkspacePolygon(workspace) {
-  const metadataArea = workspace.tdeiMetadata?.metadata?.dataset_detail?.dataset_area;
+  const metadataArea = workspace.tdeiMetadata?.metadata?.dataset_detail?.dataset_area
 
   if (metadataArea) {
-    const polygon = L.geoJSON(metadataArea);
+    const polygon = L.geoJSON(metadataArea)
 
     if (polygon.getBounds().isValid()) {
-      workspaceAreaPolygon.value = polygon;
-      return;
+      workspaceAreaPolygon.value = polygon
+      return
     }
   }
 
   await loadingBbox.cancelable(workspacesClient, async (client) => {
-    const bbox = await client.getWorkspaceBbox(workspace.id);
+    const bbox = await client.getWorkspaceBbox(workspace.id)
 
     if (bbox) {
       workspaceAreaPolygon.value = L.rectangle([
         [bbox.min_lat, bbox.min_lon],
-        [bbox.max_lat, bbox.max_lon]
+        [bbox.max_lat, bbox.max_lon],
       ])
     }
-  });
+  })
 }
 </script>
 

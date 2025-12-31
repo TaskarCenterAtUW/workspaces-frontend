@@ -9,7 +9,10 @@
       autocomplete="off"
       value="osw"
     >
-    <label class="btn btn-outline-primary" for="radio_type_osw">OpenSidewalks</label>
+    <label
+      class="btn btn-outline-primary"
+      for="radio_type_osw"
+    >OpenSidewalks</label>
 
     <input
       id="radio_type_pathways"
@@ -20,10 +23,13 @@
       autocomplete="off"
       value="pathways"
     >
-    <label class="btn btn-outline-primary" for="radio_type_pathways">GTFS Pathways</label>
+    <label
+      class="btn btn-outline-primary"
+      for="radio_type_pathways"
+    >GTFS Pathways</label>
   </div>
 </template>
 
 <script setup lang="ts">
-const model = defineModel({ required: true });
+const model = defineModel({ required: true })
 </script>

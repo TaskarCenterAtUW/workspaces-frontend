@@ -1,4 +1,3 @@
-
 export function featureCollection(features: Array) {
   return { type: 'FeatureCollection', features }
 }
@@ -7,7 +6,7 @@ export function bboxToPolygon(
   minLat: number,
   minLon: number,
   maxLat: number,
-  maxLon: number
+  maxLon: number,
 ) {
   return {
     type: 'Feature',
@@ -19,9 +18,9 @@ export function bboxToPolygon(
           [minLon, maxLat],
           [maxLon, maxLat],
           [maxLon, minLat],
-          [minLon, minLat]
-        ]
-      ]
-    }
+          [minLon, minLat],
+        ],
+      ],
+    },
   }
 }

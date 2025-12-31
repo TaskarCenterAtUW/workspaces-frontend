@@ -3,7 +3,9 @@
     <div class="jumbo">
       <div class="jumbo-content">
         <app-logo />
-        <h1 class="display-3 fw-normal">TDEI Workspaces</h1>
+        <h1 class="display-3 fw-normal">
+          TDEI Workspaces
+        </h1>
         <hr>
         <p class="mt-5">
           TDEI Workspaces is an integrated editing platform for TDEI datasets.
@@ -11,11 +13,17 @@
           OpenSidewalks and GTFS Pathways data.
         </p>
         <p class="mb-5">
-          <a href="https://transitequity.cs.washington.edu/" target="_blank">
+          <a
+            href="https://transitequity.cs.washington.edu/"
+            target="_blank"
+          >
             Learn more about the TDEI
           </a>
         </p>
-        <nuxt-link to="/signin" class="btn btn-primary btn-lg">Sign In</nuxt-link>
+        <nuxt-link
+          to="/signin"
+          class="btn btn-primary btn-lg"
+        >Sign In</nuxt-link>
       </div>
     </div>
   </div>

@@ -1,14 +1,14 @@
 import {
   BlobWriter,
   TextReader,
-  ZipWriter
-} from '@zip.js/zip.js';
+  ZipWriter,
+} from '@zip.js/zip.js'
 
 const EMPTY_DATASET_TEMPLATE = new Map([
   datasetEntry(
     'agency.txt',
     ['agency_id', 'agency_name', 'agency_url', 'agency_timezone'],
-    ['1', 'Example', 'https://example.com/', 'Etc/UTC']
+    ['1', 'Example', 'https://example.com/', 'Etc/UTC'],
   ),
   datasetEntry(
     'calendar.txt',
@@ -22,7 +22,7 @@ const EMPTY_DATASET_TEMPLATE = new Map([
       'thursday',
       'friday',
       'saturday',
-      'sunday'
+      'sunday',
     ],
     [
       1,
@@ -34,8 +34,8 @@ const EMPTY_DATASET_TEMPLATE = new Map([
       1, // thursday
       1, // friday
       1, // saturday
-      1 // sunday
-    ]
+      1, // sunday
+    ],
   ),
   datasetEntry(
     'routes.txt',
@@ -49,9 +49,9 @@ const EMPTY_DATASET_TEMPLATE = new Map([
       'route_url',
       'route_color',
       'route_text_color',
-      'network_id'
+      'network_id',
     ],
-    []
+    [],
   ),
   datasetEntry(
     'stop_times.txt',
@@ -62,9 +62,9 @@ const EMPTY_DATASET_TEMPLATE = new Map([
       'stop_id',
       'stop_sequence',
       'pickup_type',
-      'drop_off_type'
+      'drop_off_type',
     ],
-    []
+    [],
   ),
   datasetEntry(
     'stops.txt',
@@ -73,33 +73,33 @@ const EMPTY_DATASET_TEMPLATE = new Map([
       'stop_name',
       'stop_lat',
       'stop_lon',
-      'location_type'
+      'location_type',
     ],
-    []
+    [],
   ),
   datasetEntry(
     'trips.txt',
     [
       'route_id',
       'service_id',
-      'trip_id'
+      'trip_id',
     ],
-    []
-  )
-]);
+    [],
+  ),
+])
 
 function datasetEntry(filename: string, fields: Array, values: Array) {
-  let csv = fields.join(',') + '\n';
+  let csv = fields.join(',') + '\n'
 
   if (values?.length > 0) {
-    csv += values.join(',') + '\n';
+    csv += values.join(',') + '\n'
   }
 
-  return [filename, csv];
+  return [filename, csv]
 }
 
 export function createEmptyGtfsDataset() {
-  return new Map(EMPTY_DATASET_TEMPLATE);
+  return new Map(EMPTY_DATASET_TEMPLATE)
 }
 
 export function formatGtfsDate(date: Date): string {
@@ -109,16 +109,16 @@ export function formatGtfsDate(date: Date): string {
 }
 
 export async function createGtfsArchive(files: Map): Blob {
-  const blobWriter = new BlobWriter('application/zip');
-  const zipWriter = new ZipWriter(blobWriter);
+  const blobWriter = new BlobWriter('application/zip')
+  const zipWriter = new ZipWriter(blobWriter)
   const filePromises = []
 
   for (const [filename, csv] of files.entries()) {
-    filePromises.push(zipWriter.add(filename, new TextReader(csv)));
+    filePromises.push(zipWriter.add(filename, new TextReader(csv)))
   }
 
-  await Promise.all(filePromises);
-  zipWriter.close();
+  await Promise.all(filePromises)
+  zipWriter.close()
 
-  return await blobWriter.getData();
+  return await blobWriter.getData()
 }

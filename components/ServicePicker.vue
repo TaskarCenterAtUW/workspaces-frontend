@@ -4,7 +4,11 @@
     class="service-picker form-select"
     aria-label="Service Selection"
   >
-    <option v-for="s in services" :key="s.id" :value="s.id">
+    <option
+      v-for="s in services"
+      :key="s.id"
+      :value="s.id"
+    >
       {{ s.name }}
     </option>
   </select>
@@ -13,34 +17,32 @@
 <script setup lang="ts">
 import { tdeiUserClient } from '~/services/index'
 
-const model = defineModel({ required: true });
+const model = defineModel({ required: true })
 const props = defineProps({
   projectGroupId: {
     type: String,
-    required: true
+    required: true,
   },
   serviceType: {
     type: String,
-    default: 'all'
-  }
+    default: 'all',
+  },
 })
 
-const { projectGroupId, serviceType } = toRefs(props);
-const services = ref([]);
+const { projectGroupId, serviceType } = toRefs(props)
+const services = ref([])
 
-watch(projectGroupId, () => refreshServices());
-watch(serviceType, () => refreshServices());
+watch(projectGroupId, () => refreshServices())
+watch(serviceType, () => refreshServices())
 
-refreshServices();
+refreshServices()
 
 async function refreshServices() {
   services.value = (await tdeiUserClient.getMyServices(props.projectGroupId, props.serviceType))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   if (!model.value && services.value.length > 0) {
     model.value = services.value[0].id
   }
 }
-
 </script>
-

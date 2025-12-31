@@ -1,4 +1,4 @@
-import Papa from 'papaparse';
+import Papa from 'papaparse'
 
 export async function parseCsv(csv: string) {
   return new Promise((resolve, reject) => {
@@ -6,11 +6,11 @@ export async function parseCsv(csv: string) {
       header: true,
       skipEmptyLines: 'greedy',
       complete(result) {
-        resolve(result.data);
+        resolve(result.data)
       },
-      error (e) {
-        reject(e);
-      }
-    });
-  });
+      error(e) {
+        reject(e)
+      },
+    })
+  })
 }

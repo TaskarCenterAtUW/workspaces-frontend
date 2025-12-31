@@ -1,40 +1,40 @@
-import { BaseHttpClient, BaseHttpClientError } from "~/services/http";
-import type { ICancelableClient } from '~/services/loading';
-import type { OsmApiClient } from '~/services/osm';
-import { buildPathwaysCsvArchive } from '~/services/pathways';
-import type { TdeiClient } from '~/services/tdei';
+import { BaseHttpClient, BaseHttpClientError } from '~/services/http'
+import type { ICancelableClient } from '~/services/loading'
+import type { OsmApiClient } from '~/services/osm'
+import { buildPathwaysCsvArchive } from '~/services/pathways'
+import type { TdeiClient } from '~/services/tdei'
 
 export function compareWorkspaceCreatedAtDesc(a, b) {
-  return b.createdAt - a.createdAt;
+  return b.createdAt - a.createdAt
 }
 
 export class WorkspacesClientError extends Error {
-  response: Response;
+  response: Response
 
   constructor(response: Response) {
-    super(`Workspaces request failed: ${response.statusText} (${response.url})`);
-    this.response = response;
+    super(`Workspaces request failed: ${response.statusText} (${response.url})`)
+    this.response = response
   }
 }
 
 export class WorkspacesClient extends BaseHttpClient implements ICancelableClient {
-  #tdeiClient: TdeiClient;
-  #osmClient: OsmApiClient;
+  #tdeiClient: TdeiClient
+  #osmClient: OsmApiClient
 
   constructor(
     apiUrl: string,
     tdeiClient: TdeiClient,
     osmClient: OsmApiClient,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ) {
-    super(apiUrl, signal);
+    super(apiUrl, signal)
 
-    this.#tdeiClient = tdeiClient;
-    this.#osmClient = osmClient;
+    this.#tdeiClient = tdeiClient
+    this.#osmClient = osmClient
   }
 
   get auth() {
-    return this.#tdeiClient.auth;
+    return this.#tdeiClient.auth
   }
 
   clone(signal?: AbortSignal) {
@@ -42,103 +42,105 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
       this._baseUrl,
       this.#tdeiClient,
       this.#osmClient,
-      signal ?? this._abortSignal
-    );
+      signal ?? this._abortSignal,
+    )
   }
 
   async getMyWorkspaces() {
-    const response = await this._get('workspaces/mine');
-    const workspaces = (await response.json()) ?? [];
+    const response = await this._get('workspaces/mine')
+    const workspaces = (await response.json()) ?? []
 
     for (const workspace of workspaces) {
-      workspace.createdAt = new Date(workspace.createdAt);
-      workspace.tdeiMetadata = JSON.parse(workspace.tdeiMetadata || '{}');
+      workspace.createdAt = new Date(workspace.createdAt)
+      workspace.tdeiMetadata = JSON.parse(workspace.tdeiMetadata || '{}')
     }
 
-    return workspaces;
+    return workspaces
   }
 
   async getWorkspace(id: number) {
     try {
-      const response = await this._get(`workspaces/${id}`);
-      return await response.json();
-    } catch {
-      return null;
+      const response = await this._get(`workspaces/${id}`)
+      return await response.json()
+    }
+    catch {
+      return null
     }
   }
 
   getWorkspaceBbox(id: number) {
-    return this.#osmClient.getWorkspaceBbox(id);
+    return this.#osmClient.getWorkspaceBbox(id)
   }
 
   async createWorkspace(workspace): Promise<number> {
-    workspace.createdBy = this.#tdeiClient.auth.subject;
-    workspace.createdByName = this.#tdeiClient.auth.displayName;
+    workspace.createdBy = this.#tdeiClient.auth.subject
+    workspace.createdByName = this.#tdeiClient.auth.displayName
 
-    const workspaceResponse = await this._post('workspaces', workspace);
-    const workspaceId = (await workspaceResponse.json()).workspaceId;
-    await this.#osmClient.createWorkspace(workspaceId);
+    const workspaceResponse = await this._post('workspaces', workspace)
+    const workspaceId = (await workspaceResponse.json()).workspaceId
+    await this.#osmClient.createWorkspace(workspaceId)
 
-    return workspaceId;
+    return workspaceId
   }
 
   async updateWorkspace(id: number, workspaceDetails: object): Promise {
-    await this._patch(`workspaces/${id}`, workspaceDetails);
+    await this._patch(`workspaces/${id}`, workspaceDetails)
   }
 
   async exportWorkspaceArchive(workspace): Promise<Blob> {
     if (workspace.type === 'pathways') {
-      const elements = await this.#osmClient.getWorkspaceData(workspace.id);
-      return await buildPathwaysCsvArchive(elements);
+      const elements = await this.#osmClient.getWorkspaceData(workspace.id)
+      return await buildPathwaysCsvArchive(elements)
     }
 
-    const osm = await this.#osmClient.exportWorkspaceXml(workspace.id);
+    const osm = await this.#osmClient.exportWorkspaceXml(workspace.id)
 
-    return await this.#tdeiClient.convertDataset(osm, 'osm', 'osw', workspace.tdeiProjectGroupId);
+    return await this.#tdeiClient.convertDataset(osm, 'osm', 'osw', workspace.tdeiProjectGroupId)
   }
 
   async deleteWorkspace(id: number): Promise {
     await Promise.all([
       this._delete(`workspaces/${id}`),
-      this.#osmClient.deleteWorkspace(id)
-    ]);
+      this.#osmClient.deleteWorkspace(id),
+    ])
   }
 
   async getLongFormQuestSettings(workspaceId: number) {
-    const response = this._get(`workspaces/${workspaceId}/quests/long/settings`);
-    return response.then(data => {
+    const response = this._get(`workspaces/${workspaceId}/quests/long/settings`)
+    return response.then((data) => {
       // case when no existing settings exist, just show empty form
-      if(data.status === 204) return {};   
-      return data.json();
-    });
+      if (data.status === 204) return {}
+      return data.json()
+    })
   }
 
   async saveLongFormQuestSettings(workspaceId: number, settings: object): Promise<void> {
-      this._patch(`workspaces/${workspaceId}/quests/long/settings`, settings);
+    this._patch(`workspaces/${workspaceId}/quests/long/settings`, settings)
   }
 
   async saveImageryDefSettings(workspaceId: number, settings: object): Promise<void> {
-      this._patch(`workspaces/${workspaceId}/imagery/settings`, settings);
+    this._patch(`workspaces/${workspaceId}/imagery/settings`, settings)
   }
 
   #setAuthHeader() {
     if (this.#tdeiClient.auth.complete) {
-      this._requestHeaders.Authorization = 'Bearer ' + this.#tdeiClient.auth.accessToken;
+      this._requestHeaders.Authorization = 'Bearer ' + this.#tdeiClient.auth.accessToken
     }
   }
 
   override async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
     try {
-      await this.#tdeiClient.tryRefreshAuth();
-      this.#setAuthHeader();
+      await this.#tdeiClient.tryRefreshAuth()
+      this.#setAuthHeader()
 
-      return await super._send(url, method, body, config);
-    } catch (e) {
+      return await super._send(url, method, body, config)
+    }
+    catch (e) {
       if (e instanceof BaseHttpClientError) {
-        throw new WorkspacesClientError(e.response);
+        throw new WorkspacesClientError(e.response)
       }
 
-      throw e;
+      throw e
     }
   }
 }

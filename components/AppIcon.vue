@@ -6,23 +6,23 @@
 const props = defineProps({
   variant: {
     type: String,
-    required: true
+    required: true,
   },
   size: {
     type: [Number, String],
-    default: 18
+    default: 18,
   },
   noMargin: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 })
 
 const classes = computed(() => ([
   'material-icons',
   `md-${props.size}`,
   `md-${props.variant}`,
-  props.noMargin ? undefined : 'me-2'
+  props.noMargin ? undefined : 'me-2',
 ]))
 </script>
 

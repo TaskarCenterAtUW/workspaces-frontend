@@ -1,12 +1,17 @@
 <template>
   <app-page class="create-tdei-page">
-    <h1 class="mb-4 h2">Create a Workspace from the TDEI</h1>
+    <h1 class="mb-4 h2">
+      Create a Workspace from the TDEI
+    </h1>
 
     <template v-if="loading.active">
       <app-spinner />
     </template>
 
-    <div v-else class="row">
+    <div
+      v-else
+      class="row"
+    >
       <div class="col-md d-flex flex-column">
         <div class="card mb-3">
           <div class="card-body">
@@ -29,7 +34,10 @@
               />
             </label>
 
-            <label v-if="!$route.query.tdeiRecordId" class="d-block mb-3">
+            <label
+              v-if="!$route.query.tdeiRecordId"
+              class="d-block mb-3"
+            >
               Dataset
               <dataset-picker
                 v-model="tdeiRecordId"
@@ -45,10 +53,19 @@
               <app-spinner size="sm" />
               {{ context.status }}
             </template>
-            <section v-else-if="context.error" class="alert alert-danger m-0" role="alert">
+            <section
+              v-else-if="context.error"
+              class="alert alert-danger m-0"
+              role="alert"
+            >
               <h5><app-icon variant="info" />An error occurred:</h5>
-              <p class="mb-3">{{ context.error }}</p>
-              <button class="btn btn-primary" @click="context.reset()">
+              <p class="mb-3">
+                {{ context.error }}
+              </p>
+              <button
+                class="btn btn-primary"
+                @click="context.reset()"
+              >
                 Try again
               </button>
             </section>
@@ -131,73 +148,72 @@
 
 <script setup lang="ts">
 import { LoadingContext } from '~/services/loading'
-import { TdeiImporter, TdeiImporterContext } from '~/services/import/tdei';
-import { osmClient, tdeiClient, workspacesClient } from '~/services/index';
+import { TdeiImporter, TdeiImporterContext } from '~/services/import/tdei'
+import { osmClient, tdeiClient, workspacesClient } from '~/services/index'
 
-const context = reactive(new TdeiImporterContext());
-const importer = new TdeiImporter(workspacesClient, tdeiClient, osmClient, context);
+const context = reactive(new TdeiImporterContext())
+const importer = new TdeiImporter(workspacesClient, tdeiClient, osmClient, context)
 
-const loading = reactive(new LoadingContext());
-const route = useRoute();
-const tdeiRecordId = ref(null);
-const record = reactive({});
-const map = ref({});
-const workspaceTitle = ref('');
-const projectGroupId = ref(null);
+const loading = reactive(new LoadingContext())
+const route = useRoute()
+const tdeiRecordId = ref(null)
+const record = reactive({})
+const map = ref({})
+const workspaceTitle = ref('')
+const projectGroupId = ref(null)
 
-watch(tdeiRecordId, (val) => getDatasetInfo(val));
+watch(tdeiRecordId, val => getDatasetInfo(val))
 
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
-    && projectGroupId.value !== null
-    && tdeiRecordId.value !== null
-);
+  && projectGroupId.value !== null
+  && tdeiRecordId.value !== null,
+)
 
 async function getDatasetInfo(id: string) {
   if (id === null) {
     for (const prop in record) {
-      record[prop] = '';
+      record[prop] = ''
     }
 
-    workspaceTitle.value = '';
-    return;
+    workspaceTitle.value = ''
+    return
   }
 
   await loading.wrap(tdeiClient, async (client) => {
-    const info = await client.getDatasetInfo(id);
+    const info = await client.getDatasetInfo(id)
 
     for (const prop in info) {
-      record[prop] = info[prop];
+      record[prop] = info[prop]
     }
+  })
 
-  });
+  await nextTick()
 
-  await nextTick();
+  workspaceTitle.value = record.metadata?.dataset_detail?.name ?? ''
+  projectGroupId.value = record.project_group.tdei_project_group_id
+  tdeiRecordId.value = record.tdei_dataset_id
 
-  workspaceTitle.value = record.metadata?.dataset_detail?.name ?? '';
-  projectGroupId.value = record.project_group.tdei_project_group_id;
-  tdeiRecordId.value = record.tdei_dataset_id;
-
-  initMap();
+  initMap()
 }
 
 onMounted(async () => {
-  tdeiRecordId.value = route.query.tdeiRecordId?.toString() || null;
+  tdeiRecordId.value = route.query.tdeiRecordId?.toString() || null
 })
 
 function initMap() {
   // TODO: use Mapbox
-  map.value = L.map('dataset_map');
+  map.value = L.map('dataset_map')
 
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
-    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-  }).addTo(map.value);
+    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  }).addTo(map.value)
 
-  const area = L.geoJSON(record.metadata.dataset_detail.dataset_area).addTo(map.value);
-  const bounds = area.getBounds();
+  const area = L.geoJSON(record.metadata.dataset_detail.dataset_area).addTo(map.value)
+  const bounds = area.getBounds()
 
-  map.value.fitBounds(bounds);
+  map.value.fitBounds(bounds)
 }
 
 async function create() {
@@ -208,10 +224,10 @@ async function create() {
     tdeiProjectGroupId: projectGroupId.value,
     tdeiServiceId: record.service.tdei_service_id,
     tdeiMetadata: JSON.stringify(record),
-  });
+  })
 
   if (workspaceId) {
-    navigateTo('/dashboard?workspace=' + workspaceId);
+    navigateTo('/dashboard?workspace=' + workspaceId)
   }
 }
 </script>
