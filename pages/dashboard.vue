@@ -49,7 +49,7 @@ let lastWorkspaceId: number;
 </script>
 
 <script setup lang="ts">
-import { workspacesClient } from '~/services/index';
+import { workspacesClient, osmClient, tdeiUserClient } from '~/services/index';
 import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 
 const route = useRoute();

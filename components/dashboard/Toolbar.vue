@@ -4,11 +4,7 @@
       <app-icon variant="edit_location_alt" size="24" />
       Edit
     </nuxt-link>
-    <div class="btn-group ms-1">
-      <nuxt-link class="btn" :to="reviewRoute">
-        <app-icon variant="playlist_add_check" size="24" no-margin />
-        <span class="d-none d-sm-inline ms-2">Review</span>
-      </nuxt-link>
+    <div class="btn-group">
       <!--
       <a :href="tasksHref" class="btn" target="_blank">
         <app-icon variant="checklist" size="24" />
@@ -16,14 +12,14 @@
       </a>
       -->
       <nuxt-link class="btn" :to="exportRoute" :aria-disabled="!workspace.center">
-        <app-icon variant="drive_folder_upload" size="24" no-margin />
-        <span class="d-none d-sm-inline ms-2">Export</span>
+        <app-icon variant="drive_folder_upload" size="24" />
+        <span class="d-none d-sm-inline">Export</span>
       </nuxt-link>
     </div>
     <div class="btn-group ms-auto">
       <nuxt-link class="btn" :to="settingsRoute">
-        <app-icon variant="settings" size="24" no-margin />
-        <span class="d-none d-sm-inline ms-2">Settings</span>
+        <app-icon variant="settings" size="24" />
+        <span class="d-none d-sm-inline">Settings</span>
       </nuxt-link>
     </div>
   </div>
@@ -53,7 +49,6 @@ const editRoute = computed(() => ({
   hash: editHash.value
 }));
 
-const reviewRoute = computed(() => workspacePath('review'));
 const exportRoute = computed(() => workspacePath('export'));
 const settingsRoute = computed(() => workspacePath('settings'));
 

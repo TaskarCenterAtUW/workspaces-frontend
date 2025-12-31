@@ -30,10 +30,6 @@ const classes = computed(() => ([
 .material-icons {
   vertical-align: middle;
   margin-top: -3px;
-
-  &.me-2 {
-    margin-right: 0.33em !important;
-  }
 }
 .badge .material-icons {
   font-size: 1em;
@@ -41,7 +37,7 @@ const classes = computed(() => ([
   margin-top: 0;
 
   &.me-2 {
-    margin-right: 0.25em !important;
+    margin-right: 0.25rem !important;
   }
 }
 </style>

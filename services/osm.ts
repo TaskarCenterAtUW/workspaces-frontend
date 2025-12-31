@@ -1,19 +1,6 @@
-import parseOsmChangeXml from '@osmcha/osmchange-parser';
-import type { FeatureCollection, Point } from 'geojson';
-
 import { BaseHttpClient, BaseHttpClientError } from "~/services/http";
 import type { ICancelableClient } from '~/services/loading';
 import type { TdeiClient } from '~/services/tdei';
-import { OSMCHANGE_ACTION_TYPES } from '~/types/osm';
-import type {
-  OsmChange,
-  OsmChangeset,
-  OsmChangesetComment,
-  OsmElement,
-  OsmNode,
-  OsmNote,
-  OsmWay
-} from '~/types/osm';
 import * as xml from '~/util/xml';
 
 function formatFeatureIdPlaceholder(attributeName: string, feature: Element) {
@@ -47,30 +34,6 @@ function formatFeatureIdPlaceholders(feature: Element) {
       }
     }
   }
-}
-
-function notesGeoJsonToEntities(geoJson: FeatureCollection): Array<OsmNote> {
-  const notes = [];
-
-  for (const feature of geoJson.features) {
-    const geometry = feature.geometry as Point;
-    const properties = feature.properties ?? { };
-
-    for (const comment of properties.comments) {
-      comment.date = new Date(comment.date);
-    }
-
-    notes.push({
-      id: properties.id,
-      status: properties.status,
-      lat: geometry.coordinates[1] ?? 0,
-      lon: geometry.coordinates[0] ?? 0,
-      created_at: new Date(properties.date_created),
-      comments: properties.comments,
-    });
-  }
-
-  return notes;
 }
 
 function cleanOscForDemo(features: Element[]) {
@@ -244,8 +207,8 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     await this._delete(`workspaces/${workspaceId}`);
   }
 
-  async getWorkspaceBbox(workspaceId: number) {
-    const response = await this._get(`workspaces/${workspaceId}/bbox.json`);
+  async getWorkspaceBbox(id: number) {
+    const response = await this._get(`workspaces/${id}/bbox.json`);
 
     if (response.status === 204) {
       return undefined
@@ -275,151 +238,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return `${bbox.min_lon},${bbox.min_lat},${bbox.max_lon + pad},${bbox.max_lat + pad}`;
   }
 
-  async getElement(
-    workspaceId: number,
-    type: string,
-    id: number,
-    version: number
-  ): Promise<OsmElement> {
-    const response = await this._get(`${type}/${id}/${version}`, {
-      headers: {
-        ...this._requestHeaders,
-        'Accept': 'application/json',
-        'X-Workspace': workspaceId
-      }
-    });
-
-    const element = (await response.json()).elements[0];
-    element.tags = element.tags ?? { };
-
-    return element;
-  }
-
-  async getNodes(workspaceId: number, nodeIds: Array<number | string>)
-    : Promise<Array<OsmNode>>
-  {
-    const response = await this._get(`nodes?nodes=${nodeIds.join(',')}`, {
-      headers: {
-        ...this._requestHeaders,
-        'Accept': 'application/json',
-        'X-Workspace': workspaceId
-      }
-    });
-
-    const nodes = (await response.json()).elements;
-
-    for (const node of nodes) {
-      node.timestamp = new Date(node.timestamp);
-    }
-
-    return nodes;
-  }
-
-  async getWays(workspaceId: number, wayIds: Array<number | string>)
-    : Promise<Array<OsmWay>>
-  {
-    const response = await this._get(`ways?ways=${wayIds.join(',')}`, {
-      headers: {
-        ...this._requestHeaders,
-        'Accept': 'application/json',
-        'X-Workspace': workspaceId
-      }
-    });
-
-    const ways = (await response.json()).elements;
-
-    for (const way of ways) {
-      way.timestamp = new Date(way.timestamp);
-    }
-
-    return ways;
-  }
-
-  async getWaysForNode(workspaceId: number, nodeId: number)
-    : Promise<Array<OsmElement>>
-  {
-    const response = await this._get(`node/${nodeId}/ways`, {
-      headers: {
-        ...this._requestHeaders,
-        'Accept': 'application/json',
-        'X-Workspace': workspaceId
-      }
-    });
-
-    return (await response.json()).elements;
-  }
-
-  async listChangesets(workspaceId: number): Promise<Array<OsmChangeset>> {
-    const response = await this._get(`changesets.json`, {
-      headers: { ...this._requestHeaders, 'X-Workspace': workspaceId }
-    });
-
-    const changesets = (await response.json())?.changesets ?? [];
-
-    for (const changeset of changesets) {
-      changeset.created_at = new Date(changeset.created_at);
-      changeset.closed_at = new Date(changeset.closed_at);
-    }
-
-    return changesets;
-  }
-
-  async getChangeset(
-    workspaceId: number,
-    changesetId: number,
-    includeDiscussion: boolean = false
-  ): Promise<OsmChangeset | undefined> {
-    let url = `changeset/${changesetId}.json`;
-
-    if (includeDiscussion) {
-      url += '?include_discussion=true';
-    }
-
-    const response = await this._get(url, {
-      headers: {
-        ...this._requestHeaders,
-        'Accept': 'application/json',
-        'X-Workspace': workspaceId
-      }
-    });
-
-    const changeset = (await response.json())?.changeset;
-
-    if (!changeset) {
-      return;
-    }
-
-    changeset.created_at = new Date(changeset.created_at);
-    changeset.closed_at = new Date(changeset.closed_at);
-
-    for (const comment of changeset.comments ?? []) {
-      comment.date = new Date(comment.date);
-    }
-
-    return changeset;
-  }
-
-  async getOsmChange(workspaceId: number, changesetId: number): Promise<OsmChange> {
-    const response = await this._get(`changeset/${changesetId}/download`, {
-      headers: {
-        ...this._requestHeaders,
-        'Accept': 'application/xml',
-        'X-Workspace': workspaceId
-      }
-    });
-
-    const osmChange = parseOsmChangeXml(await response.text());
-
-    for (const type of OSMCHANGE_ACTION_TYPES) {
-      for (const element of osmChange[type] ?? []) {
-        element.timestamp = new Date(element.timestamp);
-      }
-    }
-
-    return osmChange;
-  }
-
-  async createChangeset(workspaceId: number): Promise<number> {
+  async createChangeset(workspaceId: number): number {
     const doc = xml.parse('<osm><changeset></changeset></osm>');
     const changesetNode = doc.firstChild.firstChild;
     changesetNode.appendChild(xml.makeNode(doc, "tag", { k: 'workspace', v: workspaceId }));
@@ -442,51 +261,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
         'X-Workspace': workspaceId
       }
     });
-  }
-
-  async getChangesetComments(workspaceId: number, changesetId: number)
-    : Promise<Array<OsmChangesetComment>>
-  {
-    // There is no OSM API that returns comments directly. We must request the
-    // comments with the changeset:
-    //
-    const changeset = await this.getChangeset(workspaceId, changesetId, true);
-
-    return changeset?.comments ?? [];
-  }
-
-  async postChangesetComment(workspaceId: number, changesetId: number, message: string)
-    : Promise<void>
-  {
-    const body = new FormData();
-    body.append('text', message);
-
-    await this._post(`changeset/${changesetId}/comment`, body, {
-      headers: {
-        'Authorization': this._requestHeaders['Authorization'],
-        'X-Workspace': workspaceId
-      }
-    });
-  }
-
-  async getNotes(workspaceId: number, includeClosed: boolean)
-    : Promise<Array<OsmNote>>
-  {
-    const params = new URLSearchParams();
-    // Fetch the maximum number of notes:
-    params.append('limit', '10000');
-    // -1: all, 0: open only, > 0: days closed:
-    params.append('closed', includeClosed ? '-1' : '0');
-
-    const response = await this._get(`notes/search.json?${params}`, {
-      headers: {
-        ...this._requestHeaders,
-        'Accept': 'application/json',
-        'X-Workspace': workspaceId
-      }
-    });
-
-    return notesGeoJsonToEntities(await response.json());
   }
 
   async getWorkspaceData(workspaceId: number): Promise<Array> {
