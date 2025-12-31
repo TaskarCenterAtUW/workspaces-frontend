@@ -469,7 +469,11 @@ async function saveImageryConfiguration() {
   }
 
   try {
+    // FIXME: make both the legacy and the new backend API calls to handle both cases until we
+    // fully deprecate the old API.
+    await save({ imageryListDef: imageryResult.data });
     workspacesClient.saveImageryDefSettings(workspaceId, { definition: imageryResult.data })
+    
     imagerySaveStatus.value = { type: "success", message: "Changes saved." };
   } catch (e) {
     imagerySaveStatus.value = {
