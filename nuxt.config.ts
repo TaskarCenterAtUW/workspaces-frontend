@@ -4,6 +4,13 @@ export default defineNuxtConfig({
   sourcemap: { client: 'hidden' },
   devtools: { enabled: process.env.ENV === "dev" || process.env.ENV === "local" },
   modules: ['@sentry/nuxt/module'],
+  nitro: {
+    // deal with CORS issues during development
+    devProxy: {
+      '/api': 'http://localhost:8000/api/',
+      '/workspaces': 'http://localhost:8000/workspaces/',
+    }
+  },
   app: {
     head: {
       meta: [

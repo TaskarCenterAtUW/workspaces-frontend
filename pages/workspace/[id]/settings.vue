@@ -469,7 +469,7 @@ async function saveImageryConfiguration() {
   }
 
   try {
-    await save({ imageryListDef: imageryResult.data });
+    workspacesClient.saveImageryDefSettings(workspaceId, { definition: imageryResult.data })
     imagerySaveStatus.value = { type: "success", message: "Changes saved." };
   } catch (e) {
     imagerySaveStatus.value = {

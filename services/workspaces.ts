@@ -105,13 +105,20 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   }
 
   async getLongFormQuestSettings(workspaceId: number) {
-    const response = await this._get(`workspaces/${workspaceId}/quests/long/settings`);
-
-    return await response.json();
+    const response = this._get(`workspaces/${workspaceId}/quests/long/settings`);
+    return response.then(data => {
+      // case when no existing settings exist, just show empty form
+      if(data.status === 204) return {};   
+      return data.json();
+    });
   }
 
   async saveLongFormQuestSettings(workspaceId: number, settings: object): Promise<void> {
-    await this._patch(`workspaces/${workspaceId}/quests/long/settings`, settings);
+      this._patch(`workspaces/${workspaceId}/quests/long/settings`, settings);
+  }
+
+  async saveImageryDefSettings(workspaceId: number, settings: object): Promise<void> {
+      this._patch(`workspaces/${workspaceId}/imagery/settings`, settings);
   }
 
   #setAuthHeader() {
@@ -120,13 +127,13 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     }
   }
 
-  async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
+  override async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
     try {
       await this.#tdeiClient.tryRefreshAuth();
       this.#setAuthHeader();
 
       return await super._send(url, method, body, config);
-    } catch (e: any) {
+    } catch (e) {
       if (e instanceof BaseHttpClientError) {
         throw new WorkspacesClientError(e.response);
       }

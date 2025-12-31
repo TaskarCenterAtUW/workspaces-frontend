@@ -1,7 +1,7 @@
 <template>
   <app-page>
     <form @submit="submit">
-      <textarea v-model="inputOsmXml" />
+      <textarea v-model="inputOsmXml"></textarea>
       <button type="submit">Upload</button>
     </form>
   </app-page>
@@ -13,7 +13,7 @@ import { osm2osc } from '~/services/osm';
 
 const inputOsmXml = ref('');
 
-async function submit(e) {
+async function submit(e:Event) {
   e.preventDefault();
 
   const workspaceId = 101
