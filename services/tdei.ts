@@ -10,6 +10,7 @@ import type {
   TdeiProjectGroup,
   TdeiService,
   TdeiDatasetSummary,
+  TdeiUserItem,
 } from '~/types/tdei.ts';
 
 const MIN_TOKEN_REFRESH_MS = 10 * 1000;
@@ -455,8 +456,8 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     return this.#auth;
   }
 
-  clone(signal?: AbortSignal) {
-    return new TdeiClient(this._baseUrl, this.#auth, signal ?? this._abortSignal);
+  clone(signal?: AbortSignal): TdeiUserClient {
+    return new TdeiUserClient(this._baseUrl, this.#tdeiClient, signal ?? this._abortSignal);
   }
 
   async getMyProjectGroups(pageNo: number = 1, searchText: string = '', pageSize: number = 10, sortBy: 'name' | 'created_at' = 'name'): Promise<{ items: TdeiProjectGroup[], total?: number }> {
@@ -472,11 +473,23 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
       const totalParsed = totalHeader !== null ? parseInt(totalHeader, 10) : NaN;
       const total = Number.isNaN(totalParsed) ? undefined : totalParsed;
       const items = (await response.json() as TdeiProjectGroupApiResponse[]) ?? [];
-      return { items: items.map(p => ({ id: p.tdei_project_group_id, name: p.project_group_name })), total };
+      return { items: items.map(p => ({
+        tdei_project_group_id: p.tdei_project_group_id,
+        name: p.project_group_name,
+        roles: p.roles ?? [],
+      })), total };
     } catch (e) {
       console.warn('getMyProjectGroups: failed to parse API response', e);
       return { items: [] };
     }
+  }
+
+  async getMyRolesForProjectGroup(projectGroupId: string, pgName: string): Promise<string[]> {
+    const params = new URLSearchParams({ searchText: pgName });
+    const response = await this._get(`project-group-roles/${this.#auth.subject}?${params}`);
+    const pgs = (await response.json()) as TdeiProjectGroupApiResponse[];
+
+    return pgs.find(p => p.tdei_project_group_id === projectGroupId)?.roles ?? [];
   }
 
   async getMyServices(projectGroupId: string, type: string = 'all'): Promise<TdeiService[]> {
@@ -484,6 +497,16 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
 
     return (await response.json() as TdeiServiceApiResponse[])
       .map(s => ({ id: s.tdei_service_id, name: s.service_name }));
+  }
+
+  async getProjectGroupUsers(projectGroupId: string): Promise<TdeiUserItem[]> {
+    const params = new URLSearchParams();
+    params.append('page_no', '1');
+    params.append('page_size', '10000');
+
+    const response = await this._get(`project-group/${projectGroupId}/users?${params}`);
+
+    return await response.json();
   }
 
   #setAuthHeader() {

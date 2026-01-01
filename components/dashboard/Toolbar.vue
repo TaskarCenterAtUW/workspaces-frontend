@@ -52,8 +52,8 @@
         <app-icon variant="settings" size="24" no-margin />
         <span class="d-none d-sm-inline ms-2">Settings</span>
       </nuxt-link>
-    </div>
-  </div>
+    </div><!-- .btn-group -->
+  </div><!-- .btn-toolbar -->
 </template>
 
 <script setup lang="ts">

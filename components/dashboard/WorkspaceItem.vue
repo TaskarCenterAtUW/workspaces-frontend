@@ -9,10 +9,25 @@
       <app-icon v-else variant="lock" />
       App
     </span>
+
+    <span
+      v-if="workspace.role === 'lead'"
+      class="badge bg-dark ms-2"
+    >
+      <app-icon variant="star" /> {{ ROLE_LABELS.lead }}
+    </span>
+    <span
+      v-else-if="workspace.role === 'validator'"
+      class="badge bg-dark ms-2"
+    >
+      <app-icon variant="task_alt" /> {{ ROLE_LABELS.validator }}
+    </span>
   </button>
 </template>
 
 <script setup lang="ts">
+import { ROLE_LABELS } from '~/util/roles';
+
 const props = defineProps({
   workspace: {
     type: Object,

@@ -1,18 +1,29 @@
 <template>
   <section class="card mb-4">
     <div class="card-body">
+      <b-alert
+        v-if="!isLead"
+        variant="info"
+        show
+        class="mb-3"
+      >
+        <app-icon variant="info" />
+        Only workspace owners can rename the workspace.
+      </b-alert>
       <form @submit.prevent="rename">
         <label class="d-block mb-3">
           Workspace Title
           <input
             v-model.trim="workspaceName"
             class="form-control"
+            :disabled="!isLead"
           >
         </label>
 
         <button
           type="submit"
           class="btn btn-primary"
+          :disabled="!isLead"
         >
           Rename
         </button>
@@ -28,6 +39,7 @@ import { workspacesClient } from '~/services/index';
 import type { Workspace } from '~/types/workspaces';
 
 const workspace = inject<Workspace>('workspace')!;
+const { isLead } = useWorkspaceRole();
 const workspaceName = ref(workspace.title);
 
 async function rename() {

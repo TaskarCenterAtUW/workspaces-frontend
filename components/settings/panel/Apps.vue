@@ -8,6 +8,16 @@
         External Apps
       </h3>
 
+      <b-alert
+        v-if="!isLead"
+        variant="info"
+        show
+        class="mb-3"
+      >
+        <app-icon variant="info" />
+        Only workspace owners can change external app settings.
+      </b-alert>
+
       <div class="form-check form-switch">
         <label class="form-check-label">
           <input
@@ -16,6 +26,7 @@
             class="form-check-input"
             :true-value="1"
             :false-value="0"
+            :disabled="!isLead"
           >
           Publish this workspace for external apps
         </label>
@@ -36,6 +47,7 @@
             type="radio"
             name="longFormQuestType"
             value="JSON"
+            :disabled="!isLead"
           >
         </label>
       </div>
@@ -48,6 +60,7 @@
             type="radio"
             name="longFormQuestType"
             value="URL"
+            :disabled="!isLead"
           >
         </label>
       </div>
@@ -61,6 +74,7 @@
             :class="{ 'drag-over': isDraggingQuest }"
             rows="5"
             placeholder="Optional"
+            :disabled="!isLead"
             @dragover.prevent="isDraggingQuest = true"
             @dragleave.prevent="isDraggingQuest = false"
             @drop.prevent="onQuestFileDrop"
@@ -96,6 +110,7 @@
             type="text"
             class="form-control"
             placeholder="https://..."
+            :disabled="!isLead"
           >
         </label>
         <div
@@ -131,6 +146,7 @@
       <button
         type="submit"
         class="btn btn-primary"
+        :disabled="!isLead"
       >
         Save
       </button>
@@ -157,6 +173,7 @@ const longFormQuestSchemaUrl = import.meta.env.VITE_LONG_FORM_QUEST_SCHEMA;
 const longFormQuestExampleUrl = import.meta.env.VITE_LONG_FORM_QUEST_EXAMPLE_URL;
 
 const workspace = inject<Workspace>('workspace')!;
+const { isLead } = useWorkspaceRole();
 
 const [longFormQuestSettings] = await Promise.all([
   workspacesClient.getLongFormQuestSettings(workspace.id),

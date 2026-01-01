@@ -29,6 +29,7 @@
 
         <div class="align-self-center flex-shrink-0 ms-auto">
           <button
+            v-if="isLead"
             class="btn ms-1 px-1 py-0 text-danger"
             @click="remove(user)"
           >
@@ -58,6 +59,7 @@ interface Props {
 
 const props = defineProps<Props>();
 const workspace = inject<Workspace>('workspace')!;
+const { isLead } = useWorkspaceRole();
 const { create } = useModal();
 const modal = useTemplateRef<ComponentExposed<typeof BModal>>('modal');
 
@@ -85,6 +87,10 @@ async function onTeamChange(team?: WorkspaceTeam) {
 }
 
 async function remove(user: User) {
+  if (!isLead.value) {
+    return;
+  }
+
   const value = await create({
     body: `Remove ${user.display_name} from "${props.team!.name}"?`,
     title: 'Remove Team Member',

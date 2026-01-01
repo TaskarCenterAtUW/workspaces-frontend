@@ -5,6 +5,16 @@
         Delete Workspace
       </h3>
 
+      <b-alert
+        v-if="!isLead"
+        variant="info"
+        show
+        class="mb-3"
+      >
+        <app-icon variant="info" />
+        Only workspace owners can delete the workspace.
+      </b-alert>
+
       <p>
         Deleting a workspace is permanent. This action will not remove any
         TDEI datasets outside of Workspaces.
@@ -12,7 +22,7 @@
 
       <button
         class="btn btn-outline-danger mb-3"
-        :disabled="accepted"
+        :disabled="!isLead || accepted"
         @click="acceptDelete"
       >
         I understand, and I want to delete this workspace
@@ -30,7 +40,7 @@
 
         <button
           class="btn btn-danger"
-          :disabled="attestation !== 'delete'"
+          :disabled="!isLead || attestation !== 'delete'"
           @click="submitDelete"
         >
           Delete this workspace
@@ -48,18 +58,27 @@ import { workspacesClient } from '~/services/index';
 import type { Workspace } from '~/types/workspaces';
 
 const workspace = inject<Workspace>('workspace')!;
+const { isLead } = useWorkspaceRole();
 
 const accepted = ref(false);
 const attestation = ref('');
 const input = useTemplateRef<HTMLInputElement>('input');
 
 async function acceptDelete() {
+  if (!isLead.value) {
+    return;
+  }
+
   accepted.value = true;
   await nextTick();
   input.value!.focus();
 }
 
 async function submitDelete() {
+  if (!isLead.value) {
+    return;
+  }
+
   await workspacesClient.deleteWorkspace(workspace.id);
   navigateTo('/dashboard');
 }

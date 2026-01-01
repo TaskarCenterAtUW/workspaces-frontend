@@ -52,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { reviewManager } from '~/services/index';
+import { reviewManager, workspacesClient } from '~/services/index';
 
 import type ReviewMap from '~/components/review/Map.vue';
 import type { ReviewListItem } from '~/services/review.ts';
@@ -60,6 +60,9 @@ import type { AdiffAction } from '~/types/adiff';
 
 const route = useRoute();
 const workspaceId = Number(route.params.id);
+
+const workspace = await workspacesClient.getWorkspace(workspaceId);
+provide('workspace', workspace);
 
 const reviewList = reviewManager.getList(workspaceId);
 const filter = reactive(reviewManager.getFilter());

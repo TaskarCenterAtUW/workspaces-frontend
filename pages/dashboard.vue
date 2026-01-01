@@ -30,20 +30,29 @@
       </div><!-- .col-md -->
 
       <div class="col-md workspace-details-col">
-        <div class="card" :style="currentWorkspace ? '' : 'visibility: hidden'">
+        <div
+          v-if="currentWorkspace"
+          class="card"
+        >
           <nav class="card-header">
             <dashboard-toolbar :workspace="currentWorkspace" />
           </nav>
 
           <dashboard-map :workspace="currentWorkspace" @center-loaded="onCenterLoaded" />
-          <dashboard-details-table :workspace="currentWorkspace" />
+          <dashboard-details-table
+            :workspace="currentWorkspace"
+            :my-tdei-roles="currentWorkspaceTdeiRoles"
+          />
         </div><!-- .card -->
       </div><!-- .col-md -->
     </div><!-- .row -->
   </app-page>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { tdeiUserClient, workspacesClient } from '~/services/index';
+import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
+
 const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
 const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
 
@@ -73,20 +82,28 @@ function setLastWorkspaceId(id: number) {
     sessionStorage.setItem(STORAGE_KEY_WORKSPACE, String(id));
   } catch { /* silently fail */ }
 }
-</script>
-
-<script setup lang="ts">
-import { workspacesClient } from '~/services/index';
-import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 
 const route = useRoute();
 
-const workspaces = (await workspacesClient.getMyWorkspaces()).sort(compareWorkspaceCreatedAtDesc);
+const [workspaces, { items: myProjectGroups }] = await Promise.all([
+  workspacesClient.getMyWorkspaces().then(ws => ws.sort(compareWorkspaceCreatedAtDesc)),
+  tdeiUserClient.getMyProjectGroups(1, '', 10000),
+]);
+const rolesByProjectGroup = new Map(myProjectGroups.map(pg => [pg.tdei_project_group_id, pg.roles]));
 const workspacesByProjectGroup = Map.groupBy(workspaces, w => w.tdeiProjectGroupId);
 
 const currentProjectGroup = ref(getLastProjectGroupId());
-const currentWorkspace = ref({});
-const currentWorkspaces = computed(() => workspacesByProjectGroup.get(currentProjectGroup.value));
+const currentWorkspace = ref<Workspace>();
+const currentWorkspaces = computed(() =>
+  currentProjectGroup.value
+    ? workspacesByProjectGroup.get(currentProjectGroup.value)
+    : undefined,
+);
+const currentWorkspaceTdeiRoles = computed(() =>
+  currentWorkspace.value
+    ? rolesByProjectGroup.get(currentWorkspace.value.tdeiProjectGroupId) ?? []
+    : [],
+);
 
 for (const w of workspaces) {
   if (w.tdeiMetadata?.length > 0) {
@@ -130,16 +147,17 @@ function autoSelectPreferredView() {
 
 async function onCurrentWorkspacesChange(val) {
   if (val?.length > 0) {
-    if (val[0].tdeiProjectGroupId !== currentWorkspace.value.tdeiProjectGroupId) {
+    if (val[0].tdeiProjectGroupId !== currentWorkspace.value?.tdeiProjectGroupId) {
       await selectWorkspace(val[0]);
     }
-  } else {
-    currentWorkspace.value = {};
+  }
+  else {
+    currentWorkspace.value = undefined;
   }
 }
 
 function onCenterLoaded(center) {
-  currentWorkspace.value.center = center;
+  currentWorkspace.value!.center = center;
 }
 
 async function selectWorkspace(workspace) {
