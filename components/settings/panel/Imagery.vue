@@ -8,6 +8,16 @@
         Custom Imagery
       </h3>
 
+      <b-alert
+        v-if="!isLead"
+        variant="info"
+        show
+        class="mb-3"
+      >
+        <app-icon variant="info" />
+        Only workspace owners can change imagery settings.
+      </b-alert>
+
       <label class="d-block form-label">
         Imagery JSON Definition
         <textarea
@@ -16,6 +26,7 @@
           :class="{ 'drag-over': isDraggingImagery }"
           rows="5"
           placeholder="Optional"
+          :disabled="!isLead"
           @dragover.prevent="isDraggingImagery = true"
           @dragleave.prevent="isDraggingImagery = false"
           @drop.prevent="onImageryFileDrop"
@@ -51,6 +62,7 @@
       <button
         type="submit"
         class="btn btn-primary"
+        :disabled="!isLead"
       >
         Save
       </button>
@@ -73,6 +85,7 @@ import { handleFileDrop, validateJson } from '~/util/schema';
 import type { Workspace } from '~/types/workspaces';
 
 const workspace = inject<Workspace>('workspace')!;
+const { isLead } = useWorkspaceRole();
 
 const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA;
 const imageryExampleUrl = import.meta.env.VITE_IMAGERY_EXAMPLE_URL;
@@ -114,7 +127,7 @@ async function saveImageryConfiguration() {
   }
 
   try {
-    workspacesClient.updateWorkspace(workspace.id, {
+    await workspacesClient.updateWorkspace(workspace.id, {
       imageryListDef: imageryResult.data,
     });
     imagerySaveStatus.value = { type: 'success', message: 'Changes saved.' };

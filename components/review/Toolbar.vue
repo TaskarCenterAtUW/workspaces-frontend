@@ -45,16 +45,27 @@
         {{ props.item.commentCount }}
       </span>
     </button>
-    <button
-      v-show="props.item.isFeedback"
-      class="btn btn-sm btn-success ms-2"
+    <BPopover
+      content="Only validators and owners can resolve feedback"
+      placement="bottom"
+      :manual="isValidator"
     >
-      <app-icon
-        variant="check"
-        no-margin
-      />
-      <span class="d-none d-sm-inline ms-2">Mark as Resolved</span>
-    </button>
+      <template #target>
+        <div class="d-inline-block ms-2">
+          <button
+            v-show="props.item.isFeedback && !props.item.isResolved"
+            class="btn btn-sm btn-success"
+            :disabled="!isValidator"
+          >
+            <app-icon
+              variant="check"
+              no-margin
+            />
+            <span class="d-none d-sm-inline ms-2">Mark as Resolved</span>
+          </button>
+        </div>
+      </template>
+    </BPopover>
   </nav>
 </template>
 
@@ -66,6 +77,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const { isValidator } = useWorkspaceRole();
 
 const emit = defineEmits(['edit']);
 const showDetails = defineModel<boolean>('showDetails');

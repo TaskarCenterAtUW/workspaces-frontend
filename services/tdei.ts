@@ -2,7 +2,11 @@ import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
 
 import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
 import type { ICancelableClient } from '~/services/loading';
-import type { TdeiFeedback } from '~/types/tdei.ts';
+import type {
+  TdeiFeedback,
+  TdeiProjectGroup,
+  TdeiUserItem,
+} from '~/types/tdei.ts';
 
 const MIN_TOKEN_REFRESH_MS = 10 * 1000;
 
@@ -443,15 +447,36 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     return this.#auth;
   }
 
-  clone(signal?: AbortSignal) {
-    return new TdeiClient(this._baseUrl, this.#auth, signal ?? this._abortSignal);
+  clone(signal?: AbortSignal): TdeiUserClient {
+    return new TdeiUserClient(this._baseUrl, this.#tdeiClient, signal ?? this._abortSignal);
   }
 
-  async getMyProjectGroups() {
-    const response = await this._get(`project-group-roles/${this.#auth.subject}`);
+  async getMyProjectGroups(): Promise<TdeiProjectGroup[]> {
+    const params = new URLSearchParams({ page_no: '1', page_size: '10000' });
+    const response = await this._get(`project-group-roles/${this.#auth.subject}?${params}`);
+    const pgs = (await response.json()) as {
+      tdei_project_group_id: string;
+      project_group_name: string;
+      roles: string[];
+    }[];
 
-    return (await response.json())
-      .map(p => ({ id: p.tdei_project_group_id, name: p.project_group_name }));
+    return pgs.map(p => ({
+      tdei_project_group_id: p.tdei_project_group_id,
+      name: p.project_group_name,
+      roles: p.roles as string[],
+    }));
+  }
+
+  async getMyRolesForProjectGroup(projectGroupId: string, pgName: string): Promise<string[]> {
+    const params = new URLSearchParams({ searchText: pgName });
+    const response = await this._get(`project-group-roles/${this.#auth.subject}?${params}`);
+    const pgs = (await response.json()) as {
+      tdei_project_group_id: string;
+      project_group_name: string;
+      roles: string[];
+    }[];
+
+    return pgs.find(p => p.tdei_project_group_id === projectGroupId)?.roles ?? [];
   }
 
   async getMyServices(projectGroupId: string, type: string = 'all') {
@@ -459,6 +484,16 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
 
     return (await response.json())
       .map(s => ({ id: s.tdei_service_id, name: s.service_name }));
+  }
+
+  async getProjectGroupUsers(projectGroupId: string): Promise<TdeiUserItem[]> {
+    const params = new URLSearchParams();
+    params.append('page_no', '1');
+    params.append('page_size', '10000');
+
+    const response = await this._get(`project-group/${projectGroupId}/users?${params}`);
+
+    return await response.json();
   }
 
   #setAuthHeader() {

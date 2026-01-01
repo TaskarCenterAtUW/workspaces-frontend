@@ -1,6 +1,7 @@
 export type WorkspaceId = number;
 export type WorkspaceType = 'osw' | 'pathways';
 export type WorkspaceAppAccess = 0 | 1 | 2;
+export type WorkspaceRole = 'lead' | 'validator' | 'contributor';
 
 export interface Workspace {
   id: WorkspaceId;
@@ -16,6 +17,7 @@ export interface Workspace {
   createdByName: string;
   externalAppAccess: WorkspaceAppAccess;
   kartaViewToken?: string;
+  role?: WorkspaceRole;
 }
 
 export interface WorkspaceCreation {
@@ -62,4 +64,9 @@ export interface User {
   auth_uid: string;
   email: string;
   display_name: string;
+}
+
+export interface WorkspaceMember {
+  user: User;
+  role: WorkspaceRole;
 }

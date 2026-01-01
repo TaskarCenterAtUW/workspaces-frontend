@@ -1,11 +1,27 @@
+export type TdeiRoleAssignment = string;
+
 export interface TdeiProjectGroupItem {
   tdei_project_group_id: string;
   name: string;
 }
 
+export interface TdeiProjectGroup extends TdeiProjectGroupItem {
+  roles: TdeiRoleAssignment[];
+}
+
 export interface TdeiDatasetItem {
   tdei_dataset_id: string;
   name: string;
+}
+
+export interface TdeiUserItem {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  username: string;
+  phone: string;
+  roles: TdeiRoleAssignment[];
 }
 
 export interface TdeiFeedback {
