@@ -36,4 +36,4 @@ npm run dev
 
 ## Troubleshooting
 
-If you run ```npm run dev``` and nothing happens, check that you've set your "exports" as above. Undefined environment variables are not handled gracefully right now. 
+If you run ```npm run dev``` and nothing happens, check that you've set your "exports" as above. Undefined environment variables are not handled gracefully right now.
