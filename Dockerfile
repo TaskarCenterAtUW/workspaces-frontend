@@ -1,4 +1,4 @@
-FROM node as builder
+FROM node:lts-slim AS builder
 
 # These are ARGs because nuxt bakes them into its minified version of the JS,
 # So they are actually set at build time vs. run-time
