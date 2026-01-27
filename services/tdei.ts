@@ -2,6 +2,17 @@ import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js'
 
 import { BaseHttpClient, BaseHttpClientError } from '~/services/http'
 import type { ICancelableClient } from '~/services/loading'
+import type {
+  DatasetArchive,
+  JwtBody,
+  TdeiAuthResponse,
+  TdeiConversionJob,
+  TdeiDataset,
+  TdeiDatasetInfo,
+  TdeiMetadata,
+  TdeiProjectGroup,
+  TdeiService,
+} from '~/types'
 
 const MIN_TOKEN_REFRESH_MS = 10 * 1000
 
@@ -13,7 +24,7 @@ function expiresAsDate(seconds: number) {
   return new Date(Date.now() + seconds * 1000)
 }
 
-function getJwtBody(accessToken: string) {
+function getJwtBody(accessToken: string): JwtBody {
   const bodyStart = accessToken.indexOf('.')
   const bodyEnd = accessToken.indexOf('.', bodyStart + 1)
 
@@ -21,8 +32,8 @@ function getJwtBody(accessToken: string) {
     throw new Error('Error parsing JWT body')
   }
 
-  let body = accessToken.substring(bodyStart + 1, bodyEnd)
-  body = JSON.parse(atob(body))
+  const bodyStr = accessToken.substring(bodyStart + 1, bodyEnd)
+  const body = JSON.parse(atob(bodyStr)) as JwtBody
 
   return body
 }
@@ -127,7 +138,9 @@ export class TdeiClientError extends Error {
 }
 
 export class TdeiConversionError extends Error {
-  constructor(job) {
+  job: TdeiConversionJob
+
+  constructor(job: TdeiConversionJob) {
     super(`TDEI conversion failed: ${job.message}`)
     this.job = job
   }
@@ -161,21 +174,21 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     return new TdeiClient(this._baseUrl, this.#auth, signal ?? this._abortSignal)
   }
 
-  async authenticate(username: string, password: string) {
+  async authenticate(username: string, password: string): Promise<void> {
     const response = await super._send('authenticate', 'POST', { username, password })
-    const body = await response.json()
+    const body = await response.json() as TdeiAuthResponse
 
     this.#setAuth(username, body)
   }
 
-  async refreshToken() {
+  async refreshToken(): Promise<void> {
     const response = await super._send('refresh-token', 'POST', this.#auth.refreshToken)
-    const body = await response.json()
+    const body = await response.json() as TdeiAuthResponse
 
     this.#setAuth(this.#auth.username, body)
   }
 
-  async tryRefreshAuth() {
+  async tryRefreshAuth(): Promise<boolean> {
     if (this.#auth.needsRefresh) {
       await this.refreshToken()
       return true
@@ -198,43 +211,50 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     clearTimeout(this.#refreshTimer)
   }
 
-  async getDatasetInfo(tdeiRecordId: string) {
+  async getDatasetInfo(tdeiRecordId: string): Promise<TdeiDataset> {
     const response = await this._get(`datasets?status=All&tdei_dataset_id=${tdeiRecordId}`)
 
-    return (await response.json())[0]
+    return (await response.json() as TdeiDataset[])[0]
   }
 
-  async getDatasetsByProjectGroupAndName(projectGroupId: string, name: string) {
+  async getDatasetsByProjectGroupAndName(projectGroupId: string, name: string): Promise<TdeiDatasetInfo[]> {
     const response = await this._get(`datasets?tdei_project_group_id=${projectGroupId}&name=${encodeURIComponent(name)}`)
 
-    return (await response.json())
-      .map(d => ({ id: d.tdei_dataset_id, name: d.metadata.dataset_detail.name, version: d.metadata.dataset_detail.version }))
+    return (await response.json() as TdeiDataset[])
+      .map(d => ({ id: d.tdei_dataset_id, name: d.metadata.dataset_detail?.name ?? '', version: d.metadata.dataset_detail?.version ?? '' }))
   }
 
-  async downloadOswDataset(tdeiRecordId: string, format: string = 'osw'): Blob {
+  async downloadOswDataset(tdeiRecordId: string, format: string = 'osw'): Promise<Blob> {
     const response = await this._sendTest(`osw/${tdeiRecordId}?format=${format}`, 'GET')
 
-    return (await response.blob())
+    return await response.blob()
   }
 
-  async downloadPathwaysDataset(tdeiDatasetId: string): Blob {
+  async downloadPathwaysDataset(tdeiDatasetId: string): Promise<Blob> {
     const response = await this._sendTest(`gtfs-pathways/${tdeiDatasetId}`, 'GET')
 
-    return (await response.blob())
+    return await response.blob()
   }
 
-  async openDatasetArchive(dataset: Blob) {
+  async openDatasetArchive(dataset: Blob): Promise<DatasetArchive> {
     const blobReader = new BlobReader(dataset)
     const zipReader = new ZipReader(blobReader)
     const entries = await zipReader.getEntries()
     const blobWriter = new BlobWriter()
 
-    const isDataset = filename => !filename.startsWith('changeset')
+    const isDataset = (filename: string): boolean => !filename.startsWith('changeset')
       && (filename.endsWith('.zip') || filename.endsWith('.xml'))
 
-    const out = {
-      dataset: await entries.find(e => isDataset(e.filename)).getData(blobWriter),
-      metadata: entries.find(e => e.filename.endsWith('.json')),
+    const datasetEntry = entries.find(e => isDataset(e.filename))
+    const metadataEntry = entries.find(e => e.filename.endsWith('.json'))
+
+    if (!datasetEntry) {
+      throw new Error('No dataset file found in archive')
+    }
+
+    const out: DatasetArchive = {
+      dataset: await datasetEntry.getData(blobWriter),
+      metadata: metadataEntry,
     }
 
     await zipReader.close()
@@ -246,9 +266,9 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     tdeiRecordId: string,
     projectGroupId: string,
     serviceId: string,
-    dataset,
-    metadata,
-  ) {
+    dataset: Blob,
+    metadata: TdeiMetadata,
+  ): Promise<string> {
     const body = new FormData()
     body.append('dataset', new File([dataset], 'dataset.zip', { type: 'application/x-zip-compressed' }))
     body.append('metadata', new File([JSON.stringify(metadata)], 'metadata.json', { type: 'application/json' }))
@@ -270,9 +290,9 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     tdeiRecordId: string,
     projectGroupId: string,
     serviceId: string,
-    dataset,
-    metadata,
-  ) {
+    dataset: Blob,
+    metadata: TdeiMetadata,
+  ): Promise<string> {
     const body = new FormData()
     body.append('dataset', new File([dataset], 'dataset.zip', { type: 'application/x-zip-compressed' }))
     body.append('metadata', new File([JSON.stringify(metadata)], 'metadata.json', { type: 'application/json' }))
@@ -295,7 +315,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     sourceFormat: string,
     targetFormat: string,
     projectGroupId: string,
-  ): Blob {
+  ): Promise<Blob> {
     const body = new FormData()
     body.append('source_format', sourceFormat)
     body.append('target_format', targetFormat)
@@ -303,7 +323,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     body.append('file', new File([dataset], filename))
 
     const jobResponse = await this._sendTest('osw/convert', 'POST', body)
-    const jobId = (await jobResponse.text())
+    const jobId = await jobResponse.text()
 
     while (true) {
       console.info(`Waiting for dataset conversion job ${jobId}...`)
@@ -315,7 +335,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
           Authorization: this._requestHeaders['Authorization'],
         },
       })
-      const statusBody = (await statusResponse.json())[0]
+      const statusBody = (await statusResponse.json() as TdeiConversionJob[])[0]
       const statusText = statusBody.status.toLowerCase()
 
       if (statusText === 'failed') {
@@ -332,7 +352,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     return await this.#unwrapConvertedDataset(await fileResponse.blob())
   }
 
-  async #unwrapConvertedDataset(zip: Blob) {
+  async #unwrapConvertedDataset(zip: Blob): Promise<Blob> {
     const zipReader = new ZipReader(new BlobReader(zip))
     const entries = await zipReader.getEntries()
     const out = await entries[0].getData(new BlobWriter())
@@ -342,7 +362,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     return out
   }
 
-  #setAuth(username: string, body: any) {
+  #setAuth(username: string, body: TdeiAuthResponse): void {
     const jwt = getJwtBody(body.access_token)
 
     this.#auth.username = username
@@ -365,15 +385,15 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     }
   }
 
-  async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
+  async _send(url: string, method: string, body?: unknown, config?: Record<string, unknown>): Promise<Response> {
     try {
       if (this.#auth.needsRefresh) {
         await this.refreshToken()
       }
 
-      return await super._send(url, method, body, config)
+      return await super._send(url, method as any, body as any, config as any)
     }
-    catch (e: any) {
+    catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {
         throw new TdeiClientError(e.response)
       }
@@ -402,17 +422,17 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     return new TdeiClient(this._baseUrl, this.#auth, signal ?? this._abortSignal)
   }
 
-  async getMyProjectGroups() {
+  async getMyProjectGroups(): Promise<TdeiProjectGroup[]> {
     const response = await this._get(`project-group-roles/${this.#auth.subject}`)
 
-    return (await response.json())
+    return (await response.json() as Array<{ tdei_project_group_id: string, project_group_name: string }>)
       .map(p => ({ id: p.tdei_project_group_id, name: p.project_group_name }))
   }
 
-  async getMyServices(projectGroupId: string, type: string = 'all') {
+  async getMyServices(projectGroupId: string, type: string = 'all'): Promise<TdeiService[]> {
     const response = await this._get(`service?tdei_project_group_id=${projectGroupId}&service_type=${type}`)
 
-    return (await response.json())
+    return (await response.json() as Array<{ tdei_service_id: string, service_name: string }>)
       .map(s => ({ id: s.tdei_service_id, name: s.service_name }))
   }
 
@@ -422,14 +442,14 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     }
   }
 
-  async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
+  async _send(url: string, method: string, body?: unknown, config?: Record<string, unknown>): Promise<Response> {
     try {
       await this.#tdeiClient.tryRefreshAuth()
       this.#setAuthHeader()
 
-      return await super._send(url, method, body, config)
+      return await super._send(url, method as any, body as any, config as any)
     }
-    catch (e: any) {
+    catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {
         throw new TdeiUserClientError(e.response)
       }

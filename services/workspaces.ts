@@ -3,9 +3,10 @@ import type { ICancelableClient } from '~/services/loading'
 import type { OsmApiClient } from '~/services/osm'
 import { buildPathwaysCsvArchive } from '~/services/pathways'
 import type { TdeiClient } from '~/services/tdei'
+import type { ImagerySettings, LongFormQuestSettings, OSMElement, Workspace } from '~/types'
 
-export function compareWorkspaceCreatedAtDesc(a, b) {
-  return b.createdAt - a.createdAt
+export function compareWorkspaceCreatedAtDesc(a: Workspace, b: Workspace): number {
+  return b.createdAt.getTime() - a.createdAt.getTime()
 }
 
 export class WorkspacesClientError extends Error {
@@ -46,7 +47,7 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     )
   }
 
-  async getMyWorkspaces() {
+  async getMyWorkspaces(): Promise<Workspace[]> {
     const response = await this._get('workspaces/mine')
     const workspaces = (await response.json()) ?? []
 
@@ -55,13 +56,13 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
       workspace.tdeiMetadata = JSON.parse(workspace.tdeiMetadata || '{}')
     }
 
-    return workspaces
+    return workspaces as Workspace[]
   }
 
-  async getWorkspace(id: number) {
+  async getWorkspace(id: number): Promise<Workspace | null> {
     try {
       const response = await this._get(`workspaces/${id}`)
-      return await response.json()
+      return await response.json() as Workspace
     }
     catch {
       return null
@@ -72,22 +73,22 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     return this.#osmClient.getWorkspaceBbox(id)
   }
 
-  async createWorkspace(workspace): Promise<number> {
+  async createWorkspace(workspace: Partial<Workspace>): Promise<number> {
     workspace.createdBy = this.#tdeiClient.auth.subject
     workspace.createdByName = this.#tdeiClient.auth.displayName
 
     const workspaceResponse = await this._post('workspaces', workspace)
-    const workspaceId = (await workspaceResponse.json()).workspaceId
+    const workspaceId = (await workspaceResponse.json()).workspaceId as number
     await this.#osmClient.createWorkspace(workspaceId)
 
     return workspaceId
   }
 
-  async updateWorkspace(id: number, workspaceDetails: object): Promise {
+  async updateWorkspace(id: number, workspaceDetails: Partial<Workspace>): Promise<void> {
     await this._patch(`workspaces/${id}`, workspaceDetails)
   }
 
-  async exportWorkspaceArchive(workspace): Promise<Blob> {
+  async exportWorkspaceArchive(workspace: Workspace): Promise<Blob> {
     if (workspace.type === 'pathways') {
       const elements = await this.#osmClient.getWorkspaceData(workspace.id)
       return await buildPathwaysCsvArchive(elements)
@@ -98,28 +99,28 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     return await this.#tdeiClient.convertDataset(osm, 'osm', 'osw', workspace.tdeiProjectGroupId)
   }
 
-  async deleteWorkspace(id: number): Promise {
+  async deleteWorkspace(id: number): Promise<void> {
     await Promise.all([
       this._delete(`workspaces/${id}`),
       this.#osmClient.deleteWorkspace(id),
     ])
   }
 
-  async getLongFormQuestSettings(workspaceId: number) {
+  async getLongFormQuestSettings(workspaceId: number): Promise<LongFormQuestSettings> {
     const response = this._get(`workspaces/${workspaceId}/quests/long/settings`)
     return response.then((data) => {
       // case when no existing settings exist, just show empty form
       if (data.status === 204) return {}
-      return data.json()
+      return data.json() as Promise<LongFormQuestSettings>
     })
   }
 
-  async saveLongFormQuestSettings(workspaceId: number, settings: object): Promise<void> {
-    this._patch(`workspaces/${workspaceId}/quests/long/settings`, settings)
+  async saveLongFormQuestSettings(workspaceId: number, settings: LongFormQuestSettings): Promise<void> {
+    await this._patch(`workspaces/${workspaceId}/quests/long/settings`, settings)
   }
 
-  async saveImageryDefSettings(workspaceId: number, settings: object): Promise<void> {
-    this._patch(`workspaces/${workspaceId}/imagery/settings`, settings)
+  async saveImageryDefSettings(workspaceId: number, settings: ImagerySettings): Promise<void> {
+    await this._patch(`workspaces/${workspaceId}/imagery/settings`, settings)
   }
 
   #setAuthHeader() {
@@ -128,12 +129,12 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     }
   }
 
-  override async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
+  override async _send(url: string, method: string, body?: unknown, config?: Record<string, unknown>): Promise<Response> {
     try {
       await this.#tdeiClient.tryRefreshAuth()
       this.#setAuthHeader()
 
-      return await super._send(url, method, body, config)
+      return await super._send(url, method as any, body as any, config as any)
     }
     catch (e) {
       if (e instanceof BaseHttpClientError) {

@@ -2,6 +2,7 @@ import { type OsmApiClient, OsmApiClientError, osm2osc } from '~/services/osm'
 import { openTdeiPathwaysArchive, pathways2osc } from '~/services/pathways'
 import { type TdeiClient, TdeiClientError } from '~/services/tdei'
 import { type WorkspacesClient, WorkspacesClientError } from '~/services/workspaces'
+import type { Workspace } from '~/types'
 
 const status = {
   idle: 'Idle',
@@ -47,29 +48,30 @@ export class TdeiImporter {
     return this._context
   }
 
-  async import(workspace): Promise<number> {
+  async import(workspace: Partial<Workspace>): Promise<number | undefined> {
     this._context.reset()
     this._context.active = true
 
     try {
       return await this._run(workspace)
     }
-    catch (e: any) {
+    catch (e: unknown) {
       await this._handleError(e)
+      return undefined
     }
     finally {
       this._context.active = false
     }
   }
 
-  async _run(workspace): Promise<number> {
+  async _run(workspace: Partial<Workspace>): Promise<number> {
     // Create the workspace in parallel:
     const workspacePromise = this._workspacesClient.createWorkspace(workspace)
 
     this._context.status = status.downloadDataset
     const datasetZip = workspace.type === 'osw'
-      ? await this._tdeiClient.downloadOswDataset(workspace.tdeiRecordId, 'osm')
-      : await this._tdeiClient.downloadPathwaysDataset(workspace.tdeiRecordId)
+      ? await this._tdeiClient.downloadOswDataset(workspace.tdeiRecordId!, 'osm')
+      : await this._tdeiClient.downloadPathwaysDataset(workspace.tdeiRecordId!)
 
     this._context.status = status.extractDataset
     const { dataset } = await this._tdeiClient.openDatasetArchive(datasetZip)
@@ -91,7 +93,7 @@ export class TdeiImporter {
     return workspaceId
   }
 
-  async _handleError(e: any) {
+  async _handleError(e: unknown): Promise<void> {
     this._context.error = 'Unexpected error: '
 
     if (e instanceof TdeiClientError
@@ -101,7 +103,7 @@ export class TdeiImporter {
       this._context.error += await e.response.text()
     }
     else {
-      this._context.error += e.toString()
+      this._context.error += String(e)
     }
   }
 }

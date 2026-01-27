@@ -7,9 +7,11 @@ export class BaseHttpClientError extends Error {
   }
 }
 
+import type { HttpMethod, RequestBody, RequestConfig } from '~/types'
+
 export abstract class BaseHttpClient {
   _baseUrl: string
-  _requestHeaders = {
+  _requestHeaders: Record<string, string> = {
     'Accept': 'application/json',
     'Authorization': '',
     'Content-Type': 'application/json',
@@ -22,34 +24,34 @@ export abstract class BaseHttpClient {
     this._abortSignal = signal
   }
 
-  url(rest: string) {
+  url(rest: string): string {
     return this._baseUrl + rest
   }
 
-  _get(url: string, config?: object): Promise<Response> {
+  _get(url: string, config?: RequestConfig): Promise<Response> {
     return this._send(url, 'GET', undefined, config)
   }
 
-  _post(url: string, body: any, config?: object): Promise<Response> {
+  _post(url: string, body: RequestBody, config?: RequestConfig): Promise<Response> {
     return this._send(url, 'POST', body, config)
   }
 
-  _put(url: string, body: any, config?: object): Promise<Response> {
+  _put(url: string, body: RequestBody, config?: RequestConfig): Promise<Response> {
     return this._send(url, 'PUT', body, config)
   }
 
-  _patch(url: string, body: any, config?: object): Promise<Response> {
+  _patch(url: string, body: RequestBody, config?: RequestConfig): Promise<Response> {
     return this._send(url, 'PATCH', body, config)
   }
 
-  _delete(url: string, config?: object): Promise<Response> {
+  _delete(url: string, config?: RequestConfig): Promise<Response> {
     return this._send(url, 'DELETE', undefined, config)
   }
 
-  async _sendTest(url: string, method: string, body?: any): Promise<Response> {
+  async _sendTest(url: string, method: HttpMethod, body?: RequestBody): Promise<Response> {
     const response = await fetch(this.url(url), {
       method,
-      body,
+      body: body as BodyInit | null | undefined,
       headers: {
         Accept: 'application/text',
         Authorization: this._requestHeaders.Authorization,
@@ -63,21 +65,23 @@ export abstract class BaseHttpClient {
     return response
   }
 
-  async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
-    const requestOptions = {
-      method,
-      body,
-      headers: this._requestHeaders,
-      signal: this._abortSignal,
-      ...config,
-    }
+  async _send(url: string, method: HttpMethod, body?: RequestBody, config?: RequestConfig): Promise<Response> {
+    let processedBody: BodyInit | null | undefined = body as BodyInit | null | undefined
 
-    if (requestOptions.headers['Content-Type'] === 'application/json'
+    if (this._requestHeaders['Content-Type'] === 'application/json'
       && !(body instanceof FormData)
       && typeof body !== 'undefined'
       && body !== null
     ) {
-      requestOptions.body = JSON.stringify(body)
+      processedBody = JSON.stringify(body)
+    }
+
+    const requestOptions: RequestInit = {
+      method,
+      body: processedBody,
+      headers: this._requestHeaders,
+      signal: this._abortSignal,
+      ...config,
     }
 
     const response = await fetch(this.url(url), requestOptions)

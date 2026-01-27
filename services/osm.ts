@@ -1,6 +1,7 @@
 import { BaseHttpClient, BaseHttpClientError } from '~/services/http'
 import type { ICancelableClient } from '~/services/loading'
 import type { TdeiClient } from '~/services/tdei'
+import type { OSMBoundingBox, OSMElement } from '~/types'
 import * as xml from '~/util/xml'
 
 function formatFeatureIdPlaceholder(attributeName: string, feature: Element) {
@@ -37,11 +38,11 @@ function formatFeatureIdPlaceholders(feature: Element) {
   }
 }
 
-function cleanOscForDemo(features: Element[]) {
-  const nodeIds = new Set()
-  const ways = []
-  const wayIds = new Set()
-  const relations = []
+function cleanOscForDemo(features: Element[]): void {
+  const nodeIds = new Set<string | null>()
+  const ways: Element[] = []
+  const wayIds = new Set<string | null>()
+  const relations: Element[] = []
 
   for (const node of features) {
     if (node.tagName === 'node') {
@@ -115,26 +116,26 @@ function cleanOscForDemo(features: Element[]) {
 
 export function osm2osc(changesetId: number, osmXml: string): string {
   const osmDoc = xml.parse(osmXml)
-  const features = []
+  const features: Element[] = []
 
   // Filter features and build an intermediate collection. Appending
   // nodes to another document will break this iterator:
-  for (const feature of osmDoc.firstChild.children) {
+  for (const feature of osmDoc.firstChild!.children) {
     if (feature.nodeType === Node.TEXT_NODE) {
       continue
     }
 
-    features.push(feature)
+    features.push(feature as Element)
   }
 
   const oscDoc = xml.parse(
     '<osmChange version="0.6"><create /><modify /><delete /></osmChange>',
     'application/xml',
   )
-  const createNode = oscDoc.firstChild.firstChild
+  const createNode = oscDoc.firstChild!.firstChild!
 
   for (const feature of features) {
-    feature.setAttribute('changeset', changesetId)
+    feature.setAttribute('changeset', String(changesetId))
     formatFeatureIdPlaceholders(feature)
 
     createNode.appendChild(feature)
@@ -187,11 +188,11 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     )
   }
 
-  webUrl(rest: string) {
+  webUrl(rest: string): string {
     return this.#webUrl + rest
   }
 
-  async provisionUser() {
+  async provisionUser(): Promise<void> {
     const body = {
       email: this.auth.email,
       display_name: this.auth.displayName,
@@ -202,25 +203,25 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     })
   }
 
-  async createWorkspace(workspaceId: number) {
+  async createWorkspace(workspaceId: number): Promise<void> {
     await this._put(`workspaces/${workspaceId}`)
   }
 
-  async deleteWorkspace(workspaceId: number) {
+  async deleteWorkspace(workspaceId: number): Promise<void> {
     await this._delete(`workspaces/${workspaceId}`)
   }
 
-  async getWorkspaceBbox(id: number) {
+  async getWorkspaceBbox(id: number): Promise<OSMBoundingBox | undefined> {
     const response = await this._get(`workspaces/${id}/bbox.json`)
 
     if (response.status === 204) {
       return undefined
     }
 
-    return await response.json()
+    return await response.json() as OSMBoundingBox
   }
 
-  async getExportBbox(id: number) {
+  async getExportBbox(id: number): Promise<string | undefined> {
     const bbox = await this.getWorkspaceBbox(id)
 
     if (bbox === undefined) {
@@ -241,42 +242,42 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return `${bbox.min_lon},${bbox.min_lat},${bbox.max_lon + pad},${bbox.max_lat + pad}`
   }
 
-  async createChangeset(workspaceId: number): number {
+  async createChangeset(workspaceId: number): Promise<number> {
     const doc = xml.parse('<osm><changeset></changeset></osm>')
-    const changesetNode = doc.firstChild.firstChild
-    changesetNode.appendChild(xml.makeNode(doc, 'tag', { k: 'workspace', v: workspaceId }))
+    const changesetNode = doc.firstChild!.firstChild!
+    changesetNode.appendChild(xml.makeNode(doc, 'tag', { k: 'workspace', v: String(workspaceId) }))
     changesetNode.appendChild(xml.makeNode(doc, 'tag', { k: 'comment', v: 'Import workspace' }))
     changesetNode.appendChild(xml.makeNode(doc, 'tag', { k: 'created_by', v: 'TDEI Workspaces' }))
 
     const body = xml.serialize(doc)
     const response = await this._put('changeset/create', body, {
-      headers: { ...this._requestHeaders, 'X-Workspace': workspaceId },
+      headers: { ...this._requestHeaders, 'X-Workspace': String(workspaceId) },
     })
 
     return Number(await response.text())
   }
 
-  async uploadChangeset(workspaceId: number, changesetId: number, changesetXml: string) {
+  async uploadChangeset(workspaceId: number, changesetId: number, changesetXml: string): Promise<void> {
     await this._post(`changeset/${changesetId}/upload`, changesetXml, {
       headers: {
         'Content-Type': 'application/xml',
         'Authorization': this._requestHeaders['Authorization'],
-        'X-Workspace': workspaceId,
+        'X-Workspace': String(workspaceId),
       },
     })
   }
 
-  async getWorkspaceData(workspaceId: number): Promise<Array> {
+  async getWorkspaceData(workspaceId: number): Promise<OSMElement[]> {
     const bboxParam = await this.getExportBbox(workspaceId)
     const response = await this._get(`map.json?bbox=${bboxParam}`, {
       headers: {
         ...this._requestHeaders,
         'Accept': 'application/json',
-        'X-Workspace': workspaceId,
+        'X-Workspace': String(workspaceId),
       },
     })
 
-    return (await response.json()).elements
+    return (await response.json() as { elements: OSMElement[] }).elements
   }
 
   async exportWorkspaceXml(workspaceId: number): Promise<Blob> {
@@ -285,7 +286,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
       headers: {
         ...this._requestHeaders,
         'Accept': 'application/xml',
-        'X-Workspace': workspaceId,
+        'X-Workspace': String(workspaceId),
       },
     })
 
@@ -298,18 +299,18 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     }
   }
 
-  async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
+  async _send(url: string, method: string, body?: unknown, config?: Record<string, unknown>): Promise<Response> {
     try {
       await this.#tdeiClient.tryRefreshAuth()
       this.#setAuthHeader()
 
       const requestOptions = {
-        credentials: 'include',
+        credentials: 'include' as RequestCredentials,
       }
 
-      return await super._send(url, method, body, { ...requestOptions, ...config })
+      return await super._send(url, method as any, body as any, { ...requestOptions, ...config })
     }
-    catch (e: any) {
+    catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {
         throw new OsmApiClientError(e.response)
       }

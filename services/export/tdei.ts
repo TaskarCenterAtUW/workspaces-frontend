@@ -1,6 +1,7 @@
 import type { OsmApiClient } from '~/services/osm'
 import { buildPathwaysCsvArchive, openTdeiPathwaysArchive } from '~/services/pathways'
 import { type TdeiClient, TdeiClientError, TdeiConversionError } from '~/services/tdei'
+import type { TdeiMetadata, Workspace } from '~/types'
 import * as geojson from '~/util/geojson'
 
 const status = {
@@ -45,14 +46,14 @@ export class TdeiExporter {
     return this._context
   }
 
-  async upload(workspace, metadata): Promise<number> {
+  async upload(workspace: Workspace, metadata: TdeiMetadata): Promise<number | undefined> {
     this._context.reset()
     this._context.active = true
 
     try {
       return await this._run(workspace, metadata)
     }
-    catch (e: any) {
+    catch (e: unknown) {
       if (this._context.status === status.convertOsm) {
         this._context.error = 'Conversion job failed: '
       }
@@ -70,15 +71,17 @@ export class TdeiExporter {
         this._context.error += e.job.message
       }
       else {
-        this._context.error += e.toString()
+        this._context.error += String(e)
       }
+
+      return undefined
     }
     finally {
       this._context.active = false
     }
   }
 
-  async _run(workspace, metadata): Promise<number> {
+  async _run(workspace: Workspace, metadata: TdeiMetadata): Promise<number> {
     if (!metadata.dataset_area) {
       this._context.status = status.bbox
       const bbox = await this._osmClient.getWorkspaceBbox(workspace.id)
@@ -98,7 +101,7 @@ export class TdeiExporter {
     return await this._exportOswToTdei(workspace, metadata)
   }
 
-  async _exportOswToTdei(workspace, metadata): Promise<number> {
+  async _exportOswToTdei(workspace: Workspace, metadata: TdeiMetadata): Promise<number> {
     this._context.status = status.exportOsm
     const osm = await this._osmClient.exportWorkspaceXml(workspace.id)
 
@@ -107,19 +110,19 @@ export class TdeiExporter {
 
     this._context.status = status.upload
     const jobId = await this._tdeiClient.uploadOswDataset(
-      (await this._filterNonexistentDataset(workspace.tdeiRecordId)),
+      await this._filterNonexistentDataset(workspace.tdeiRecordId),
       workspace.tdeiProjectGroupId,
-      workspace.tdeiServiceId,
+      workspace.tdeiServiceId!,
       oswZip,
       { dataset_detail: metadata },
     )
 
     this._context.status = status.complete
 
-    return jobId
+    return Number(jobId)
   }
 
-  async _exportPathwaysToTdei(workspace, metadata): Promise<number> {
+  async _exportPathwaysToTdei(workspace: Workspace, metadata: TdeiMetadata): Promise<number> {
     this._context.status = status.exportOsm
     const elements = await this._osmClient.getWorkspaceData(workspace.id)
     const derivedFromDatasetId = await this._filterNonexistentDataset(workspace.tdeiRecordId)
@@ -130,19 +133,23 @@ export class TdeiExporter {
 
     this._context.status = status.upload
     const jobId = await this._tdeiClient.uploadPathwaysDataset(
-      derivedFromDatasetId,
+      derivedFromDatasetId ?? '',
       workspace.tdeiProjectGroupId,
-      workspace.tdeiServiceId,
+      workspace.tdeiServiceId!,
       csvZip,
       { dataset_detail: metadata },
     )
 
     this._context.status = status.complete
 
-    return jobId
+    return Number(jobId)
   }
 
-  async _filterNonexistentDataset(tdeiRecordId: string): Promise<boolean> {
+  async _filterNonexistentDataset(tdeiRecordId: string | undefined): Promise<string> {
+    if (!tdeiRecordId) {
+      return ''
+    }
+
     const oldStatus = this._context.status
 
     this._context.status = status.checkDerived
@@ -153,10 +160,10 @@ export class TdeiExporter {
       return tdeiRecordId
     }
 
-    return undefined
+    return ''
   }
 
-  async _fetchPathwaysDataset(tdeiRecordId: string) {
+  async _fetchPathwaysDataset(tdeiRecordId: string | undefined): Promise<Map<string, any> | undefined> {
     if (!tdeiRecordId) {
       return undefined
     }
