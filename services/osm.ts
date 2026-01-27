@@ -308,7 +308,12 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
         credentials: 'include' as RequestCredentials,
       }
 
-      return await super._send(url, method as any, body as any, { ...requestOptions, ...config })
+      return await super._send(
+        url,
+        method as string,
+        body,
+        { ...requestOptions, ...config } as Record<string, unknown>,
+      )
     }
     catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {

@@ -1,3 +1,5 @@
+import type { HttpMethod, RequestBody, RequestConfig } from '~/types'
+
 export class BaseHttpClientError extends Error {
   response: Response
 
@@ -6,8 +8,6 @@ export class BaseHttpClientError extends Error {
     this.response = response
   }
 }
-
-import type { HttpMethod, RequestBody, RequestConfig } from '~/types'
 
 export abstract class BaseHttpClient {
   _baseUrl: string

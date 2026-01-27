@@ -11,12 +11,6 @@
       Edit
     </nuxt-link>
     <div class="btn-group">
-      <!--
-      <a :href="tasksHref" class="btn" target="_blank">
-        <app-icon variant="checklist" size="24" />
-        <span class="d-none d-sm-inline">Tasks</span>
-      </a>
-      -->
       <nuxt-link
         class="btn"
         :to="exportRoute"

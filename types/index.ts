@@ -1,8 +1,10 @@
 // Shared TypeScript type definitions for the workspaces application
 
+// internal record to manage workspace attributes
 export interface Workspace {
   id: number
   name: string
+  title?: string
   type: 'osw' | 'pathways'
   createdAt: Date
   createdBy: string
@@ -11,6 +13,18 @@ export interface Workspace {
   tdeiMetadata: TdeiMetadata | Record<string, unknown>
   tdeiRecordId?: string
   datasetName?: string
+  externalAppAccess?: number
+  imageryListDef?: unknown
+}
+
+// TDEI API DTOs
+export interface TdeiDataset {
+  tdei_dataset_id: string
+  tdei_project_group_id: string
+  name: string
+  metadata: TdeiMetadata
+  status: string
+  [key: string]: unknown
 }
 
 export interface TdeiMetadata {
@@ -21,15 +35,6 @@ export interface TdeiMetadata {
     version?: string
     [key: string]: unknown
   }
-  [key: string]: unknown
-}
-
-export interface TdeiDataset {
-  tdei_dataset_id: string
-  tdei_project_group_id: string
-  name: string
-  metadata: TdeiMetadata
-  status: string
   [key: string]: unknown
 }
 
@@ -49,7 +54,7 @@ export interface TdeiService {
   name: string
 }
 
-export interface TdeiConversionJob {
+export interface TdeiConversionJobResponse {
   job_id: string
   status: string
   message: string
@@ -102,22 +107,5 @@ export interface LongFormQuestSettings {
 }
 
 export interface ImagerySettings {
-  [key: string]: unknown
-}
-
-// HTTP Client types
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-
-export type RequestBody =
-  | Record<string, unknown>
-  | FormData
-  | Blob
-  | string
-  | null
-  | undefined
-
-export interface RequestConfig {
-  headers?: Record<string, string>
-  signal?: AbortSignal
   [key: string]: unknown
 }

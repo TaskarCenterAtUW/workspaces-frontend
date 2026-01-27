@@ -163,7 +163,7 @@ export class TdeiExporter {
     return ''
   }
 
-  async _fetchPathwaysDataset(tdeiRecordId: string | undefined): Promise<Map<string, any> | undefined> {
+  async _fetchPathwaysDataset(tdeiRecordId: string | undefined): Promise<Map<string, unknown> | undefined> {
     if (!tdeiRecordId) {
       return undefined
     }

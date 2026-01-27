@@ -3,7 +3,7 @@ import type { ICancelableClient } from '~/services/loading'
 import type { OsmApiClient } from '~/services/osm'
 import { buildPathwaysCsvArchive } from '~/services/pathways'
 import type { TdeiClient } from '~/services/tdei'
-import type { ImagerySettings, LongFormQuestSettings, OSMElement, Workspace } from '~/types'
+import type { ImagerySettings, LongFormQuestSettings, Workspace } from '~/types'
 
 export function compareWorkspaceCreatedAtDesc(a: Workspace, b: Workspace): number {
   return b.createdAt.getTime() - a.createdAt.getTime()
@@ -134,7 +134,7 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
       await this.#tdeiClient.tryRefreshAuth()
       this.#setAuthHeader()
 
-      return await super._send(url, method as any, body as any, config as any)
+      return await super._send(url, method, body, config)
     }
     catch (e) {
       if (e instanceof BaseHttpClientError) {

@@ -391,7 +391,12 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
         await this.refreshToken()
       }
 
-      return await super._send(url, method as any, body as any, config as any)
+      return await super._send(
+        url,
+        method as string,
+        body as BodyInit | undefined,
+        config as Record<string, unknown> | undefined,
+      )
     }
     catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {
@@ -447,7 +452,12 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
       await this.#tdeiClient.tryRefreshAuth()
       this.#setAuthHeader()
 
-      return await super._send(url, method as any, body as any, config as any)
+      return await super._send(
+        url,
+        method as string,
+        body as BodyInit | undefined,
+        config as Record<string, unknown> | undefined,
+      )
     }
     catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {
