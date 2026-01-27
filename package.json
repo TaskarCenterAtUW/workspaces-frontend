@@ -12,6 +12,8 @@
   "dependencies": {
     "@osmcha/maplibre-adiff-viewer": "^1.3.1",
     "@osmcha/osmchange-parser": "^1.0.0",
+    "@sentry/integrations": "^7.114.0",
+    "@sentry/nuxt": "^10.32.1",
     "@zip.js/zip.js": "^2.7.41",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
