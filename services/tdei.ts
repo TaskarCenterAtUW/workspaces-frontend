@@ -5,11 +5,6 @@ import type { ICancelableClient } from '~/services/loading';
 
 const MIN_TOKEN_REFRESH_MS = 10 * 1000;
 
-const FILENAME_FORMAT_MAP = new Map([
-  ['osw', 'osw.zip'],
-  ['osm', 'osm.xml']
-]);
-
 function refreshTokenActive(refreshExpiresAt: Date) {
   return refreshExpiresAt > new Date(Date.now() + MIN_TOKEN_REFRESH_MS);
 }
@@ -334,17 +329,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
 
     const fileResponse = await this._sendTest(`job/download/${jobId}`, 'GET');
 
-    return await this.#unwrapConvertedDataset(await fileResponse.blob());
-  }
-
-  async #unwrapConvertedDataset(zip: Blob) {
-    const zipReader = new ZipReader(new BlobReader(zip));
-    const entries = await zipReader.getEntries();
-    const out =  await entries[0].getData(new BlobWriter());
-
-    await zipReader.close();
-
-    return out;
+    return await fileResponse.blob();
   }
 
   #setAuth(username: string, body: any) {
