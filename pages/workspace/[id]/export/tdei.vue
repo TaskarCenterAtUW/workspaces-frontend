@@ -101,7 +101,7 @@ async function upload() {
 		"collection_date": new Date().toISOString(),
 		"collection_method": oldMetadata.collection_method ?? 'manual',
 		"data_source": oldMetadata.data_source ?? '3rdParty',
-		"schema_version": workspace.type === 'osw' ? 'v0.2' : 'v1.0',
+		"schema_version": workspace.type === 'osw' ? 'v0.3' : 'v1.0',
 		"dataset_area": oldMetadata.dataset_area
 	};
 
