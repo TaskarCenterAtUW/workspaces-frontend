@@ -338,7 +338,7 @@ function clearImageryMessages() {
   externalAppSaveStatus.value = null
 }
 
-async function save(details) {
+async function save(details: Partial<Workspace>) {
   await workspacesClient.updateWorkspace(workspaceId, details)
 }
 
@@ -358,8 +358,8 @@ const imageryExampleUrl = import.meta.env.VITE_IMAGERY_EXAMPLE_URL
 const longFormQuestSchemaUrl = import.meta.env.VITE_LONG_FORM_QUEST_SCHEMA
 const longFormQuestExampleUrl = import.meta.env.VITE_LONG_FORM_QUEST_EXAMPLE_URL
 
-const imagerySchema = ref<any>(null)
-const longFormQuestSchema = ref<any>(null)
+const imagerySchema = ref<Record<string, unknown> | null>(null)
+const longFormQuestSchema = ref<Record<string, unknown> | null>(null)
 
 function handleFileDrop(
   event: DragEvent,
@@ -406,9 +406,9 @@ function onQuestFileDrop(event: DragEvent) {
 async function validateJson(
   jsonString: string | undefined,
   schemaUrl: string,
-  cachedSchema: Ref<any>,
+  cachedSchema: Ref<Record<string, unknown> | null>,
   definitionName: string,
-): Promise<{ data: any | null, error: string | null }> {
+): Promise<{ data: unknown | null, error: string | null }> {
   if (!jsonString) {
     return { data: null, error: null }
   }
@@ -435,10 +435,11 @@ async function validateJson(
     try {
       parsedJson = JSON.parse(jsonString)
     }
-    catch (e: any) {
+    catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e)
       return {
         data: null,
-        error: `${definitionName} is not valid JSON: ${e.message}`,
+        error: `${definitionName} is not valid JSON: ${message}`,
       }
     }
 
@@ -457,10 +458,11 @@ async function validateJson(
 
     return { data: parsedJson, error: null }
   }
-  catch (e: any) {
+  catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e)
     return {
       data: null,
-      error: `Failed to validate ${definitionName.toLowerCase()}: ${e.message}`,
+      error: `Failed to validate ${definitionName.toLowerCase()}: ${message}`,
     }
   }
 }

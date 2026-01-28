@@ -92,8 +92,12 @@ for (const w of workspaces) {
 }
 
 onMounted(() => {
-  watch(currentWorkspace, (val) => { lastWorkspaceId = val.id })
-  watch(currentProjectGroup, (val) => { lastProjectGroupId = val })
+  watch(currentWorkspace, (val) => {
+    lastWorkspaceId = val.id
+  })
+  watch(currentProjectGroup, (val) => {
+    lastProjectGroupId = val
+  })
   watch(currentWorkspaces, onCurrentWorkspacesChange)
 
   autoSelectPreferredView()

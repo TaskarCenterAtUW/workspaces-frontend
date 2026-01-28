@@ -2,6 +2,7 @@ import { type OsmApiClient, OsmApiClientError, osm2osc } from '~/services/osm'
 import { openTdeiPathwaysArchive, pathways2osc } from '~/services/pathways'
 import { type TdeiClient, TdeiClientError, TdeiConversionError } from '~/services/tdei'
 import { type WorkspacesClient, WorkspacesClientError } from '~/services/workspaces'
+import type { Workspace } from '~/types'
 
 const status = {
   idle: 'Idle',
@@ -46,25 +47,26 @@ export class FileImporter {
     return this._context
   }
 
-  async import(data: Blob, workspace): Promise<number> {
+  async import(data: Blob, workspace: Partial<Workspace>): Promise<number | undefined> {
     this._context.reset()
     this._context.active = true
 
     try {
       return await this._run(data, workspace)
     }
-    catch (e: any) {
+    catch (e: unknown) {
       await this._handleError(e)
+      return undefined
     }
     finally {
       this._context.active = false
     }
   }
 
-  async _run(data: Blob, workspace): Promise<number> {
+  async _run(data: Blob, workspace: Partial<Workspace>): Promise<number> {
     if (workspace.type === 'osw') {
       this._context.status = status.convertOsm
-      data = await this._tdeiClient.convertDataset(data, 'osw', 'osm', workspace.tdeiProjectGroupId)
+      data = await this._tdeiClient.convertDataset(data, 'osw', 'osm', workspace.tdeiProjectGroupId!)
     }
 
     this._context.status = status.createWorkspace
@@ -84,7 +86,7 @@ export class FileImporter {
     return workspaceId
   }
 
-  async _handleError(e: any) {
+  async _handleError(e: unknown): Promise<void> {
     if (this._context.status === status.convertOsm) {
       this._context.error = 'Conversion job failed: '
     }
@@ -102,7 +104,7 @@ export class FileImporter {
       this._context.error += e.job.message
     }
     else {
-      this._context.error += e.toString()
+      this._context.error += String(e)
     }
   }
 }

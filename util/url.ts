@@ -1,8 +1,8 @@
-export function isHttpUrl(input: any): boolean {
+export function isHttpUrl(input: unknown): boolean {
   let url: URL
 
   try {
-    url = new URL(input)
+    url = new URL(input as string)
   }
   catch {
     return false

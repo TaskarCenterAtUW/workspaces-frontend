@@ -31,5 +31,5 @@
 </template>
 
 <script setup lang="ts">
-const model = defineModel({ required: true })
+const model = defineModel<string>({ required: true })
 </script>

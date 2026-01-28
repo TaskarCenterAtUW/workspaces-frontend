@@ -17,7 +17,7 @@
 <script setup lang="ts">
 import { tdeiUserClient } from '~/services/index'
 
-const model = defineModel({ required: true })
+const model = defineModel<string>({ required: true })
 const projectGroups = (await tdeiUserClient.getMyProjectGroups())
   .sort((a, b) => a.name.localeCompare(b.name))
 
