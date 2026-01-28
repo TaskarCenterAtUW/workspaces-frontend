@@ -44,5 +44,4 @@ export default defineNuxtConfig({
     debug: (process.env.ENV === 'dev' || process.env.ENV === 'local'),
     environment: process.env.ENV || 'unknown',
   },
-
 })
