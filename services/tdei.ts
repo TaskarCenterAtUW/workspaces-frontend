@@ -169,10 +169,13 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async refreshToken() {
-    const response = await super._send('refresh-token', 'POST', this.#auth.refreshToken);
-    const body = await response.json();
+    const response = await super._post('refresh-token', this.#auth.refreshToken);
 
-    this.#setAuth(this.#auth.username, body);
+    if (response.status === 401) {
+      this.#auth.clear();
+    }
+
+    this.#setAuth(this.#auth.username, await response.json());
   }
 
   async tryRefreshAuth() {
@@ -188,7 +191,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     this.stopAutoAuthRefresh();
 
     if (!this.#auth.refreshTokenExpired) {
-      const refreshFn = this.refreshToken.bind(this);
+      const refreshFn = this.#onAutoRefreshToken.bind(this);
       this.#refreshTimer = setTimeout(refreshFn, this.#auth.nextRefreshMs);
       console.info(`Refreshing TDEI tokens in ${this.#auth.nextRefreshMs} ms.`)
     }
@@ -196,6 +199,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
 
   stopAutoAuthRefresh() {
     clearTimeout(this.#refreshTimer);
+    this.#refreshTimer = undefined;
   }
 
   async getDatasetInfo(tdeiRecordId: string) {
@@ -346,12 +350,23 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     this.#auth.store();
 
     this.#setAuthHeader();
-    this.restartAutoAuthRefresh();
+
+    if (this.#refreshTimer) {
+      this.restartAutoAuthRefresh();
+    }
   }
 
   #setAuthHeader() {
     if (this.#auth.complete) {
       this._requestHeaders.Authorization = 'Bearer ' + this.#auth.accessToken;
+    }
+  }
+
+  async #onAutoRefreshToken() {
+    await this.refreshToken();
+
+    if (this.#auth.ok) {
+      this.restartAutoAuthRefresh();
     }
   }
 
