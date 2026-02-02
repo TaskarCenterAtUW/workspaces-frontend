@@ -2,7 +2,7 @@
 export default defineNuxtConfig({
   ssr: false,
   sourcemap: { client: 'hidden' },
-  devtools: { enabled: process.env.ENV === "dev" || process.env.ENV === "local" },
+  devtools: { enabled: true },
   modules: ['@sentry/nuxt/module', '@nuxt/eslint'],
   nitro: {
     // deal with CORS issues during development
