@@ -169,22 +169,29 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async refreshToken() {
-    const response = await super._post('refresh-token', this.#auth.refreshToken);
-
-    if (response.status === 401) {
-      this.#auth.clear();
+    try {
+      const response = await super._send('refresh-token', 'POST', this.#auth.refreshToken);
+      this.#setAuth(this.#auth.username, await response.json());
+    } catch (e: unknown) {
+      if (e instanceof BaseHttpClientError && e.response.status === 401) {
+        this.#auth.clear();
+      }
     }
-
-    this.#setAuth(this.#auth.username, await response.json());
   }
 
   async tryRefreshAuth() {
-    if (this.#auth.needsRefresh) {
-      await this.refreshToken();
-      return true
+    if (!this.#auth.needsRefresh) {
+      return false;
     }
 
-    return false
+    try {
+      await this.refreshToken();
+    } catch(e: unknown) {
+      console.warn('Exception when refreshing TDEI access token', e);
+      return false;
+    }
+
+    return true;
   }
 
   restartAutoAuthRefresh() {
