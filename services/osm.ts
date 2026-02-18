@@ -239,15 +239,15 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     });
   }
 
-  async createWorkspace(workspaceId: number) {
+  async createWorkspace(workspaceId: WorkspaceId) {
     await this._put(`workspaces/${workspaceId}`);
   }
 
-  async deleteWorkspace(workspaceId: number) {
+  async deleteWorkspace(workspaceId: WorkspaceId) {
     await this._delete(`workspaces/${workspaceId}`);
   }
 
-  async getWorkspaceBbox(workspaceId: number) {
+  async getWorkspaceBbox(workspaceId: WorkspaceId) {
     const response = await this._get(`workspaces/${workspaceId}/bbox.json`);
 
     if (response.status === 204) {
@@ -433,7 +433,11 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return Number(await response.text());
   }
 
-  async uploadChangeset(workspaceId: number, changesetId: number, changesetXml: string) {
+  async uploadChangeset(
+    workspaceId: WorkspaceId,
+    changesetId: number,
+    changesetXml: string
+  ) {
     await this._post(`changeset/${changesetId}/upload`, changesetXml, {
       headers: {
         'Content-Type': 'application/xml',
@@ -489,7 +493,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return notesGeoJsonToEntities(await response.json());
   }
 
-  async getWorkspaceData(workspaceId: number): Promise<Array> {
+  async getWorkspaceData(workspaceId: WorkspaceId): Promise<Array> {
     const bboxParam = await this.getExportBbox(workspaceId);
     const response = await this._get(`map.json?bbox=${bboxParam}`, {
       headers: {
@@ -502,7 +506,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return (await response.json()).elements;
   }
 
-  async exportWorkspaceXml(workspaceId: number): Promise<Blob> {
+  async exportWorkspaceXml(workspaceId: WorkspaceId): Promise<Blob> {
     const bboxParam = await this.getExportBbox(workspaceId);
     const response = await this._get(`map?bbox=${bboxParam}`, {
       headers: {

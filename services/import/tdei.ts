@@ -5,6 +5,8 @@ import { openTdeiPathwaysArchive, pathways2osc } from '~/services/pathways';
 import { TdeiClient, TdeiClientError } from '~/services/tdei';
 import { WorkspacesClient, WorkspacesClientError } from '~/services/workspaces';
 
+import type { WorkspaceCreation } from '~/types/workspaces';
+
 const status = {
   idle: 'Idle',
   createWorkspace: 'Initializing workspace...',
@@ -17,9 +19,9 @@ const status = {
 };
 
 export class TdeiImporterContext {
-  constructor() {
-    this.reset();
-  }
+  active: boolean = false;
+  status: string = status.idle;
+  error?: string;
 
   get complete(): boolean {
     return this.status === status.complete;
@@ -28,11 +30,16 @@ export class TdeiImporterContext {
   reset() {
     this.active = false;
     this.status = status.idle;
-    this.error = null;
+    this.error = undefined;
   }
 }
 
 export class TdeiImporter {
+  readonly _workspacesClient: WorkspacesClient;
+  readonly _tdeiClient: TdeiClient;
+  readonly _osmClient: OsmApiClient;
+  readonly _context: TdeiImporterContext;
+
   constructor(
     workspacesClient: WorkspacesClient,
     tdeiClient: TdeiClient,
@@ -49,7 +56,7 @@ export class TdeiImporter {
     return this._context;
   }
 
-  async import(workspace): Promise<number> {
+  async import(workspace: WorkspaceCreation): Promise<number | undefined> {
     this._context.reset();
     this._context.active = true;
 
@@ -62,7 +69,7 @@ export class TdeiImporter {
     }
   }
 
-  async _run(workspace): Promise<number> {
+  async _run(workspace: WorkspaceCreation): Promise<number> {
     // Create the workspace in parallel:
     const workspacePromise = this._workspacesClient.createWorkspace(workspace);
 

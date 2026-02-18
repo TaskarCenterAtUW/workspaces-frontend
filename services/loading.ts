@@ -43,6 +43,12 @@ export class LoadingContext {
     this._abortController = new AbortController();
     const cancelableClient = client.clone(this.abortSignal) as T;
 
-    await this.wrap(cancelableClient, tx);
+    try {
+      await this.wrap(cancelableClient, tx);
+    }
+    catch (e: unknown) {
+      this._abortController.abort();
+      throw e;
+    }
   }
 }

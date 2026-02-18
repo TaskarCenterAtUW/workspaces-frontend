@@ -149,7 +149,7 @@ function makePathwayColumnMap() {
   return map;
 }
 
-export async function buildPathwaysCsvArchive(elements, gtfsFiles: Map): Blob {
+export async function buildPathwaysCsvArchive(elements, gtfsFiles?: Map): Blob {
   if (!gtfsFiles) {
     gtfsFiles = createEmptyGtfsDataset();
   }

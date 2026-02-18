@@ -16,6 +16,7 @@ import { WorkspacesClient } from '~/services/workspaces';
 const tdeiApiUrl = import.meta.env.VITE_TDEI_API_URL;
 const tdeiUserApiUrl = import.meta.env.VITE_TDEI_USER_API_URL;
 const apiUrl = import.meta.env.VITE_API_URL;
+const newApiUrl = import.meta.env.VITE_NEW_API_URL;
 const osmWebUrl = import.meta.env.VITE_OSM_URL;
 const osmApiUrl = osmWebUrl + 'api/0.6/';
 const rapidUrl = import.meta.env.VITE_RAPID_URL;
@@ -27,7 +28,7 @@ export const tdeiUserClient = new TdeiUserClient(tdeiUserApiUrl, tdeiClient);
 tdeiClient.restartAutoAuthRefresh();
 
 export const osmClient = new OsmApiClient(osmWebUrl, osmApiUrl, tdeiClient);
-export const workspacesClient = new WorkspacesClient(apiUrl, tdeiClient, osmClient);
+export const workspacesClient = new WorkspacesClient(apiUrl, newApiUrl, tdeiClient, osmClient);
 
 const oscCacheTtl = 1000 * 60 * 60 * 24 * 45; // 45 days
 const adiffCacheTtl = oscCacheTtl;
