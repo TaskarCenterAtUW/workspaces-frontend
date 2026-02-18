@@ -65,6 +65,7 @@ export class FileImporter {
     if (workspace.type === 'osw') {
       this._context.status = status.convertOsm;
       data = await this._tdeiClient.convertDataset(data, 'osw', 'osm', workspace.tdeiProjectGroupId);
+      data = await this._unwrapConvertedDataset(data);
     }
 
     this._context.status = status.createWorkspace;
@@ -82,6 +83,16 @@ export class FileImporter {
     await this._osmClient.uploadChangeset(workspaceId, changesetId, changesetXml);
 
     return workspaceId
+  }
+
+  async _unwrapConvertedDataset(zip: Blob): Blob {
+    const zipReader = new ZipReader(new BlobReader(zip));
+    const entries = await zipReader.getEntries();
+    const out =  await entries[0].getData(new BlobWriter());
+
+    await zipReader.close();
+
+    return out;
   }
 
   async _handleError(e: any) {
