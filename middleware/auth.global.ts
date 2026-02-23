@@ -2,6 +2,7 @@ import { tdeiClient } from '~/services/index'
 
 const ALLOW_ANONYMOUS = new Set([
   '/',
+  '/help',
   '/signin'
 ]);
 
