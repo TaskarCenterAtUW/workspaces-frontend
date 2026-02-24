@@ -22,7 +22,7 @@
             <nuxt-link class="nav-link" to="/workspace/create">Create Workspace</nuxt-link>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="#">Help</a>
+            <nuxt-link class="nav-link" to="/help">Help</nuxt-link>
           </li>
         </ul>
 
