@@ -41,6 +41,7 @@
         v-if="currentItem"
         :item="currentItem"
         @edit="openEditor"
+        @resolve="resolveCurrentChangeset"
       />
       <review-attribute-diff
         v-if="currentDiff && reviewList.workspace"
@@ -52,11 +53,13 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from 'vue3-toastify';
 import { reviewManager, workspacesClient } from '~/services/index';
 
 import type ReviewMap from '~/components/review/Map.vue';
 import type { ReviewListItem } from '~/services/review.ts';
 import type { AdiffAction } from '~/types/adiff';
+import type { OsmChangeset } from '~/types/osm';
 
 const route = useRoute();
 const workspaceId = Number(route.params.id);
@@ -92,6 +95,29 @@ async function refresh() {
   }
   finally {
     loading.value = false;
+  }
+}
+
+async function resolveCurrentChangeset() {
+  if (!currentItem.value?.isChangeset) {
+    return;
+  }
+
+  const changesetId = currentItem.value.id;
+
+  try {
+    await workspacesClient.resolveChangeset(workspaceId, changesetId);
+
+    const changeset = currentItem.value.data as OsmChangeset;
+    delete changeset.tags.review_requested;
+    changeset.tags.reviewed_by = String(changesetId);
+
+    toast.success('Changeset marked as reviewed.');
+
+    await refresh();
+  }
+  catch {
+    toast.error('Failed to resolve changeset.');
   }
 }
 

@@ -19,6 +19,12 @@
         >
           Resolved
         </span>
+        <span
+          v-if="props.item.needsReview"
+          class="badge bg-warning text-dark mx-1"
+        >
+          Needs Review
+        </span>
       </span>
       <span :class="elapsedClasses">
         <app-icon

@@ -44,6 +44,8 @@ export class ReviewListItem {
 
   get isResolved(): boolean {
     switch (this.type) {
+      case $CHANGESET:
+        return !!(this.data as OsmChangeset).tags?.reviewed_by;
       case $FEEDBACK:
         return (this.data as TdeiFeedback).status !== 'open';
       case $NOTE:
@@ -51,6 +53,10 @@ export class ReviewListItem {
     }
 
     return false;
+  }
+
+  get needsReview(): boolean {
+    return this.isChangeset && (this.data as OsmChangeset).tags?.review_requested === 'yes';
   }
 
   get displayType(): string {
@@ -116,7 +122,7 @@ export class ReviewListItem {
   get badgeClass(): string {
     switch (this.type) {
       case $CHANGESET:
-        return 'bg-dark';
+        return this.needsReview ? 'bg-warning text-dark' : 'bg-dark';
       case $FEEDBACK:
         return 'bg-danger';
       case $NOTE:
@@ -151,6 +157,7 @@ export class ReviewListFilter {
   includeFeedback: boolean = true;
   includeNotes: boolean = true;
   includeResolved: boolean = false;
+  includeNeedsReview: boolean = false;
   startDate: Date | undefined;
   endDate: Date | undefined;
   text: string | undefined;
@@ -171,6 +178,12 @@ export class ReviewListFilter {
       return false;
     }
     if (this.text && !changeset.tags?.comment?.includes(this.text)) {
+      return false;
+    }
+    if (!this.includeResolved && changeset.tags?.reviewed_by) {
+      return false;
+    }
+    if (this.includeNeedsReview && changeset.tags?.review_requested !== 'yes') {
       return false;
     }
 

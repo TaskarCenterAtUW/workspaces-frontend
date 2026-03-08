@@ -59,6 +59,16 @@
           Show Resolved
         </label>
       </div>
+      <div class="form-check form-switch">
+        <label class="form-check-label">
+          <input
+            v-model="filter.includeNeedsReview"
+            type="checkbox"
+            class="form-check-input"
+          />
+          Needs Review Only
+        </label>
+      </div>
     </div>
 
     <div class="dropdown-divider" />

@@ -66,6 +66,28 @@
         </div>
       </template>
     </BPopover>
+    <BPopover
+      :disabled="isValidator"
+      content="Only validators and owners can resolve changesets reviews"
+      placement="bottom"
+    >
+      <template #target>
+        <div class="d-inline-block ms-2">
+          <button
+            v-show="props.item.isChangeset && props.item.needsReview"
+            class="btn btn-sm btn-success"
+            :disabled="!isValidator"
+            @click="resolveChangeset"
+          >
+            <app-icon
+              variant="check"
+              no-margin
+            />
+            <span class="d-none d-sm-inline ms-2">Mark as Reviewed</span>
+          </button>
+        </div>
+      </template>
+    </BPopover>
   </nav>
 </template>
 
@@ -79,12 +101,16 @@ interface Props {
 const props = defineProps<Props>();
 const { isValidator } = useWorkspaceRole();
 
-const emit = defineEmits(['edit']);
+const emit = defineEmits(['edit', 'resolve']);
 const showDetails = defineModel<boolean>('showDetails');
 const showDiscussion = defineModel<boolean>('showDiscussion');
 
 function edit() {
   emit('edit');
+}
+
+function resolveChangeset() {
+  emit('resolve');
 }
 
 function toggleDetails() {

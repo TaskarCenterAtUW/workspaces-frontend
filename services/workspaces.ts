@@ -229,6 +229,10 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     await this.#newApi._delete(`workspaces/${id}/users/${userUuid}`);
   }
 
+  async resolveChangeset(workspaceId: WorkspaceId, changesetId: number): Promise<void> {
+    await this.#newApi._put(`workspaces/${workspaceId}/changesets/${changesetId}/resolve`);
+  }
+
   #setAuthHeader() {
     if (this.#tdeiClient.auth.complete) {
       this._requestHeaders.Authorization = 'Bearer ' + this.auth.accessToken;

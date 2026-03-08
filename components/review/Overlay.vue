@@ -5,6 +5,7 @@
       v-model:show-discussion="showDiscussion"
       :item="item"
       @edit="props.onEdit"
+      @resolve="$emit('resolve')"
     />
 
     <div class="review-overlay-panels">
@@ -29,6 +30,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+defineEmits(['resolve']);
 
 const showDetails = ref(false);
 const showDiscussion = ref(false);
