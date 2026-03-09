@@ -162,7 +162,7 @@ async function upload() {
 
   if (jobId) {
     // TODO: show a more helpful message
-    toast.info(`TDEI import job ${jobId} created sucessfully.`);
+    toast.info(`TDEI import job ${jobId} created successfully.`);
     navigateTo('/dashboard');
   }
 }
