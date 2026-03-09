@@ -90,17 +90,19 @@ const { isLead } = useWorkspaceRole();
 const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA;
 const imageryExampleUrl = import.meta.env.VITE_IMAGERY_EXAMPLE_URL;
 
-let imageryListDefInit = '';
-
-if (Array.isArray(workspace.imageryListDef)) {
-  imageryListDefInit = JSON.stringify(workspace.imageryListDef, null, 2);
-}
-
 const imagerySchema = ref<object | undefined>();
-const imageryListDef = ref(imageryListDefInit);
+const imageryListDef = ref('');
 const imageryError = ref<string | null>(null);
 const imagerySaveStatus = ref<{ type: 'success' | 'error'; message: string } | null>(null);
 const isDraggingImagery = ref(false);
+
+onMounted(async () => {
+  const settings = await workspacesClient.getImagerySettings(workspace.id);
+
+  if (Array.isArray(settings.definition)) {
+    imageryListDef.value = JSON.stringify(settings.definition, null, 2);
+  }
+});
 
 function clearImageryMessages() {
   imageryError.value = null;
@@ -127,8 +129,8 @@ async function saveImageryConfiguration() {
   }
 
   try {
-    await workspacesClient.updateWorkspace(workspace.id, {
-      imageryListDef: imageryResult.data,
+    await workspacesClient.saveImageryDefSettings(workspace.id, {
+      definition: imageryResult.data,
     });
     imagerySaveStatus.value = { type: 'success', message: 'Changes saved.' };
   }

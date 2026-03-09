@@ -5,7 +5,8 @@ import { compareStringAsc } from '~/util/compare';
 import type { ICancelableClient } from '~/services/loading';
 import type { OsmApiClient } from '~/services/osm';
 import type { TdeiAuthStore, TdeiClient } from '~/services/tdei';
-import type { BoundingBox } from '~/types/bbox'
+import type { BoundingBox } from '~/types/bbox';
+import type { ImagerySettings } from '~/types/imagery';
 import type {
   QuestSettings,
   QuestSettingsPatch,
@@ -146,8 +147,14 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     await this.#newApi._patch(`workspaces/${id}/quests/long/settings`, settings);
   }
 
-  async saveImageryDefSettings(workspaceId: number, settings: object): Promise<void> {
-    await this.#newApi._patch(`workspaces/${workspaceId}/imagery/settings`, settings);
+  async getImagerySettings(id: WorkspaceId): Promise<ImagerySettings> {
+    const response = await this.#newApi._get(`workspaces/${id}/imagery/settings`);
+
+    return await response.json();
+  }
+
+  async saveImageryDefSettings(id: WorkspaceId, settings: object): Promise<void> {
+    await this.#newApi._patch(`workspaces/${id}/imagery/settings`, settings);
   }
 
   async getTeams(id: WorkspaceId): Promise<WorkspaceTeam[]> {
