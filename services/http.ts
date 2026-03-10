@@ -1,3 +1,9 @@
+export type FetchConfig = Omit<RequestInit, 'headers'> & {
+  headers?: Record<string, string>;
+};
+
+export type HttpBody = BodyInit | object;
+
 export class BaseHttpClientError extends Error {
   response: Response;
 
@@ -25,27 +31,27 @@ export abstract class BaseHttpClient {
     return this._baseUrl + rest
   }
 
-  _get(url: string, config?: object): Promise<Response> {
+  _get(url: string, config?: FetchConfig): Promise<Response> {
     return this._send(url, 'GET', undefined, config);
   }
 
-  _post(url: string, body?: any, config?: object): Promise<Response> {
+  _post(url: string, body?: HttpBody, config?: FetchConfig): Promise<Response> {
     return this._send(url, 'POST', body, config);
   }
 
-  _put(url: string, body?: any, config?: object): Promise<Response> {
+  _put(url: string, body?: HttpBody, config?: FetchConfig): Promise<Response> {
     return this._send(url, 'PUT', body, config);
   }
 
-  _patch(url: string, body?: any, config?: object): Promise<Response> {
+  _patch(url: string, body?: HttpBody, config?: FetchConfig): Promise<Response> {
     return this._send(url, 'PATCH', body, config);
   }
 
-  _delete(url: string, config?: object): Promise<Response> {
+  _delete(url: string, config?: FetchConfig): Promise<Response> {
     return this._send(url, 'DELETE', undefined, config);
   }
 
-  async _sendTest(url: string, method: string, body?: any): Promise<Response> {
+  async _sendTest(url: string, method: string, body?: HttpBody): Promise<Response> {
     const response = await fetch(this.url(url), {
       method,
       body,
@@ -62,21 +68,45 @@ export abstract class BaseHttpClient {
     return response;
   }
 
-  async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
+  async _send(
+    url: string,
+    method: string,
+    body?: HttpBody,
+    config?: FetchConfig,
+  ): Promise<Response> {
+    const { headers: configHeaders, ...restConfig } = config ?? {};
+    const mergedHeaders: Record<string, string> = {
+      ...this._requestHeaders,
+      ...configHeaders,
+    };
     const requestOptions = {
       method,
-      body,
-      headers: this._requestHeaders,
+      body: undefined as BodyInit | undefined,
+      headers: mergedHeaders,
       signal: this._abortSignal,
-      ...config
+      ...restConfig,
     };
 
-    if (requestOptions.headers['Content-Type'] === 'application/json'
-      && !(body instanceof FormData)
-      && typeof body !== 'undefined'
-      && body !== null
-    ) {
+    // Let the browser set Content-Type (and multipart boundary) for FormData:
+    if (body instanceof FormData) {
+      delete mergedHeaders['Content-Type'];
+      requestOptions.body = body;
+    }
+    else if (body !== null && body !== undefined && (
+      mergedHeaders['Content-Type'] === 'application/json'
+      || (
+        typeof body === 'object'
+        && !(body instanceof Blob)
+        && !(body instanceof ArrayBuffer)
+        && !ArrayBuffer.isView(body)
+        && !(body instanceof URLSearchParams)
+        && !(body instanceof ReadableStream)
+      )
+    )) {
       requestOptions.body = JSON.stringify(body);
+    }
+    else {
+      requestOptions.body = body as BodyInit;
     }
 
     const response = await fetch(this.url(url), requestOptions);
