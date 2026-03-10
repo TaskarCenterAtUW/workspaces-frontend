@@ -1,7 +1,12 @@
 import parseOsmChangeXml from '@osmcha/osmchange-parser';
 import type { FeatureCollection, Point } from 'geojson';
 
-import { BaseHttpClient, BaseHttpClientError } from "~/services/http";
+import {
+  BaseHttpClient,
+  BaseHttpClientError,
+  type FetchConfig,
+  type HttpBody,
+} from '~/services/http';
 import * as xml from '~/util/xml';
 
 import type { ICancelableClient } from '~/services/loading';
@@ -14,7 +19,6 @@ import type {
   OsmElement,
   OsmNode,
   OsmNote,
-  OsmTags,
   OsmWay,
 } from '~/types/osm';
 import type { WorkspaceId } from '~/types/workspaces';
@@ -207,7 +211,9 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     this.#webUrl = webUrl;
     this.#tdeiClient = tdeiClient;
     this.#setAuthHeader();
-    this._requestHeaders['Accept'] = 'text/plain';
+
+    // OSM API can return XML or JSON based on the header or file extension:
+    this._requestHeaders['Accept'] = '*/*';
     this._requestHeaders['Content-Type'] = 'text/plain';
   }
 
@@ -234,8 +240,8 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
       display_name: this.auth.displayName
     };
 
-    await this._put(`user/${this.auth.subject}`, JSON.stringify(body), {
-      headers: { ...this._requestHeaders, 'Content-Type': 'application/json' }
+    await this._put(`user/${this.auth.subject}`, body, {
+      headers: { 'Content-Type': 'application/json' }
     });
   }
 
@@ -286,7 +292,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
   ): Promise<OsmElement> {
     const response = await this._get(`${type}/${id}/${version}`, {
       headers: {
-        ...this._requestHeaders,
         'Accept': 'application/json',
         'X-Workspace': workspaceId,
       },
@@ -301,7 +306,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
   async getNodes(workspaceId: WorkspaceId, nodeIds: (number | string)[]): Promise<OsmNode[]> {
     const response = await this._get(`nodes?nodes=${nodeIds.join(',')}`, {
       headers: {
-        ...this._requestHeaders,
         'Accept': 'application/json',
         'X-Workspace': workspaceId,
       },
@@ -319,7 +323,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
   async getWays(workspaceId: WorkspaceId, wayIds: (number | string)[]): Promise<OsmWay[]> {
     const response = await this._get(`ways?ways=${wayIds.join(',')}`, {
       headers: {
-        ...this._requestHeaders,
         'Accept': 'application/json',
         'X-Workspace': workspaceId,
       },
@@ -337,7 +340,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
   async getWaysForNode(workspaceId: WorkspaceId, nodeId: number): Promise<OsmElement[]> {
     const response = await this._get(`node/${nodeId}/ways`, {
       headers: {
-        ...this._requestHeaders,
         'Accept': 'application/json',
         'X-Workspace': workspaceId,
       },
@@ -348,7 +350,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
 
   async listChangesets(workspaceId: WorkspaceId): Promise<OsmChangeset[]> {
     const response = await this._get(`changesets.json`, {
-      headers: { ...this._requestHeaders, 'X-Workspace': workspaceId },
+      headers: { 'X-Workspace': workspaceId },
     });
 
     const changesets = (await response.json())?.changesets ?? [];
@@ -374,7 +376,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
 
     const response = await this._get(url, {
       headers: {
-        ...this._requestHeaders,
         'Accept': 'application/json',
         'X-Workspace': workspaceId,
       },
@@ -399,7 +400,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
   async getOsmChangeXml(workspaceId: WorkspaceId, changesetId: number): Promise<string> {
     const response = await this._get(`changeset/${changesetId}/download`, {
       headers: {
-        ...this._requestHeaders,
         'Accept': 'application/xml',
         'X-Workspace': workspaceId,
       },
@@ -428,7 +428,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
 
     const body = xml.serialize(doc);
     const response = await this._put('changeset/create', body, {
-      headers: { ...this._requestHeaders, 'X-Workspace': workspaceId },
+      headers: { 'X-Workspace': workspaceId },
     });
 
     return Number(await response.text());
@@ -442,7 +442,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     await this._post(`changeset/${changesetId}/upload`, changesetXml, {
       headers: {
         'Content-Type': 'application/xml',
-        'Authorization': this._requestHeaders['Authorization'],
         'X-Workspace': workspaceId,
       },
     });
@@ -469,10 +468,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     body.append('text', message);
 
     await this._post(`changeset/${changesetId}/comment`, body, {
-      headers: {
-        'Authorization': this._requestHeaders['Authorization'],
-        'X-Workspace': workspaceId,
-      },
+      headers: { 'X-Workspace': workspaceId },
     });
   }
 
@@ -485,7 +481,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
 
     const response = await this._get(`notes/search.json?${params}`, {
       headers: {
-        ...this._requestHeaders,
         'Accept': 'application/json',
         'X-Workspace': workspaceId,
       },
@@ -498,7 +493,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     const bboxParam = await this.getExportBbox(workspaceId);
     const response = await this._get(`map.json?bbox=${bboxParam}`, {
       headers: {
-        ...this._requestHeaders,
         'Accept': 'application/json',
         'X-Workspace': workspaceId
       }
@@ -511,7 +505,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     const bboxParam = await this.getExportBbox(workspaceId);
     const response = await this._get(`map?bbox=${bboxParam}`, {
       headers: {
-        ...this._requestHeaders,
         'Accept': 'application/xml',
         'X-Workspace': workspaceId
       }
@@ -526,17 +519,23 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     }
   }
 
-  async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
+  override async _send(
+    url: string,
+    method: string,
+    body?: HttpBody,
+    config?: FetchConfig,
+  ): Promise<Response> {
     try {
       await this.#tdeiClient.tryRefreshAuth();
       this.#setAuthHeader();
 
-      const requestOptions = {
-        credentials: 'include'
-      }
+      const requestOptions: FetchConfig = {
+        credentials: 'include',
+      };
 
       return await super._send(url, method, body, { ...requestOptions, ...config });
-    } catch (e: any) {
+    }
+    catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {
         throw new OsmApiClientError(e.response);
       }
