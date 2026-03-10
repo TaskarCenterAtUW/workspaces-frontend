@@ -51,23 +51,6 @@ export abstract class BaseHttpClient {
     return this._send(url, 'DELETE', undefined, config);
   }
 
-  async _sendTest(url: string, method: string, body?: HttpBody): Promise<Response> {
-    const response = await fetch(this.url(url), {
-      method,
-      body,
-      headers: {
-        'Accept': 'application/text',
-        'Authorization': this._requestHeaders.Authorization
-      }
-    });
-
-    if (!response.ok) {
-      throw new BaseHttpClientError(response);
-    }
-
-    return response;
-  }
-
   async _send(
     url: string,
     method: string,
