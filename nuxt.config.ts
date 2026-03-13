@@ -28,17 +28,18 @@ export default defineNuxtConfig({
   sourcemap: { client: 'hidden' },
   compatibilityDate: '2024-10-24',
 
-  /*
   nitro: {
-    // deal with CORS issues during development--not sure this is always required, or required at all?
+    // deal with CORS issues during development
     devProxy: {
       // use these values when you want to use the existing dev backend
       '/api': 'https://api.workspaces-dev.sidewalks.washington.edu/api/',
       '/workspaces': 'https://osm.workspaces-dev.sidewalks.washington.edu/workspaces/',
+
+      // use these values when running the backend locally, e.g. the repo workspaces-backend
+      // '/api': 'http://localhost:8000/api/',
+      // '/workspaces': 'http://localhost:8000/workspaces/',
     },
   },
-  */
-
   eslint: {
     config: {
       stylistic: true,
