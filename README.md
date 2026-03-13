@@ -12,9 +12,16 @@ Look at the [Nuxt 3 documentation](https://nuxt.com/docs/getting-started/introdu
 export VITE_TDEI_API_URL=https://api-dev.tdei.us/api/v1/
 export VITE_TDEI_USER_API_URL=https://portal-api-dev.tdei.us/api/v1/
 
-# use your local workspaces-backend instance--or set to the dev instance of this component if not running locally
-export VITE_API_URL=http://localhost:3000/api/v1/
-export VITE_OSM_URL=http://localhost:3000/
+###
+# this accesses a local version of the workspaces-backend running on port 8000
+# export VITE_API_URL=http://localhost:8000/api/v1/
+# export VITE_OSM_URL=http://localhost:8000/
+
+# ***** USE THE ABOVE OR THE BELOW, NOT BOTH! ***
+
+export VITE_API_URL=https://api.workspaces-dev.sidewalks.washington.edu/api/v1/
+export VITE_OSM_URL=https://osm.workspaces-dev.sidewalks.washington.edu/
+###
 
 # probably want to leave these as-is
 export VITE_RAPID_URL=https://rapid.workspaces-dev.sidewalks.washington.edu/
