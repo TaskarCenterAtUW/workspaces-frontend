@@ -11,6 +11,7 @@ import { OsmApiClient } from '~/services/osm';
 import { PathwaysEditorManager } from '~/services/pathways';
 import { ReviewManager } from '~/services/review';
 import { RapidManager } from '~/services/rapid';
+import { Rapid3Manager } from '~/services/rapid3';
 import { WorkspacesClient } from '~/services/workspaces';
 
 const tdeiApiUrl = import.meta.env.VITE_TDEI_API_URL;
@@ -20,6 +21,7 @@ const newApiUrl = import.meta.env.VITE_NEW_API_URL;
 const osmWebUrl = import.meta.env.VITE_OSM_URL;
 const osmApiUrl = osmWebUrl + 'api/0.6/';
 const rapidUrl = import.meta.env.VITE_RAPID_URL;
+const rapid3Url = import.meta.env.VITE_RAPID3_URL;
 const pathwaysUrl = import.meta.env.VITE_PATHWAYS_EDITOR_URL;
 
 export const tdeiAuth = reactive(new TdeiAuthStore());
@@ -50,4 +52,5 @@ export const reviewManager = new ReviewManager(
 );
 
 export const rapidManager = new RapidManager(rapidUrl, osmWebUrl, tdeiAuth);
+export const rapid3Manager = rapid3Url ? new Rapid3Manager(rapid3Url, osmWebUrl, tdeiAuth) : null;
 export const pathwaysManager = new PathwaysEditorManager(pathwaysUrl, osmWebUrl, tdeiAuth);
