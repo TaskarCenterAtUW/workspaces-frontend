@@ -1,6 +1,26 @@
 <template>
   <div class="btn-toolbar">
-    <nuxt-link class="btn btn-dark" :to="editRoute">
+    <b-dropdown
+      v-if="isOsw && rapid3Available"
+      split
+      variant="dark"
+      :split-to="editRoute"
+    >
+      <template #button-content>
+        <app-icon
+          variant="edit_location_alt"
+          size="24"
+        />
+        Edit
+      </template>
+      <b-dropdown-item :to="editRoute">
+        Rapid 2 (default)
+      </b-dropdown-item>
+      <b-dropdown-item :to="editRouteRapid3">
+        Rapid 3 (beta)
+      </b-dropdown-item>
+    </b-dropdown>
+    <nuxt-link v-else class="btn btn-dark" :to="editRoute">
       <app-icon variant="edit_location_alt" size="24" />
       Edit
     </nuxt-link>
@@ -37,6 +57,10 @@
 </template>
 
 <script setup lang="ts">
+import { rapid3Manager } from '~/services/index'
+
+const rapid3Available = !!rapid3Manager
+
 const props = defineProps({
   workspace: {
     type: Object,
@@ -54,9 +78,17 @@ const editHash = computed(() => {
   return `#map=${zoom}/${latitude}/${longitude}`;
 });
 
+const isOsw = computed(() => props.workspace.type === 'osw');
+
 const editRoute = computed(() => ({
   path: workspacePath('edit'),
   query: { datatype: props.workspace.type },
+  hash: editHash.value
+}));
+
+const editRouteRapid3 = computed(() => ({
+  path: workspacePath('edit'),
+  query: { datatype: props.workspace.type, editor: 'rapid3' },
   hash: editHash.value
 }));
 
