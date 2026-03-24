@@ -1,7 +1,7 @@
 <template>
   <div class="btn-toolbar">
     <b-dropdown
-      v-if="isOsw"
+      v-if="isOsw && rapid3Available"
       split
       variant="dark"
       :split-to="editRoute"
@@ -57,6 +57,10 @@
 </template>
 
 <script setup lang="ts">
+import { rapid3Manager } from '~/services/index'
+
+const rapid3Available = !!rapid3Manager
+
 const props = defineProps({
   workspace: {
     type: Object,
