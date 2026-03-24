@@ -11,8 +11,7 @@ const datatype = route.query.datatype;
 const editor = route.query.editor;
 const editorContainer = ref(null);
 
-//const oswManager = (editor === 'rapid3' && rapid3Manager) ? rapid3Manager : rapidManager
-const oswManager = rapid3Manager  // testing - force Rapid v3
+const oswManager = (editor === 'rapid3' && rapid3Manager) ? rapid3Manager : rapidManager
 const manager = datatype === 'osw' ? oswManager : pathwaysManager
 
 function onEditorLoaded() {
