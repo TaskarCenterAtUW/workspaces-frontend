@@ -102,6 +102,12 @@ export class RapidManager {
     this.rapidContext.tdeiAuth = this.#tdeiAuth;
     this.rapidContext.preauth = { url: this.#osmUrl, apiUrl: this.#osmUrl };
     this.#setInitialChangesetHashtags(changesetHashtags);
+
+    // The initAsync() call inits services synchronously before returning its
+    // promise, so services.osm._oauth exists as soon as initAsync() returns.
+    // Patching before await ensures all requests during the async init chain
+    // (especially loadTiles) include workspace headers:
+    //
     const initPromise = this.rapidContext.initAsync();
     this.#patchRapidAuth();
     await initPromise;
