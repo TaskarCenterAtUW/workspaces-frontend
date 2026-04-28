@@ -147,6 +147,7 @@
 </template>
 
 <script setup lang="ts">
+declare const L: any;
 import { LoadingContext } from '~/services/loading'
 import { TdeiImporter, TdeiImporterContext } from '~/services/import/tdei'
 import { osmClient, tdeiClient, workspacesClient } from '~/services/index'
@@ -156,11 +157,11 @@ const importer = new TdeiImporter(workspacesClient, tdeiClient, osmClient, conte
 
 const loading = reactive(new LoadingContext())
 const route = useRoute()
-const tdeiRecordId = ref(null)
-const record = reactive({})
-const map = ref({})
+const tdeiRecordId = ref<string | null>(null)
+const record = reactive<Record<string, any>>({})
+const map = ref<any>({})
 const workspaceTitle = ref('')
-const projectGroupId = ref(null)
+const projectGroupId = ref<string | null>(null)
 
 watch(tdeiRecordId, val => getDatasetInfo(val))
 
@@ -170,7 +171,7 @@ const complete = computed(() =>
   && tdeiRecordId.value !== null,
 )
 
-async function getDatasetInfo(id: string) {
+async function getDatasetInfo(id: string | null) {
   if (id === null) {
     for (const prop in record) {
       record[prop] = ''
@@ -202,6 +203,10 @@ onMounted(async () => {
 })
 
 function initMap() {
+  if (map.value && map.value.remove) {
+    map.value.remove()
+  }
+
   // TODO: use Mapbox
   map.value = L.map('dataset_map')
 
@@ -210,19 +215,23 @@ function initMap() {
     attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   }).addTo(map.value)
 
-  const area = L.geoJSON(record.metadata.dataset_detail.dataset_area).addTo(map.value)
-  const bounds = area.getBounds()
+  if (record.metadata?.dataset_detail?.dataset_area) {
+    const area = L.geoJSON(record.metadata.dataset_detail.dataset_area).addTo(map.value)
+    const bounds = area.getBounds()
 
-  map.value.fitBounds(bounds)
+    if (bounds.isValid()) {
+      map.value.fitBounds(bounds)
+    }
+  }
 }
 
 async function create() {
   const workspaceId = await importer.import({
     title: workspaceTitle.value,
     type: record.data_type,
-    tdeiRecordId: tdeiRecordId.value,
-    tdeiProjectGroupId: projectGroupId.value,
-    tdeiServiceId: record.service.tdei_service_id,
+    tdeiRecordId: tdeiRecordId.value as string,
+    tdeiProjectGroupId: projectGroupId.value as string,
+    tdeiServiceId: record.service?.tdei_service_id || '',
     tdeiMetadata: JSON.stringify(record),
   })
 
