@@ -27,6 +27,7 @@
     "maplibre-gl": "^5.10.0",
     "nuxt": "^4.0.0",
     "papaparse": "^5.5.1",
+    "qrcode": "^1.5.4",
     "vue": "^3.4.19",
     "vue-qrcode": "^2.2.2",
     "vue-router": "^4.2.5",
