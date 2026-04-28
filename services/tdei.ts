@@ -383,13 +383,13 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     const jwt = getJwtBody(body.access_token);
 
     this.#auth.username = username;
-    this.#auth.subject = jwt.sub as unknown as string;
-    this.#auth.displayName = jwt.name as unknown as string;
-    this.#auth.email = jwt.email as unknown as string;
+    this.#auth.subject = jwt.sub as string;
+    this.#auth.displayName = jwt.name as string;
+    this.#auth.email = jwt.email as string;
     this.#auth.accessToken = body.access_token;
     this.#auth.refreshToken = body.refresh_token;
     this.#auth.expiresAt = expiresAsDate(body.expires_in);
-    this.#auth.refreshExpiresAt = expiresAsDate(body.refresh_expires_in);
+
     this.#auth.store();
 
     this.#setAuthHeader();

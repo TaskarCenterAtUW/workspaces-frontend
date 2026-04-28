@@ -147,10 +147,11 @@
 </template>
 
 <script setup lang="ts">
-declare const L: any;
 import { LoadingContext } from '~/services/loading'
 import { TdeiImporter, TdeiImporterContext } from '~/services/import/tdei'
 import { osmClient, tdeiClient, workspacesClient } from '~/services/index'
+
+declare const L: any
 
 const context = reactive(new TdeiImporterContext())
 const importer = new TdeiImporter(workspacesClient, tdeiClient, osmClient, context)

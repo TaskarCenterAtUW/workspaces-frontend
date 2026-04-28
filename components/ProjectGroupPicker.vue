@@ -92,7 +92,7 @@ const loadGroups = async (reset = false) => {
 }
 
 let timeoutId: ReturnType<typeof setTimeout>
-watch(searchText, (newVal, oldVal) => {
+watch(searchText, (newVal) => {
   if (!isOpen.value) return
   
   clearTimeout(timeoutId)
@@ -127,8 +127,11 @@ const selectGroup = (id: string) => {
 }
 
 const onFocus = (e: Event) => {
+  const wasOpen = isOpen.value
   isOpen.value = true
-  loadGroups(true)
+  if (!wasOpen) {
+    loadGroups(true)
+  }
   const target = e.target as HTMLInputElement
   if (target) {
     target.select()
