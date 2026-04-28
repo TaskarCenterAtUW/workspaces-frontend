@@ -92,7 +92,7 @@ const loadGroups = async (reset = false) => {
 }
 
 let timeoutId: ReturnType<typeof setTimeout>
-watch(searchText, (newVal, oldVal) => {
+watch(searchText, () => {
   if (!isOpen.value) return
   
   clearTimeout(timeoutId)
