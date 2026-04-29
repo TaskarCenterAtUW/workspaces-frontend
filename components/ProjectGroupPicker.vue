@@ -4,6 +4,7 @@
       v-model="searchText"
       type="text"
       class="form-select"
+      :disabled="props.disabled"
       placeholder="Search project groups..."
       @focus="onFocus"
       @keydown="onKeydown"
@@ -44,6 +45,10 @@
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { tdeiUserClient } from '~/services/index'
 
+const props = withDefaults(defineProps<{ disabled?: boolean }>(), {
+  disabled: false,
+})
+
 const model = defineModel({ required: true })
 const searchText = ref('')
 const isOpen = ref(false)
@@ -56,10 +61,15 @@ const activeIndex = ref(-1)
 
 let pageNo = 1
 let hasMore = true
+let pendingReset = false
 const pageSize = 10
 
 const loadGroups = async (reset = false) => {
-  if (loading.value) return
+  if (loading.value) {
+    pendingReset = pendingReset || reset
+    return
+  }
+
   if (reset) {
     pageNo = 1
     hasMore = true
@@ -88,6 +98,12 @@ const loadGroups = async (reset = false) => {
     console.error(e)
   } finally {
     loading.value = false
+
+    if (pendingReset) {
+      const resetNext = pendingReset
+      pendingReset = false
+      await loadGroups(resetNext)
+    }
   }
 }
 
@@ -213,7 +229,7 @@ onMounted(async () => {
   await loadGroups(true)
   
   if (projectGroups.value.length > 0) {
-    if (!model.value || !projectGroups.value.some(pg => pg.id === model.value)) {
+    if (!model.value) {
       model.value = projectGroups.value[0]?.id
     }
     const selected = projectGroups.value.find(pg => pg.id === model.value)

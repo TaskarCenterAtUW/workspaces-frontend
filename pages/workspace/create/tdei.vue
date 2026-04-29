@@ -184,9 +184,8 @@ async function getDatasetInfo(id: string | null) {
   await loading.wrap(tdeiClient, async (client) => {
     const info = await client.getDatasetInfo(id)
 
-    for (const prop in info) {
-      record[prop] = info[prop]
-    }
+    if (!info) return
+    Object.assign(record, info)
   })
 
   await nextTick()
