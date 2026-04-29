@@ -2,7 +2,15 @@ import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
 
 import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
 import type { ICancelableClient } from '~/services/loading';
-import type { TdeiFeedback } from '~/types/tdei.ts';
+import type {
+  TdeiFeedback,
+  TdeiProjectGroupApiResponse,
+  TdeiServiceApiResponse,
+  TdeiDatasetApiResponse,
+  TdeiProjectGroup,
+  TdeiService,
+  TdeiDatasetSummary,
+} from '~/types/tdei.ts';
 
 const MIN_TOKEN_REFRESH_MS = 10 * 1000;
 
@@ -212,17 +220,17 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     this.#refreshTimer = undefined;
   }
 
-  async getDatasetInfo(tdeiRecordId: string) {
+  async getDatasetInfo(tdeiRecordId: string): Promise<TdeiDatasetApiResponse | undefined> {
     const response = await this._get(`datasets?status=All&tdei_dataset_id=${tdeiRecordId}`);
 
-    return (await response.json())[0];
+    return (await response.json() as TdeiDatasetApiResponse[])[0];
   }
 
-  async getDatasetsByProjectGroupAndName(projectGroupId: string, name: string) {
+  async getDatasetsByProjectGroupAndName(projectGroupId: string, name: string): Promise<TdeiDatasetSummary[]> {
     const response = await this._get(`datasets?tdei_project_group_id=${projectGroupId}&name=${encodeURIComponent(name)}`);
 
-    return (await response.json())
-      .map((d: any) => ({ id: d.tdei_dataset_id, name: d.metadata.dataset_detail.name, version: d.metadata.dataset_detail.version }));
+    return (await response.json() as TdeiDatasetApiResponse[])
+      .map(d => ({ id: d.tdei_dataset_id, name: d.metadata.dataset_detail.name, version: d.metadata.dataset_detail.version }));
   }
 
   async downloadOswDataset(tdeiRecordId: string, format: string = 'osw'): Promise<Blob> {
@@ -383,9 +391,9 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     const jwt = getJwtBody(body.access_token);
 
     this.#auth.username = username;
-    this.#auth.subject = jwt.sub as unknown as string;
-    this.#auth.displayName = jwt.name as unknown as string;
-    this.#auth.email = jwt.email as unknown as string;
+    this.#auth.subject = typeof jwt.sub === 'string' ? jwt.sub : '';
+    this.#auth.displayName = typeof jwt.name === 'string' ? jwt.name : '';
+    this.#auth.email = typeof jwt.email === 'string' ? jwt.email : '';
     this.#auth.accessToken = body.access_token;
     this.#auth.refreshToken = body.refresh_token;
     this.#auth.expiresAt = expiresAsDate(body.expires_in);
@@ -449,21 +457,28 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     return new TdeiClient(this._baseUrl, this.#auth, signal ?? this._abortSignal);
   }
 
-  async getMyProjectGroups(pageNo: number = 1, searchText: string = '', pageSize: number = 10) {
+  async getMyProjectGroups(pageNo: number = 1, searchText: string = '', pageSize: number = 10): Promise<TdeiProjectGroup[]> {
     let url = `project-group-roles/${this.#auth.subject}?page_size=${pageSize}&page_no=${pageNo}`;
     if (searchText) {
       url += `&searchText=${encodeURIComponent(searchText)}`;
     }
+
     const response = await this._get(url);
-    const items = (await response.json()) ?? [];
-    return items.map((p: any) => ({ id: p.tdei_project_group_id, name: p.project_group_name }));
+
+    try {
+      const items = (await response.json() as TdeiProjectGroupApiResponse[]) ?? [];
+      return items.map(p => ({ id: p.tdei_project_group_id, name: p.project_group_name }));
+    } catch (e) {
+      console.warn('getMyProjectGroups: failed to parse API response', e);
+      return [];
+    }
   }
 
-  async getMyServices(projectGroupId: string, type: string = 'all') {
+  async getMyServices(projectGroupId: string, type: string = 'all'): Promise<TdeiService[]> {
     const response = await this._get(`service?tdei_project_group_id=${projectGroupId}&service_type=${type}`);
 
-    return (await response.json())
-      .map((s: any) => ({ id: s.tdei_service_id, name: s.service_name }));
+    return (await response.json() as TdeiServiceApiResponse[])
+      .map(s => ({ id: s.tdei_service_id, name: s.service_name }));
   }
 
   #setAuthHeader() {
