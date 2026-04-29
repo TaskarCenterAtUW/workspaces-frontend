@@ -185,6 +185,13 @@ async function getDatasetInfo(id: string | null) {
     const info = await client.getDatasetInfo(id)
 
     if (!info) return
+
+    // Clear stale keys from any previously loaded dataset before merging,
+    // so switching datasets never leaves orphaned fields in record.
+    for (const key of Object.keys(record)) {
+      delete record[key]
+    }
+
     Object.assign(record, info)
   })
 
