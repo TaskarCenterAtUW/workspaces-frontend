@@ -15,9 +15,16 @@ export class TdeiExporterValidationError extends Error {
   }
 }
 
+interface AdaCertificationInfo {
+  certifiedBy: string;
+  certifiedByName: string;
+  certifiedAt: string;
+}
+
 interface ExportOptions {
   includeChangesets?: boolean;
   includeRawOsc?: boolean;
+  adaCertification?: AdaCertificationInfo;
 }
 
 const status = {
@@ -140,11 +147,12 @@ export class TdeiExporter {
 
     let changesetArchive: Blob | undefined;
 
-    if (options.includeChangesets) {
+    if (options.includeChangesets || options.adaCertification) {
       this._context.status = status.collectChangesets;
       changesetArchive = await this._buildChangesetArchive(
         workspace,
-        options.includeRawOsc ?? false
+        options.includeRawOsc ?? false,
+        options.adaCertification
       );
     }
 
@@ -238,7 +246,7 @@ export class TdeiExporter {
     return await openTdeiPathwaysArchive(dataset, false, false);
   }
 
-  private async _buildChangesetArchive(workspace: Workspace, includeRawOsc: boolean): Promise<Blob> {
+  private async _buildChangesetArchive(workspace: Workspace, includeRawOsc: boolean, adaCertification?: AdaCertificationInfo): Promise<Blob> {
     const changesets = await this._osmClient.listChangesets(workspace.id);
 
     const manifest = {
@@ -256,6 +264,7 @@ export class TdeiExporter {
       },
       exportedAt: new Date().toISOString(),
       includesRawOsmChange: includeRawOsc,
+      adaCertification: adaCertification ?? null,
       changesets,
     };
 

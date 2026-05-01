@@ -57,7 +57,7 @@
         </div>
 
         <form v-else class="card">
-          <fieldset class="card-body" :disabled="context.active || context.error">
+          <fieldset class="card-body" :disabled="context.active || !!context.error">
             <label class="d-block">
               Dataset Name
               <input v-model.trim="datasetName" class="form-control" />
@@ -95,6 +95,7 @@
               contains a <code>manifest.json</code> summary metadata file
               and a <code>changesets/</code> directory with one
               <code>{id}.json</code> file per change history entry.
+              <p class="mb-0 mt-1">Required to certify the export for ADA compliance.</p>
             </div>
             <div v-if="includeChangesets" class="mt-3">
               <div class="form-check form-switch">
@@ -108,6 +109,27 @@
                 <code>{id}.json</code> containing unprocessed
                 <a href="https://wiki.openstreetmap.org/wiki/OsmChange" target="_blank">osmChange XML</a>
                 for use with third-party OpenStreetMap tools.
+              </div>
+              <div class="form-check form-switch mt-3">
+                <label class="form-check-label">
+                  <input v-model="includeAdaCertification" type="checkbox" class="form-check-input" />
+                  Certify for ADA compliance
+                </label>
+              </div>
+              <div class="form-text mt-1">
+                Adds an attestation to the changeset manifest confirming that
+                this dataset's measurements accurately reflect field conditions
+                and were collected according to your agency's methodology. Your
+                agency determines the specific criteria. This is a data
+                integrity sign-off, not a separate legal credential.
+              </div>
+              <div v-if="includeAdaCertification" class="mt-3 border rounded p-3 bg-light small">
+                <dl class="row mb-0">
+                  <dt class="col-sm-4 text-muted">Certified by</dt>
+                  <dd class="col-sm-8 mb-1">{{ certifiedByName }}</dd>
+                  <dt class="col-sm-4 text-muted">Date</dt>
+                  <dd class="col-sm-8 mb-0">{{ certifiedAt }}</dd>
+                </dl>
               </div>
             </div>
           </fieldset>
@@ -175,8 +197,11 @@ const oldMetadata = workspace.tdeiMetadata ? JSON.parse(workspace.tdeiMetadata) 
 
 const datasetName = ref(workspace.title);
 const datasetVersion = ref(oldMetadata.metadata?.dataset_detail?.version);
-const includeChangesets = ref(true);
+const includeChangesets = ref(false);
 const includeRawOsc = ref(false);
+const includeAdaCertification = ref(false);
+const certifiedByName = osmClient.auth.displayName ?? '';
+const certifiedAt = new Date().toISOString().slice(0, 10);
 
 async function upload() {
   // TODO: enable metadata customization
@@ -195,6 +220,11 @@ async function upload() {
   const jobId = await exporter.upload(workspace, metadata, {
     includeChangesets: includeChangesets.value,
     includeRawOsc: includeRawOsc.value,
+    adaCertification: includeChangesets.value && includeAdaCertification.value ? {
+      certifiedBy: osmClient.auth.subject,
+      certifiedByName,
+      certifiedAt,
+    } : undefined,
   });
 
   if (jobId) {
