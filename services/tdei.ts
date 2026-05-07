@@ -123,6 +123,8 @@ export class TdeiAuthStore {
     this.refreshExpiresAt = new Date(0);
 
     localStorage.removeItem(this._storageKey);
+    localStorage.removeItem('tdei-selected-project-group');
+    localStorage.removeItem('tdei-selected-workspace');
   }
 }
 
@@ -457,8 +459,8 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     return new TdeiClient(this._baseUrl, this.#auth, signal ?? this._abortSignal);
   }
 
-  async getMyProjectGroups(pageNo: number = 1, searchText: string = '', pageSize: number = 10): Promise<TdeiProjectGroup[]> {
-    let url = `project-group-roles/${this.#auth.subject}?page_size=${pageSize}&page_no=${pageNo}`;
+  async getMyProjectGroups(pageNo: number = 1, searchText: string = '', pageSize: number = 10, sortBy: 'name' | 'created_at' = 'name'): Promise<{ items: TdeiProjectGroup[], total: number | null }> {
+    let url = `project-group-roles/${this.#auth.subject}?page_size=${pageSize}&page_no=${pageNo}&sort_by=${sortBy}`;
     if (searchText) {
       url += `&searchText=${encodeURIComponent(searchText)}`;
     }
@@ -466,11 +468,13 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     const response = await this._get(url);
 
     try {
+      const totalHeader = response.headers.get('X-Total-Count');
+      const total = totalHeader !== null ? parseInt(totalHeader, 10) : null;
       const items = (await response.json() as TdeiProjectGroupApiResponse[]) ?? [];
-      return items.map(p => ({ id: p.tdei_project_group_id, name: p.project_group_name }));
+      return { items: items.map(p => ({ id: p.tdei_project_group_id, name: p.project_group_name })), total };
     } catch (e) {
       console.warn('getMyProjectGroups: failed to parse API response', e);
-      return [];
+      return { items: [], total: null };
     }
   }
 

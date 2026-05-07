@@ -44,8 +44,22 @@
 </template>
 
 <script lang="ts">
-let lastProjectGroupId: string;
-let lastWorkspaceId: number;
+const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
+const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
+
+function getLastProjectGroupId(): string | null {
+  return localStorage.getItem(STORAGE_KEY_PROJECT_GROUP);
+}
+function setLastProjectGroupId(id: string) {
+  localStorage.setItem(STORAGE_KEY_PROJECT_GROUP, id);
+}
+function getLastWorkspaceId(): number | null {
+  const v = localStorage.getItem(STORAGE_KEY_WORKSPACE);
+  return v ? Number(v) : null;
+}
+function setLastWorkspaceId(id: number) {
+  localStorage.setItem(STORAGE_KEY_WORKSPACE, String(id));
+}
 </script>
 
 <script setup lang="ts">
@@ -68,8 +82,8 @@ for (const w of workspaces) {
 }
 
 onMounted(() => {
-  watch(currentWorkspace, (val) => { lastWorkspaceId = val.id });
-  watch(currentProjectGroup, (val) => { lastProjectGroupId = val });
+  watch(currentWorkspace, (val) => { if (val?.id) setLastWorkspaceId(val.id) });
+  watch(currentProjectGroup, (val) => { if (val) setLastProjectGroupId(val) });
   watch(currentWorkspaces, onCurrentWorkspacesChange);
 
   autoSelectPreferredView();
@@ -88,6 +102,7 @@ function autoSelectPreferredView() {
     }
   }
 
+  const lastWorkspaceId = getLastWorkspaceId();
   if (lastWorkspaceId) {
     const workspace = workspaces.find(w => w.id === lastWorkspaceId);
 
@@ -98,6 +113,7 @@ function autoSelectPreferredView() {
     }
   }
 
+  const lastProjectGroupId = getLastProjectGroupId();
   if (lastProjectGroupId) {
     currentProjectGroup.value = lastProjectGroupId;
   }
@@ -141,6 +157,7 @@ async function selectWorkspace(workspace) {
 
   .project-group-picker {
     width: auto;
+    min-width: 300px;
     border-color: transparent;
     border-left-color: $border-color;
     margin-right: auto;
