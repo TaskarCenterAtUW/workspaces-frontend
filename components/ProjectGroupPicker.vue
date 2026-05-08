@@ -160,6 +160,7 @@ watch(model, (newId) => {
   if (pg && !isOpen.value) {
     searchText.value = pg.name
     selectedGroupName.value = pg.name
+    nameModel.value = pg.name
   }
 })
 

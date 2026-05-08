@@ -122,7 +122,7 @@ function autoSelectPreferredView() {
     }
   }
 
-  // currentProjectGroup is already initialized from localStorage synchronously
+  // currentProjectGroup is already initialized from sessionStorage synchronously
 }
 
 async function onCurrentWorkspacesChange(val) {
