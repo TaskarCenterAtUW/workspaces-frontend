@@ -242,12 +242,9 @@ const onKeydown = (e: KeyboardEvent) => {
     e.preventDefault()
     isOpen.value = false
     const pg = projectGroups.value.find(p => p.id === model.value)
-    if (pg) {
-      searchText.value = pg.name
-      selectedGroupName.value = pg.name
-    } else {
-      searchText.value = ''
-    }
+    const name = pg?.name ?? selectedGroupName.value
+    searchText.value = name
+    if (pg) selectedGroupName.value = name
   }
 }
 
@@ -256,12 +253,9 @@ const handleClickOutside = (event: MouseEvent) => {
     if (isOpen.value) {
       isOpen.value = false
       const pg = projectGroups.value.find(p => p.id === model.value)
-      if (pg) {
-        searchText.value = pg.name
-        selectedGroupName.value = pg.name
-      } else {
-        searchText.value = ''
-      }
+      const name = pg?.name ?? selectedGroupName.value
+      searchText.value = name
+      if (pg) selectedGroupName.value = name
     }
   }
 }
