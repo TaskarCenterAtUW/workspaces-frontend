@@ -19,12 +19,12 @@
       <div class="pg-header">
         <span v-if="projectGroups.length > 0" class="pg-count">
           <template v-if="totalCount !== null">
-            Showing {{ projectGroups.length }} of {{ totalCount }} project groups
+            Showing first {{ projectGroups.length }} of {{ totalCount }} project groups
             <span v-if="hasMore && !loading" class="pg-scroll-hint">&#183; Scroll to continue loading</span>
           </template>
           <template v-else-if="!hasMore">Showing all {{ projectGroups.length }} project group{{ projectGroups.length !== 1 ? 's' : '' }}</template>
           <template v-else>
-            Showing {{ projectGroups.length }} results
+            Showing first {{ projectGroups.length }} results
             <span v-if="!loading" class="pg-scroll-hint">&#183; Scroll to continue loading</span>
           </template>
         </span>
@@ -69,6 +69,7 @@ const props = withDefaults(defineProps<{ disabled?: boolean }>(), {
 })
 
 const model = defineModel({ required: true })
+const nameModel = defineModel('name', { default: '' })
 const searchText = ref('')
 const isOpen = ref(false)
 const projectGroups = ref<{ id: string; name: string }[]>([])
@@ -176,6 +177,7 @@ const selectGroup = (id: string) => {
   if (pg) {
     searchText.value = pg.name
     selectedGroupName.value = pg.name
+    nameModel.value = pg.name
   }
 }
 
@@ -269,10 +271,20 @@ onMounted(async () => {
 
   if (projectGroups.value.length > 0) {
     const selected = projectGroups.value.find(pg => pg.id === model.value)
-    const effective = selected ?? projectGroups.value[0]!
-    model.value = effective.id
-    searchText.value = effective.name
-    selectedGroupName.value = effective.name
+    if (selected) {
+      searchText.value = selected.name
+      selectedGroupName.value = selected.name
+    } else if (model.value && nameModel.value) {
+      // Group is beyond page 1 — use the cached name for display
+      searchText.value = nameModel.value
+      selectedGroupName.value = nameModel.value
+    } else if (!model.value) {
+      const first = projectGroups.value[0]!
+      model.value = first.id
+      searchText.value = first.name
+      selectedGroupName.value = first.name
+      nameModel.value = first.name
+    }
   }
 })
 

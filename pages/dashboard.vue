@@ -4,7 +4,7 @@
         <h2 class="visually-hidden">My Workspaces</h2>
 
         <label for="ws_project_group_picker">Project Group</label>
-        <project-group-picker v-model="currentProjectGroup" id="ws_project_group_picker" />
+        <project-group-picker v-model="currentProjectGroup" v-model:name="currentProjectGroupName" id="ws_project_group_picker" />
 
         <nuxt-link class="btn btn-primary flex-shrink-0" to="/workspace/create">
           <app-icon variant="add" size="24" />
@@ -45,20 +45,27 @@
 
 <script lang="ts">
 const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
+const STORAGE_KEY_PROJECT_GROUP_NAME = 'tdei-selected-project-group-name';
 const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
 
 function getLastProjectGroupId(): string | null {
-  return localStorage.getItem(STORAGE_KEY_PROJECT_GROUP);
+  return sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP);
 }
 function setLastProjectGroupId(id: string) {
-  localStorage.setItem(STORAGE_KEY_PROJECT_GROUP, id);
+  sessionStorage.setItem(STORAGE_KEY_PROJECT_GROUP, id);
+}
+function getLastProjectGroupName(): string | null {
+  return sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP_NAME);
+}
+function setLastProjectGroupName(name: string) {
+  sessionStorage.setItem(STORAGE_KEY_PROJECT_GROUP_NAME, name);
 }
 function getLastWorkspaceId(): number | null {
-  const v = localStorage.getItem(STORAGE_KEY_WORKSPACE);
+  const v = sessionStorage.getItem(STORAGE_KEY_WORKSPACE);
   return v ? Number(v) : null;
 }
 function setLastWorkspaceId(id: number) {
-  localStorage.setItem(STORAGE_KEY_WORKSPACE, String(id));
+  sessionStorage.setItem(STORAGE_KEY_WORKSPACE, String(id));
 }
 </script>
 
@@ -71,7 +78,8 @@ const route = useRoute();
 const workspaces = (await workspacesClient.getMyWorkspaces()).sort(compareWorkspaceCreatedAtDesc);
 const workspacesByProjectGroup = Map.groupBy(workspaces, w => w.tdeiProjectGroupId);
 
-const currentProjectGroup = ref(null);
+const currentProjectGroup = ref(getLastProjectGroupId());
+const currentProjectGroupName = ref(getLastProjectGroupName());
 const currentWorkspace = ref({});
 const currentWorkspaces = computed(() => workspacesByProjectGroup.get(currentProjectGroup.value));
 
@@ -84,6 +92,7 @@ for (const w of workspaces) {
 onMounted(() => {
   watch(currentWorkspace, (val) => { if (val?.id) setLastWorkspaceId(val.id) });
   watch(currentProjectGroup, (val) => { if (val) setLastProjectGroupId(val) });
+  watch(currentProjectGroupName, (val) => { if (val) setLastProjectGroupName(val) });
   watch(currentWorkspaces, onCurrentWorkspacesChange);
 
   autoSelectPreferredView();
@@ -113,10 +122,7 @@ function autoSelectPreferredView() {
     }
   }
 
-  const lastProjectGroupId = getLastProjectGroupId();
-  if (lastProjectGroupId) {
-    currentProjectGroup.value = lastProjectGroupId;
-  }
+  // currentProjectGroup is already initialized from localStorage synchronously
 }
 
 async function onCurrentWorkspacesChange(val) {
