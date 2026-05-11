@@ -123,8 +123,9 @@ export class TdeiAuthStore {
     this.refreshExpiresAt = new Date(0);
 
     localStorage.removeItem(this._storageKey);
-    localStorage.removeItem('tdei-selected-project-group');
-    localStorage.removeItem('tdei-selected-workspace');
+    sessionStorage.removeItem('tdei-selected-project-group');
+    sessionStorage.removeItem('tdei-selected-project-group-name');
+    sessionStorage.removeItem('tdei-selected-workspace');
   }
 }
 
@@ -469,7 +470,8 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
 
     try {
       const totalHeader = response.headers.get('X-Total-Count');
-      const total = totalHeader !== null ? parseInt(totalHeader, 10) : null;
+      const totalParsed = totalHeader !== null ? parseInt(totalHeader, 10) : NaN;
+      const total = Number.isNaN(totalParsed) ? null : totalParsed;
       const items = (await response.json() as TdeiProjectGroupApiResponse[]) ?? [];
       return { items: items.map(p => ({ id: p.tdei_project_group_id, name: p.project_group_name })), total };
     } catch (e) {

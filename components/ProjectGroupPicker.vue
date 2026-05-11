@@ -285,6 +285,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('mousedown', handleClickOutside)
+  clearTimeout(timeoutId)
 })
 </script>
 
