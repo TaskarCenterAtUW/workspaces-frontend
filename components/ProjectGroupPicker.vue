@@ -248,6 +248,11 @@ const onKeydown = (e: KeyboardEvent) => {
   }
 }
 
+const applyCachedName = () => {
+  searchText.value = nameModel.value
+  selectedGroupName.value = nameModel.value
+}
+
 const handleClickOutside = (event: MouseEvent) => {
   if (pickerRef.value && !pickerRef.value.contains(event.target as Node)) {
     if (isOpen.value) {
@@ -262,6 +267,12 @@ const handleClickOutside = (event: MouseEvent) => {
 
 onMounted(async () => {
   document.addEventListener('mousedown', handleClickOutside)
+
+  // Show cached name immediately before the API call completes
+  if (model.value && nameModel.value) {
+    applyCachedName()
+  }
+
   await loadGroups(true)
 
   if (projectGroups.value.length > 0) {
@@ -271,8 +282,7 @@ onMounted(async () => {
       selectedGroupName.value = selected.name
     } else if (model.value && nameModel.value) {
       // Group is beyond page 1 — use the cached name for display
-      searchText.value = nameModel.value
-      selectedGroupName.value = nameModel.value
+      applyCachedName()
     } else if (!model.value) {
       const first = projectGroups.value[0]!
       model.value = first.id

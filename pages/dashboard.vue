@@ -49,23 +49,47 @@ const STORAGE_KEY_PROJECT_GROUP_NAME = 'tdei-selected-project-group-name';
 const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
 
 function getLastProjectGroupId(): string | null {
-  return sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP);
+  if (typeof window === 'undefined') return null;
+  try {
+    return sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP);
+  } catch {
+    return null;
+  }
 }
 function setLastProjectGroupId(id: string) {
-  sessionStorage.setItem(STORAGE_KEY_PROJECT_GROUP, id);
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(STORAGE_KEY_PROJECT_GROUP, id);
+  } catch { /* silently fail */ }
 }
 function getLastProjectGroupName(): string | null {
-  return sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP_NAME);
+  if (typeof window === 'undefined') return null;
+  try {
+    return sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP_NAME);
+  } catch {
+    return null;
+  }
 }
 function setLastProjectGroupName(name: string) {
-  sessionStorage.setItem(STORAGE_KEY_PROJECT_GROUP_NAME, name);
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(STORAGE_KEY_PROJECT_GROUP_NAME, name);
+  } catch { /* silently fail */ }
 }
 function getLastWorkspaceId(): number | null {
-  const v = sessionStorage.getItem(STORAGE_KEY_WORKSPACE);
-  return v ? Number(v) : null;
+  if (typeof window === 'undefined') return null;
+  try {
+    const v = sessionStorage.getItem(STORAGE_KEY_WORKSPACE);
+    return v ? Number(v) : null;
+  } catch {
+    return null;
+  }
 }
 function setLastWorkspaceId(id: number) {
-  sessionStorage.setItem(STORAGE_KEY_WORKSPACE, String(id));
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(STORAGE_KEY_WORKSPACE, String(id));
+  } catch { /* silently fail */ }
 }
 </script>
 
