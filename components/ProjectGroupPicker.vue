@@ -283,6 +283,18 @@ onMounted(async () => {
     } else if (model.value && nameModel.value) {
       // Group is beyond page 1 — use the cached name for display
       applyCachedName()
+    } else if (model.value) {
+      // model is set but name is unknown — paginate until the group is found
+      while (hasMore.value) {
+        await loadGroups()
+        const found = projectGroups.value.find(pg => pg.id === model.value)
+        if (found) {
+          searchText.value = found.name
+          selectedGroupName.value = found.name
+          nameModel.value = found.name
+          break
+        }
+      }
     } else if (!model.value) {
       const first = projectGroups.value[0]!
       model.value = first.id

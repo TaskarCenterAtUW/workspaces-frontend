@@ -180,9 +180,9 @@ async function getDatasetInfo(id: string | null) {
 
   await nextTick();
 
-  workspaceTitle.value = record.metadata?.dataset_detail?.name ?? '';
-  projectGroupId.value = record.project_group.tdei_project_group_id;
-  tdeiRecordId.value = record.tdei_dataset_id;
+  workspaceTitle.value = record.metadata?.dataset_detail?.name ?? ''
+  projectGroupId.value = record.project_group?.tdei_project_group_id ?? null
+  tdeiRecordId.value = record.tdei_dataset_id ?? null
 
   initMap();
 }
