@@ -124,7 +124,6 @@ export class TdeiAuthStore {
 
     localStorage.removeItem(this._storageKey);
     sessionStorage.removeItem('tdei-selected-project-group');
-    sessionStorage.removeItem('tdei-selected-project-group-name');
     sessionStorage.removeItem('tdei-selected-workspace');
   }
 }
@@ -460,7 +459,7 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     return new TdeiClient(this._baseUrl, this.#auth, signal ?? this._abortSignal);
   }
 
-  async getMyProjectGroups(pageNo: number = 1, searchText: string = '', pageSize: number = 10, sortBy: 'name' | 'created_at' = 'name'): Promise<{ items: TdeiProjectGroup[], total: number | null }> {
+  async getMyProjectGroups(pageNo: number = 1, searchText: string = '', pageSize: number = 10, sortBy: 'name' | 'created_at' = 'name'): Promise<{ items: TdeiProjectGroup[], total?: number }> {
     let url = `project-group-roles/${this.#auth.subject}?page_size=${pageSize}&page_no=${pageNo}&sort_by=${sortBy}`;
     if (searchText) {
       url += `&searchText=${encodeURIComponent(searchText)}`;
@@ -471,12 +470,12 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     try {
       const totalHeader = response.headers.get('X-Total-Count');
       const totalParsed = totalHeader !== null ? parseInt(totalHeader, 10) : NaN;
-      const total = Number.isNaN(totalParsed) ? null : totalParsed;
+      const total = Number.isNaN(totalParsed) ? undefined : totalParsed;
       const items = (await response.json() as TdeiProjectGroupApiResponse[]) ?? [];
       return { items: items.map(p => ({ id: p.tdei_project_group_id, name: p.project_group_name })), total };
     } catch (e) {
       console.warn('getMyProjectGroups: failed to parse API response', e);
-      return { items: [], total: null };
+      return { items: [] };
     }
   }
 

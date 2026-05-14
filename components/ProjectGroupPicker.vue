@@ -18,7 +18,7 @@
     >
       <div class="pg-header">
         <span v-if="projectGroups.length > 0" class="pg-count">
-          <template v-if="totalCount !== null">
+          <template v-if="totalCount !== undefined">
             Showing first {{ projectGroups.length }} of {{ totalCount }} project groups
             <span v-if="hasMore && !loading" class="pg-scroll-hint">&#183; Scroll to continue loading</span>
           </template>
@@ -60,6 +60,29 @@
   </div>
 </template>
 
+<script lang="ts">
+const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group'
+
+function loadCachedName(id: string): string | undefined {
+  if (typeof window === 'undefined') return undefined
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP)
+    if (!raw) return undefined
+    const stored = JSON.parse(raw) as { id: string; name: string }
+    return stored.id === id ? stored.name : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function persistCachedName(id: string, name: string) {
+  if (typeof window === 'undefined') return
+  try {
+    sessionStorage.setItem(STORAGE_KEY_PROJECT_GROUP, JSON.stringify({ id, name }))
+  } catch { /* silently fail */ }
+}
+</script>
+
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { tdeiUserClient } from '~/services/index'
@@ -69,13 +92,12 @@ const props = withDefaults(defineProps<{ disabled?: boolean }>(), {
 })
 
 const model = defineModel({ required: true })
-const nameModel = defineModel('name', { default: '' })
 const searchText = ref('')
 const isOpen = ref(false)
 const projectGroups = ref<{ id: string; name: string }[]>([])
 const selectedGroupName = ref('')
 const loading = ref(false)
-const totalCount = ref<number | null>(null)
+const totalCount = ref<number | undefined>(undefined)
 const pickerRef = ref<HTMLElement | null>(null)
 const listRef = ref<HTMLElement | null>(null)
 const activeIndex = ref(-1)
@@ -97,7 +119,7 @@ const loadGroups = async (reset = false) => {
     hasMore.value = true
     projectGroups.value = []
     activeIndex.value = -1
-    totalCount.value = null
+    totalCount.value = undefined
   }
   if (!hasMore.value) return
 
@@ -113,8 +135,10 @@ const loadGroups = async (reset = false) => {
     }
 
     const { items: newGroups, total } = await tdeiUserClient.getMyProjectGroups(pageNo, query, pageSize)
-    if (total !== null) totalCount.value = total
+    if (total !== undefined) totalCount.value = total
     projectGroups.value.push(...newGroups)
+    const selected = newGroups.find(g => g.id === model.value)
+    if (selected) persistCachedName(selected.id, selected.name)
 
     if (newGroups.length < pageSize) {
       hasMore.value = false
@@ -146,9 +170,7 @@ const onInputClick = () => {
 }
 
 const onInput = () => {
-  if (!isOpen.value) {
-    isOpen.value = true
-  }
+  isOpen.value = true
   clearTimeout(timeoutId)
   timeoutId = setTimeout(() => {
     loadGroups(true)
@@ -160,7 +182,6 @@ watch(model, (newId) => {
   if (pg && !isOpen.value) {
     searchText.value = pg.name
     selectedGroupName.value = pg.name
-    nameModel.value = pg.name
   }
 })
 
@@ -178,7 +199,7 @@ const selectGroup = (id: string) => {
   if (pg) {
     searchText.value = pg.name
     selectedGroupName.value = pg.name
-    nameModel.value = pg.name
+    persistCachedName(pg.id, pg.name)
   }
 }
 
@@ -249,8 +270,9 @@ const onKeydown = (e: KeyboardEvent) => {
 }
 
 const applyCachedName = () => {
-  searchText.value = nameModel.value
-  selectedGroupName.value = nameModel.value
+  const cached = loadCachedName(model.value as string) ?? ''
+  searchText.value = cached
+  selectedGroupName.value = cached
 }
 
 const handleClickOutside = (event: MouseEvent) => {
@@ -269,7 +291,7 @@ onMounted(async () => {
   document.addEventListener('mousedown', handleClickOutside)
 
   // Show cached name immediately before the API call completes
-  if (model.value && nameModel.value) {
+  if (model.value && loadCachedName(model.value as string)) {
     applyCachedName()
   }
 
@@ -280,7 +302,7 @@ onMounted(async () => {
     if (selected) {
       searchText.value = selected.name
       selectedGroupName.value = selected.name
-    } else if (model.value && nameModel.value) {
+    } else if (model.value && loadCachedName(model.value as string)) {
       // Group is beyond page 1 — use the cached name for display
       applyCachedName()
     } else if (model.value) {
@@ -291,7 +313,6 @@ onMounted(async () => {
         if (found) {
           searchText.value = found.name
           selectedGroupName.value = found.name
-          nameModel.value = found.name
           break
         }
       }
@@ -300,7 +321,6 @@ onMounted(async () => {
       model.value = first.id
       searchText.value = first.name
       selectedGroupName.value = first.name
-      nameModel.value = first.name
     }
   }
 })
@@ -311,7 +331,9 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import "assets/scss/theme.scss";
+
 .cursor-pointer {
   cursor: pointer;
 }
@@ -328,17 +350,17 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding: 5px 12px;
-  border-bottom: 1px solid #e9ecef;
-  background: #f8f9fa;
+  border-bottom: 1px solid $gray-200;
+  background: $gray-100;
   min-height: 30px;
 }
 .pg-count {
   font-size: 0.74rem;
-  color: #6c757d;
+  color: $gray-600;
   flex: 1;
 }
 .pg-scroll-hint {
-  color: #0d6efd;
+  color: $primary;
 }
 .pg-list-wrap {
   position: relative;

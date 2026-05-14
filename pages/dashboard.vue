@@ -4,7 +4,7 @@
         <h2 class="visually-hidden">My Workspaces</h2>
 
         <label for="ws_project_group_picker">Project Group</label>
-        <project-group-picker v-model="currentProjectGroup" v-model:name="currentProjectGroupName" id="ws_project_group_picker" />
+        <project-group-picker v-model="currentProjectGroup" id="ws_project_group_picker" />
 
         <nuxt-link class="btn btn-primary flex-shrink-0" to="/workspace/create">
           <app-icon variant="add" size="24" />
@@ -45,36 +45,18 @@
 
 <script lang="ts">
 const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
-const STORAGE_KEY_PROJECT_GROUP_NAME = 'tdei-selected-project-group-name';
 const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
 
 function getLastProjectGroupId(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    return sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP);
+    const raw = sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP);
+    if (!raw) return null;
+    const stored = JSON.parse(raw) as { id: string; name: string };
+    return stored.id ?? null;
   } catch {
     return null;
   }
-}
-function setLastProjectGroupId(id: string) {
-  if (typeof window === 'undefined') return;
-  try {
-    sessionStorage.setItem(STORAGE_KEY_PROJECT_GROUP, id);
-  } catch { /* silently fail */ }
-}
-function getLastProjectGroupName(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP_NAME);
-  } catch {
-    return null;
-  }
-}
-function setLastProjectGroupName(name: string) {
-  if (typeof window === 'undefined') return;
-  try {
-    sessionStorage.setItem(STORAGE_KEY_PROJECT_GROUP_NAME, name);
-  } catch { /* silently fail */ }
 }
 function getLastWorkspaceId(): number | null {
   if (typeof window === 'undefined') return null;
@@ -103,7 +85,6 @@ const workspaces = (await workspacesClient.getMyWorkspaces()).sort(compareWorksp
 const workspacesByProjectGroup = Map.groupBy(workspaces, w => w.tdeiProjectGroupId);
 
 const currentProjectGroup = ref(getLastProjectGroupId());
-const currentProjectGroupName = ref(getLastProjectGroupName());
 const currentWorkspace = ref({});
 const currentWorkspaces = computed(() => workspacesByProjectGroup.get(currentProjectGroup.value));
 
@@ -115,8 +96,6 @@ for (const w of workspaces) {
 
 onMounted(() => {
   watch(currentWorkspace, (val) => { if (val?.id) setLastWorkspaceId(val.id) });
-  watch(currentProjectGroup, (val) => { if (val) setLastProjectGroupId(val) });
-  watch(currentProjectGroupName, (val) => { if (val) setLastProjectGroupName(val) });
   watch(currentWorkspaces, onCurrentWorkspacesChange);
 
   autoSelectPreferredView();
@@ -186,21 +165,19 @@ async function selectWorkspace(workspace) {
   }
 
   .project-group-picker {
-    width: auto;
-    min-width: 300px;
-    border-color: transparent;
-    border-left-color: $border-color;
-    margin-right: auto;
+    width: 100%;
+    border-color: $border-color;
+    margin-right: 1rem;
 
-    &:hover {
-      border-color: $border-color;
-    }
+    @include media-breakpoint-up(md) {
+      width: auto;
+      min-width: 300px;
+      border-color: transparent;
+      border-left-color: $border-color;
+      margin-right: auto;
 
-    @include media-breakpoint-down(md) {
-      & {
-        width: 100%;
+      &:hover {
         border-color: $border-color;
-        margin-right: 1rem;
       }
     }
   }
