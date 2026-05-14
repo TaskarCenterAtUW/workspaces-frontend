@@ -1,5 +1,5 @@
 <template>
-  <div class="position-relative project-group-picker" ref="pickerRef">
+  <div class="position-relative project-group-picker" ref="pickerRef" @focusout="onFocusOut">
     <input
       v-model="searchText"
       type="text"
@@ -261,11 +261,7 @@ const onKeydown = (e: KeyboardEvent) => {
     }
   } else if (e.key === 'Escape') {
     e.preventDefault()
-    isOpen.value = false
-    const pg = projectGroups.value.find(p => p.id === model.value)
-    const name = pg?.name ?? selectedGroupName.value
-    searchText.value = name
-    if (pg) selectedGroupName.value = name
+    closeDropdown()
   }
 }
 
@@ -275,15 +271,23 @@ const applyCachedName = () => {
   selectedGroupName.value = cached
 }
 
+const closeDropdown = () => {
+  isOpen.value = false
+  const pg = projectGroups.value.find(p => p.id === model.value)
+  const name = pg?.name ?? selectedGroupName.value
+  searchText.value = name
+  if (pg) selectedGroupName.value = name
+}
+
 const handleClickOutside = (event: MouseEvent) => {
   if (pickerRef.value && !pickerRef.value.contains(event.target as Node)) {
-    if (isOpen.value) {
-      isOpen.value = false
-      const pg = projectGroups.value.find(p => p.id === model.value)
-      const name = pg?.name ?? selectedGroupName.value
-      searchText.value = name
-      if (pg) selectedGroupName.value = name
-    }
+    if (isOpen.value) closeDropdown()
+  }
+}
+
+const onFocusOut = (e: FocusEvent) => {
+  if (!pickerRef.value?.contains(e.relatedTarget as Node)) {
+    if (isOpen.value) closeDropdown()
   }
 }
 
