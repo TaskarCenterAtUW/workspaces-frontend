@@ -351,7 +351,7 @@ onUnmounted(() => {
 }
 .pg-count {
   font-size: 0.74rem;
-  color: $gray-600;
+  color: $gray-700;
   flex: 1;
 }
 .pg-scroll-hint {
