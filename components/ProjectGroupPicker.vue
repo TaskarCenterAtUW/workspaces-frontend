@@ -279,12 +279,6 @@ const closeDropdown = () => {
   if (pg) selectedGroupName.value = name
 }
 
-const handleClickOutside = (event: MouseEvent) => {
-  if (pickerRef.value && !pickerRef.value.contains(event.target as Node)) {
-    if (isOpen.value) closeDropdown()
-  }
-}
-
 const onFocusOut = (e: FocusEvent) => {
   if (!pickerRef.value?.contains(e.relatedTarget as Node)) {
     if (isOpen.value) closeDropdown()
@@ -292,8 +286,6 @@ const onFocusOut = (e: FocusEvent) => {
 }
 
 onMounted(async () => {
-  document.addEventListener('mousedown', handleClickOutside)
-
   // Show cached name immediately before the API call completes
   if (model.value && loadCachedName(model.value as string)) {
     applyCachedName()
@@ -330,7 +322,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  document.removeEventListener('mousedown', handleClickOutside)
   clearTimeout(timeoutId)
 })
 </script>
