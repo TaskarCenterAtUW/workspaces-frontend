@@ -38,6 +38,9 @@
                 required
               />
             </label>
+            <div v-if="datasetError" class="alert alert-danger py-2" role="alert">
+              {{ datasetError }}
+            </div>
           </div><!-- .card-body -->
 
           <div class="card-footer">
@@ -140,21 +143,25 @@ const importer = new TdeiImporter(workspacesClient, tdeiClient, osmClient, conte
 
 const loading = reactive(new LoadingContext());
 const route = useRoute();
-const tdeiRecordId = ref(null);
-const record = reactive({});
-const map = ref({});
+const tdeiRecordId = ref<string | null>(null);
+const record = reactive<Record<string, any>>({});
+const map = ref<any>({});
 const workspaceTitle = ref('');
-const projectGroupId = ref(null);
+const projectGroupId = ref<string | null>(null);
+const datasetError = ref<string | null>(null);
 
 watch(tdeiRecordId, (val) => getDatasetInfo(val));
 
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
-    && projectGroupId.value !== null
-    && tdeiRecordId !== null
+  && projectGroupId.value !== null
+  && tdeiRecordId.value !== null
+  && datasetError.value === null,
 );
 
 async function getDatasetInfo(id: string | null) {
+  datasetError.value = null
+
   if (id === null) {
     for (const prop in record) {
       record[prop] = '';
@@ -180,9 +187,14 @@ async function getDatasetInfo(id: string | null) {
 
   await nextTick();
 
-  workspaceTitle.value = record.metadata?.dataset_detail?.name ?? '';
-  projectGroupId.value = record.project_group.tdei_project_group_id;
-  tdeiRecordId.value = record.tdei_dataset_id;
+  if (!record.project_group?.tdei_project_group_id || !record.tdei_dataset_id) {
+    datasetError.value = 'The selected dataset returned incomplete data. Please try a different dataset or contact support.'
+    return
+  }
+
+  workspaceTitle.value = record.metadata?.dataset_detail?.name ?? ''
+  projectGroupId.value = record.project_group.tdei_project_group_id
+  tdeiRecordId.value = record.tdei_dataset_id
 
   initMap();
 }

@@ -1,5 +1,5 @@
 <template>
-  <div class="position-relative project-group-picker" ref="pickerRef">
+  <div class="position-relative project-group-picker" ref="pickerRef" @focusout="onFocusOut">
     <input
       v-model="searchText"
       type="text"
@@ -7,39 +7,81 @@
       :disabled="props.disabled"
       placeholder="Search project groups..."
       @focus="onFocus"
+      @click="onInputClick"
+      @input="onInput"
       @keydown="onKeydown"
     />
-    <ul
+    <div
       v-if="isOpen"
-      ref="listRef"
-      class="list-group position-absolute w-100 mt-1 shadow bg-white"
-      style="z-index: 1000; max-height: 250px; overflow-y: auto;"
-      @scroll="onScroll"
+      class="pg-dropdown position-absolute w-100 mt-1"
       @mousedown.prevent
     >
-      <li
-        v-if="projectGroups.length === 0 && !loading"
-        class="list-group-item text-muted"
+      <div class="pg-header">
+        <span v-if="projectGroups.length > 0" class="pg-count">
+          <template v-if="totalCount !== undefined">
+            Showing first {{ projectGroups.length }} of {{ totalCount }} project groups
+            <span v-if="hasMore && !loading" class="pg-scroll-hint">&#183; Scroll to continue loading</span>
+          </template>
+          <template v-else-if="!hasMore">Showing all {{ projectGroups.length }} project group{{ projectGroups.length !== 1 ? 's' : '' }}</template>
+          <template v-else>
+            Showing first {{ projectGroups.length }} results
+            <span v-if="!loading" class="pg-scroll-hint">&#183; Scroll to continue loading</span>
+          </template>
+        </span>
+        <span v-if="loading" class="spinner-border spinner-border-sm ms-auto" role="status" aria-hidden="true"></span>
+      </div>
+      <div
+        class="pg-list-wrap"
+        :class="{ 'pg-has-more': hasMore && !loading }"
+        ref="listRef"
+        @scroll="onScroll"
       >
-        No project groups found.
-      </li>
-      <li
-        v-for="(pg, index) in projectGroups"
-        :key="pg.id"
-        :id="'pg-item-' + index"
-        class="list-group-item list-group-item-action cursor-pointer"
-        :class="{ highlighted: activeIndex === index, 'fw-bold': model === pg.id }"
-        @click="selectGroup(pg.id)"
-        @mouseenter="activeIndex = index"
-      >
-        {{ pg.name }}
-      </li>
-      <li v-if="loading" class="list-group-item text-center">
-        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-      </li>
-    </ul>
+        <ul class="list-group list-group-flush">
+          <li
+            v-if="projectGroups.length === 0 && !loading"
+            class="list-group-item text-muted"
+          >
+            No project groups found.
+          </li>
+          <li
+            v-for="(pg, index) in projectGroups"
+            :key="pg.id"
+            :id="'pg-item-' + index"
+            class="list-group-item list-group-item-action cursor-pointer"
+            :class="{ highlighted: activeIndex === index, 'fw-bold': model === pg.id }"
+            @click="selectGroup(pg.id)"
+            @mouseenter="activeIndex = index"
+          >
+            {{ pg.name }}
+          </li>
+        </ul>
+      </div>
+    </div>
   </div>
 </template>
+
+<script lang="ts">
+const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group'
+
+function loadCachedName(id: string): string | undefined {
+  if (typeof window === 'undefined') return undefined
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP)
+    if (!raw) return undefined
+    const stored = JSON.parse(raw) as { id: string; name: string }
+    return stored.id === id ? stored.name : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function persistCachedName(id: string, name: string) {
+  if (typeof window === 'undefined') return
+  try {
+    sessionStorage.setItem(STORAGE_KEY_PROJECT_GROUP, JSON.stringify({ id, name }))
+  } catch { /* silently fail */ }
+}
+</script>
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
@@ -55,14 +97,16 @@ const isOpen = ref(false)
 const projectGroups = ref<{ id: string; name: string }[]>([])
 const selectedGroupName = ref('')
 const loading = ref(false)
+const totalCount = ref<number | undefined>(undefined)
 const pickerRef = ref<HTMLElement | null>(null)
 const listRef = ref<HTMLElement | null>(null)
 const activeIndex = ref(-1)
 
 let pageNo = 1
-let hasMore = true
+const hasMore = ref(true)
 let pendingReset = false
 const pageSize = 10
+let hasUnfilteredResults = false
 
 const loadGroups = async (reset = false) => {
   if (loading.value) {
@@ -72,11 +116,12 @@ const loadGroups = async (reset = false) => {
 
   if (reset) {
     pageNo = 1
-    hasMore = true
+    hasMore.value = true
     projectGroups.value = []
     activeIndex.value = -1
+    totalCount.value = undefined
   }
-  if (!hasMore) return
+  if (!hasMore.value) return
 
   loading.value = true
   try {
@@ -85,12 +130,18 @@ const loadGroups = async (reset = false) => {
     if (query === selectedGroupName.value) {
       query = ''
     }
+    if (reset) {
+      hasUnfilteredResults = query === ''
+    }
 
-    const newGroups = await tdeiUserClient.getMyProjectGroups(pageNo, query, pageSize)
+    const { items: newGroups, total } = await tdeiUserClient.getMyProjectGroups(pageNo, query, pageSize)
+    if (total !== undefined) totalCount.value = total
     projectGroups.value.push(...newGroups)
+    const selected = newGroups.find(g => g.id === model.value)
+    if (selected) persistCachedName(selected.id, selected.name)
 
     if (newGroups.length < pageSize) {
-      hasMore = false
+      hasMore.value = false
     } else {
       pageNo++
     }
@@ -108,14 +159,23 @@ const loadGroups = async (reset = false) => {
 }
 
 let timeoutId: ReturnType<typeof setTimeout>
-watch(searchText, (newVal, oldVal) => {
-  if (!isOpen.value) return
 
+const onInputClick = () => {
+  if (!isOpen.value) {
+    isOpen.value = true
+    if (!hasUnfilteredResults || projectGroups.value.length === 0) {
+      loadGroups(true)
+    }
+  }
+}
+
+const onInput = () => {
+  isOpen.value = true
   clearTimeout(timeoutId)
   timeoutId = setTimeout(() => {
     loadGroups(true)
   }, 300)
-})
+}
 
 watch(model, (newId) => {
   const pg = projectGroups.value.find(p => p.id === newId)
@@ -127,7 +187,7 @@ watch(model, (newId) => {
 
 const onScroll = (e: Event) => {
   const target = e.target as HTMLElement
-  if (target.scrollTop + target.clientHeight >= target.scrollHeight - 10) {
+  if (target.scrollTop + target.clientHeight >= target.scrollHeight * 0.8) {
     loadGroups()
   }
 }
@@ -139,12 +199,15 @@ const selectGroup = (id: string) => {
   if (pg) {
     searchText.value = pg.name
     selectedGroupName.value = pg.name
+    persistCachedName(pg.id, pg.name)
   }
 }
 
 const onFocus = (e: Event) => {
   isOpen.value = true
-  loadGroups(true)
+  if (!hasUnfilteredResults || projectGroups.value.length === 0) {
+    loadGroups(true)
+  }
   const target = e.target as HTMLInputElement
   if (target) {
     target.select()
@@ -198,59 +261,119 @@ const onKeydown = (e: KeyboardEvent) => {
     }
   } else if (e.key === 'Escape') {
     e.preventDefault()
-    isOpen.value = false
-    const pg = projectGroups.value.find(p => p.id === model.value)
-    if (pg) {
-      searchText.value = pg.name
-      selectedGroupName.value = pg.name
-    } else {
-      searchText.value = ''
-    }
+    closeDropdown()
   }
 }
 
-const handleClickOutside = (event: MouseEvent) => {
-  if (pickerRef.value && !pickerRef.value.contains(event.target as Node)) {
-    if (isOpen.value) {
-      isOpen.value = false
-      const pg = projectGroups.value.find(p => p.id === model.value)
-      if (pg) {
-        searchText.value = pg.name
-        selectedGroupName.value = pg.name
-      } else {
-        searchText.value = ''
-      }
-    }
+const applyCachedName = () => {
+  const cached = loadCachedName(model.value as string) ?? ''
+  searchText.value = cached
+  selectedGroupName.value = cached
+}
+
+const closeDropdown = () => {
+  isOpen.value = false
+  const pg = projectGroups.value.find(p => p.id === model.value)
+  const name = pg?.name ?? selectedGroupName.value
+  searchText.value = name
+  if (pg) selectedGroupName.value = name
+}
+
+const onFocusOut = (e: FocusEvent) => {
+  if (!pickerRef.value?.contains(e.relatedTarget as Node)) {
+    if (isOpen.value) closeDropdown()
   }
 }
 
 onMounted(async () => {
-  document.addEventListener('mousedown', handleClickOutside)
+  // Show cached name immediately before the API call completes
+  if (model.value && loadCachedName(model.value as string)) {
+    applyCachedName()
+  }
+
   await loadGroups(true)
 
   if (projectGroups.value.length > 0) {
-    if (!model.value) {
-      model.value = projectGroups.value[0]?.id
-    }
     const selected = projectGroups.value.find(pg => pg.id === model.value)
     if (selected) {
       searchText.value = selected.name
       selectedGroupName.value = selected.name
+    } else if (model.value && loadCachedName(model.value as string)) {
+      // Group is beyond page 1 — use the cached name for display
+      applyCachedName()
+    } else if (model.value) {
+      // model is set but name is unknown — paginate until the group is found
+      while (hasMore.value) {
+        await loadGroups()
+        const found = projectGroups.value.find(pg => pg.id === model.value)
+        if (found) {
+          searchText.value = found.name
+          selectedGroupName.value = found.name
+          break
+        }
+      }
+    } else if (!model.value) {
+      const first = projectGroups.value[0]!
+      model.value = first.id
+      searchText.value = first.name
+      selectedGroupName.value = first.name
     }
   }
 })
 
 onUnmounted(() => {
-  document.removeEventListener('mousedown', handleClickOutside)
+  clearTimeout(timeoutId)
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import "assets/scss/theme.scss";
+
 .cursor-pointer {
   cursor: pointer;
 }
+.pg-dropdown {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  z-index: 1000;
+}
+.pg-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-bottom: 1px solid $gray-200;
+  background: $gray-100;
+  min-height: 30px;
+}
+.pg-count {
+  font-size: 0.74rem;
+  color: $gray-700;
+  flex: 1;
+}
+.pg-scroll-hint {
+  color: $primary;
+}
+.pg-list-wrap {
+  position: relative;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.pg-list-wrap.pg-has-more::after {
+  content: '';
+  display: block;
+  position: sticky;
+  bottom: 0;
+  height: 44px;
+  margin-top: -44px;
+  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.95));
+  pointer-events: none;
+}
 .list-group-item.highlighted {
-  background-color: rgba(13, 110, 253, 0.25);
+  background-color: rgba(13, 110, 253, 0.15);
   color: inherit;
 }
 </style>

@@ -44,8 +44,35 @@
 </template>
 
 <script lang="ts">
-let lastProjectGroupId: string;
-let lastWorkspaceId: number;
+const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
+const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
+
+function getLastProjectGroupId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP);
+    if (!raw) return null;
+    const stored = JSON.parse(raw) as { id: string; name: string };
+    return stored.id ?? null;
+  } catch {
+    return null;
+  }
+}
+function getLastWorkspaceId(): number | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const v = sessionStorage.getItem(STORAGE_KEY_WORKSPACE);
+    return v ? Number(v) : null;
+  } catch {
+    return null;
+  }
+}
+function setLastWorkspaceId(id: number) {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(STORAGE_KEY_WORKSPACE, String(id));
+  } catch { /* silently fail */ }
+}
 </script>
 
 <script setup lang="ts">
@@ -57,7 +84,7 @@ const route = useRoute();
 const workspaces = (await workspacesClient.getMyWorkspaces()).sort(compareWorkspaceCreatedAtDesc);
 const workspacesByProjectGroup = Map.groupBy(workspaces, w => w.tdeiProjectGroupId);
 
-const currentProjectGroup = ref(null);
+const currentProjectGroup = ref(getLastProjectGroupId());
 const currentWorkspace = ref({});
 const currentWorkspaces = computed(() => workspacesByProjectGroup.get(currentProjectGroup.value));
 
@@ -68,8 +95,7 @@ for (const w of workspaces) {
 }
 
 onMounted(() => {
-  watch(currentWorkspace, (val) => { lastWorkspaceId = val.id });
-  watch(currentProjectGroup, (val) => { lastProjectGroupId = val });
+  watch(currentWorkspace, (val) => { if (val?.id) setLastWorkspaceId(val.id) });
   watch(currentWorkspaces, onCurrentWorkspacesChange);
 
   autoSelectPreferredView();
@@ -88,6 +114,7 @@ function autoSelectPreferredView() {
     }
   }
 
+  const lastWorkspaceId = getLastWorkspaceId();
   if (lastWorkspaceId) {
     const workspace = workspaces.find(w => w.id === lastWorkspaceId);
 
@@ -98,9 +125,7 @@ function autoSelectPreferredView() {
     }
   }
 
-  if (lastProjectGroupId) {
-    currentProjectGroup.value = lastProjectGroupId;
-  }
+  // currentProjectGroup is already initialized from sessionStorage synchronously
 }
 
 async function onCurrentWorkspacesChange(val) {
@@ -140,20 +165,19 @@ async function selectWorkspace(workspace) {
   }
 
   .project-group-picker {
-    width: auto;
-    border-color: transparent;
-    border-left-color: $border-color;
-    margin-right: auto;
+    width: 100%;
+    border-color: $border-color;
+    margin-right: 1rem;
 
-    &:hover {
-      border-color: $border-color;
-    }
+    @include media-breakpoint-up(md) {
+      width: auto;
+      min-width: 300px;
+      border-color: transparent;
+      border-left-color: $border-color;
+      margin-right: auto;
 
-    @include media-breakpoint-down(md) {
-      & {
-        width: 100%;
+      &:hover {
         border-color: $border-color;
-        margin-right: 1rem;
       }
     }
   }
