@@ -58,5 +58,37 @@ export default defineNuxtConfig({
         'workspaces.local',
       ],
     },
+    optimizeDeps: {
+      // Pre-bundle these dependencies to avoid reloads during development:
+      include: [
+        '@osmcha/maplibre-adiff-viewer',
+        '@osmcha/osmchange-parser',
+        '@sindresorhus/slugify',
+        '@vue/devtools-core',
+        '@vue/devtools-kit',
+        '@zip.js/zip.js',
+        'ajv', // CJS
+        'ajv-formats', // CJS
+        'bootstrap-vue-next',
+        'bootstrap-vue-next/components/BAlert',
+        'bootstrap-vue-next/components/BApp',
+        'bootstrap-vue-next/components/BBadge',
+        'bootstrap-vue-next/components/BButton',
+        'bootstrap-vue-next/components/BCard',
+        'bootstrap-vue-next/components/BContainer',
+        'bootstrap-vue-next/components/BDropdown',
+        'bootstrap-vue-next/components/BFormInput',
+        'bootstrap-vue-next/components/BListGroup',
+        'bootstrap-vue-next/components/BModal',
+        'bootstrap-vue-next/components/BPopover',
+        'bootstrap-vue-next/composables/useModal',
+        'dayjs', // CJS
+        'dayjs/plugin/relativeTime', // CJS
+        'maplibre-gl', // CJS
+        'papaparse', // CJS
+        'vue-qrcode',
+        'vue3-toastify',
+      ],
+    },
   },
 });
