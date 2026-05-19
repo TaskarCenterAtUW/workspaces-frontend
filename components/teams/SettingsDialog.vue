@@ -10,14 +10,14 @@
 
     <template #footer="{ cancel }">
       <b-button
-        variant="link"
+        class="tdei-primary-link p-0 border-0 bg-transparent"
         @click="cancel()"
       >
         Cancel
       </b-button>
       <b-button
         type="submit"
-        variant="primary"
+        class="tdei-primary-button"
         :disabled="!complete || saving.active"
         @click="save"
       >

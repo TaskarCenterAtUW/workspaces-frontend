@@ -9,7 +9,7 @@
       autocomplete="off"
       value="osw"
     >
-    <label class="btn btn-outline-primary" for="radio_type_osw">OpenSidewalks</label>
+    <label class="btn tdei-secondary-button" for="radio_type_osw">OpenSidewalks</label>
 
     <input
       v-model="model"
@@ -20,7 +20,7 @@
       autocomplete="off"
       value="pathways"
     >
-    <label class="btn btn-outline-primary" for="radio_type_pathways">GTFS Pathways</label>
+    <label class="btn tdei-secondary-button" for="radio_type_pathways">GTFS Pathways</label>
   </div>
 </template>
 

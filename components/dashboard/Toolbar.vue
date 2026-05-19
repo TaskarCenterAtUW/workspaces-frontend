@@ -3,7 +3,8 @@
     <b-dropdown
       v-if="isOsw && rapid3Available"
       split
-      variant="dark"
+      split-class="tdei-primary-button"
+      toggle-class="tdei-primary-button"
       :split-to="editRoute"
     >
       <template #button-content>
@@ -20,13 +21,13 @@
         Rapid 3 (beta)
       </b-dropdown-item>
     </b-dropdown>
-    <nuxt-link v-else class="btn btn-dark" :to="editRoute">
+    <nuxt-link v-else class="btn tdei-primary-button" :to="editRoute">
       <app-icon variant="edit_location_alt" size="24" />
       Edit
     </nuxt-link>
     <div class="btn-group ms-1">
       <nuxt-link
-        class="btn"
+        class="btn tdei-secondary-button"
         :to="reviewRoute"
       >
         <app-icon
@@ -42,13 +43,13 @@
         <span class="d-none d-sm-inline">Tasks</span>
       </a>
       -->
-      <nuxt-link class="btn" :to="exportRoute" :aria-disabled="!workspace.center">
+      <nuxt-link class="btn tdei-secondary-button" :to="exportRoute" :aria-disabled="!workspace.center">
         <app-icon variant="drive_folder_upload" size="24" no-margin />
         <span class="d-none d-sm-inline ms-2">Export</span>
       </nuxt-link>
     </div>
     <div class="btn-group ms-auto">
-      <nuxt-link class="btn" :to="settingsRoute">
+      <nuxt-link class="btn tdei-secondary-button" :to="settingsRoute">
         <app-icon variant="settings" size="24" no-margin />
         <span class="d-none d-sm-inline ms-2">Settings</span>
       </nuxt-link>

@@ -6,7 +6,7 @@
         <label for="ws_project_group_picker">Project Group</label>
         <project-group-picker v-model="currentProjectGroup" id="ws_project_group_picker" />
 
-        <nuxt-link class="btn btn-primary flex-shrink-0" to="/workspace/create">
+        <nuxt-link class="btn tdei-primary-button flex-shrink-0" to="/workspace/create">
           <app-icon variant="add" size="24" />
           New<span class="d-none d-sm-inline"> Workspace</span>
         </nuxt-link>

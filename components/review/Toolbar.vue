@@ -5,7 +5,7 @@
       #{{ props.item.id }}
     </span>
     <button
-      class="btn btn-sm btn-dark"
+      class="btn btn-sm tdei-primary-button"
       @click="edit"
     >
       <app-icon
@@ -15,7 +15,7 @@
       <span class="d-none d-sm-inline ms-2">Edit Here</span>
     </button>
     <button
-      class="btn btn-sm btn-light border ms-2"
+      class="btn btn-sm tdei-secondary-button ms-2"
       :class="{ active: showDetails }"
       aria-haspopup="true"
       :aria-expanded="showDetails"
@@ -28,7 +28,7 @@
     </button>
     <button
       v-show="props.item.isChangeset || props.item.isNote"
-      class="btn btn-sm btn-light border ms-2"
+      class="btn btn-sm tdei-secondary-button ms-2"
       :class="{ active: showDiscussion }"
       aria-haspopup="true"
       :aria-expanded="showDiscussion"
@@ -54,7 +54,7 @@
         <div class="d-inline-block ms-2">
           <button
             v-show="props.item.isFeedback && !props.item.isResolved"
-            class="btn btn-sm btn-success"
+            class="btn btn-sm tdei-primary-button"
             :disabled="!isValidator"
           >
             <app-icon

@@ -11,8 +11,7 @@
         <template #target>
           <div class="d-inline-block">
             <b-button
-              variant="primary"
-              class="flex-shrink-0"
+              class="tdei-primary-button flex-shrink-0"
               :disabled="!isLead"
               @click="openNewDialog"
             >
@@ -129,9 +128,11 @@ async function remove(team: WorkspaceTeam) {
     body: `Are you sure you want to delete "${team.name}"?`,
     title: 'Delete Team',
     okTitle: 'Delete',
-    okVariant: 'danger',
+    okClass: 'maroon-bg',
+    okVariant: null,
     cancelTitle: 'Cancel',
-    cancelVariant: 'link',
+    cancelClass: 'tdei-primary-link p-0 border-0 bg-transparent',
+    cancelVariant: null,
   }).show();
 
   if (value?.ok) {

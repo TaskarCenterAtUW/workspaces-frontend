@@ -1,9 +1,26 @@
+@import url("https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+
 @import "theme.scss";
 @import "bootstrap/scss/bootstrap.scss";
 @import "maplibre-gl/dist/maplibre-gl.css";
 @import "vue3-toastify/dist/index.css";
 
 :root {
+  --primary-font-family: "Open Sans", sans-serif;
+  --secondary-font-family: "Montserrat", sans-serif;
+  --brand-primary: #32006e;
+  --brand-accent: #4b2e83;
+  --primary-color: var(--brand-primary);
+  --primary-color-dark: var(--brand-primary);
+  --secondary-color: #5f647a;
+  --tdei-blue: #586AB5;
+  --tdei-green: #479FA1;
+  --purple-background-light: #f4f0fb;
+  --purple-background-dark: #ddd2ee;
+  --purple-background-medium: #ebe4f6;
+  --white: #ffffff;
   --ws-create-color: $review-create-color;
   --ws-modify-color: $review-modify-color;
   --ws-delete-color: $review-delete-color;
@@ -12,6 +29,14 @@
 html, body, #__nuxt {
   width: 100%;
   height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--primary-font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
 }
 
 /* Vue page transitions */
@@ -47,6 +72,13 @@ label > .form-select:first-child {
   box-shadow: $box-shadow;
 }
 
+.dropdown-item.active,
+.dropdown-item:active {
+  color: #2f3661;
+  text-decoration: none;
+  background-color: #e2f0f8;
+}
+
 /* Review */
 
 .bg-create {
@@ -66,4 +98,301 @@ label > .form-select:first-child {
 }
 .text-delete {
   color: #{darken($review-delete-color, 3%)};
+}
+
+/* TDEI Utility Classes */
+
+.tdei-primary-button {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+  border-radius: 4px !important;
+
+  &:hover,
+  &:active {
+    background-color: var(--primary-color-dark) !important;
+    border-color: var(--primary-color-dark) !important;
+    color: #fff !important;
+  }
+
+  &:disabled {
+    background-color: #cccccc !important;
+    border-color: #cccccc !important;
+    color: #ffffff !important;
+    cursor: not-allowed;
+  }
+}
+
+.tdei-secondary-button {
+  border-color: var(--secondary-color);
+  font-weight: 600 !important;
+
+  &:hover {
+    background-color: var(--secondary-color);
+    color: #fff;
+    border-color: var(--secondary-color);
+  }
+}
+
+.btn-check:checked + .tdei-secondary-button,
+.btn-check:active + .tdei-secondary-button,
+.tdei-secondary-button.active,
+.tdei-secondary-button:active {
+  background-color: var(--secondary-color);
+  color: #fff;
+  border-color: var(--secondary-color);
+}
+
+.tdei-primary-link {
+  color: var(--primary-color);
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--primary-color-dark);
+    text-decoration: underline;
+  }
+}
+
+.page-header-title {
+  font-family: var(--secondary-font-family);
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.page-header-subtitle {
+  font-family: var(--secondary-font-family);
+  font-size: 14px;
+  color: var(--secondary-color);
+}
+
+.tdei-bold-name {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.tdei-name-desc {
+  font-size: 14px;
+  color: var(--secondary-color);
+}
+
+.tdei-hint-text {
+  font-size: 14px;
+  color: var(--secondary-color);
+  font-style: italic;
+}
+
+.apiKey {
+  border-top: 1px dashed #b5b5b5;
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.jsonContent {
+  border: 1px solid var(--text-color);
+  margin-top: 1%;
+  overflow: auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 20px;
+}
+
+.tdei-button2 {
+  color: #59c3c8 !important;
+  font-weight: 600;
+  border: 2px solid #59c3c8;
+}
+
+.tdei-rounded-button {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  color: #fff !important;
+  font-weight: 600;
+  border-radius: 100px;
+}
+
+.tdei-rounded-button:hover,
+.tdei-rounded-button:active {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.nav-tabs .nav-link {
+  color: var(--secondary-color);
+  background-color: transparent !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  padding: 10px 0;
+  margin-right: 15px;
+}
+
+.nav-tabs .nav-link:hover {
+  color: gray;
+  border: none;
+}
+
+.nav-tabs .nav-link.active {
+  color: #162848;
+  background-color: #fff;
+  font-weight: 600;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  border-bottom: 4px solid var(--primary-color);
+}
+
+.maroon-bg,
+.maroon-bg:hover {
+  background-color: #c84349 !important;
+  border-color: #c84349 !important;
+  color: #fff !important;
+  font-weight: 600;
+  border-radius: 100px;
+}
+
+.form-group-custom {
+  position: relative;
+  min-height: 90px;
+  margin-right: 1rem;
+}
+
+.form-group-custom .form-control,
+.form-group-custom .react-datepicker-wrapper,
+.form-group-custom .react-select-container {
+  width: 100%;
+}
+
+.form-group-custom .invalid-feedback {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+}
+
+.container {
+  padding: 20px;
+}
+
+.column-style {
+  background: #FFFFFF 0% 0% no-repeat padding-box;
+  box-shadow: 0px 1px 12px #0000000D;
+  border: 1px solid #EEEEEE;
+  border-radius: 8px;
+  opacity: 1;
+  padding: 20px;
+  flex: 1;
+  margin-right: 15px;
+
+  &:nth-last-child(1) {
+    margin-right: 0;
+  }
+}
+
+.section-style {
+  background: #FFFFFF 0% 0% no-repeat padding-box;
+  box-shadow: 0px 1px 12px #0000000D;
+  border: 1px solid #EEEEEE;
+  border-radius: 8px;
+  opacity: 1;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.infoIconImg {
+  font-size: 14px !important;
+  color: #a5a5a5 !important;
+  margin-right: 5px !important;
+}
+
+input[type=checkbox] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  display: inline-block;
+  border-radius: 6px;
+  border: 1.5px solid var(--secondary-color);
+
+  &:checked {
+    background-color: var(--primary-color);
+    border: 1.5px solid var(--primary-color);
+  }
+}
+
+.iconImg {
+  width: 15px;
+  margin-right: 15px !important;
+}
+
+.formTitle {
+  margin-bottom: 2px;
+  font-size: 26px;
+  font-weight: 300;
+}
+
+.MuiStepper-horizontal > .MuiStep-horizontal {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+@media only screen and (max-width: 768px) {
+  .column-style {
+    flex: unset;
+    margin-right: 0;
+    margin-bottom: 20px;
+
+    &:nth-last-child(1) {
+      margin-bottom: 0;
+    }
+  }
+
+  .page-header-title {
+    font-size: 16px;
+  }
+}
+
+.form-check-input[type="radio"],
+input[type="radio"] {
+  accent-color: var(--primary-color) !important;
+}
+
+.form-check .form-check-input.form-check-input[type="radio"]:checked {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+}
+
+.form-check .form-check-input.form-check-input[type="radio"]:focus {
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 0.25rem rgba(135, 62, 242, 0.25) !important;
+}
+
+.MuiButtonBase-root:focus-visible {
+  outline: 2px solid #2684ff !important;
+  outline-offset: 1px;
+  border-radius: 2px;
+  box-shadow: none !important;
+}
+
+.btn:focus-visible {
+  outline: 2px solid #2684ff !important;
+  outline-offset: 1px;
+  border-radius: 2px;
+  box-shadow: none !important;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid #2684ff !important;
+  outline-offset: 1px;
+  border-radius: 2px;
+  box-shadow: none !important;
 }

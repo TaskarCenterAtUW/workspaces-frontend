@@ -46,7 +46,7 @@
               {{ team!.name }}
             </div>
             <b-button
-              variant="primary"
+              class="tdei-primary-button"
               :disabled="saving.active"
               @click="join"
             >
@@ -67,7 +67,7 @@
               You already joined this team.
             </div>
             <b-button
-              variant="danger"
+              class="maroon-bg"
               :disabled="saving.active"
               @click="leave"
             >

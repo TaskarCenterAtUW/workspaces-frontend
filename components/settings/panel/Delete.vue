@@ -21,7 +21,7 @@
       </p>
 
       <button
-        class="btn btn-outline-danger mb-3"
+        class="btn maroon-bg mb-3"
         :disabled="!isLead || accepted"
         @click="acceptDelete"
       >
@@ -39,7 +39,7 @@
         </label>
 
         <button
-          class="btn btn-danger"
+          class="btn maroon-bg"
           :disabled="!isLead || attestation !== 'delete'"
           @click="submitDelete"
         >

@@ -15,7 +15,7 @@
             Learn more about the TDEI
           </a>
         </p>
-        <nuxt-link to="/signin" class="btn btn-primary btn-lg">Sign In</nuxt-link>
+        <nuxt-link to="/signin" class="btn tdei-primary-button btn-lg">Sign In</nuxt-link>
       </div>
     </div>
   </div>

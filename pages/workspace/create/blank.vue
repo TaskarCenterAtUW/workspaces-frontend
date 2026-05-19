@@ -21,7 +21,7 @@
           </div><!-- .card-body -->
 
           <div class="card-footer">
-            <button type="submit" class="btn btn-primary" :disabled="!complete" @click="create">
+            <button type="submit" class="btn tdei-primary-button" :disabled="!complete" @click="create">
               <app-spinner v-if="creating.active" size="sm" />
               <template v-else>Create Workspace</template>
             </button>

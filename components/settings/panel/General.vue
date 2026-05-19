@@ -22,7 +22,7 @@
 
         <button
           type="submit"
-          class="btn btn-primary"
+          class="btn tdei-primary-button"
           :disabled="!isLead"
         >
           Rename

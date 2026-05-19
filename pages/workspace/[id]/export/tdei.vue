@@ -27,7 +27,7 @@
           <div class="card-footer">
             <nuxt-link
               to="../export"
-              class="btn btn-primary"
+              class="btn tdei-primary-button"
             >
               <app-icon
                 variant="arrow_circle_left"
@@ -48,7 +48,7 @@
           <div class="card-footer">
             <nuxt-link
               to="../export"
-              class="btn btn-primary"
+              class="btn tdei-primary-button"
             >
               <app-icon variant="arrow_circle_left" no-margin />
               Go back
@@ -90,14 +90,14 @@
             <section v-else-if="context.error" class="alert alert-danger m-0" role="alert">
               <h5><app-icon variant="info" />An error occurred:</h5>
               <p class="mb-3">{{ context.error }}</p>
-              <button class="btn btn-primary" @click="context.reset()">
+              <button class="btn tdei-primary-button" @click="context.reset()">
                 Try again
               </button>
             </section>
             <button
               v-else-if="!context.complete"
               type="submit"
-              class="btn btn-primary"
+              class="btn tdei-primary-button"
               @click.prevent="upload"
               :disabled="context.active"
             >

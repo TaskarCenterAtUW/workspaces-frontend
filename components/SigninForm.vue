@@ -14,7 +14,7 @@
         <input v-model="password" type="password" class="form-control" id="password">
       </div>
 
-      <button type="submit" class="btn btn-primary" :disabled="disabled">
+      <button type="submit" class="btn tdei-primary-button" :disabled="disabled">
         <app-spinner v-if="loading.active" size="sm" />
         <template v-else>Submit</template>
       </button>

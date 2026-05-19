@@ -51,7 +51,7 @@
         <div class="modal-footer justify-content-center">
           <a
             v-if="qrCodeUrl"
-            class="btn btn-dark"
+            class="btn tdei-secondary-button"
             :href="qrCodeUrl"
             download="qr-code.png"
           >
@@ -60,7 +60,7 @@
           </a>
           <button
             type="button"
-            class="btn btn-primary"
+            class="btn tdei-primary-button"
             data-bs-dismiss="modal"
           >
             Close

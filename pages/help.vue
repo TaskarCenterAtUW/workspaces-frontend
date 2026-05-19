@@ -39,7 +39,7 @@
           <b-button
             href="https://taskarcenteratuw.github.io/tcat-wiki/workspaces/"
             target="_blank"
-            variant="primary"
+            class="tdei-primary-button"
           >
             Open Workspaces Guides
             <app-icon
@@ -72,7 +72,7 @@
 
           <b-button
             href="mailto:helpdesk@tdei.us"
-            variant="outline-primary"
+            class="tdei-secondary-button"
           >
             helpdesk@tdei.us
           </b-button>

@@ -14,7 +14,7 @@
             <p class="card-text">Create an empty workspace with no data.</p>
           </div>
           <div class="card-footer">
-            <nuxt-link to="/workspace/create/blank" class="btn btn-primary">
+            <nuxt-link to="/workspace/create/blank" class="btn tdei-primary-button">
               Start
               <app-icon variant="arrow_circle_right" no-margin />
             </nuxt-link>
@@ -32,7 +32,7 @@
             </p>
           </div>
           <div class="card-footer">
-            <nuxt-link to="/workspace/create/tdei" class="btn btn-primary">
+            <nuxt-link to="/workspace/create/tdei" class="btn tdei-primary-button">
               Start
               <app-icon variant="arrow_circle_right" no-margin />
             </nuxt-link>
@@ -50,7 +50,7 @@
             </p>
           </div>
           <div class="card-footer">
-            <nuxt-link to="/workspace/create/file" class="btn btn-primary">
+            <nuxt-link to="/workspace/create/file" class="btn tdei-primary-button">
               Start
               <app-icon variant="arrow_circle_right" no-margin />
             </nuxt-link>
