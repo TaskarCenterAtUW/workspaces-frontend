@@ -15,11 +15,22 @@
             Learn more about the TDEI
           </a>
         </p>
-        <nuxt-link to="/signin" class="btn tdei-primary-button btn-lg">Sign In</nuxt-link>
+        <nuxt-link
+          :to="auth.ok ? '/dashboard' : '/signin'"
+          class="btn tdei-primary-button btn-lg"
+        >
+          {{ auth.ok ? 'Go to Dashboard' : 'Sign In' }}
+        </nuxt-link>
       </div>
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { tdeiClient } from '~/services/index'
+
+const auth = tdeiClient.auth
+</script>
 
 <style lang="scss">
 @import "assets/scss/theme.scss";
@@ -50,10 +61,10 @@
     width: 100%;
     padding: 3rem;
     margin: 0 auto;
-    border-top: 1px solid lighten(rgba(29, 43, 65, 0.5), 30%);
-    border-bottom: 1px solid lighten(rgba(29, 43, 65, 0.5), 30%);
-    background-color: rgba(29, 43, 65, 0.85);
-    color: white;
+    border-top: 1px solid var(--purple-background-dark);
+    border-bottom: 1px solid var(--purple-background-dark);
+    background-color: rgba(244, 240, 251, 0.8);
+    color: #1f2540;
     text-align: center;
 
     > * {
@@ -70,8 +81,14 @@
       max-width: 700px;
 
       > a {
-        color: lighten($primary, 30%);
+        color: var(--primary-color);
+        font-weight: 600;
         text-decoration: none;
+
+        &:hover {
+          color: var(--primary-color-dark);
+          text-decoration: underline;
+        }
       }
     }
 
