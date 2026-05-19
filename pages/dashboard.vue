@@ -3,7 +3,7 @@
     <div class="d-flex">
         <h2 class="visually-hidden">My Workspaces</h2>
 
-        <label for="ws_project_group_picker">Project Group</label>
+        <label class="page-header-title" for="ws_project_group_picker">Project Group</label>
         <project-group-picker v-model="currentProjectGroup" id="ws_project_group_picker" />
 
         <nuxt-link class="btn tdei-primary-button flex-shrink-0" to="/workspace/create">
@@ -16,9 +16,17 @@
       <app-icon variant="info" />
       No workspaces exist in the selected project group.
     </div>
-    <div v-else class="row mt-4 position-relative">
+    <template v-else>
+      <section class="workspace-list-header mt-4">
+        <p class="page-header-subtitle">
+          Here are the workspaces currently available in the selected
+          <span>{{ selectedProjectGroupName }}</span>.
+        </p>
+      </section>
+
+      <div class="row mt-4 position-relative">
       <div class="col-md mb-3">
-        <div class="list-group">
+        <div class="workspace-list">
           <dashboard-workspace-item
             v-for="w in currentWorkspaces"
             :key="w.id"
@@ -45,7 +53,8 @@
           />
         </div><!-- .card -->
       </div><!-- .col-md -->
-    </div><!-- .row -->
+      </div><!-- .row -->
+    </template>
   </app-page>
 </template>
 
@@ -63,6 +72,17 @@ function getLastProjectGroupId(): string | null {
     if (!raw) return null;
     const stored = JSON.parse(raw) as { id: string; name: string };
     return stored.id ?? null;
+  } catch {
+    return null;
+  }
+}
+function getLastProjectGroupName(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP);
+    if (!raw) return null;
+    const stored = JSON.parse(raw) as { id: string; name: string };
+    return stored.name ?? null;
   } catch {
     return null;
   }
@@ -98,6 +118,11 @@ const currentWorkspaces = computed(() =>
   currentProjectGroup.value
     ? workspacesByProjectGroup.get(currentProjectGroup.value)
     : undefined,
+);
+const selectedProjectGroupName = computed(() =>
+  getLastProjectGroupName()
+  ?? myProjectGroups.find(pg => pg.tdei_project_group_id === currentProjectGroup.value)?.name
+  ?? 'project group',
 );
 const currentWorkspaceTdeiRoles = computed(() =>
   currentWorkspace.value
@@ -169,6 +194,17 @@ async function selectWorkspace(workspace) {
 @import "assets/scss/theme.scss";
 
 .dashboard-page {
+  .workspace-list-header {
+    p {
+      margin: 0;
+    }
+
+    span {
+      font-weight: 700;
+      color: #5c647f;
+    }
+  }
+
   label[for=ws_project_group_picker] {
     flex-shrink: 0;
     align-self: center;
