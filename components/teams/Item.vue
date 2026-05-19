@@ -21,6 +21,7 @@
     </div>
     <div class="align-self-center flex-shrink-0 ms-auto">
       <button
+        v-if="props.isLead"
         class="btn px-1"
         @click="openSettings"
       >
@@ -41,6 +42,7 @@
         <span class="visually-hidden">View QR Code</span>
       </button>
       <button
+        v-if="props.isLead"
         class="btn ms-1 px-1 text-danger"
         @click="remove"
       >
@@ -59,6 +61,7 @@ import type { WorkspaceTeam } from '~/types/workspaces';
 
 interface Props {
   team: WorkspaceTeam;
+  isLead: boolean;
 }
 
 const props = defineProps<Props>();

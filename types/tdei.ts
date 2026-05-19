@@ -1,7 +1,19 @@
+export type TdeiRoleAssignment = string;
+
 /** Shape returned by the TDEI project-group-roles API */
 export interface TdeiProjectGroupApiResponse {
   tdei_project_group_id: string;
   project_group_name: string;
+  roles?: string[];
+}
+
+export interface TdeiProjectGroupItem {
+  tdei_project_group_id: string;
+  name: string;
+}
+
+export interface TdeiProjectGroup extends TdeiProjectGroupItem {
+  roles: TdeiRoleAssignment[];
 }
 
 /** Shape returned by the TDEI service API */
@@ -29,19 +41,8 @@ export interface TdeiDatasetApiResponse {
   };
 }
 
-export interface TdeiProjectGroupItem {
-  tdei_project_group_id: string;
-  name: string;
-}
-
 export interface TdeiDatasetItem {
   tdei_dataset_id: string;
-  name: string;
-}
-
-/** Normalized project group used throughout the UI */
-export interface TdeiProjectGroup {
-  id: string;
   name: string;
 }
 
@@ -56,6 +57,16 @@ export interface TdeiDatasetSummary {
   id: string;
   name: string;
   version?: string;
+}
+
+export interface TdeiUserItem {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  username: string;
+  phone: string;
+  roles: TdeiRoleAssignment[];
 }
 
 export interface TdeiFeedback {

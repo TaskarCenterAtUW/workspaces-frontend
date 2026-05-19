@@ -7,8 +7,14 @@
       General
     </settings-nav-link>
     <settings-nav-link
+      to="/members"
+      icon="admin_panel_settings"
+    >
+      Members
+    </settings-nav-link>
+    <settings-nav-link
       to="/teams"
-      icon="group"
+      icon="diversity_3"
     >
       Teams
     </settings-nav-link>
