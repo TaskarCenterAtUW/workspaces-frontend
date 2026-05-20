@@ -19,8 +19,8 @@
     <template v-else>
       <section class="workspace-list-header mt-4">
         <p class="page-header-subtitle">
-          Here are the workspaces currently available in the selected
-          <span>{{ selectedProjectGroupName }}</span>.
+          Here are the workspaces currently available
+          <template v-if="selectedProjectGroupName"> in <span class="fw-semibold">{{ selectedProjectGroupName }}</span></template>.
         </p>
       </section>
 
@@ -109,8 +109,7 @@ const currentWorkspaces = computed(() =>
     : undefined,
 );
 const selectedProjectGroupName = computed(() =>
-  myProjectGroups.find(pg => pg.tdei_project_group_id === currentProjectGroup.value)?.name
-  ?? 'project group',
+  myProjectGroups.find(pg => pg.tdei_project_group_id === currentProjectGroup.value)?.name ?? null
 );
 const currentWorkspaceTdeiRoles = computed(() =>
   currentWorkspace.value

@@ -237,20 +237,19 @@ label > .form-select:first-child {
   }
 }
 
-.tdei-rounded-button {
-  background-color: var(--primary-color) !important;
-  border-color: var(--primary-color) !important;
-  color: #fff !important;
+.btn.tdei-rounded-button {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
   font-weight: 600;
   border-radius: 100px;
-}
 
-.tdei-rounded-button:hover,
-.tdei-rounded-button:active {
-  background-color: var(--primary-color) !important;
-  border-color: var(--primary-color) !important;
-  color: #fff !important;
-  font-weight: 600;
+  &:hover,
+  &:active {
+    background-color: var(--primary-color-dark);
+    border-color: var(--primary-color-dark);
+    color: #fff;
+  }
 }
 
 .nav-tabs .nav-link {
@@ -381,7 +380,6 @@ input[type=checkbox] {
   .page-header-title {
     font-size: 16px;
   }
-}
 }
 
 .form-check-input[type="radio"],
