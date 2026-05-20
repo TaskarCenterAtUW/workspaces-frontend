@@ -2,6 +2,7 @@
   <div class="position-relative project-group-picker" ref="pickerRef" @focusout="onFocusOut">
     <input
       v-model="searchText"
+      :id="props.id"
       type="text"
       class="form-select"
       :disabled="props.disabled"
@@ -88,7 +89,7 @@ import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { tdeiUserClient } from '~/services/index'
 import type { TdeiProjectGroupItem } from '~/types/tdei'
 
-const props = withDefaults(defineProps<{ disabled?: boolean; options?: TdeiProjectGroupItem[] }>(), {
+const props = withDefaults(defineProps<{ id?: string; disabled?: boolean; options?: TdeiProjectGroupItem[] }>(), {
   disabled: false,
 })
 

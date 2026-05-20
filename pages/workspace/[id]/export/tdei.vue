@@ -62,13 +62,16 @@
               Dataset Name
               <input v-model.trim="datasetName" class="form-control" />
             </label>
-            <label class="d-block mt-3">
-              Project Group
+            <div class="mt-3">
+              <label class="d-block" for="export_tdei_project_group">
+                Project Group
+              </label>
               <project-group-picker
+                id="export_tdei_project_group"
                 v-model="workspace.tdeiProjectGroupId"
                 :options="eligibleProjectGroups"
               />
-            </label>
+            </div>
             <label class="d-block mt-3">
               Service
               <service-picker
