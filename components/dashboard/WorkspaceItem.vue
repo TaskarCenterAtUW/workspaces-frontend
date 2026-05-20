@@ -1,5 +1,5 @@
 <template>
-  <button :class="getClasses()">
+  <button :class="getClasses()" :aria-label="`Select workspace ${workspace.title}, ID ${workspace.id}`">
     <div class="workspaceCardMain">
       <div class="workspaceNames">
         <img class="workspaceTypeIcon" :src="typeIconSrc" :alt="`${formatTypeLabel(workspace.type)} workspace type`" />
