@@ -23,7 +23,7 @@
             Showing first {{ projectGroups.length }} of {{ totalCount }} project groups
             <span v-if="hasMore && !loading" class="pg-scroll-hint">&#183; Scroll to continue loading</span>
           </template>
-          <template v-else-if="!hasMore">Showing all {{ projectGroups.length }} project group{{ projectGroups.length !== 1 ? 's' : '' }}</template>
+          <template v-else-if="!showScrollHint">Showing all {{ projectGroups.length }} project group{{ projectGroups.length !== 1 ? 's' : '' }}</template>
           <template v-else>
             Showing first {{ projectGroups.length }} results
             <span v-if="!loading" class="pg-scroll-hint">&#183; Scroll to continue loading</span>
@@ -33,7 +33,7 @@
       </div>
       <div
         class="pg-list-wrap"
-        :class="{ 'pg-has-more': hasMore && !loading }"
+        :class="{ 'pg-has-more': showScrollHint && !loading }"
         ref="listRef"
         @scroll="onScroll"
       >
@@ -89,8 +89,9 @@ import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { tdeiUserClient } from '~/services/index'
 import type { TdeiProjectGroupItem } from '~/types/tdei'
 
-const props = withDefaults(defineProps<{ id?: string; disabled?: boolean; options?: TdeiProjectGroupItem[] }>(), {
+const props = withDefaults(defineProps<{ id?: string; disabled?: boolean; options?: TdeiProjectGroupItem[]; rememberSelection?: boolean }>(), {
   disabled: false,
+  rememberSelection: false,
 })
 
 const model = defineModel({ required: true })
@@ -105,6 +106,7 @@ const listRef = ref<HTMLElement | null>(null)
 const activeIndex = ref(-1)
 
 const projectGroups = computed(() => props.options ?? fetchedGroups.value)
+const showScrollHint = computed(() => !props.options && hasMore.value)
 
 let pageNo = 1
 const hasMore = ref(true)
@@ -144,7 +146,9 @@ const loadGroups = async (reset = false) => {
     if (total !== undefined) totalCount.value = total
     fetchedGroups.value.push(...newGroups)
     const selected = newGroups.find(g => g.tdei_project_group_id === model.value)
-    if (selected) persistCachedName(selected.tdei_project_group_id, selected.name)
+    if (selected && props.rememberSelection) {
+      persistCachedName(selected.tdei_project_group_id, selected.name)
+    }
 
     if (newGroups.length < pageSize) {
       hasMore.value = false
@@ -205,7 +209,9 @@ const selectGroup = (id: string) => {
   if (pg) {
     searchText.value = pg.name
     selectedGroupName.value = pg.name
-    persistCachedName(pg.tdei_project_group_id, pg.name)
+    if (props.rememberSelection) {
+      persistCachedName(pg.tdei_project_group_id, pg.name)
+    }
   }
 }
 
@@ -296,7 +302,7 @@ watch(
   (groups) => {
     if (groups.length > 0) {
       const pgId = model.value as string | undefined
-      if (!pgId || !groups.some(pg => pg.tdei_project_group_id === pgId)) {
+      if (!pgId || (props.options && !groups.some(pg => pg.tdei_project_group_id === pgId))) {
         model.value = groups[0]?.tdei_project_group_id
       }
       const selected = groups.find(pg => pg.tdei_project_group_id === model.value)
@@ -311,7 +317,7 @@ watch(
 
 onMounted(async () => {
   // Show cached name immediately before the API call completes
-  if (model.value && loadCachedName(model.value as string)) {
+  if (props.rememberSelection && model.value && loadCachedName(model.value as string)) {
     applyCachedName()
   }
 
@@ -323,7 +329,7 @@ onMounted(async () => {
       if (selected) {
         searchText.value = selected.name
         selectedGroupName.value = selected.name
-      } else if (model.value && loadCachedName(model.value as string)) {
+      } else if (props.rememberSelection && model.value && loadCachedName(model.value as string)) {
         // Group is beyond page 1 — use the cached name for display
         applyCachedName()
       } else if (model.value) {

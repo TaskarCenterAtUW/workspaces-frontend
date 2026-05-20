@@ -75,6 +75,7 @@
             <label class="d-block mt-3">
               Service
               <service-picker
+                :key="workspace.tdeiProjectGroupId"
                 v-model="workspace.tdeiServiceId"
                 :project-group-id="workspace.tdeiProjectGroupId"
                 :service-type="workspace.type"
@@ -126,10 +127,12 @@ const exporter = new TdeiExporter(tdeiClient, osmClient, context);
 const route = useRoute();
 const workspaceId = Number(route.params.id);
 
-const [workspace, { items: myProjectGroups }] = await Promise.all([
+const [workspaceData, { items: myProjectGroups }] = await Promise.all([
   workspacesClient.getWorkspace(workspaceId),
   tdeiUserClient.getMyProjectGroups(1, '', 10000),
 ]);
+
+const workspace = reactive(workspaceData);
 
 const dataGeneratorRole = `${workspace.type}_data_generator`;
 const eligibleProjectGroups = myProjectGroups.filter(pg =>

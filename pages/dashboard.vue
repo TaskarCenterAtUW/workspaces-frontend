@@ -7,6 +7,7 @@
         <project-group-picker
           id="ws_project_group_picker"
           v-model="currentProjectGroup"
+          remember-selection
         />
 
         <nuxt-link class="btn btn-primary flex-shrink-0" to="/workspace/create">
