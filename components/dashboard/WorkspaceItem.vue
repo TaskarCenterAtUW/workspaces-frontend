@@ -2,7 +2,7 @@
   <button :class="getClasses()">
     <div class="workspaceCardMain">
       <div class="workspaceNames">
-        <img class="workspaceTypeIcon" :src="typeIconSrc" alt="" />
+        <img class="workspaceTypeIcon" :src="typeIconSrc" :alt="`${formatTypeLabel(workspace.type)} workspace type`" />
 
         <div class="workspaceCopy">
           <div class="workspaceMetaRow">
@@ -120,7 +120,6 @@ function formatTypeLabel(type: string) {
 .workspaceStatus {
   font-size: 14px;
   font-weight: 400;
-  text-transform: capitalize;
   background-color: #f2f2f2;
   display: inline-block;
   padding: 0 8px;
@@ -130,6 +129,7 @@ function formatTypeLabel(type: string) {
 
 .workspaceStatus {
   font-weight: 600;
+  text-transform: capitalize;
 }
 
 .workspaceStatusSuccess {

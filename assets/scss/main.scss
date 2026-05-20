@@ -12,11 +12,10 @@
   --brand-primary: #32006e;
   --brand-accent: #4b2e83;
   --primary-color: var(--brand-primary);
-  --primary-color-dark: #260053;
-  --primary-color-dark: #260053;
   --secondary-color: #5f647a;
   --tdei-blue: #586AB5;
   --tdei-green: #479FA1;
+  --tdei-cyan: #59c3c8;
   --purple-background-light: #f4f0fb;
   --purple-background-dark: #ddd2ee;
   --purple-background-medium: #ebe4f6;
@@ -198,7 +197,7 @@ label > .form-select:first-child {
 }
 
 .jsonContent {
-  border: 1px solid var(--text-color);
+  border: 1px solid var(--secondary-color);
   margin-top: 1%;
   overflow: auto;
 }
@@ -368,11 +367,9 @@ input[type=checkbox] {
 
 .MuiStepper-horizontal > .MuiStep-horizontal {
   padding-left: 4px;
-.form-check .form-check-input.form-check-input[type="radio"]:focus {
-  border-color: var(--primary-color) !important;
-  box-shadow: 0 0 0 0.25rem rgba(50, 0, 110, 0.25) !important;
-}
-  .column-style {
+
+   .column-style {
+     flex: unset;
     flex: unset;
     margin-right: 0;
     margin-bottom: 20px;
