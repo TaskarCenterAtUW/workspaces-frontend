@@ -132,7 +132,7 @@ const auth = tdeiClient.auth
   }
 
   .hero-primary-action {
-    min-height: 4.8rem;
+    min-height: 3.8rem;
     padding: 0 2rem !important;
     font-size: 1.05rem;
     display: inline-flex;

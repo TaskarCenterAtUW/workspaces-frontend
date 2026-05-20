@@ -13,7 +13,7 @@
   --brand-accent: #4b2e83;
   --primary-color: var(--brand-primary);
   --primary-color-dark: #260053;
-  --secondary-color: #5f647a;
+  --primary-color-dark: #260053;
   --secondary-color: #5f647a;
   --tdei-blue: #586AB5;
   --tdei-green: #479FA1;
@@ -103,23 +103,29 @@ label > .form-select:first-child {
 /* TDEI Utility Classes */
 
 .tdei-primary-button {
-  background-color: var(--primary-color) !important;
-  border-color: var(--primary-color) !important;
-  color: #fff !important;
-  font-weight: 600 !important;
-  border-radius: 4px !important;
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 4px;
 
   &:hover,
   &:active {
-    background-color: var(--primary-color-dark) !important;
-    border-color: var(--primary-color-dark) !important;
-    color: #fff !important;
+    background-color: var(--primary-color-dark);
+    border-color: var(--primary-color-dark);
+    color: #fff;
+  }
+
+  &:focus {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(50, 0, 110, 0.25);
   }
 
   &:disabled {
-    background-color: #cccccc !important;
-    border-color: #cccccc !important;
-    color: #ffffff !important;
+    background-color: #cccccc;
+    border-color: #cccccc;
+    color: #ffffff;
     cursor: not-allowed;
   }
 }
@@ -204,10 +210,31 @@ label > .form-select:first-child {
   padding-bottom: 20px;
 }
 
-.tdei-button2 {
-  color: #59c3c8 !important;
+.tdei-outline-cyan-button {
+  color: var(--tdei-cyan);
   font-weight: 600;
-  border: 2px solid #59c3c8;
+  border: 2px solid var(--tdei-cyan);
+
+  &:hover,
+  &:active {
+    color: #fff;
+    background-color: var(--tdei-cyan);
+    border-color: var(--tdei-cyan);
+  }
+
+  &:focus,
+  &:focus-visible {
+    color: var(--tdei-cyan);
+    border-color: var(--tdei-cyan);
+    box-shadow: 0 0 0 0.25rem rgba(89, 195, 200, 0.25);
+  }
+
+  &:disabled {
+    color: #9aa0b3;
+    border-color: #d3d7e2;
+    background-color: transparent;
+    cursor: not-allowed;
+  }
 }
 
 .tdei-rounded-button {
@@ -341,10 +368,10 @@ input[type=checkbox] {
 
 .MuiStepper-horizontal > .MuiStep-horizontal {
   padding-left: 4px;
-  padding-right: 4px;
+.form-check .form-check-input.form-check-input[type="radio"]:focus {
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 0.25rem rgba(50, 0, 110, 0.25) !important;
 }
-
-@media only screen and (max-width: 768px) {
   .column-style {
     flex: unset;
     margin-right: 0;
@@ -372,7 +399,7 @@ input[type="radio"] {
 
 .form-check .form-check-input.form-check-input[type="radio"]:focus {
   border-color: var(--primary-color) !important;
-  box-shadow: 0 0 0 0.25rem rgba(135, 62, 242, 0.25) !important;
+  box-shadow: 0 0 0 0.25rem rgba(50, 0, 110, 0.25) !important;
 }
 
 .MuiButtonBase-root:focus-visible {

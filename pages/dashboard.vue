@@ -120,8 +120,7 @@ const currentWorkspaces = computed(() =>
     : undefined,
 );
 const selectedProjectGroupName = computed(() =>
-  getLastProjectGroupName()
-  ?? myProjectGroups.find(pg => pg.tdei_project_group_id === currentProjectGroup.value)?.name
+  myProjectGroups.find(pg => pg.tdei_project_group_id === currentProjectGroup.value)?.name
   ?? 'project group',
 );
 const currentWorkspaceTdeiRoles = computed(() =>
