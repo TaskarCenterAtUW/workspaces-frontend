@@ -2,7 +2,7 @@
   <button :class="getClasses()">
     <div class="workspaceCardMain">
       <div class="workspaceNames">
-        <img class="workspaceTypeIcon" src="~/assets/img/osw-type.svg" alt="" />
+        <img class="workspaceTypeIcon" :src="typeIconSrc" alt="" />
 
         <div class="workspaceCopy">
           <div class="workspaceMetaRow">
@@ -31,6 +31,9 @@
 </template>
 
 <script setup lang="ts">
+import flexTypeIcon from '~/assets/img/flex-type.svg'
+import oswTypeIcon from '~/assets/img/osw-type.svg'
+import pathwaysTypeIcon from '~/assets/img/pathways-type.svg'
 import { ROLE_LABELS } from '~/util/roles';
 
 const props = defineProps({
@@ -43,6 +46,16 @@ const props = defineProps({
     default: false
   }
 });
+
+const typeIconSrc = computed(() => {
+  const iconMap: Record<string, string> = {
+    osw: oswTypeIcon,
+    pathways: pathwaysTypeIcon,
+    flex: flexTypeIcon,
+  }
+
+  return iconMap[props.workspace.type] ?? oswTypeIcon
+})
 
 function getClasses() {
   return {
