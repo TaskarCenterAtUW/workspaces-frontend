@@ -7,6 +7,7 @@
       </nuxt-link>
 
       <button
+        ref="toggleButtonRef"
         class="navbar-toggler mobileMenuIcon d-md-none"
         type="button"
         aria-controls="appNavbarSideMenu"
@@ -69,9 +70,11 @@
 
     <aside
       id="appNavbarSideMenu"
+      ref="sideMenuRef"
       class="sideMenu"
       :class="{ sideMenuOpen: mobileMenuOpen && isMobileView }"
       aria-label="Navigation menu"
+      aria-modal="true"
     >
       <div class="sideMenuHeader">
         <img class="logoSidebar" src="~/assets/img/tdei-logo.png" alt="TDEI Logo" />
@@ -116,6 +119,45 @@ import { tdeiClient } from '~/services/index'
 const auth = tdeiClient.auth
 const mobileMenuOpen = ref(false)
 const isMobileView = ref(false)
+const toggleButtonRef = ref<HTMLElement | null>(null)
+const sideMenuRef = ref<HTMLElement | null>(null)
+
+watch(mobileMenuOpen, (isOpen) => {
+  if (isOpen) {
+    nextTick(() => {
+      sideMenuRef.value?.querySelector<HTMLElement>('.sideMenuClose')?.focus()
+    })
+  } else {
+    toggleButtonRef.value?.focus()
+  }
+})
+
+function onKeydown(e: KeyboardEvent) {
+  if (!mobileMenuOpen.value || !isMobileView.value) return
+
+  if (e.key === 'Escape') {
+    closeMobileMenu()
+    return
+  }
+
+  if (e.key === 'Tab') {
+    const focusable = Array.from(
+      sideMenuRef.value?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ) ?? []
+    )
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+}
 
 function syncMobileView() {
   if (typeof window === 'undefined') {
@@ -144,10 +186,12 @@ function logoutFromMobileMenu() {
 onMounted(() => {
   syncMobileView()
   window.addEventListener('resize', syncMobileView)
+  document.addEventListener('keydown', onKeydown)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', syncMobileView)
+  document.removeEventListener('keydown', onKeydown)
 })
 </script>
 

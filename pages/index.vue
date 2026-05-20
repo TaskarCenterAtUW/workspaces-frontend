@@ -24,7 +24,7 @@
               class="hero-secondary-link"
               href="https://transitequity.cs.washington.edu/"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
             >
               Learn more about the TDEI
             </a>

@@ -12,6 +12,7 @@
   --brand-primary: #32006e;
   --brand-accent: #4b2e83;
   --primary-color: var(--brand-primary);
+  --primary-color-dark: var(--brand-accent);
   --secondary-color: #5f647a;
   --tdei-blue: #586AB5;
   --tdei-green: #479FA1;
@@ -364,12 +365,10 @@ input[type=checkbox] {
   font-size: 26px;
   font-weight: 300;
 }
-
 .MuiStepper-horizontal > .MuiStep-horizontal {
   padding-left: 4px;
 
    .column-style {
-     flex: unset;
     flex: unset;
     margin-right: 0;
     margin-bottom: 20px;
@@ -382,6 +381,7 @@ input[type=checkbox] {
   .page-header-title {
     font-size: 16px;
   }
+}
 }
 
 .form-check-input[type="radio"],

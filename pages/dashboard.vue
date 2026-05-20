@@ -76,17 +76,6 @@ function getLastProjectGroupId(): string | null {
     return null;
   }
 }
-function getLastProjectGroupName(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP);
-    if (!raw) return null;
-    const stored = JSON.parse(raw) as { id: string; name: string };
-    return stored.name ?? null;
-  } catch {
-    return null;
-  }
-}
 function getLastWorkspaceId(): number | null {
   if (typeof window === 'undefined') return null;
   try {
