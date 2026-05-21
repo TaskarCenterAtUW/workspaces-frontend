@@ -1,7 +1,10 @@
 <template>
   <nav class="app-navbar navbar navbar-expand-md navbar-dark">
     <div class="navContainer">
-      <nuxt-link class="navbar-brand" to="/">
+      <nuxt-link
+        class="navbar-brand"
+        to="/"
+      >
         <app-logo />
         <span>TDEI Workspaces</span>
       </nuxt-link>
@@ -19,24 +22,37 @@
       </button>
 
       <div class="navbar-collapse d-none d-md-flex">
-        <ul v-show="auth.ok" class="navbar-nav navLinks">
+        <ul
+          v-show="auth.ok"
+          class="navbar-nav navLinks"
+        >
           <li class="nav-item">
-            <nuxt-link class="nav-link navLink" to="/">Home</nuxt-link>
+            <nuxt-link
+              class="nav-link navLink"
+              to="/"
+            >Home</nuxt-link>
           </li>
           <li class="nav-item">
-            <nuxt-link class="nav-link navLink" to="/dashboard">Dashboard</nuxt-link>
+            <nuxt-link
+              class="nav-link navLink"
+              to="/dashboard"
+            >Dashboard</nuxt-link>
           </li>
           <li class="nav-item">
-            <nuxt-link class="nav-link navLink" to="/workspace/create">Create Workspace</nuxt-link>
+            <nuxt-link
+              class="nav-link navLink"
+              to="/workspace/create"
+            >Create Workspace</nuxt-link>
           </li>
           <li class="nav-item">
-            <nuxt-link class="nav-link navLink" to="/help">Help</nuxt-link>
+            <nuxt-link
+              class="nav-link navLink"
+              to="/help"
+            >Help</nuxt-link>
           </li>
         </ul>
 
         <div class="rightContainer">
-          <nuxt-link v-show="!auth.ok" to="/signin" class="nav-link navLink">Sign In</nuxt-link>
-
           <template v-if="auth.ok">
             <div class="horizontalLine d-none d-md-block" />
 
@@ -49,14 +65,21 @@
               <template #button-content>
                 <button class="userProfile">
                   <div>{{ auth.displayName }}</div>
-                  <app-icon variant="account_circle" size="32" no-margin />
+                  <app-icon
+                    variant="account_circle"
+                    size="32"
+                    no-margin
+                  />
                 </button>
               </template>
               <b-dropdown-item to="/dashboard">
                 <app-icon variant="dashboard" />
                 Dashboard
               </b-dropdown-item>
-              <b-dropdown-item to="/" @click="auth.clear()">
+              <b-dropdown-item
+                to="/"
+                @click="auth.clear()"
+              >
                 <app-icon variant="logout" />
                 Logout
               </b-dropdown-item>
@@ -66,7 +89,11 @@
       </div>
     </div>
 
-    <div v-if="mobileMenuOpen && isMobileView" class="sideMenuBackdrop" @click="closeMobileMenu" />
+    <div
+      v-if="mobileMenuOpen && isMobileView"
+      class="sideMenuBackdrop"
+      @click="closeMobileMenu"
+    />
 
     <aside
       id="appNavbarSideMenu"
@@ -77,35 +104,75 @@
       aria-modal="true"
     >
       <div class="sideMenuHeader">
-        <img class="logoSidebar" src="~/assets/img/tdei-logo.png" alt="TDEI Logo" />
-        <button class="sideMenuClose" type="button" aria-label="Close menu" @click="closeMobileMenu">
-          <app-icon variant="close" size="24" no-margin />
+        <img
+          class="logoSidebar"
+          src="~/assets/img/tdei-logo.png"
+          alt="TDEI Logo"
+        >
+        <button
+          class="sideMenuClose"
+          type="button"
+          aria-label="Close menu"
+          @click="closeMobileMenu"
+        >
+          <app-icon
+            variant="close"
+            size="24"
+            no-margin
+          />
         </button>
       </div>
 
       <nav class="sideMenuNav">
-        <nuxt-link v-if="auth.ok" class="sideMenuLink" to="/" @click="closeMobileMenu">
+        <nuxt-link
+          v-if="auth.ok"
+          class="sideMenuLink"
+          to="/"
+          @click="closeMobileMenu"
+        >
           <span>Home</span>
         </nuxt-link>
-        <nuxt-link v-if="auth.ok" class="sideMenuLink" to="/dashboard" @click="closeMobileMenu">
+        <nuxt-link
+          v-if="auth.ok"
+          class="sideMenuLink"
+          to="/dashboard"
+          @click="closeMobileMenu"
+        >
           <span>Dashboard</span>
         </nuxt-link>
-        <nuxt-link v-if="auth.ok" class="sideMenuLink" to="/workspace/create" @click="closeMobileMenu">
+        <nuxt-link
+          v-if="auth.ok"
+          class="sideMenuLink"
+          to="/workspace/create"
+          @click="closeMobileMenu"
+        >
           <span>Create Workspace</span>
         </nuxt-link>
-        <nuxt-link v-if="auth.ok" class="sideMenuLink" to="/help" @click="closeMobileMenu">
+        <nuxt-link
+          v-if="auth.ok"
+          class="sideMenuLink"
+          to="/help"
+          @click="closeMobileMenu"
+        >
           <span>Help</span>
         </nuxt-link>
-        <nuxt-link v-if="!auth.ok" class="sideMenuLink" to="/signin" @click="closeMobileMenu">
-          <span>Sign In</span>
-        </nuxt-link>
-        <div v-if="auth.ok" class="mobileUserMenu">
+        <div
+          v-if="auth.ok"
+          class="mobileUserMenu"
+        >
           <div class="mobileUserName">
             <span>{{ auth.displayName }}</span>
           </div>
         </div>
-        <button v-if="auth.ok" class="sideMenuButton" @click="logoutFromMobileMenu">
-          <app-icon variant="logout" no-margin />
+        <button
+          v-if="auth.ok"
+          class="sideMenuButton"
+          @click="logoutFromMobileMenu"
+        >
+          <app-icon
+            variant="logout"
+            no-margin
+          />
           <span>Logout</span>
         </button>
       </nav>
@@ -127,7 +194,8 @@ watch(mobileMenuOpen, (isOpen) => {
     nextTick(() => {
       sideMenuRef.value?.querySelector<HTMLElement>('.sideMenuClose')?.focus()
     })
-  } else {
+  }
+  else {
     toggleButtonRef.value?.focus()
   }
 })
@@ -143,8 +211,8 @@ function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Tab') {
     const focusable = Array.from(
       sideMenuRef.value?.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      ) ?? []
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) ?? [],
     )
     if (focusable.length === 0) return
     const first = focusable.at(0)
@@ -153,7 +221,8 @@ function onKeydown(e: KeyboardEvent) {
     if (e.shiftKey && document.activeElement === first) {
       e.preventDefault()
       last.focus()
-    } else if (!e.shiftKey && document.activeElement === last) {
+    }
+    else if (!e.shiftKey && document.activeElement === last) {
       e.preventDefault()
       first.focus()
     }
