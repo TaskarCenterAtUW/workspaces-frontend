@@ -96,26 +96,35 @@ async function submit() {
     await signIn()
   }
   catch (e: unknown) {
-    if (e.response?.status === 400) {
-      const body = await e.response.json()
+    const isFetchError = (err: unknown): err is { response: { status: number; json: () => Promise<unknown> } } =>
+      typeof err === 'object' && err !== null &&
+      'response' in err &&
+      typeof (err as { response: unknown }).response === 'object' &&
+      (err as { response: unknown }).response !== null &&
+      typeof ((err as { response: { json?: unknown } }).response).json === 'function'
 
-      if (body.errors?.length > 0) {
-        error.value = 'Error: ' + body.errors[0]
+    if (isFetchError(e)) {
+      if (e.response.status === 400) {
+        const body = await e.response.json() as { errors?: string[] }
+
+        if (body.errors && body.errors.length > 0) {
+          error.value = 'Error: ' + body.errors[0]
+          return
+        }
+      }
+
+      if (e.response.status === 401) {
+        error.value = 'Incorrect TDEI username/password.'
+        return
+      }
+
+      if (e.response.status === 404) {
+        error.value = `A TDEI account for "${username.value}" does not exist.`
         return
       }
     }
 
-    if (e.response?.status === 401) {
-      error.value = 'Incorrect TDEI username/password.'
-      return
-    }
-
-    if (e.response?.status === 404) {
-      error.value = `A TDEI account for "${username.value}" does not exist.`
-      return
-    }
-
-    error.value = e.toString()
+    error.value = e instanceof Error ? e.message : String(e)
   }
 }
 

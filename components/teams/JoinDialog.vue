@@ -20,7 +20,7 @@
         <app-icon variant="download" />
         Download QR Code
       </a>
-      <b-button class="tdei-primary-button" @click="hide()">
+      <b-button class="btn tdei-primary-button" @click="hide()">
         Close
       </b-button>
     </template>

@@ -101,7 +101,7 @@
       class="sideMenu"
       :class="{ sideMenuOpen: mobileMenuOpen && isMobileView }"
       aria-label="Navigation menu"
-      aria-modal="true"
+      :aria-modal="mobileMenuOpen && isMobileView ? 'true' : 'false'"
     >
       <div class="sideMenuHeader">
         <img
