@@ -75,7 +75,6 @@
             <label class="d-block mt-3">
               Service
               <service-picker
-                :key="workspace.tdeiProjectGroupId"
                 v-model="workspace.tdeiServiceId"
                 :project-group-id="workspace.tdeiProjectGroupId"
                 :service-type="workspace.type"
