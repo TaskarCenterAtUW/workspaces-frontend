@@ -123,9 +123,9 @@ const exporter = new TdeiExporter(tdeiClient, osmClient, context);
 const route = useRoute();
 const workspaceId = Number(route.params.id);
 
-const [workspace, myProjectGroups] = await Promise.all([
+const [workspace, { items: myProjectGroups }] = await Promise.all([
   workspacesClient.getWorkspace(workspaceId),
-  tdeiUserClient.getMyProjectGroups(),
+  tdeiUserClient.getMyProjectGroups(1, '', 10000),
 ]);
 
 const dataGeneratorRole = `${workspace.type}_data_generator`;
