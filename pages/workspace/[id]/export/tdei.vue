@@ -62,13 +62,16 @@
               Dataset Name
               <input v-model.trim="datasetName" class="form-control" />
             </label>
-            <label class="d-block mt-3">
-              Project Group
+            <div class="mt-3">
+              <label class="d-block" for="export_tdei_project_group">
+                Project Group
+              </label>
               <project-group-picker
+                id="export_tdei_project_group"
                 v-model="workspace.tdeiProjectGroupId"
                 :options="eligibleProjectGroups"
               />
-            </label>
+            </div>
             <label class="d-block mt-3">
               Service
               <service-picker
@@ -123,10 +126,12 @@ const exporter = new TdeiExporter(tdeiClient, osmClient, context);
 const route = useRoute();
 const workspaceId = Number(route.params.id);
 
-const [workspace, { items: myProjectGroups }] = await Promise.all([
+const [workspaceData, { items: myProjectGroups }] = await Promise.all([
   workspacesClient.getWorkspace(workspaceId),
   tdeiUserClient.getMyProjectGroups(1, '', 10000),
 ]);
+
+const workspace = reactive(workspaceData);
 
 const dataGeneratorRole = `${workspace.type}_data_generator`;
 const eligibleProjectGroups = myProjectGroups.filter(pg =>
