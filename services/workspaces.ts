@@ -10,6 +10,7 @@ import { compareStringAsc } from '~/util/compare';
 import type { ICancelableClient } from '~/services/loading';
 import type { OsmApiClient } from '~/services/osm';
 import type { TdeiAuthStore, TdeiClient } from '~/services/tdei';
+import type { AugmentedDiff } from '~/types/adiff';
 import type { BoundingBox } from '~/types/bbox';
 import type { ImagerySettings } from '~/types/imagery';
 import type {
@@ -236,6 +237,12 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
 
   async resolveChangeset(workspaceId: WorkspaceId, changesetId: number): Promise<void> {
     await this.#newApi._put(`workspaces/${workspaceId}/changesets/${changesetId}/resolve`);
+  }
+
+  async getChangesetAdiff(workspaceId: WorkspaceId, changesetId: number): Promise<AugmentedDiff> {
+    const response = await this.#newApi._get(`workspaces/${workspaceId}/changesets/${changesetId}/adiff`);
+
+    return await response.json();
   }
 
   #setAuthHeader() {
