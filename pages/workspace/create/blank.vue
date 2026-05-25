@@ -11,10 +11,15 @@
               <input v-model.trim="workspaceTitle" class="form-control" />
             </label>
 
-            <label class="d-block mb-3">
-              Project Group
-              <project-group-picker v-model="projectGroupId" />
-            </label>
+            <div class="mb-3">
+              <label class="d-block" for="create_blank_project_group">
+                Project Group
+              </label>
+              <project-group-picker
+                id="create_blank_project_group"
+                v-model="projectGroupId"
+              />
+            </div>
 
             <div>Dataset Type</div>
             <dataset-type-radio v-model="datasetType" class="mb-3" />

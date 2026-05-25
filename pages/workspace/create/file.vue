@@ -16,14 +16,17 @@
               >
             </label>
 
-            <label class="d-block mb-3">
-              Project Group
+            <div class="mb-3">
+              <label class="d-block" for="create_file_project_group">
+                Project Group
+              </label>
               <project-group-picker
+                id="create_file_project_group"
                 v-model="projectGroupId"
                 :disabled="context.active"
                 required
               />
-            </label>
+            </div>
 
             <div>Dataset Type</div>
             <dataset-type-radio

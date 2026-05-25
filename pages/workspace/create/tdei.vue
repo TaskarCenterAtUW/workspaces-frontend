@@ -20,14 +20,17 @@
               >
             </label>
 
-            <label class="d-block mb-3">
-              Project Group
+            <div class="mb-3">
+              <label class="d-block" for="create_tdei_project_group">
+                Project Group
+              </label>
               <project-group-picker
+                id="create_tdei_project_group"
                 v-model="projectGroupId"
                 :disabled="context.active"
                 required
               />
-            </label>
+            </div>
 
             <label v-if="!$route.query.tdeiRecordId" class="d-block mb-3">
               Dataset
