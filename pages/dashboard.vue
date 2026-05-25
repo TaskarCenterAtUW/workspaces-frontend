@@ -63,6 +63,7 @@
 
 <script setup lang="ts">
 import { tdeiUserClient, workspacesClient } from '~/services/index';
+import type { Workspace } from '~/types/workspaces';
 import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 
 const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
@@ -175,7 +176,7 @@ function onCenterLoaded(center) {
   currentWorkspace.value!.center = center;
 }
 
-async function selectWorkspace(workspace) {
+async function selectWorkspace(workspace: Workspace) {
   currentWorkspace.value = workspace;
 }
 </script>

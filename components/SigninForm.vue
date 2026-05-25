@@ -147,7 +147,7 @@ async function signIn() {
 }
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
 .signin-card {
   width: 100%;
   max-width: 450px;
@@ -194,12 +194,10 @@ async function signIn() {
   min-height: 52px;
   border: 1px solid #d0d6e2;
   border-radius: 8px;
-  background-color: #eef2ff;
   color: #2f3661;
   font-size: 14px;
 
   &:focus {
-    background-color: #eef2ff;
     border-color: #c3cbde;
     box-shadow: none;
   }

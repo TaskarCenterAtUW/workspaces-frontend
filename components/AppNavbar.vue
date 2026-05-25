@@ -95,7 +95,7 @@
       @click="closeMobileMenu"
     />
 
-    <aside
+    <div
       id="appNavbarSideMenu"
       ref="sideMenuRef"
       class="sideMenu"
@@ -177,7 +177,7 @@
           <span>Logout</span>
         </button>
       </nav>
-    </aside>
+    </div>
   </nav>
 </template>
 

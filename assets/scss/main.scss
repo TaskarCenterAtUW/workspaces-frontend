@@ -1,5 +1,11 @@
 @import "theme.scss";
 @import "bootstrap/scss/bootstrap.scss";
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  transition: background-color 600000s, color 600000s;
+}
 @import "maplibre-gl/dist/maplibre-gl.css";
 @import "vue3-toastify/dist/index.css";
 
