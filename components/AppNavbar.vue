@@ -100,6 +100,7 @@
       ref="sideMenuRef"
       class="sideMenu"
       :class="{ sideMenuOpen: mobileMenuOpen && isMobileView }"
+      role="dialog"
       aria-label="Navigation menu"
       :aria-modal="mobileMenuOpen && isMobileView ? 'true' : 'false'"
     >

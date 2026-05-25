@@ -89,7 +89,6 @@ async function remove() {
 .team-members-btn {
   display: block;
   padding: 0;
-  color: $body-color;
   text-decoration: none;
 
   &:hover {
