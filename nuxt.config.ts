@@ -3,8 +3,17 @@ export default defineNuxtConfig({
   modules: [
     '@bootstrap-vue-next/nuxt',
     '@nuxt/eslint',
+    '@nuxtjs/google-fonts',
     '@sentry/nuxt/module',
   ],
+  googleFonts: {
+    families: {
+      'Open Sans': [300, 400, 500, 600, 700, 800],
+      Montserrat: [100, 300, 400, 500, 600, 700, 800, 900],
+    },
+    display: 'swap',
+    download: true,
+  },
   ssr: false,
   devtools: { enabled: true },
   app: {
