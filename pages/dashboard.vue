@@ -10,7 +10,7 @@
           remember-selection
         />
 
-        <nuxt-link class="btn tdei-primary-button flex-shrink-0" to="/workspace/create">
+        <nuxt-link class="btn btn-primary flex-shrink-0" to="/workspace/create">
           <app-icon variant="add" size="24" />
           New<span class="d-none d-sm-inline"> Workspace</span>
         </nuxt-link>
@@ -21,13 +21,6 @@
       No workspaces exist in the selected project group.
     </div>
     <template v-else>
-      <section class="workspace-list-header mt-4">
-        <p class="page-header-subtitle">
-          Here are the workspaces currently available
-          <template v-if="selectedProjectGroupName"> in <span class="fw-semibold">{{ selectedProjectGroupName }}</span></template>.
-        </p>
-      </section>
-
       <div class="workspace-split-layout mt-4">
         <div class="workspace-list-panel">
           <div class="workspace-list-scroll">
@@ -214,8 +207,6 @@ async function selectWorkspace(workspace: Workspace) {
 }
 
 
-$panel-height: calc(100vh - 140px);
-
 .workspace-split-layout {
   display: flex;
   gap: 1.25rem;
@@ -232,8 +223,8 @@ $panel-height: calc(100vh - 140px);
   flex-direction: column;
 
   position: sticky;
-  top: 1rem;
-  max-height: $panel-height;
+  top: calc(#{$navbar-height} + 1rem);
+  max-height: calc(100vh - #{$navbar-height} - 2rem);
 
   @include media-breakpoint-down(md) {
     position: static;

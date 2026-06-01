@@ -62,7 +62,7 @@
 
       <button
         type="submit"
-        class="btn tdei-primary-button signin-submit"
+        class="btn btn-primary signin-submit"
         :disabled="disabled"
       >
         {{ loading.active ? 'Signing In...' : 'Sign In' }}
@@ -148,13 +148,15 @@ async function signIn() {
 </script>
 
 <style lang="scss" scoped>
+@import "~/assets/scss/theme.scss";
+
 .signin-card {
   width: 100%;
   max-width: 450px;
   margin: 0 auto;
-  border: 1px solid rgba(47, 54, 97, 0.18);
+  border: 1px solid rgba($text-navy, 0.18);
   border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(50, 0, 110, 0.08);
+  box-shadow: $box-shadow-lg;
   background: rgba(255, 255, 255, 0.96);
 }
 
@@ -175,27 +177,27 @@ async function signIn() {
   margin-bottom: 2px;
   font-size: 26px;
   font-weight: 300;
-  color: #2f3661;
+  color: $text-navy;
 }
 
 .signin-subtitle {
   margin-bottom: 0;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--secondary-color);
 }
 
 .signin-label {
   margin-bottom: 0.5rem;
-  font-size: 14px;
-  color: #2f3661;
+  font-size: 0.875rem;
+  color: $text-navy;
 }
 
 .signin-input {
   min-height: 52px;
   border: 1px solid #d0d6e2;
   border-radius: 8px;
-  color: #2f3661;
-  font-size: 14px;
+  color: $text-navy;
+  font-size: 0.875rem;
 
   &:focus {
     border-color: #c3cbde;
@@ -205,7 +207,7 @@ async function signIn() {
 
 .signin-help-text {
   margin-top: 0.5rem;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--secondary-color);
 }
 
@@ -238,7 +240,7 @@ async function signIn() {
   width: 100%;
   min-height: 52px;
   margin-top: 0.75rem;
-  font-size: 15px;
+  font-size: 0.9375rem;
 
   &:disabled {
     background-color: #8b72b4;
@@ -251,11 +253,11 @@ async function signIn() {
 
 .signin-error {
   margin-top: 0.75rem;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #cc2c47;
 }
 
-@media only screen and (max-width: 600px) {
+@include media-breakpoint-down(sm) {
   .signin-card {
     max-width: 100%;
     border: none;

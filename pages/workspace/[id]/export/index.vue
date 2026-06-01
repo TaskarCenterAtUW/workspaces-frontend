@@ -16,7 +16,7 @@
             </p>
           </div>
           <div class="card-footer">
-            <nuxt-link class="btn tdei-primary-button" to="./export/tdei">
+            <nuxt-link class="btn btn-primary" to="./export/tdei">
               <app-spinner v-if="exporting.active" size="sm" />
               <template v-else>
                 Start
@@ -44,12 +44,12 @@
               v-if="downloadUrl"
               :href="downloadUrl"
               :download="downloadFilename"
-              class="btn tdei-primary-button"
+              class="btn btn-primary"
             >
               <app-icon variant="save_alt" no-margin />
               Save
             </a>
-            <button v-else class="btn tdei-primary-button" @click="download">
+            <button v-else class="btn btn-primary" @click="download">
               <template v-if="downloading.active">
               <app-spinner size="sm" />&nbsp;Preparing Download...
               </template>

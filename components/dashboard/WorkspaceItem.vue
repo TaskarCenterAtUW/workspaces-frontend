@@ -1,28 +1,27 @@
 <template>
   <button :class="getClasses()" :aria-label="`Select workspace ${workspace.title}, ID ${workspace.id}`">
-    <div class="workspaceCardMain">
-      <div class="workspaceNames">
-        <img class="workspaceTypeIcon" :src="typeIconSrc" :alt="`${formatTypeLabel(workspace.type)} workspace type`" />
+    <div class="workspace-card-main">
+      <div class="workspace-names">
+        <img class="workspace-type-icon" :src="typeIconSrc" alt="" />
 
-        <div class="workspaceCopy">
-          <div class="workspaceMetaRow">
-            <span class="workspaceType">{{ formatTypeLabel(workspace.type) }}</span>
+        <div class="workspace-copy">
+          <div class="workspace-meta-row">
+            <span class="workspace-type">{{ formatTypeLabel(workspace.type) }}</span>
 
-            <span v-if="workspace.externalAppAccess > 0" class="workspaceStatus workspaceStatusSuccess">
-              {{ workspace.externalAppAccess === 1 ? 'App Public' : 'App Private' }}
+            <span v-if="workspace.externalAppAccess > 0" class="workspace-status workspace-status-success">
+              <app-icon variant="lock" /> App Access
             </span>
 
-            <span v-if="workspace.role === 'lead'" class="workspaceStatus">
-              {{ ROLE_LABELS.lead }}
+            <span v-if="workspace.role === 'lead'" class="workspace-status">
+              <app-icon variant="star" /> {{ ROLE_LABELS.lead }}
             </span>
-            <span v-else-if="workspace.role === 'validator'" class="workspaceStatus">
-              {{ ROLE_LABELS.validator }}
+            <span v-else-if="workspace.role === 'validator'" class="workspace-status">
+              <app-icon variant="task_alt" /> {{ ROLE_LABELS.validator }}
             </span>
           </div>
 
-          <div class="workspaceTitle" :title="workspace.title">
+          <div class="workspace-title" :title="workspace.title">
             <span>{{ workspace.title }}</span>
-            <span class="workspaceIdInline">ID: {{ workspace.id }}</span>
           </div>
         </div>
       </div>
@@ -59,8 +58,8 @@ const typeIconSrc = computed(() => {
 
 function getClasses() {
   return {
-    workspaceCard: true,
-    workspaceCardSelected: props.selected,
+    'workspace-card': true,
+    'workspace-card-selected': props.selected,
   };
 }
 
@@ -69,8 +68,9 @@ function formatTypeLabel(type: string) {
 }
 </script>
 
-<style lang="scss">
-.workspaceCard {
+<style lang="scss" scoped>
+@import "~/assets/scss/theme.scss";
+.workspace-card {
   width: 100%;
   display: block;
   padding: 0;
@@ -85,30 +85,33 @@ function formatTypeLabel(type: string) {
   cursor: pointer;
 }
 
-.workspaceCardSelected {
-  border-left-color: var(--primary-color);
+.workspace-card-selected {
+  border-left-color: var(--bs-primary);
   box-shadow: 0 8px 24px rgba(50, 0, 110, 0.14);
+  position: sticky;
+  top: 1rem;
+  bottom: 1rem;
 }
 
-.workspaceCardMain {
+.workspace-card-main {
   padding: 20px 25px;
 }
 
-.workspaceNames {
+.workspace-names {
   display: flex;
   align-items: center;
 }
 
-.workspaceTypeIcon {
+.workspace-type-icon {
   height: 55px;
   margin-right: 15px;
 }
 
-.workspaceCopy {
+.workspace-copy {
   min-width: 0;
 }
 
-.workspaceMetaRow {
+.workspace-meta-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -116,8 +119,8 @@ function formatTypeLabel(type: string) {
   margin-bottom: 6px;
 }
 
-.workspaceType,
-.workspaceStatus {
+.workspace-type,
+.workspace-status {
   font-size: 14px;
   font-weight: 400;
   background-color: #f2f2f2;
@@ -127,17 +130,17 @@ function formatTypeLabel(type: string) {
   color: #333;
 }
 
-.workspaceStatus {
+.workspace-status {
   font-weight: 600;
   text-transform: capitalize;
 }
 
-.workspaceStatusSuccess {
+.workspace-status-success {
   background-color: #e8f4e0;
   color: #2d6a39;
 }
 
-.workspaceTitle {
+.workspace-title {
   display: flex;
   align-items: center;
   gap: 0.65rem;
@@ -147,34 +150,34 @@ function formatTypeLabel(type: string) {
   color: #21335b;
 }
 
-.workspaceTitle > span:first-child {
+.workspace-title > span:first-child {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.workspaceIdInline {
+.workspace-id-inline {
   font-size: 13px;
   font-weight: 700;
   color: var(--secondary-color);
   white-space: nowrap;
 }
 
-@media only screen and (max-width: 768px) {
-  .workspaceCard {
+@include media-breakpoint-down(md) {
+  .workspace-card {
     border-top: 5px solid var(--tdei-blue);
     border-left: 1px solid #ddd;
   }
 
-  .workspaceCardSelected {
-    border-top-color: var(--primary-color);
+  .workspace-card-selected {
+    border-top-color: var(--bs-primary);
   }
 
-  .workspaceCardMain {
+  .workspace-card-main {
     padding: 15px;
   }
 
-  .workspaceNames {
+  .workspace-names {
     align-items: flex-start;
   }
 }

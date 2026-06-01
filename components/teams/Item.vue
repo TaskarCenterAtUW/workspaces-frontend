@@ -12,7 +12,8 @@
         {{ props.team.name }}
       </a>
       <b-button
-        class="team-members-btn tdei-primary-link"
+        variant="link"
+        class="team-members-btn text-body"
         @click="viewMembers"
       >
         {{ props.team.member_count }} members

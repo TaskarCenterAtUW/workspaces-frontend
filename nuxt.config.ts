@@ -8,8 +8,8 @@ export default defineNuxtConfig({
   ],
   googleFonts: {
     families: {
-      'Open Sans': [300, 400, 500, 600, 700, 800],
-      Montserrat: [100, 300, 400, 500, 600, 700, 800, 900],
+      'Open Sans': [300, 400, 500, 600, 700],
+      Montserrat: [300, 400, 500, 600, 700],
     },
     display: 'swap',
     download: true,
@@ -84,11 +84,13 @@ export default defineNuxtConfig({
         'bootstrap-vue-next/components/BBadge',
         'bootstrap-vue-next/components/BButton',
         'bootstrap-vue-next/components/BCard',
+        'bootstrap-vue-next/components/BCollapse',
         'bootstrap-vue-next/components/BContainer',
         'bootstrap-vue-next/components/BDropdown',
         'bootstrap-vue-next/components/BFormInput',
         'bootstrap-vue-next/components/BListGroup',
         'bootstrap-vue-next/components/BModal',
+        'bootstrap-vue-next/components/BNavbar',
         'bootstrap-vue-next/components/BPopover',
         'bootstrap-vue-next/composables/useModal',
         'dayjs', // CJS

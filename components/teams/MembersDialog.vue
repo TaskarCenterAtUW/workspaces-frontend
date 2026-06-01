@@ -3,7 +3,7 @@
     ref="modal"
     title="Team Members"
     ok-title="Close"
-    ok-class="tdei-primary-button"
+    ok-variant="primary"
     ok-only
   >
     <app-spinner
@@ -96,10 +96,9 @@ async function remove(user: User) {
     body: `Remove ${user.display_name} from "${props.team!.name}"?`,
     title: 'Remove Team Member',
     okTitle: 'Remove',
-    okClass: 'maroon-bg',
-    okVariant: null,
+    okVariant: 'danger',
     cancelTitle: 'Cancel',
-    cancelClass: 'tdei-primary-link p-0 border-0 bg-transparent',
+    cancelClass: 'btn-link p-0',
     cancelVariant: null,
   }).show();
 

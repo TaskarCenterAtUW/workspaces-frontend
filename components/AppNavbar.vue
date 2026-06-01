@@ -1,6 +1,6 @@
 <template>
   <nav class="app-navbar navbar navbar-expand-md navbar-dark">
-    <div class="navContainer">
+    <div class="nav-container">
       <nuxt-link
         class="navbar-brand"
         to="/"
@@ -9,175 +9,91 @@
         <span>TDEI Workspaces</span>
       </nuxt-link>
 
-      <button
+      <b-navbar-toggle
         ref="toggleButtonRef"
-        class="navbar-toggler mobileMenuIcon d-md-none"
-        type="button"
-        aria-controls="appNavbarSideMenu"
-        :aria-expanded="mobileMenuOpen ? 'true' : 'false'"
-        aria-label="Toggle navigation"
-        @click="mobileMenuOpen = !mobileMenuOpen"
-      >
-        <span class="navbar-toggler-icon" />
-      </button>
+        target="app-nav-collapse"
+        class="mobile-menu-icon d-md-none"
+      />
 
-      <div class="navbar-collapse d-none d-md-flex">
+      <b-collapse
+        id="app-nav-collapse"
+        v-model="mobileMenuOpen"
+        is-nav
+        class="app-nav-collapse"
+        :inert="!mobileMenuOpen && isMobileView"
+      >
+        <div class="side-menu-header d-md-none">
+          <app-logo class="logo-sidebar" />
+          <button
+            class="side-menu-close"
+            type="button"
+            aria-label="Close menu"
+            @click="mobileMenuOpen = false"
+          >
+            <app-icon variant="close" size="24" no-margin />
+          </button>
+        </div>
+
         <ul
-          v-show="auth.ok"
-          class="navbar-nav navLinks"
+          v-if="auth.ok"
+          class="navbar-nav nav-links"
         >
           <li class="nav-item">
-            <nuxt-link
-              class="nav-link navLink"
-              to="/"
-            >Home</nuxt-link>
+            <nuxt-link class="nav-link nav-link-item" to="/" @click="closeOnMobile">Home</nuxt-link>
           </li>
           <li class="nav-item">
-            <nuxt-link
-              class="nav-link navLink"
-              to="/dashboard"
-            >Dashboard</nuxt-link>
+            <nuxt-link class="nav-link nav-link-item" to="/dashboard" @click="closeOnMobile">Dashboard</nuxt-link>
           </li>
           <li class="nav-item">
-            <nuxt-link
-              class="nav-link navLink"
-              to="/workspace/create"
-            >Create Workspace</nuxt-link>
+            <nuxt-link class="nav-link nav-link-item" to="/workspace/create" @click="closeOnMobile">Create Workspace</nuxt-link>
           </li>
           <li class="nav-item">
-            <nuxt-link
-              class="nav-link navLink"
-              to="/help"
-            >Help</nuxt-link>
+            <nuxt-link class="nav-link nav-link-item" to="/help" @click="closeOnMobile">Help</nuxt-link>
           </li>
         </ul>
 
-        <div class="rightContainer">
-          <template v-if="auth.ok">
-            <div class="horizontalLine d-none d-md-block" />
+        <div
+          v-if="auth.ok"
+          class="right-container"
+        >
+          <div class="horizontal-line d-none d-md-block" />
 
-            <b-dropdown
-              class="userDropdown"
-              placement="bottom-end"
-              :variant="null"
-              no-caret
-            >
-              <template #button-content>
-                <button class="userProfile">
-                  <div>{{ auth.displayName }}</div>
-                  <app-icon
-                    variant="account_circle"
-                    size="32"
-                    no-margin
-                  />
-                </button>
-              </template>
-              <b-dropdown-item to="/dashboard">
-                <app-icon variant="dashboard" />
-                Dashboard
-              </b-dropdown-item>
-              <b-dropdown-item
-                to="/"
-                @click="auth.clear()"
-              >
-                <app-icon variant="logout" />
-                Logout
-              </b-dropdown-item>
-            </b-dropdown>
-          </template>
+          <!-- Desktop: user dropdown -->
+          <b-dropdown
+            class="user-dropdown d-none d-md-flex"
+            placement="bottom-end"
+            :variant="null"
+            no-caret
+          >
+            <template #button-content>
+              <button class="user-profile">
+                <div>{{ auth.displayName }}</div>
+                <app-icon variant="account_circle" size="32" no-margin />
+              </button>
+            </template>
+            <b-dropdown-item to="/" @click="auth.clear()">
+              <app-icon variant="logout" />
+              Logout
+            </b-dropdown-item>
+          </b-dropdown>
+
+          <!-- Mobile: user name + logout -->
+          <div class="mobile-user-menu d-md-none">
+            <div class="mobile-user-name">{{ auth.displayName }}</div>
+            <button class="side-menu-button" @click="logoutFromMobileMenu">
+              <app-icon variant="logout" no-margin />
+              <span>Logout</span>
+            </button>
+          </div>
         </div>
-      </div>
+      </b-collapse>
     </div>
 
     <div
       v-if="mobileMenuOpen && isMobileView"
-      class="sideMenuBackdrop"
-      @click="closeMobileMenu"
+      class="side-menu-backdrop"
+      @click="mobileMenuOpen = false"
     />
-
-    <div
-      id="appNavbarSideMenu"
-      ref="sideMenuRef"
-      class="sideMenu"
-      :class="{ sideMenuOpen: mobileMenuOpen && isMobileView }"
-      role="dialog"
-      aria-label="Navigation menu"
-      :aria-modal="mobileMenuOpen && isMobileView ? 'true' : 'false'"
-    >
-      <div class="sideMenuHeader">
-        <img
-          class="logoSidebar"
-          src="~/assets/img/tdei-logo.png"
-          alt="TDEI Logo"
-        >
-        <button
-          class="sideMenuClose"
-          type="button"
-          aria-label="Close menu"
-          @click="closeMobileMenu"
-        >
-          <app-icon
-            variant="close"
-            size="24"
-            no-margin
-          />
-        </button>
-      </div>
-
-      <nav class="sideMenuNav">
-        <nuxt-link
-          v-if="auth.ok"
-          class="sideMenuLink"
-          to="/"
-          @click="closeMobileMenu"
-        >
-          <span>Home</span>
-        </nuxt-link>
-        <nuxt-link
-          v-if="auth.ok"
-          class="sideMenuLink"
-          to="/dashboard"
-          @click="closeMobileMenu"
-        >
-          <span>Dashboard</span>
-        </nuxt-link>
-        <nuxt-link
-          v-if="auth.ok"
-          class="sideMenuLink"
-          to="/workspace/create"
-          @click="closeMobileMenu"
-        >
-          <span>Create Workspace</span>
-        </nuxt-link>
-        <nuxt-link
-          v-if="auth.ok"
-          class="sideMenuLink"
-          to="/help"
-          @click="closeMobileMenu"
-        >
-          <span>Help</span>
-        </nuxt-link>
-        <div
-          v-if="auth.ok"
-          class="mobileUserMenu"
-        >
-          <div class="mobileUserName">
-            <span>{{ auth.displayName }}</span>
-          </div>
-        </div>
-        <button
-          v-if="auth.ok"
-          class="sideMenuButton"
-          @click="logoutFromMobileMenu"
-        >
-          <app-icon
-            variant="logout"
-            no-margin
-          />
-          <span>Logout</span>
-        </button>
-      </nav>
-    </div>
   </nav>
 </template>
 
@@ -187,69 +103,36 @@ import { tdeiClient } from '~/services/index'
 const auth = tdeiClient.auth
 const mobileMenuOpen = ref(false)
 const isMobileView = ref(false)
-const toggleButtonRef = ref<HTMLElement | null>(null)
-const sideMenuRef = ref<HTMLElement | null>(null)
+const toggleButtonRef = ref<{ $el: HTMLElement } | null>(null)
 
 watch(mobileMenuOpen, (isOpen) => {
-  if (isOpen) {
-    nextTick(() => {
-      sideMenuRef.value?.querySelector<HTMLElement>('.sideMenuClose')?.focus()
-    })
-  }
-  else {
-    toggleButtonRef.value?.focus()
+  if (!isOpen) {
+    nextTick(() => toggleButtonRef.value?.$el?.focus())
   }
 })
 
 function onKeydown(e: KeyboardEvent) {
-  if (!mobileMenuOpen.value || !isMobileView.value) return
-
-  if (e.key === 'Escape') {
-    closeMobileMenu()
-    return
-  }
-
-  if (e.key === 'Tab') {
-    const focusable = Array.from(
-      sideMenuRef.value?.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ) ?? [],
-    )
-    if (focusable.length === 0) return
-    const first = focusable.at(0)
-    const last = focusable.at(-1)
-    if (!first || !last) return
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault()
-      last.focus()
-    }
-    else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault()
-      first.focus()
-    }
+  if (e.key === 'Escape' && mobileMenuOpen.value && isMobileView.value) {
+    mobileMenuOpen.value = false
   }
 }
 
 function syncMobileView() {
-  if (typeof window === 'undefined') {
-    return
-  }
-
+  if (typeof window === 'undefined') return
   isMobileView.value = window.innerWidth <= 768
-
   if (!isMobileView.value) {
     mobileMenuOpen.value = false
   }
 }
 
-function closeMobileMenu() {
+function closeOnMobile() {
   if (isMobileView.value) {
     mobileMenuOpen.value = false
   }
 }
 
 function logoutFromMobileMenu() {
-  closeMobileMenu()
+  mobileMenuOpen.value = false
   auth.clear()
   navigateTo('/')
 }
@@ -267,16 +150,17 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss">
+@import "~/assets/scss/theme.scss";
 .app-navbar {
   z-index: 900;
   position: sticky;
   top: 0;
   padding: 0;
-  background-color: var(--primary-color);
+  background-color: var(--bs-primary);
 
-  .navContainer {
+  .nav-container {
     min-height: 60px;
-    background-color: var(--primary-color);
+    background-color: var(--bs-primary);
     color: #ffffff;
     display: flex;
     flex-wrap: wrap;
@@ -311,7 +195,7 @@ onBeforeUnmount(() => {
     flex-shrink: 0;
   }
 
-  .mobileMenuIcon {
+  .mobile-menu-icon {
     padding: 5px 8px;
     border: none;
 
@@ -320,26 +204,24 @@ onBeforeUnmount(() => {
     }
 
     &:hover {
-      background-color: var(--primary-color-dark);
+      background-color: var(--brand-accent);
     }
   }
 
-  .navbar-collapse {
-    align-items: center;
-  }
-
-  .navLinks {
+  .nav-links {
+    flex: 1;
     display: flex;
     align-items: center;
-    margin: 0 auto;
+    justify-content: center;
+    margin: 0;
   }
 
-  .navLink {
+  .nav-link-item {
     color: rgba(255, 255, 255, 0.9);
     text-decoration: none;
     padding: 0.5rem 0.75rem;
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
     white-space: nowrap;
 
@@ -350,35 +232,34 @@ onBeforeUnmount(() => {
     }
   }
 
-  .rightContainer {
+  .right-container {
     display: flex;
     align-items: center;
-    margin-left: auto;
   }
 
-  .horizontalLine {
+  .horizontal-line {
     border-right: 1px solid #ffffff80;
     height: 25px;
     margin-right: 1rem;
   }
 
-  .userProfile {
+  .user-profile {
     display: flex;
     align-items: center;
     background-color: transparent;
     border: none;
     padding: 0;
     color: #fff;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 600;
   }
 
-  .userProfile > div {
+  .user-profile > div {
     padding-right: 1rem;
     cursor: pointer;
   }
 
-  .userDropdown {
+  .user-dropdown {
     .dropdown-toggle {
       padding: 0;
       border: none;
@@ -387,7 +268,106 @@ onBeforeUnmount(() => {
     }
   }
 
-  .mobileUserMenu {
+  .side-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(9, 8, 20, 0.45);
+    z-index: 950;
+  }
+
+  // On mobile, override b-collapse to behave as a side drawer
+  @include media-breakpoint-down(md) {
+    .app-nav-collapse {
+      position: fixed !important;
+      top: 0;
+      right: 0;
+      width: min(360px, 92vw);
+      height: 100vh !important;
+      background-color: #ffffff;
+      box-shadow: 2px 0 24px rgba(18, 16, 32, 0.2);
+      z-index: 960;
+      display: flex !important;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: stretch;
+      overflow-y: auto;
+      transform: translateX(100%);
+      transition: transform 0.22s ease;
+
+      &.show {
+        transform: translateX(0);
+      }
+
+      // Suppress Bootstrap's collapsing height animation
+      &.collapsing {
+        height: 100vh !important;
+        transition: transform 0.22s ease !important;
+      }
+    }
+
+    .nav-links {
+      width: 100%;
+      flex: 1 0 auto;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      margin: 0;
+    }
+
+    .nav-link-item {
+      display: block;
+      width: 100%;
+      color: #42526e;
+      padding: 1.15rem 1.25rem;
+      border-radius: 0;
+      border-bottom: 1px solid #eeeeee;
+      font-weight: 600;
+
+      &:hover {
+        color: #42526e;
+        background-color: #f5f5f5;
+      }
+
+      &.router-link-active {
+        color: #42526e;
+        background-color: #f5f5f5;
+        font-weight: 700;
+      }
+    }
+
+    .right-container {
+      width: 100%;
+      margin-top: auto;
+      flex-direction: column;
+      align-items: stretch;
+      margin-left: 0;
+    }
+  }
+
+  .side-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--bs-primary);
+    padding: 1.2rem 1.75rem;
+    flex-shrink: 0;
+  }
+
+  .logo-sidebar {
+    width: 60px;
+    background-color: #fff;
+    padding: 5px 8px;
+    border-radius: 4px;
+  }
+
+  .side-menu-close {
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.72);
+    padding: 0.25rem;
+  }
+
+  .mobile-user-menu {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -395,103 +375,37 @@ onBeforeUnmount(() => {
     border-top: 1px solid #eeeeee;
   }
 
-  .mobileUserName {
-    display: flex;
-    align-items: center;
+  .mobile-user-name {
     color: #42526e;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 600;
+    margin-bottom: 0.5rem;
   }
 
-  .sideMenuBackdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(9, 8, 20, 0.45);
-    z-index: 950;
-  }
-
-  .sideMenu {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: min(360px, 92vw);
-    height: 100vh;
-    background-color: #ffffff;
-    box-shadow: 2px 0 24px rgba(18, 16, 32, 0.2);
-    z-index: 960;
-    transform: translateX(100%);
-    transition: transform 0.22s ease;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .sideMenuOpen {
-    transform: translateX(0);
-  }
-
-  .sideMenuHeader {
+  .side-menu-button {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    background-color: var(--primary-color);
-    padding: 1.2rem 1.75rem;
-  }
-
-  .logoSidebar {
-    width: 60px;
-    background-color: #fff;
-    padding: 5px 8px;
-    border-radius: 4px;
-  }
-
-  .sideMenuClose {
-    border: none;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.72);
-    padding: 0.25rem;
-  }
-
-  .sideMenuNav {
-    display: flex;
-    flex-direction: column;
-    padding: 0;
-  }
-
-  .sideMenuLink,
-  .sideMenuButton {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    width: 100%;
+    gap: 0.75rem;
     color: #42526e;
-    text-decoration: none;
     background: transparent;
     border: none;
-    padding: 1.15rem 1.25rem;
-    border-radius: 0;
-    border-bottom: 1px solid #eeeeee;
-    font-size: 14px;
+    padding: 0.5rem 0;
+    font-size: 0.875rem;
     font-weight: 600;
     text-align: left;
 
     &:hover {
       color: #42526e;
-      background-color: #f5f5f5;
     }
   }
 
-  .sideMenuLink.router-link-active {
-    background-color: #f5f5f5;
-    font-weight: 700;
-  }
-
-  @media only screen and (max-width: 768px) {
+  @include media-breakpoint-down(md) {
     .navbar-brand {
       font-size: 1rem;
     }
   }
 
-  @media only screen and (max-width: 576px) {
+  @include media-breakpoint-down(sm) {
     .logoHidden {
       display: none;
     }

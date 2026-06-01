@@ -15,7 +15,7 @@
           <div class="hero-actions">
             <nuxt-link
               :to="auth.ok ? '/dashboard' : '/signin'"
-              class="btn tdei-primary-button hero-primary-action"
+              class="btn btn-primary hero-primary-action"
             >
               {{ auth.ok ? 'Go to Dashboard' : 'Sign In' }}
             </nuxt-link>
@@ -138,17 +138,17 @@ const auth = tdeiClient.auth
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 14px 30px rgba(50, 0, 110, 0.2);
+    box-shadow: 0 14px 30px rgba($primary, 0.2);
   }
 
   .hero-secondary-link {
-    color: var(--primary-color);
+    color: var(--bs-primary);
     font-weight: 600;
     text-decoration: underline;
     text-underline-offset: 0.14em;
 
     &:hover {
-      color: var(--primary-color-dark);
+      color: var(--brand-accent);
     }
   }
 

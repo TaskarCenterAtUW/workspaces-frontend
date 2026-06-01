@@ -15,6 +15,7 @@ if (tdeiAuth.complete) {
 </script>
 
 <style lang="scss">
+@import "~/assets/scss/theme.scss";
 .signin-page {
   min-height: calc(100vh - 60px);
   display: flex;
@@ -32,7 +33,7 @@ if (tdeiAuth.complete) {
   }
 }
 
-@media only screen and (max-width: 600px) {
+@include media-breakpoint-down(sm) {
   .signin-page {
     min-height: calc(100vh - 60px);
     padding: 0 0 2rem;

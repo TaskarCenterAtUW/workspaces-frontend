@@ -54,14 +54,14 @@
             <section v-else-if="context.error" class="alert alert-danger m-0" role="alert">
               <h5><app-icon variant="info" />An error occurred:</h5>
               <p class="mb-3">{{ context.error }}</p>
-              <button class="btn tdei-primary-button" @click="context.reset()">
+              <button class="btn btn-primary" @click="context.reset()">
                 Try again
               </button>
             </section>
             <button
               v-else-if="!context.complete"
               type="submit"
-              class="btn tdei-primary-button"
+              class="btn btn-primary"
               @click.prevent="create"
               :disabled="!complete || context.active"
             >

@@ -64,7 +64,7 @@
     <div class="dropdown-divider" />
 
     <div class="px-3 py-2">
-      <button class="btn tdei-primary-button btn-sm" @click="apply">Apply</button>
+      <button class="btn btn-primary btn-sm" @click="apply">Apply</button>
     </div>
   </b-dropdown>
 </template>

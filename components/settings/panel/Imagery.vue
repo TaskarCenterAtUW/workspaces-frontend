@@ -61,7 +61,7 @@
 
       <button
         type="submit"
-        class="btn tdei-primary-button"
+        class="btn btn-primary"
         :disabled="!isLead"
       >
         Save

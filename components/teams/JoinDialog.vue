@@ -13,14 +13,14 @@
     <template #footer="{ hide }">
       <a
         v-if="qrCodeUrl"
-        class="btn tdei-secondary-button"
+        class="btn btn-outline-secondary"
         :href="qrCodeUrl"
         :download="qrCodeFilename"
       >
         <app-icon variant="download" />
         Download QR Code
       </a>
-      <b-button class="btn tdei-primary-button" @click="hide()">
+      <b-button variant="primary" @click="hide()">
         Close
       </b-button>
     </template>
