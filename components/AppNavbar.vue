@@ -119,7 +119,7 @@ function onKeydown(e: KeyboardEvent) {
 
 function syncMobileView() {
   if (typeof window === 'undefined') return
-  isMobileView.value = window.innerWidth <= 768
+  isMobileView.value = window.innerWidth < 768
   if (!isMobileView.value) {
     mobileMenuOpen.value = false
   }
