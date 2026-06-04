@@ -48,6 +48,10 @@
         :dataset-type="reviewList.workspace.type"
         :diff="currentDiff"
       />
+      <review-feature-image
+        v-if="currentImageUrl"
+        :image-url="currentImageUrl"
+      />
     </section>
   </section>
 </template>
@@ -55,6 +59,7 @@
 <script setup lang="ts">
 import { toast } from 'vue3-toastify';
 import { reviewManager, workspacesClient } from '~/services/index';
+import { kartaViewImageUrl } from '~/util/kartaview';
 
 import type ReviewMap from '~/components/review/Map.vue';
 import type { ReviewListItem } from '~/services/review.ts';
@@ -76,6 +81,11 @@ const loading = ref(false);
 const loadingMap = ref(false);
 const currentItem = ref<ReviewListItem | undefined>();
 const currentDiff = ref<AdiffAction | undefined>();
+
+const currentImageUrl = computed(() =>
+  kartaViewImageUrl(currentDiff.value?.new?.tags) ??
+  kartaViewImageUrl(currentDiff.value?.old?.tags)
+);
 
 refresh();
 
