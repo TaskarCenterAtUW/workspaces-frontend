@@ -1,6 +1,7 @@
 import type { OsmTags } from '~/types/osm';
 
 export const KARTAVIEW_URL_TAG = 'ext:kartaview_url';
+const KARTAVIEW_CDN_PREFIX = 'https://cdn.kartaview.org/pr:sharp/';
 
 /**
  * Extracts a KartaView image URL from an element's tags if present.
@@ -11,10 +12,16 @@ export function kartaViewImageUrl(tags: OsmTags | undefined): string | undefined
 }
 
 /**
- * Upgrades a KartaView large-thumbnail URL to the full-resolution processed version.
- * KartaView stores thumbnails at .../lth/... and full-res at .../proc/...
- * Returns the original URL unchanged if the /lth/ segment is not present.
+ * Converts a legacy KartaView/OpenStreetCam storage URL to the new CDN-proxied
+ * form. Returns CDN URLs already in the new form unchanged.
  */
-export function kartaViewFullResUrl(url: string): string {
-  return url.replace('/lth/', '/proc/');
+export function convertKartaViewUrl(url: string): string {
+  if (url.startsWith(KARTAVIEW_CDN_PREFIX)) {
+    return url;
+  }
+  const cleanUrl = url.trim();
+  const bytes = new TextEncoder().encode(cleanUrl);
+  const binaryStr = Array.from(bytes, b => String.fromCharCode(b)).join('');
+  const base64 = btoa(binaryStr).replace(/=+$/, '');
+  return `${KARTAVIEW_CDN_PREFIX}${base64}`;
 }

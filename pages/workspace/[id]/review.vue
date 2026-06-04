@@ -59,7 +59,7 @@
 <script setup lang="ts">
 import { toast } from 'vue3-toastify';
 import { reviewManager, workspacesClient } from '~/services/index';
-import { kartaViewImageUrl } from '~/util/kartaview';
+import { kartaViewImageUrl, convertKartaViewUrl } from '~/util/kartaview';
 
 import type ReviewMap from '~/components/review/Map.vue';
 import type { ReviewListItem } from '~/services/review.ts';
@@ -82,10 +82,11 @@ const loadingMap = ref(false);
 const currentItem = ref<ReviewListItem | undefined>();
 const currentDiff = ref<AdiffAction | undefined>();
 
-const currentImageUrl = computed(() =>
-  kartaViewImageUrl(currentDiff.value?.new?.tags) ??
-  kartaViewImageUrl(currentDiff.value?.old?.tags)
-);
+const currentImageUrl = computed(() => {
+  const raw = kartaViewImageUrl(currentDiff.value?.new?.tags)
+    ?? kartaViewImageUrl(currentDiff.value?.old?.tags);
+  return raw ? convertKartaViewUrl(raw) : undefined;
+});
 
 refresh();
 
