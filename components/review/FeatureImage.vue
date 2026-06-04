@@ -1,12 +1,12 @@
 <template>
   <div class="feature-image">
-    <!-- Thumbnail panel -->
     <div class="feature-image__panel">
       <button
+        v-show="!minimized"
         class="feature-image__thumb-btn"
         :disabled="error || !loaded"
         :title="error ? undefined : 'Click to enlarge'"
-        @click="openLightbox"
+        @click="emit('open')"
       >
         <app-spinner v-if="!loaded && !error" />
         <img
@@ -17,7 +17,6 @@
           @load="onLoad"
           @error="onError"
         >
-
         <span
           v-if="error"
           class="feature-image__error"
@@ -28,6 +27,13 @@
       </button>
 
       <div class="feature-image__caption">
+        <button
+          class="feature-image__toggle"
+          :title="minimized ? 'Expand' : 'Minimize'"
+          @click="minimized = !minimized"
+        >
+          <app-icon :variant="minimized ? 'add' : 'remove'" />
+        </button>
         <a
           :href="props.imageUrl"
           target="_blank"
@@ -39,48 +45,25 @@
         </a>
       </div>
     </div>
-
-    <!-- Lightbox modal -->
-    <b-modal
-      v-model="showLightbox"
-      title="KartaView image"
-      size="xl"
-      centered
-      ok-only
-      ok-title="Close"
-      ok-variant="secondary"
-      body-class="p-1"
-    >
-      <img
-        :src="lightboxSrc"
-        class="feature-image__full"
-        alt="Photo submitted with the quest"
-        @error="onLightboxError"
-      >
-    </b-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { BModal } from 'bootstrap-vue-next/components/BModal';
-import { kartaViewFullResUrl } from '~/util/kartaview';
-
 interface Props {
   imageUrl: string;
 }
 
 const props = defineProps<Props>();
+const emit = defineEmits(['open']);
 
 const loaded = ref(false);
 const error = ref(false);
-const showLightbox = ref(false);
-const lightboxSrc = ref('');
+const minimized = ref(false);
 
 watch(() => props.imageUrl, () => {
   loaded.value = false;
   error.value = false;
-  showLightbox.value = false;
-  lightboxSrc.value = '';
+  minimized.value = false;
 });
 
 function onLoad() {
@@ -89,18 +72,6 @@ function onLoad() {
 
 function onError() {
   error.value = true;
-}
-
-function openLightbox() {
-  lightboxSrc.value = kartaViewFullResUrl(props.imageUrl);
-  showLightbox.value = true;
-}
-
-function onLightboxError() {
-  // Full-res URL failed — fall back to the working thumbnail URL
-  if (lightboxSrc.value !== props.imageUrl) {
-    lightboxSrc.value = props.imageUrl;
-  }
 }
 </script>
 
@@ -111,6 +82,10 @@ function onLightboxError() {
   position: absolute;
   bottom: 2rem;
   left: 0.6rem;
+
+  @include media-breakpoint-down(lg) {
+    & { display: none; }
+  }
 
   &__panel {
     background: $body-bg;
@@ -140,7 +115,6 @@ function onLightboxError() {
     display: block;
   }
 
-  &__spinner,
   &__error {
     display: flex;
     align-items: center;
@@ -155,9 +129,28 @@ function onLightboxError() {
   }
 
   &__caption {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 0.2rem 0.5rem;
-    text-align: right;
     font-size: 0.75em;
+  }
+
+  &__toggle {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: $secondary;
+    line-height: 1;
+
+    &:hover {
+      color: $body-color;
+    }
+
+    i {
+      margin-top: 0;
+    }
   }
 
   &__link {
@@ -167,12 +160,6 @@ function onLightboxError() {
     &:hover {
       text-decoration: underline;
     }
-  }
-
-  &__full {
-    width: 100%;
-    height: auto;
-    display: block;
   }
 }
 </style>
