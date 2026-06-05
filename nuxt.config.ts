@@ -97,6 +97,7 @@ export default defineNuxtConfig({
         'dayjs/plugin/relativeTime', // CJS
         'maplibre-gl', // CJS
         'papaparse', // CJS
+        'v-viewer',
         'vue-qrcode',
         'vue3-toastify',
       ],

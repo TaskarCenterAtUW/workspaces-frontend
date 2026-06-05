@@ -49,50 +49,29 @@
         :dataset-type="reviewList.workspace.type"
         :diff="currentDiff"
         :image-url="currentImageUrl"
-        @open-photo="showLightbox = true"
+        @open-photo="showImage"
       />
       <review-feature-image
         v-if="currentImageUrl"
         :image-url="currentImageUrl"
-        @open="showLightbox = true"
+        @open="showImage"
       />
-      <b-modal
-        v-if="currentImageUrl"
-        v-model="showLightbox"
-        size="xl"
-        centered
-        no-header
-        no-footer
-        body-class="p-0 lightbox-body"
-      >
-        <button
-          class="lightbox-close"
-          aria-label="Close"
-          @click="showLightbox = false"
-        >
-          <app-icon
-            variant="close"
-            no-margin
-          />
-        </button>
-        <img
-          :src="currentImageUrl"
-          style="width: 100%; height: auto; display: block"
-          alt="Photo submitted with the quest"
-        >
-      </b-modal>
+      <app-image-viewer
+        ref="imageViewer"
+        title="Photo Submission"
+      />
     </section>
   </section>
 </template>
 
 <script setup lang="ts">
-import { BModal } from 'bootstrap-vue-next/components/BModal';
 import { toast } from 'vue3-toastify';
 
 import { reviewManager, workspacesClient } from '~/services/index';
 import { kartaViewImageUrl, convertKartaViewUrl } from '~/util/kartaview';
 
 import type ReviewMap from '~/components/review/Map.vue';
+import type AppImageViewer from '~/components/AppImageViewer.vue';
 import type { ReviewListItem } from '~/services/review.ts';
 import type { AdiffAction } from '~/types/adiff';
 import type { OsmChangeset } from '~/types/osm';
@@ -107,12 +86,12 @@ const reviewList = reviewManager.getList(workspaceId);
 const filter = reactive(reviewManager.getFilter());
 
 const map = useTemplateRef<InstanceType<typeof ReviewMap>>('map');
+const imageViewer = useTemplateRef<InstanceType<typeof AppImageViewer>>('imageViewer');
 
 const loading = ref(false);
 const loadingMap = ref(false);
 const currentItem = ref<ReviewListItem | undefined>();
 const currentDiff = ref<AdiffAction | undefined>();
-const showLightbox = ref(false);
 
 const currentImageUrl = computed(() => {
   const raw = kartaViewImageUrl(currentDiff.value?.new?.tags)
@@ -126,9 +105,11 @@ watch(currentItem, () => {
   currentDiff.value = undefined;
 });
 
-watch(currentDiff, () => {
-  showLightbox.value = false;
-});
+function showImage() {
+  if (currentImageUrl.value) {
+    imageViewer.value?.show(currentImageUrl.value);
+  }
+}
 
 async function refresh() {
   if (loading.value) {
@@ -222,32 +203,6 @@ async function openEditor() {
       .review-sidebar { display: none; }
       .map-container { display: block; }
     }
-  }
-}
-
-.lightbox-body {
-  position: relative;
-}
-
-.lightbox-close {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  padding: 0;
-
-  &:hover {
-    background: rgba(0, 0, 0, 0.75);
   }
 }
 </style>
