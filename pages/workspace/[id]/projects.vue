@@ -211,7 +211,7 @@ const viewOptions: Array<{ icon: string; label: string; value: WorkspaceProjectV
 
 const statusOptions = computed<SelectOption[]>(() => [
   { label: 'All', value: 'all' },
-  { label: 'Inprogress', value: 'in_progress' },
+  { label: 'In Progress', value: 'in_progress' },
   { label: 'Completed', value: 'completed' },
   { label: 'Draft', value: 'draft' },
 ]);
