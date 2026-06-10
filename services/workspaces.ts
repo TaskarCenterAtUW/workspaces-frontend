@@ -30,6 +30,14 @@ export function compareWorkspaceCreatedAtDesc(a: Workspace, b: Workspace) {
   return b.createdAt.getTime() - a.createdAt.getTime();
 }
 
+function normalizeWorkspace(workspace: Workspace): Workspace {
+  return {
+    ...workspace,
+    createdAt: new Date(workspace.createdAt),
+    tdeiMetadata: JSON.parse(workspace.tdeiMetadata || '{}'),
+  };
+}
+
 export class WorkspacesClientError extends Error {
   response: Response;
 
@@ -87,18 +95,13 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     const response = await this.#newApi._get('workspaces/mine');
     const workspaces = (await response.json()) ?? [];
 
-    for (const workspace of workspaces) {
-      workspace.createdAt = new Date(workspace.createdAt);
-      workspace.tdeiMetadata = JSON.parse(workspace.tdeiMetadata || '{}');
-    }
-
-    return workspaces;
+    return workspaces.map(normalizeWorkspace);
   }
 
   async getWorkspace(id: WorkspaceId): Promise<Workspace> {
     const response = await this.#newApi._get(`workspaces/${id}`);
 
-    return await response.json();
+    return normalizeWorkspace(await response.json());
   }
 
   getWorkspaceBbox(id: WorkspaceId): Promise<BoundingBox> {
