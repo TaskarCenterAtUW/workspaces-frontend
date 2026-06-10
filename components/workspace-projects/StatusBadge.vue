@@ -1,0 +1,98 @@
+<template>
+  <span :class="badgeClasses">
+    <span class="project-status-badge-icon" aria-hidden="true">
+      {{ iconGlyph }}
+    </span>
+    {{ statusLabel }}
+  </span>
+</template>
+
+<script setup lang="ts">
+import type { WorkspaceProjectStatus } from '~/types/projects';
+
+interface Props {
+  status: WorkspaceProjectStatus;
+}
+
+const props = defineProps<Props>();
+
+const statusLabel = computed(() => {
+  switch (props.status) {
+    case 'completed':
+      return 'Completed';
+    case 'in_progress':
+      return 'Inprogress';
+    case 'draft':
+    default:
+      return 'Draft';
+  }
+});
+
+const iconGlyph = computed(() => {
+  switch (props.status) {
+    case 'completed':
+      return '✓';
+    case 'in_progress':
+      return '✳';
+    case 'draft':
+    default:
+      return '○';
+  }
+});
+
+const badgeClasses = computed(() => ({
+  'project-status-badge': true,
+  'project-status-badge-completed': props.status === 'completed',
+  'project-status-badge-in-progress': props.status === 'in_progress',
+  'project-status-badge-draft': props.status === 'draft',
+}));
+</script>
+
+<style lang="scss" scoped>
+@import "~/assets/scss/theme.scss";
+
+.project-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1;
+  padding: 0.38rem 0.72rem;
+  white-space: nowrap;
+}
+
+.project-status-badge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.project-status-badge-completed {
+  background-color: #f5fbf8;
+  border-color: #d6ebe1;
+  color: #5c9f83;
+}
+
+.project-status-badge-in-progress {
+  background-color: #f5fbff;
+  border-color: #cfe1f5;
+  color: #5a97cc;
+}
+
+.project-status-badge-draft {
+  background-color: #fffaf2;
+  border-color: #eddcbe;
+  color: #b88d41;
+}
+</style>
