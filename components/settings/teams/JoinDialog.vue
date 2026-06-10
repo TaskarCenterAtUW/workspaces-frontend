@@ -51,7 +51,7 @@
         <div class="modal-footer justify-content-center">
           <a
             v-if="qrCodeUrl"
-            class="btn btn-dark"
+            class="btn btn-outline-secondary"
             :href="qrCodeUrl"
             download="qr-code.png"
           >

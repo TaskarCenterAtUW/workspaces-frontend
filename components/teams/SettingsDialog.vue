@@ -11,6 +11,7 @@
     <template #footer="{ cancel }">
       <b-button
         variant="link"
+        class="p-0"
         @click="cancel()"
       >
         Cancel

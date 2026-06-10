@@ -72,7 +72,7 @@
 
           <b-button
             href="mailto:helpdesk@tdei.us"
-            variant="outline-primary"
+            variant="outline-secondary"
           >
             helpdesk@tdei.us
           </b-button>

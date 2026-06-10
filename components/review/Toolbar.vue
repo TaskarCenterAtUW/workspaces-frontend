@@ -5,7 +5,7 @@
       #{{ props.item.id }}
     </span>
     <button
-      class="btn btn-sm btn-dark"
+      class="btn btn-sm btn-primary"
       @click="edit"
     >
       <app-icon

@@ -1,34 +1,47 @@
 <template>
-  <app-page class="signin-page">
-    <div class="text-center my-5">
-      <app-logo />
-      <h1>Sign In</h1>
+  <section class="signin-page">
+    <div class="signin-shell">
+      <signin-form />
     </div>
-
-    <signin-form />
-  </app-page>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { tdeiAuth } from '~/services/index';
+import { tdeiAuth } from '~/services/index'
 
 if (tdeiAuth.complete) {
-  navigateTo('/dashboard');
+  navigateTo('/dashboard')
 }
 </script>
 
 <style lang="scss">
+@import "~/assets/scss/theme.scss";
 .signin-page {
-  .app-logo {
-    width: 5rem;
-    height: 5rem;
-    margin-bottom: 1rem;
-  }
+  min-height: calc(100vh - 60px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem 3rem;
+  background-image: url('~/assets/img/bg_login.png');
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center top;
 
-  .signin-card {
+  .signin-shell {
     width: 100%;
-    max-width: 600px;
-    margin: 0 auto;
+    max-width: 450px;
+  }
+}
+
+@include media-breakpoint-down(sm) {
+  .signin-page {
+    min-height: calc(100vh - 60px);
+    padding: 0 0 2rem;
+    align-items: center;
+
+    .signin-shell {
+      max-width: 100%;
+    }
   }
 }
 </style>

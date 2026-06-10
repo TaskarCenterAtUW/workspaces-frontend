@@ -3,6 +3,7 @@
     ref="modal"
     title="Team Members"
     ok-title="Close"
+    ok-variant="primary"
     ok-only
   >
     <app-spinner
@@ -97,7 +98,8 @@ async function remove(user: User) {
     okTitle: 'Remove',
     okVariant: 'danger',
     cancelTitle: 'Cancel',
-    cancelVariant: 'link',
+    cancelClass: 'btn-link p-0',
+    cancelVariant: null,
   }).show();
 
   if (value?.ok) {

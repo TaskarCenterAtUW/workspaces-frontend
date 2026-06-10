@@ -3,8 +3,17 @@ export default defineNuxtConfig({
   modules: [
     '@bootstrap-vue-next/nuxt',
     '@nuxt/eslint',
+    '@nuxtjs/google-fonts',
     '@sentry/nuxt/module',
   ],
+  googleFonts: {
+    families: {
+      'Open Sans': [300, 400, 500, 600, 700],
+      Montserrat: [300, 400, 500, 600, 700],
+    },
+    display: 'swap',
+    download: true,
+  },
   ssr: false,
   devtools: { enabled: true },
   app: {
@@ -75,11 +84,13 @@ export default defineNuxtConfig({
         'bootstrap-vue-next/components/BBadge',
         'bootstrap-vue-next/components/BButton',
         'bootstrap-vue-next/components/BCard',
+        'bootstrap-vue-next/components/BCollapse',
         'bootstrap-vue-next/components/BContainer',
         'bootstrap-vue-next/components/BDropdown',
         'bootstrap-vue-next/components/BFormInput',
         'bootstrap-vue-next/components/BListGroup',
         'bootstrap-vue-next/components/BModal',
+        'bootstrap-vue-next/components/BNavbar',
         'bootstrap-vue-next/components/BPopover',
         'bootstrap-vue-next/composables/useModal',
         'dayjs', // CJS

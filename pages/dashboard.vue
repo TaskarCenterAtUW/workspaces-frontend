@@ -20,41 +20,43 @@
       <app-icon variant="info" />
       No workspaces exist in the selected project group.
     </div>
-    <div v-else class="row mt-4 position-relative">
-      <div class="col-md mb-3">
-        <div class="list-group">
-          <dashboard-workspace-item
-            v-for="w in currentWorkspaces"
-            :key="w.id"
-            :workspace="w"
-            :selected="w.id === currentWorkspace?.id"
-            @click="selectWorkspace(w)"
-          />
+    <template v-else>
+      <div class="workspace-split-layout mt-4">
+        <div class="workspace-list-panel">
+          <div class="workspace-list-scroll">
+            <dashboard-workspace-item
+              v-for="w in currentWorkspaces"
+              :key="w.id"
+              :workspace="w"
+              :selected="w.id === currentWorkspace?.id"
+              @click="selectWorkspace(w)"
+            />
+          </div>
         </div>
-      </div><!-- .col-md -->
 
-      <div class="col-md workspace-details-col">
-        <div
-          v-if="currentWorkspace"
-          class="card"
-        >
-          <nav class="card-header">
-            <dashboard-toolbar :workspace="currentWorkspace" />
-          </nav>
-
-          <dashboard-map :workspace="currentWorkspace" @center-loaded="onCenterLoaded" />
-          <dashboard-details-table
-            :workspace="currentWorkspace"
-            :my-tdei-roles="currentWorkspaceTdeiRoles"
-          />
-        </div><!-- .card -->
-      </div><!-- .col-md -->
-    </div><!-- .row -->
+        <div class="workspace-details-panel">
+          <div
+            v-if="currentWorkspace"
+            class="card"
+          >
+            <nav class="card-header">
+              <dashboard-toolbar :workspace="currentWorkspace" />
+            </nav>
+            <dashboard-map :workspace="currentWorkspace" @center-loaded="onCenterLoaded" />
+            <dashboard-details-table
+              :workspace="currentWorkspace"
+              :my-tdei-roles="currentWorkspaceTdeiRoles"
+            />
+          </div>
+        </div>
+      </div>
+    </template>
   </app-page>
 </template>
 
 <script setup lang="ts">
 import { tdeiUserClient, workspacesClient } from '~/services/index';
+import type { Workspace } from '~/types/workspaces';
 import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 
 const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
@@ -102,6 +104,9 @@ const currentWorkspaces = computed(() =>
   currentProjectGroup.value
     ? workspacesByProjectGroup.get(currentProjectGroup.value)
     : undefined,
+);
+const selectedProjectGroupName = computed(() =>
+  myProjectGroups.find(pg => pg.tdei_project_group_id === currentProjectGroup.value)?.name ?? null
 );
 const currentWorkspaceTdeiRoles = computed(() =>
   currentWorkspace.value
@@ -164,7 +169,7 @@ function onCenterLoaded(center) {
   currentWorkspace.value!.center = center;
 }
 
-async function selectWorkspace(workspace) {
+async function selectWorkspace(workspace: Workspace) {
   currentWorkspace.value = workspace;
 }
 </script>
@@ -180,9 +185,7 @@ async function selectWorkspace(workspace) {
     margin-right: 1rem;
 
     @include media-breakpoint-down(md) {
-      & {
-        display: none;
-      }
+      & { display: none; }
     }
   }
 
@@ -198,16 +201,64 @@ async function selectWorkspace(workspace) {
       border-left-color: $border-color;
       margin-right: auto;
 
-      &:hover {
-        border-color: $border-color;
-      }
+      &:hover { border-color: $border-color; }
     }
   }
+}
 
-  .workspace-details-col {
-    position: sticky;
-    top: 1rem;
-    margin-bottom: auto;
+
+.workspace-split-layout {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+
+  @include media-breakpoint-down(md) {
+    flex-direction: column;
+  }
+}
+.workspace-list-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+
+  position: sticky;
+  top: calc(#{$navbar-height} + 1rem);
+  max-height: calc(100vh - #{$navbar-height} - 2rem);
+
+  @include media-breakpoint-down(md) {
+    position: static;
+    flex: none;
+    width: 100%;
+    max-height: 50vh;
+  }
+}
+
+.workspace-list-scroll {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #c9cfe0 transparent;
+
+  &::-webkit-scrollbar { width: 5px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: #c9cfe0;
+    border-radius: 10px;
+  }
+}
+
+.workspace-details-panel {
+  flex: 1;
+  min-width: 0;
+
+  position: sticky;
+  top: 1rem;
+  margin-bottom: auto;
+
+  @include media-breakpoint-down(md) {
+    position: static;
+    width: 100%;
   }
 }
 </style>

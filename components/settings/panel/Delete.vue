@@ -21,7 +21,7 @@
       </p>
 
       <button
-        class="btn btn-outline-danger mb-3"
+        class="btn btn-danger mb-3"
         :disabled="!isLead || accepted"
         @click="acceptDelete"
       >
