@@ -119,6 +119,7 @@ const { progressPercent, completedTaskCount, taskSummary, createdDate } = usePro
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .project-card-summary {
@@ -131,6 +132,7 @@ const { progressPercent, completedTaskCount, taskSummary, createdDate } = usePro
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
 }
 
 .project-progress-copy {
