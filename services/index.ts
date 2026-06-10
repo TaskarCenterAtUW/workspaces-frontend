@@ -12,6 +12,7 @@ import { PathwaysEditorManager } from '~/services/pathways';
 import { ReviewManager } from '~/services/review';
 import { RapidManager } from '~/services/rapid';
 import { Rapid3Manager } from '~/services/rapid3';
+import { WorkspaceProjectsClient } from '~/services/projects';
 import { WorkspacesClient } from '~/services/workspaces';
 
 const tdeiApiUrl = import.meta.env.VITE_TDEI_API_URL;
@@ -31,6 +32,7 @@ tdeiClient.restartAutoAuthRefresh();
 
 export const osmClient = new OsmApiClient(osmWebUrl, osmApiUrl, tdeiClient);
 export const workspacesClient = new WorkspacesClient(apiUrl, newApiUrl, tdeiClient, osmClient);
+export const workspaceProjectsClient = new WorkspaceProjectsClient(apiUrl, newApiUrl, tdeiClient);
 
 const oscCacheTtl = 1000 * 60 * 60 * 24 * 45; // 45 days
 const adiffCacheTtl = oscCacheTtl;

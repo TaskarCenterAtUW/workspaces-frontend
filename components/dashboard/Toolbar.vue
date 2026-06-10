@@ -27,6 +27,17 @@
     <div class="btn-group ms-1">
       <nuxt-link
         class="btn btn-outline-secondary"
+        :to="projectsRoute"
+      >
+        <app-icon
+          variant="dashboard"
+          size="24"
+          no-margin
+        />
+        <span class="d-none d-sm-inline ms-2">Projects</span>
+      </nuxt-link>
+      <nuxt-link
+        class="btn btn-outline-secondary"
         :to="reviewRoute"
       >
         <app-icon
@@ -58,15 +69,15 @@
 
 <script setup lang="ts">
 import { rapid3Manager } from '~/services/index'
+import type { Workspace } from '~/types/workspaces';
 
 const rapid3Available = !!rapid3Manager
 
-const props = defineProps({
-  workspace: {
-    type: Object,
-    required: true
-  }
-});
+interface Props {
+  workspace: Workspace;
+}
+
+const props = defineProps<Props>();
 
 const editHash = computed(() => {
   if (!props.workspace.center) {
@@ -93,10 +104,11 @@ const editRouteRapid3 = computed(() => ({
 }));
 
 const reviewRoute = computed(() => workspacePath('review'));
+const projectsRoute = computed(() => workspacePath('projects'));
 const exportRoute = computed(() => workspacePath('export'));
 const settingsRoute = computed(() => workspacePath('settings'));
 
-function workspacePath(page) {
+function workspacePath(page: string) {
   return `/workspace/${props.workspace.id}/${page}`;
 }
 </script>
