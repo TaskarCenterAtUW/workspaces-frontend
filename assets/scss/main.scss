@@ -104,25 +104,25 @@ label > .form-select:first-child {
 
 .page-header-title {
   font-family: var(--secondary-font-family);
-  font-size: 24px;
+  font-size: 1.5rem;
   font-weight: 700;
-  margin-bottom: 5px;
+  margin-bottom: 0.3125rem;
 }
 
 .page-header-subtitle {
   font-family: var(--secondary-font-family);
-  font-size: 14px;
+  font-size: 0.875rem;
   color: $tdei-secondary;
 }
 
 .tdei-bold-name {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 0.5rem;
 }
 
 .tdei-name-desc {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: $tdei-secondary;
 }
 
@@ -176,7 +176,7 @@ label > .form-select:first-child {
 }
 
 .tdei-hint-text {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: $tdei-secondary;
   font-style: italic;
 }
@@ -185,7 +185,7 @@ label > .form-select:first-child {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 20px;
+  padding-bottom: 1.25rem;
 }
 
 .tdei-inline-filter-label {
