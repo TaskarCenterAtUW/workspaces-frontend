@@ -209,12 +209,12 @@ const viewOptions: Array<{ icon: string; label: string; value: WorkspaceProjectV
   { icon: 'view_list', label: 'List view', value: 'list' },
 ];
 
-const statusOptions = computed<SelectOption[]>(() => [
+const statusOptions: SelectOption[] = [
   { label: 'All', value: 'all' },
   { label: 'In Progress', value: 'in_progress' },
   { label: 'Completed', value: 'completed' },
   { label: 'Draft', value: 'draft' },
-]);
+];
 
 const projects = computed(() => projectsResponse.value.results);
 const pagination = computed(() => projectsResponse.value.pagination);
