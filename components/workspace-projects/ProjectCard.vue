@@ -48,6 +48,7 @@
 
 <script setup lang="ts">
 import type { WorkspaceProject } from '~/types/projects';
+import { useProjectDisplay } from '~/composables/useProjectDisplay';
 
 interface Props {
   project: WorkspaceProject;
@@ -55,24 +56,8 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const progressPercent = computed(() => props.project.percentCompleted);
-
-const completedTaskCount = computed(() =>
-  Math.round((props.project.taskCount * props.project.percentCompleted) / 100),
-);
-
-const taskSummary = computed(() =>
-  progressPercent.value === 0
-    ? 'Not started'
-    : `${completedTaskCount.value}/${props.project.taskCount} Tasks Executed`,
-);
-
-const createdDate = computed(() =>
-  props.project.createdAt.toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }),
+const { progressPercent, completedTaskCount, taskSummary, createdDate } = useProjectDisplay(
+  computed(() => props.project),
 );
 </script>
 
