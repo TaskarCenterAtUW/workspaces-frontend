@@ -21,7 +21,7 @@ const statusLabel = computed(() => {
     case 'completed':
       return 'Completed';
     case 'in_progress':
-      return 'Inprogress';
+      return 'In Progress';
     case 'draft':
     default:
       return 'Draft';
