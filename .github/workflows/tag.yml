@@ -1,0 +1,42 @@
+# Whenever there is a pull request merged into the branches, create tag
+name: Update Environment Tag
+on:
+   pull_request:
+     types: [closed]
+     branches:
+       - develop
+       - staging
+       - production
+jobs:
+  update-tag:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+          with:
+            fetch-depth: 1
+        - name: Get the current branch name
+          id: get_branch
+          run: |
+            TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
+            
+            if [ "$TARGET_BRANCH" = "develop" ]; then
+                echo "ENV_TAG=dev" >> $GITHUB_ENV
+            elif [ "$TARGET_BRANCH" = "staging" ]; then
+                echo "ENV_TAG=stage" >> $GITHUB_ENV
+            elif [ "$TARGET_BRANCH" = "production" ]; then
+                echo "ENV_TAG=prod" >> $GITHUB_ENV
+            else
+                echo "ENV_TAG=" >> $GITHUB_ENV
+            fi
+        - name: Force update tag
+          if: ${{ env.ENV_TAG != '' }}
+          run: |
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            echo "Targeting tag: ${{ env.ENV_TAG }}"
+            git tag -f $ENV_TAG
+            git push origin $ENV_TAG --force
