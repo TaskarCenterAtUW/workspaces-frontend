@@ -18,7 +18,7 @@ export function useProjectDisplay(project: Ref<WorkspaceProject> | WorkspaceProj
   );
 
   const createdDate = computed(() =>
-    projectRef.value.createdAt.toLocaleDateString(undefined, {
+    new Date(projectRef.value.createdAt).toLocaleDateString(undefined, {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
