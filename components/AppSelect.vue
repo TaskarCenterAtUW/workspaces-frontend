@@ -29,6 +29,7 @@
       <button
         v-for="(option, index) in options"
         :key="String(option.value)"
+        :ref="(el) => { if (el) optionRefs[index] = el as HTMLElement; }"
         class="tdei-select-option"
         :class="{
           'tdei-select-option-active': index === activeIndex,
@@ -70,6 +71,7 @@ const model = defineModel<string | number | null>({ required: true });
 const rootRef = ref<HTMLElement | null>(null);
 const isOpen = ref(false);
 const activeIndex = ref(-1);
+const optionRefs: HTMLElement[] = [];
 
 const selectedOption = computed(() =>
   props.options.find(option => option.value === model.value),
@@ -82,9 +84,11 @@ const selectedLabel = computed(() =>
 watch(isOpen, (open) => {
   if (!open) {
     activeIndex.value = -1;
+    optionRefs.length = 0;
     return;
   }
 
+  optionRefs.length = 0;
   const selectedIndex = props.options.findIndex(option => option.value === model.value);
   activeIndex.value = selectedIndex >= 0 ? selectedIndex : 0;
 });
@@ -130,12 +134,14 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === 'ArrowDown') {
     event.preventDefault();
     activeIndex.value = Math.min(activeIndex.value + 1, props.options.length - 1);
+    void nextTick(() => optionRefs[activeIndex.value]?.scrollIntoView({ block: 'nearest' }));
     return;
   }
 
   if (event.key === 'ArrowUp') {
     event.preventDefault();
     activeIndex.value = Math.max(activeIndex.value - 1, 0);
+    void nextTick(() => optionRefs[activeIndex.value]?.scrollIntoView({ block: 'nearest' }));
     return;
   }
 

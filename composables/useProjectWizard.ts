@@ -156,7 +156,7 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
   }
 
   watch(
-    [currentStep, () => draft],
+    [currentStep, draft],
     () => {
       const state: ProjectWizardStoredState = {
         currentStep: currentStep.value,

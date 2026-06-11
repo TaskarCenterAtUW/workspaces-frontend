@@ -34,7 +34,7 @@ tdeiClient.restartAutoAuthRefresh();
 export const osmClient = new OsmApiClient(osmWebUrl, osmApiUrl, tdeiClient);
 export const workspacesClient = new WorkspacesClient(apiUrl, newApiUrl, tdeiClient, osmClient);
 export const workspaceProjectsClient = new WorkspaceProjectsClient(apiUrl, newApiUrl, tdeiClient);
-export const projectWizardClient = new ProjectWizardClient(apiUrl);
+export const projectWizardClient = new ProjectWizardClient(apiUrl, tdeiClient);
 
 const oscCacheTtl = 1000 * 60 * 60 * 24 * 45; // 45 days
 const adiffCacheTtl = oscCacheTtl;
