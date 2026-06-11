@@ -191,10 +191,10 @@ const liveRegionMessage = computed(() =>
 );
 
 const mapPadding = ref({
-  top: 48,
-  right: 48,
-  bottom: 48,
-  left: 560,
+  top: 56,
+  right: 56,
+  bottom: 56,
+  left: 580,
 });
 
 let nameCheckDebounce: ReturnType<typeof setTimeout> | undefined;

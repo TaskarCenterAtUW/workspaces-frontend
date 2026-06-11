@@ -23,7 +23,9 @@ function normalizeStatus(status: WorkspaceProjectApiItem['status']): WorkspacePr
     case 'completed':
       return 'completed';
     case 'draft':
+      return 'draft';
     default:
+      console.warn(`Unknown project status "${status}" normalized to "draft"`);
       return 'draft';
   }
 }

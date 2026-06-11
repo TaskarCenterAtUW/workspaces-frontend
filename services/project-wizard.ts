@@ -1,10 +1,11 @@
-import { BaseHttpClient } from '~/services/http';
+import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
 import {
   getMockProjectNameAvailabilityResponse,
 } from '~/services/mock-project-wizard';
 import { buildProjectWizardCreatePayload } from '~/services/project-wizard-payload';
 
 import type { ICancelableClient } from '~/services/loading';
+import type { TdeiAuthStore, TdeiClient } from '~/services/tdei';
 import type {
   ProjectWizardDraft,
   ProjectWizardCreatePayload,
@@ -15,8 +16,19 @@ import type { WorkspaceId } from '~/types/workspaces';
 const USE_MOCK_PROJECT_WIZARD = import.meta.env.VITE_USE_MOCK_PROJECT_WIZARD !== 'false';
 
 export class ProjectWizardClient extends BaseHttpClient implements ICancelableClient {
+  #tdeiClient: TdeiClient;
+
+  constructor(apiUrl: string, tdeiClient: TdeiClient, signal?: AbortSignal) {
+    super(apiUrl, signal);
+    this.#tdeiClient = tdeiClient;
+  }
+
+  get auth(): TdeiAuthStore {
+    return this.#tdeiClient.auth;
+  }
+
   clone(signal?: AbortSignal): ProjectWizardClient {
-    return new ProjectWizardClient(this._baseUrl, signal ?? this._abortSignal);
+    return new ProjectWizardClient(this._baseUrl, this.#tdeiClient, signal ?? this._abortSignal);
   }
 
   async createProject(
@@ -51,5 +63,31 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
     void workspaceId;
     void payload;
     throw new Error('Project creation endpoint is not configured yet.');
+  }
+
+  #setAuthHeader() {
+    if (this.#tdeiClient.auth.complete) {
+      this._requestHeaders.Authorization = 'Bearer ' + this.auth.accessToken;
+    }
+  }
+
+  override async _send(
+    url: string,
+    method: string,
+    body?: any,
+    config?: object,
+  ): Promise<Response> {
+    try {
+      await this.#tdeiClient.tryRefreshAuth();
+      this.#setAuthHeader();
+
+      return await super._send(url, method, body, config);
+    } catch (e) {
+      if (e instanceof BaseHttpClientError) {
+        throw e;
+      }
+
+      throw e;
+    }
   }
 }

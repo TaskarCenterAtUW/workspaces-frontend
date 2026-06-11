@@ -7,6 +7,34 @@ import type {
   ProjectWizardStepId,
 } from '~/types/project-wizard';
 
+const VALID_STEP_IDS: readonly ProjectWizardStepId[] = ['details', 'area', 'tasks', 'settings', 'review'];
+
+function parseStepDefinitions(steps: unknown): ProjectWizardStepDefinition[] {
+  if (!Array.isArray(steps)) {
+    throw new Error('project-wizard-step-config: "steps" must be an array.');
+  }
+
+  return steps.map((entry: unknown, index: number) => {
+    if (entry === null || typeof entry !== 'object') {
+      throw new Error(`project-wizard-step-config: step[${index}] must be an object.`);
+    }
+
+    const item = entry as Record<string, unknown>;
+
+    if (!VALID_STEP_IDS.includes(item.step as ProjectWizardStepId)) {
+      throw new Error(
+        `project-wizard-step-config: step[${index}].step must be one of [${VALID_STEP_IDS.join(', ')}], got "${String(item.step)}".`,
+      );
+    }
+
+    if (typeof item.title !== 'string' || item.title.trim() === '') {
+      throw new Error(`project-wizard-step-config: step[${index}] (${String(item.step)}) must have a non-empty "title".`);
+    }
+
+    return item as unknown as ProjectWizardStepDefinition;
+  });
+}
+
 const DEFAULT_AOI: ProjectWizardAreaFeature = {
   type: 'Feature',
   geometry: {
@@ -22,7 +50,7 @@ const DEFAULT_AOI: ProjectWizardAreaFeature = {
   properties: {},
 };
 
-const STEP_DEFINITIONS = stepConfig.steps as ProjectWizardStepDefinition[];
+const STEP_DEFINITIONS = parseStepDefinitions(stepConfig.steps);
 
 export const PROJECT_WIZARD_STEPS: ProjectWizardStepId[] = STEP_DEFINITIONS.map(step => step.step);
 
