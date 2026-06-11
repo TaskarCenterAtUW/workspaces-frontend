@@ -64,10 +64,10 @@
 
         <span class="workspace-projects-toolbar-divider" aria-hidden="true" />
 
-        <button class="btn btn-primary workspace-projects-create-button" type="button">
+        <nuxt-link :to="createProjectRoute" class="btn btn-primary workspace-projects-create-button">
           <app-icon variant="add" size="22" />
           New Project
-        </button>
+        </nuxt-link>
       </div>
     </section>
 
@@ -166,6 +166,7 @@ interface SelectOption {
 const route = useRoute();
 const workspaceId = Number(route.params.id);
 const projectsLoading = reactive(new LoadingContext());
+const createProjectRoute = `/workspace/${workspaceId}/projects/create`;
 
 const [workspace, { items: projectGroups }] = await Promise.all([
   workspacesClient.getWorkspace(workspaceId),
