@@ -1,9 +1,7 @@
 <template>
   <article class="project-card">
     <div class="project-card-top">
-      <div class="project-card-icon">
-        <app-icon variant="crop_free" size="24" no-margin />
-      </div>
+      <img class="project-card-icon" :src="projectIcon" :alt="''">
 
       <button
         class="project-card-menu btn btn-link"
@@ -47,6 +45,8 @@
 </template>
 
 <script setup lang="ts">
+import projectIcon from '~/assets/img/project.svg';
+
 import type { WorkspaceProject } from '~/types/projects';
 import { useProjectDisplay } from '~/composables/useProjectDisplay';
 
@@ -56,7 +56,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const { progressPercent, completedTaskCount, taskSummary, createdDate } = useProjectDisplay(
+const { progressPercent, taskSummary, createdDate } = useProjectDisplay(
   computed(() => props.project),
 );
 </script>
@@ -83,14 +83,10 @@ const { progressPercent, completedTaskCount, taskSummary, createdDate } = usePro
 }
 
 .project-card-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.65rem;
-  background-color: #f1f3fb;
-  color: #6d7593;
+  display: block;
+  width: 2.8125rem;
+  height: 2.8125rem;
+  flex-shrink: 0;
 }
 
 .project-card-menu {

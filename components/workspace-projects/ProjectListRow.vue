@@ -58,7 +58,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const { progressPercent, completedTaskCount, taskSummary, createdDate } = useProjectDisplay(
+const { progressPercent, taskSummary, createdDate } = useProjectDisplay(
   computed(() => props.project),
 );
 </script>
