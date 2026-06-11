@@ -29,8 +29,11 @@ jobs:
                 echo "ENV_TAG=stage" >> $GITHUB_ENV
             elif [ "$TARGET_BRANCH" = "production" ]; then
                 echo "ENV_TAG=prod" >> $GITHUB_ENV
+            else
+                echo "ENV_TAG=" >> $GITHUB_ENV
             fi
         - name: Force update tag
+          if: ${{ env.ENV_TAG != '' }}
           run: |
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
