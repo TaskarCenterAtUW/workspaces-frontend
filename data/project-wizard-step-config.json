@@ -1,0 +1,237 @@
+{
+  "steps": [
+    {
+      "step": "details",
+      "title": "Project Details",
+      "description": "Basic details of the project.",
+      "nextLabel": "Next",
+      "content": {
+        "fields": [
+          {
+            "id": "name",
+            "label": "Project Name",
+            "placeholder": "Enter Project Name",
+            "required": true,
+            "type": "text"
+          },
+          {
+            "id": "description",
+            "label": "Description",
+            "placeholder": "Enter Description",
+            "rows": 4,
+            "type": "textarea"
+          },
+          {
+            "id": "imageryUrl",
+            "label": "Imagery URL",
+            "placeholder": "Paste imagery JSON or a URL reference for later validation.",
+            "rows": 8,
+            "type": "textarea"
+          }
+        ]
+      },
+      "map": {
+        "center": [-122.3321, 47.6062],
+        "zoom": 7.7,
+        "features": {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[-122.57, 47.78], [-121.95, 47.78], [-121.95, 47.39], [-122.57, 47.39], [-122.57, 47.78]]]
+              },
+              "properties": {
+                "tone": "muted"
+              }
+            },
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-122.3321, 47.6062]
+              },
+              "properties": {
+                "label": "Seattle",
+                "tone": "accent"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step": "area",
+      "title": "Area Of Interest",
+      "description": "Draw the Area of Interest on the map or import a file.",
+      "nextLabel": "Next",
+      "map": {
+        "center": [-122.3321, 47.6062],
+        "zoom": 8.55,
+        "features": {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[-122.48, 47.73], [-122.13, 47.73], [-122.13, 47.49], [-122.48, 47.49], [-122.48, 47.73]]]
+              },
+              "properties": {
+                "tone": "primary"
+              }
+            },
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [[-122.44, 47.62], [-122.36, 47.68], [-122.24, 47.66]]
+              },
+              "properties": {
+                "tone": "accent"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step": "tasks",
+      "title": "Tasks Generation",
+      "description": "Define task area to generate tasks.",
+      "nextLabel": "Next",
+      "map": {
+        "center": [-122.335, 47.61],
+        "zoom": 9.2,
+        "features": {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[-122.43, 47.69], [-122.19, 47.69], [-122.19, 47.52], [-122.43, 47.52], [-122.43, 47.69]]]
+              },
+              "properties": {
+                "tone": "accent"
+              }
+            },
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [[-122.42, 47.58], [-122.34, 47.63], [-122.24, 47.64]]
+              },
+              "properties": {
+                "tone": "muted"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step": "settings",
+      "title": "Settings",
+      "description": "Configure project settings.",
+      "nextLabel": "Next",
+      "map": {
+        "center": [-122.335, 47.61],
+        "zoom": 9.7,
+        "features": {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[-122.405, 47.665], [-122.325, 47.665], [-122.325, 47.595], [-122.405, 47.595], [-122.405, 47.665]]]
+              },
+              "properties": {
+                "tone": "primary"
+              }
+            },
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[-122.325, 47.665], [-122.245, 47.665], [-122.245, 47.595], [-122.325, 47.595], [-122.325, 47.665]]]
+              },
+              "properties": {
+                "tone": "muted"
+              }
+            },
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[-122.405, 47.595], [-122.325, 47.595], [-122.325, 47.525], [-122.405, 47.525], [-122.405, 47.595]]]
+              },
+              "properties": {
+                "tone": "muted"
+              }
+            },
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[-122.325, 47.595], [-122.245, 47.595], [-122.245, 47.525], [-122.325, 47.525], [-122.325, 47.595]]]
+              },
+              "properties": {
+                "tone": "accent"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step": "review",
+      "title": "Review",
+      "description": "Review project details and activate.",
+      "nextLabel": "Create Project",
+      "map": {
+        "center": [-122.334, 47.606],
+        "zoom": 8.9,
+        "features": {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[-122.46, 47.72], [-122.17, 47.72], [-122.17, 47.48], [-122.46, 47.48], [-122.46, 47.72]]]
+              },
+              "properties": {
+                "tone": "primary"
+              }
+            },
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-122.3321, 47.6062]
+              },
+              "properties": {
+                "label": "Seattle",
+                "tone": "accent"
+              }
+            },
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-122.1215, 47.6739]
+              },
+              "properties": {
+                "label": "Bellevue",
+                "tone": "muted"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
