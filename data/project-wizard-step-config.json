@@ -35,29 +35,7 @@
         "zoom": 7.7,
         "features": {
           "type": "FeatureCollection",
-          "features": [
-            {
-              "type": "Feature",
-              "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[-122.57, 47.78], [-121.95, 47.78], [-121.95, 47.39], [-122.57, 47.39], [-122.57, 47.78]]]
-              },
-              "properties": {
-                "tone": "muted"
-              }
-            },
-            {
-              "type": "Feature",
-              "geometry": {
-                "type": "Point",
-                "coordinates": [-122.3321, 47.6062]
-              },
-              "properties": {
-                "label": "Seattle",
-                "tone": "accent"
-              }
-            }
-          ]
+          "features": []
         }
       }
     },
@@ -66,33 +44,22 @@
       "title": "Area Of Interest",
       "description": "Draw the Area of Interest on the map or import a file.",
       "nextLabel": "Next",
+      "content": {
+        "allowedFormatLabel": "Allowed format .json",
+        "dividerLabel": "OR",
+        "drawLabel": "Draw",
+        "dropzoneActionLabel": "Drop files here or click to upload.",
+        "dropzoneDescription": "Upload an AOI GeoJSON file.",
+        "resetLabel": "Reset",
+        "uploadWarningThresholdSquareKilometers": 1,
+        "uploadWarningText": "Project area is higher than 1 square kilometer."
+      },
       "map": {
         "center": [-122.3321, 47.6062],
         "zoom": 8.55,
         "features": {
           "type": "FeatureCollection",
-          "features": [
-            {
-              "type": "Feature",
-              "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[-122.48, 47.73], [-122.13, 47.73], [-122.13, 47.49], [-122.48, 47.49], [-122.48, 47.73]]]
-              },
-              "properties": {
-                "tone": "primary"
-              }
-            },
-            {
-              "type": "Feature",
-              "geometry": {
-                "type": "LineString",
-                "coordinates": [[-122.44, 47.62], [-122.36, 47.68], [-122.24, 47.66]]
-              },
-              "properties": {
-                "tone": "accent"
-              }
-            }
-          ]
+          "features": []
         }
       }
     },
@@ -106,28 +73,7 @@
         "zoom": 9.2,
         "features": {
           "type": "FeatureCollection",
-          "features": [
-            {
-              "type": "Feature",
-              "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[-122.43, 47.69], [-122.19, 47.69], [-122.19, 47.52], [-122.43, 47.52], [-122.43, 47.69]]]
-              },
-              "properties": {
-                "tone": "accent"
-              }
-            },
-            {
-              "type": "Feature",
-              "geometry": {
-                "type": "LineString",
-                "coordinates": [[-122.42, 47.58], [-122.34, 47.63], [-122.24, 47.64]]
-              },
-              "properties": {
-                "tone": "muted"
-              }
-            }
-          ]
+          "features": []
         }
       }
     },
@@ -141,48 +87,7 @@
         "zoom": 9.7,
         "features": {
           "type": "FeatureCollection",
-          "features": [
-            {
-              "type": "Feature",
-              "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[-122.405, 47.665], [-122.325, 47.665], [-122.325, 47.595], [-122.405, 47.595], [-122.405, 47.665]]]
-              },
-              "properties": {
-                "tone": "primary"
-              }
-            },
-            {
-              "type": "Feature",
-              "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[-122.325, 47.665], [-122.245, 47.665], [-122.245, 47.595], [-122.325, 47.595], [-122.325, 47.665]]]
-              },
-              "properties": {
-                "tone": "muted"
-              }
-            },
-            {
-              "type": "Feature",
-              "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[-122.405, 47.595], [-122.325, 47.595], [-122.325, 47.525], [-122.405, 47.525], [-122.405, 47.595]]]
-              },
-              "properties": {
-                "tone": "muted"
-              }
-            },
-            {
-              "type": "Feature",
-              "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[-122.325, 47.595], [-122.245, 47.595], [-122.245, 47.525], [-122.325, 47.525], [-122.325, 47.595]]]
-              },
-              "properties": {
-                "tone": "accent"
-              }
-            }
-          ]
+          "features": []
         }
       }
     },
@@ -196,40 +101,7 @@
         "zoom": 8.9,
         "features": {
           "type": "FeatureCollection",
-          "features": [
-            {
-              "type": "Feature",
-              "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[-122.46, 47.72], [-122.17, 47.72], [-122.17, 47.48], [-122.46, 47.48], [-122.46, 47.72]]]
-              },
-              "properties": {
-                "tone": "primary"
-              }
-            },
-            {
-              "type": "Feature",
-              "geometry": {
-                "type": "Point",
-                "coordinates": [-122.3321, 47.6062]
-              },
-              "properties": {
-                "label": "Seattle",
-                "tone": "accent"
-              }
-            },
-            {
-              "type": "Feature",
-              "geometry": {
-                "type": "Point",
-                "coordinates": [-122.1215, 47.6739]
-              },
-              "properties": {
-                "label": "Bellevue",
-                "tone": "muted"
-              }
-            }
-          ]
+          "features": []
         }
       }
     }

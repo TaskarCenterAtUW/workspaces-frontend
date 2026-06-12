@@ -66,9 +66,19 @@ export interface ProjectWizardDetailsStepDefinition extends ProjectWizardBaseSte
   };
 }
 
+export interface ProjectWizardAreaStepContent {
+  allowedFormatLabel: string;
+  dividerLabel: string;
+  drawLabel: string;
+  dropzoneActionLabel: string;
+  resetLabel: string;
+  uploadWarningThresholdSquareKilometers: number;
+  uploadWarningText: string;
+}
+
 export interface ProjectWizardAreaStepDefinition extends ProjectWizardBaseStepDefinition {
   step: 'area';
-  content?: Record<string, never>;
+  content: ProjectWizardAreaStepContent;
 }
 
 export interface ProjectWizardTasksStepDefinition extends ProjectWizardBaseStepDefinition {
@@ -112,7 +122,8 @@ export interface ProjectWizardDetailsDraft {
 }
 
 export interface ProjectWizardAreaDraft {
-  aoi: ProjectWizardAreaFeature;
+  aoi: ProjectWizardAreaFeature | null;
+  importedFileName: string;
 }
 
 export interface ProjectWizardTasksDraft {

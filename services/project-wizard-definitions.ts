@@ -1,7 +1,6 @@
 import stepConfig from '~/data/project-wizard-step-config.json';
 
 import type {
-  ProjectWizardAreaFeature,
   ProjectWizardDraft,
   ProjectWizardStepDefinition,
   ProjectWizardStepId,
@@ -35,21 +34,6 @@ function parseStepDefinitions(steps: unknown): ProjectWizardStepDefinition[] {
   });
 }
 
-const DEFAULT_AOI: ProjectWizardAreaFeature = {
-  type: 'Feature',
-  geometry: {
-    type: 'Polygon',
-    coordinates: [[
-      [-122.48, 47.73],
-      [-122.13, 47.73],
-      [-122.13, 47.49],
-      [-122.48, 47.49],
-      [-122.48, 47.73],
-    ]],
-  },
-  properties: {},
-};
-
 const STEP_DEFINITIONS = parseStepDefinitions(stepConfig.steps);
 
 export const PROJECT_WIZARD_STEPS: ProjectWizardStepId[] = STEP_DEFINITIONS.map(step => step.step);
@@ -72,7 +56,8 @@ export function createDefaultProjectWizardDraft(): ProjectWizardDraft {
       imageryUrl: '',
     },
     area: {
-      aoi: structuredClone(DEFAULT_AOI),
+      aoi: null,
+      importedFileName: '',
     },
     tasks: {
       instructions: '',
