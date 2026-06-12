@@ -54,6 +54,14 @@
                 <project-wizard-steps-area-of-interest-step
                   v-else-if="areaStep"
                   :step="areaStep"
+                  :error-message="areaImportError"
+                  :has-aoi="Boolean(draft.area.aoi)"
+                  :imported-file-name="draft.area.importedFileName"
+                  :is-drawing="isAreaDrawMode"
+                  :warning-message="areaWarningMessage"
+                  @draw="startAreaDrawMode"
+                  @reset="resetAreaOfInterest"
+                  @upload="importAreaOfInterest"
                 />
 
                 <project-wizard-steps-tasks-generation-step
@@ -75,35 +83,53 @@
 
             <footer class="project-create-footer">
               <button
-                class="btn btn-outline-secondary project-create-secondary-action"
+                class="btn btn-link project-create-cancel-action"
                 type="button"
                 :disabled="loading.active || creating.active"
-                @click="onSecondaryAction"
+                @click="exitWizard()"
               >
-                {{ isFirstStep ? 'Cancel' : 'Prev' }}
+                Cancel
               </button>
 
-              <button
-                class="btn btn-primary project-create-primary-action"
-                type="button"
-                :disabled="!canProceed || loading.active || creating.active"
-                @click="onPrimaryAction"
-              >
-                <app-spinner v-if="creating.active" size="sm" />
-                <template v-else>
-                  {{ primaryActionLabel }}
-                  <app-icon v-if="!isLastStep" variant="chevron_right" no-margin />
-                </template>
-              </button>
+              <div class="project-create-footer-actions">
+                <button
+                  v-if="!isFirstStep"
+                  class="btn btn-outline-secondary project-create-secondary-action"
+                  type="button"
+                  :disabled="loading.active || creating.active"
+                  @click="onSecondaryAction"
+                >
+                  <app-icon variant="chevron_left" no-margin />
+                  Prev
+                </button>
+
+                <button
+                  class="btn btn-primary project-create-primary-action"
+                  type="button"
+                  :disabled="!canProceed || loading.active || creating.active"
+                  @click="onPrimaryAction"
+                >
+                  <app-spinner v-if="creating.active" size="sm" />
+                  <template v-else>
+                    {{ primaryActionLabel }}
+                    <app-icon v-if="!isLastStep" variant="chevron_right" no-margin />
+                  </template>
+                </button>
+              </div>
             </footer>
           </div>
         </aside>
 
         <section class="project-create-map-panel">
-          <LazyProjectWizardMapPreview
+          <LazyProjectWizardAoiGeometryMap
             v-if="stepData"
+            :aoi="displayedAoi"
             :camera-padding="mapPadding"
+            :draw-mode="isAreaStepActive && isAreaDrawMode"
+            :editable="isAreaStepActive"
             :map-state="stepData.map"
+            @update:aoi="updateAreaFeature"
+            @update:draw-mode="updateAreaDrawMode"
           />
         </section>
       </div>
@@ -113,8 +139,13 @@
 
 <script setup lang="ts">
 import { projectWizardClient, workspacesClient } from '~/services/index';
+import {
+  calculateProjectWizardAoiAreaSquareKilometers,
+  parseProjectWizardAoiFileContent,
+} from '~/services/project-wizard-aoi';
 
 import type {
+  ProjectWizardAreaFeature,
   ProjectWizardAreaStepDefinition,
   ProjectWizardDetailsFieldId,
   ProjectWizardDetailsStepDefinition,
@@ -170,11 +201,15 @@ const reviewStep = computed(() =>
 
 const nameAvailabilityStatus = ref<ProjectWizardNameAvailabilityStatus>('idle');
 const nameAvailabilityMessage = ref('');
+const areaImportError = ref('');
+const isAreaDrawMode = ref(false);
 
 const canProceed = computed(() => {
   switch (currentStep.value) {
     case 'details':
       return draft.details.name.trim().length > 0 && nameAvailabilityStatus.value === 'available';
+    case 'area':
+      return Boolean(draft.area.aoi);
     default:
       return true;
   }
@@ -195,6 +230,20 @@ const mapPadding = ref({
   right: 56,
   bottom: 56,
   left: 580,
+});
+const isAreaStepActive = computed(() => currentStep.value === 'area');
+const displayedAoi = computed(() => currentStep.value === 'details' ? null : draft.area.aoi);
+const areaWarningMessage = computed(() => {
+  if (!areaStep.value || !draft.area.aoi || !draft.area.importedFileName.trim()) {
+    return '';
+  }
+
+  const threshold = areaStep.value.content.uploadWarningThresholdSquareKilometers;
+  const areaSquareKilometers = calculateProjectWizardAoiAreaSquareKilometers(draft.area.aoi);
+
+  return areaSquareKilometers > threshold
+    ? areaStep.value.content.uploadWarningText
+    : '';
 });
 
 let nameCheckDebounce: ReturnType<typeof setTimeout> | undefined;
@@ -235,6 +284,16 @@ onBeforeUnmount(() => {
   nameCheckRequestId += 1;
   window.removeEventListener('resize', syncMapPadding);
 });
+
+watch(
+  () => currentStep.value,
+  (step) => {
+    if (step !== 'area') {
+      isAreaDrawMode.value = false;
+      areaImportError.value = '';
+    }
+  },
+);
 
 watch(
   () => draft.details.name,
@@ -283,6 +342,44 @@ watch(
 
 function updateDetailsField(fieldId: ProjectWizardDetailsFieldId, value: string) {
   draft.details[fieldId] = value;
+}
+
+function updateAreaFeature(feature: ProjectWizardAreaFeature | null) {
+  draft.area.aoi = feature;
+  areaImportError.value = '';
+}
+
+function updateAreaDrawMode(value: boolean) {
+  isAreaDrawMode.value = value;
+}
+
+function startAreaDrawMode() {
+  areaImportError.value = '';
+  isAreaDrawMode.value = true;
+}
+
+function resetAreaOfInterest() {
+  draft.area.aoi = null;
+  draft.area.importedFileName = '';
+  areaImportError.value = '';
+  isAreaDrawMode.value = false;
+}
+
+async function importAreaOfInterest(file: File) {
+  try {
+    const fileContent = await file.text();
+    const { feature } = parseProjectWizardAoiFileContent(fileContent);
+
+    draft.area.aoi = feature;
+    draft.area.importedFileName = file.name;
+    areaImportError.value = '';
+    isAreaDrawMode.value = false;
+  }
+  catch (error) {
+    areaImportError.value = error instanceof Error
+      ? error.message
+      : 'Unable to import the AOI file.';
+  }
 }
 
 async function exitWizard() {
@@ -454,6 +551,25 @@ async function onSelectStep(step: ProjectWizardStepId) {
   background-color: #fff;
 }
 
+.project-create-footer-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.project-create-cancel-action {
+  padding: 0;
+  color: rgba($secondary, 0.98);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.project-create-cancel-action:hover,
+.project-create-cancel-action:focus-visible {
+  color: $text-navy;
+  text-decoration: none;
+}
+
 .project-create-secondary-action,
 .project-create-primary-action {
   min-width: 6.25rem;
@@ -533,6 +649,11 @@ async function onSelectStep(step: ProjectWizardStepId) {
   .project-create-footer {
     flex-direction: column-reverse;
     align-items: stretch;
+  }
+
+  .project-create-footer-actions {
+    width: 100%;
+    justify-content: stretch;
   }
 
   .project-create-secondary-action,
