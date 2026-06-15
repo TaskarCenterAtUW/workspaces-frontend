@@ -139,13 +139,8 @@
 
 <script setup lang="ts">
 import { projectWizardClient, workspacesClient } from '~/services/index';
-import {
-  calculateProjectWizardAoiAreaSquareKilometers,
-  parseProjectWizardAoiFileContent,
-} from '~/services/project-wizard-aoi';
 
 import type {
-  ProjectWizardAreaFeature,
   ProjectWizardAreaStepDefinition,
   ProjectWizardDetailsFieldId,
   ProjectWizardDetailsStepDefinition,
@@ -201,8 +196,22 @@ const reviewStep = computed(() =>
 
 const nameAvailabilityStatus = ref<ProjectWizardNameAvailabilityStatus>('idle');
 const nameAvailabilityMessage = ref('');
-const areaImportError = ref('');
-const isAreaDrawMode = ref(false);
+const {
+  areaImportError,
+  areaWarningMessage,
+  displayedAoi,
+  importAreaOfInterest,
+  isAreaDrawMode,
+  isAreaStepActive,
+  resetAreaOfInterest,
+  startAreaDrawMode,
+  updateAreaDrawMode,
+  updateAreaFeature,
+} = useProjectWizardAoi({
+  areaStep,
+  currentStep,
+  draft,
+});
 
 const canProceed = computed(() => {
   switch (currentStep.value) {
@@ -230,20 +239,6 @@ const mapPadding = ref({
   right: 56,
   bottom: 56,
   left: 580,
-});
-const isAreaStepActive = computed(() => currentStep.value === 'area');
-const displayedAoi = computed(() => currentStep.value === 'details' ? null : draft.area.aoi);
-const areaWarningMessage = computed(() => {
-  if (!areaStep.value || !draft.area.aoi || !draft.area.importedFileName.trim()) {
-    return '';
-  }
-
-  const threshold = areaStep.value.content.uploadWarningThresholdSquareKilometers;
-  const areaSquareKilometers = calculateProjectWizardAoiAreaSquareKilometers(draft.area.aoi);
-
-  return areaSquareKilometers > threshold
-    ? areaStep.value.content.uploadWarningText
-    : '';
 });
 
 let nameCheckDebounce: ReturnType<typeof setTimeout> | undefined;
@@ -284,16 +279,6 @@ onBeforeUnmount(() => {
   nameCheckRequestId += 1;
   window.removeEventListener('resize', syncMapPadding);
 });
-
-watch(
-  () => currentStep.value,
-  (step) => {
-    if (step !== 'area') {
-      isAreaDrawMode.value = false;
-      areaImportError.value = '';
-    }
-  },
-);
 
 watch(
   () => draft.details.name,
@@ -342,44 +327,6 @@ watch(
 
 function updateDetailsField(fieldId: ProjectWizardDetailsFieldId, value: string) {
   draft.details[fieldId] = value;
-}
-
-function updateAreaFeature(feature: ProjectWizardAreaFeature | null) {
-  draft.area.aoi = feature;
-  areaImportError.value = '';
-}
-
-function updateAreaDrawMode(value: boolean) {
-  isAreaDrawMode.value = value;
-}
-
-function startAreaDrawMode() {
-  areaImportError.value = '';
-  isAreaDrawMode.value = true;
-}
-
-function resetAreaOfInterest() {
-  draft.area.aoi = null;
-  draft.area.importedFileName = '';
-  areaImportError.value = '';
-  isAreaDrawMode.value = false;
-}
-
-async function importAreaOfInterest(file: File) {
-  try {
-    const fileContent = await file.text();
-    const { feature } = parseProjectWizardAoiFileContent(fileContent);
-
-    draft.area.aoi = feature;
-    draft.area.importedFileName = file.name;
-    areaImportError.value = '';
-    isAreaDrawMode.value = false;
-  }
-  catch (error) {
-    areaImportError.value = error instanceof Error
-      ? error.message
-      : 'Unable to import the AOI file.';
-  }
 }
 
 async function exitWizard() {
