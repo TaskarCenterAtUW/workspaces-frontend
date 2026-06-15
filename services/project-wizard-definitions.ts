@@ -65,8 +65,9 @@ export function createDefaultProjectWizardDraft(): ProjectWizardDraft {
       taskAreaSquareKilometers: 0.45,
     },
     settings: {
-      reviewRequired: true,
-      lockTimeoutHours: 8,
+      instructions: '',
+      reviewRequired: false,
+      lockTimeoutHours: 2,
       roleAssignments: [],
     },
     review: {
