@@ -17,6 +17,7 @@
           class="project-create-close btn btn-link"
           type="button"
           aria-label="Close create project flow"
+          :disabled="generatingTasks"
           @click="exitWizard()"
         >
           <app-icon variant="close" size="28" no-margin />
@@ -67,6 +68,16 @@
                 <project-wizard-steps-tasks-generation-step
                   v-else-if="tasksStep"
                   :step="tasksStep"
+                  :can-generate="Boolean(draft.area.aoi) && taskPreviewSummary.totalTasks > 0"
+                  :generated-summary="generatedTaskSummary"
+                  :generating="generatingTasks"
+                  :maximum-task-area-square-kilometers="PROJECT_WIZARD_TASK_AREA_MAXIMUM"
+                  :minimum-task-area-square-kilometers="PROJECT_WIZARD_TASK_AREA_MINIMUM"
+                  :task-area-square-kilometers="currentTaskAreaSquareKilometers"
+                  :task-area-step="PROJECT_WIZARD_TASK_AREA_STEP"
+                  @generate="generateTasks"
+                  @reset="resetTaskGeneration"
+                  @update:task-area="updateTaskAreaSquareKilometers"
                 />
 
                 <project-wizard-steps-settings-step
@@ -85,7 +96,7 @@
               <button
                 class="btn btn-link project-create-cancel-action"
                 type="button"
-                :disabled="loading.active || creating.active"
+                :disabled="loading.active || creating.active || generatingTasks"
                 @click="exitWizard()"
               >
                 Cancel
@@ -96,7 +107,7 @@
                   v-if="!isFirstStep"
                   class="btn btn-outline-secondary project-create-secondary-action"
                   type="button"
-                  :disabled="loading.active || creating.active"
+                  :disabled="loading.active || creating.active || generatingTasks"
                   @click="onSecondaryAction"
                 >
                   <app-icon variant="chevron_left" no-margin />
@@ -106,7 +117,7 @@
                 <button
                   class="btn btn-primary project-create-primary-action"
                   type="button"
-                  :disabled="!canProceed || loading.active || creating.active"
+                  :disabled="!canProceed || loading.active || creating.active || generatingTasks"
                   @click="onPrimaryAction"
                 >
                   <app-spinner v-if="creating.active" size="sm" />
@@ -128,6 +139,7 @@
             :draw-mode="isAreaStepActive && isAreaDrawMode"
             :editable="isAreaStepActive"
             :map-state="stepData.map"
+            :task-grid="displayedTaskGrid"
             @update:aoi="updateAreaFeature"
             @update:draw-mode="updateAreaDrawMode"
           />
@@ -139,6 +151,11 @@
 
 <script setup lang="ts">
 import { projectWizardClient, workspacesClient } from '~/services/index';
+import {
+  PROJECT_WIZARD_TASK_AREA_MAXIMUM,
+  PROJECT_WIZARD_TASK_AREA_MINIMUM,
+  PROJECT_WIZARD_TASK_AREA_STEP,
+} from '~/services/project-wizard-tasks';
 
 import type {
   ProjectWizardAreaStepDefinition,
@@ -176,7 +193,11 @@ const {
   createProject,
 } = useProjectWizard(workspaceId);
 
-await loadStep();
+if (import.meta.client) {
+  hydrateDraft();
+}
+
+await loadStep(currentStep.value);
 
 const detailsStep = computed(() =>
   stepData.value?.step === 'details' ? stepData.value as ProjectWizardDetailsStepDefinition : undefined,
@@ -212,6 +233,20 @@ const {
   currentStep,
   draft,
 });
+const {
+  currentTaskAreaSquareKilometers,
+  generatedTaskSummary,
+  generateTasks,
+  generatingTasks,
+  isTasksStepActive,
+  resetTaskGeneration,
+  taskPreviewGrid,
+  taskPreviewSummary,
+  updateTaskAreaSquareKilometers,
+} = useProjectWizardTasks({
+  currentStep,
+  draft,
+});
 
 const canProceed = computed(() => {
   switch (currentStep.value) {
@@ -219,6 +254,8 @@ const canProceed = computed(() => {
       return draft.details.name.trim().length > 0 && nameAvailabilityStatus.value === 'available';
     case 'area':
       return Boolean(draft.area.aoi);
+    case 'tasks':
+      return Boolean(generatedTaskSummary.value);
     default:
       return true;
   }
@@ -232,6 +269,12 @@ const liveRegionMessage = computed(() =>
   loading.active
     ? 'Loading project wizard step.'
     : `Project wizard step ${currentStepIndex.value + 1} of ${steps.length}: ${stepData.value?.title ?? ''}.`,
+);
+
+const displayedTaskGrid = computed(() =>
+  isTasksStepActive.value || generatedTaskSummary.value
+    ? taskPreviewGrid.value
+    : null,
 );
 
 const mapPadding = ref({
@@ -265,8 +308,6 @@ function syncMapPadding() {
 }
 
 onMounted(() => {
-  hydrateDraft();
-  loadStep();
   syncMapPadding();
   window.addEventListener('resize', syncMapPadding, { passive: true });
 });
@@ -600,7 +641,7 @@ async function onSelectStep(step: ProjectWizardStepId) {
 
   .project-create-footer-actions {
     width: 100%;
-    justify-content: stretch;
+    justify-content: space-between;
   }
 
   .project-create-secondary-action,

@@ -126,8 +126,41 @@ export interface ProjectWizardAreaDraft {
   importedFileName: string;
 }
 
+export interface ProjectWizardTaskPreviewCellProperties {
+  approximateAreaSquareKilometers: number;
+  column?: number;
+  featureKind: 'grid-fill' | 'grid-line';
+  name?: string;
+  row?: number;
+  taskIndex?: number;
+}
+
+export type ProjectWizardTaskPreviewGeometry =
+  | Polygon
+  | LineString;
+
+export type ProjectWizardTaskPreviewCellFeature = Feature<
+  ProjectWizardTaskPreviewGeometry,
+  ProjectWizardTaskPreviewCellProperties
+>;
+
+export type ProjectWizardTaskPreviewFeatureCollection = FeatureCollection<
+  ProjectWizardTaskPreviewGeometry,
+  ProjectWizardTaskPreviewCellProperties
+>;
+
+export interface ProjectWizardTaskGenerationSummary {
+  aoiSignature: string;
+  approximateTaskAreaSquareKilometers: number;
+  generatedAt: string;
+  requestedTaskAreaSquareKilometers: number;
+  totalTasks: number;
+}
+
 export interface ProjectWizardTasksDraft {
+  generatedSummary: ProjectWizardTaskGenerationSummary | null;
   instructions: string;
+  taskAreaSquareKilometers: number;
 }
 
 export interface ProjectWizardSettingsDraft {
