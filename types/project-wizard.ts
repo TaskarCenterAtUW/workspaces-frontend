@@ -7,7 +7,7 @@ import type {
   Polygon,
 } from 'geojson';
 
-import type { WorkspaceId } from '~/types/workspaces';
+import type { WorkspaceId, WorkspaceRole } from '~/types/workspaces';
 
 export type ProjectWizardStepId = 'details' | 'area' | 'tasks' | 'settings' | 'review';
 export type ProjectWizardMapTone = 'primary' | 'accent' | 'muted';
@@ -109,8 +109,16 @@ export interface ProjectWizardNameAvailabilityResponse {
 }
 
 export interface ProjectWizardRoleAssignment {
-  role: string;
+  role: WorkspaceRole;
   userId: string;
+}
+
+export interface ProjectWizardWorkspaceUser {
+  authUid: string;
+  displayName: string;
+  email: string;
+  id: number;
+  role: WorkspaceRole;
 }
 
 export type ProjectWizardAreaFeature = Feature<Polygon, GeoJsonProperties>;
@@ -164,6 +172,7 @@ export interface ProjectWizardTasksDraft {
 }
 
 export interface ProjectWizardSettingsDraft {
+  instructions: string;
   lockTimeoutHours: number;
   reviewRequired: boolean;
   roleAssignments: ProjectWizardRoleAssignment[];
