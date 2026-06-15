@@ -7,7 +7,7 @@ export function buildProjectWizardCreatePayload(draft: ProjectWizardDraft): Proj
 
   return {
     name: draft.details.name.trim(),
-    instructions: draft.details.description.trim(),
+    instructions: draft.settings.instructions.trim(),
     reviewRequired: draft.settings.reviewRequired,
     lockTimeoutHours: draft.settings.lockTimeoutHours,
     aoi: draft.area.aoi,

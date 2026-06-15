@@ -83,6 +83,19 @@
                 <project-wizard-steps-settings-step
                   v-else-if="settingsStep"
                   :step="settingsStep"
+                  :instructions="draft.settings.instructions"
+                  :lock-timeout-hours="draft.settings.lockTimeoutHours"
+                  :review-required="draft.settings.reviewRequired"
+                  :selected-validators="selectedValidators"
+                  :validator-search-query="validatorSearchQuery"
+                  :workspace-users="filteredWorkspaceUsers"
+                  :workspace-users-loading="workspaceUsersLoading"
+                  @add:validator="addValidator"
+                  @remove:validator="removeValidator"
+                  @update:instructions="updateInstructions"
+                  @update:lock-timeout-hours="updateLockTimeoutHours"
+                  @update:review-required="updateReviewRequired"
+                  @update:validator-search="updateValidatorSearchQuery"
                 />
 
                 <project-wizard-steps-review-step
@@ -246,6 +259,22 @@ const {
 } = useProjectWizardTasks({
   currentStep,
   draft,
+});
+const {
+  addValidator,
+  filteredWorkspaceUsers,
+  removeValidator,
+  selectedValidators,
+  updateInstructions,
+  updateLockTimeoutHours,
+  updateReviewRequired,
+  updateValidatorSearchQuery,
+  validatorSearchQuery,
+  workspaceUsersLoading,
+} = useProjectWizardSettings({
+  currentStep,
+  draft,
+  workspaceId,
 });
 
 const canProceed = computed(() => {
