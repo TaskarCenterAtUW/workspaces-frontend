@@ -60,7 +60,9 @@ export function createDefaultProjectWizardDraft(): ProjectWizardDraft {
       importedFileName: '',
     },
     tasks: {
+      generatedSummary: null,
       instructions: '',
+      taskAreaSquareKilometers: 0.45,
     },
     settings: {
       reviewRequired: true,

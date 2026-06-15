@@ -35,6 +35,7 @@ import type {
 import type {
   ProjectWizardAreaFeature,
   ProjectWizardMapState,
+  ProjectWizardTaskPreviewFeatureCollection,
 } from '~/types/project-wizard';
 
 import {
@@ -49,6 +50,7 @@ interface Props {
   drawMode?: boolean;
   editable?: boolean;
   mapState?: ProjectWizardMapState;
+  taskGrid?: ProjectWizardTaskPreviewFeatureCollection | null;
 }
 
 const props = defineProps<Props>();
@@ -61,6 +63,7 @@ const DEFAULT_CENTER: [number, number] = [-122.3321, 47.6062];
 const OVERLAY_SOURCE_ID = 'project-wizard-overlay-features';
 const AOI_SOURCE_ID = 'project-wizard-aoi-feature';
 const DRAFT_SOURCE_ID = 'project-wizard-draft-feature';
+const TASK_GRID_SOURCE_ID = 'project-wizard-task-grid-feature';
 const VERTEX_SOURCE_ID = 'project-wizard-vertex-feature';
 const OVERLAY_POLYGON_FILL_ID = 'project-wizard-overlay-polygon-fill';
 const OVERLAY_POLYGON_LINE_ID = 'project-wizard-overlay-polygon-line';
@@ -73,6 +76,8 @@ const DRAFT_POLYGON_FILL_ID = 'project-wizard-draft-polygon-fill';
 const DRAFT_POLYGON_LINE_ID = 'project-wizard-draft-polygon-line';
 const DRAFT_LINE_ID = 'project-wizard-draft-line';
 const DRAFT_POINT_ID = 'project-wizard-draft-point';
+const TASK_GRID_FILL_ID = 'project-wizard-task-grid-fill';
+const TASK_GRID_LINE_ID = 'project-wizard-task-grid-line';
 const VERTEX_POINT_ID = 'project-wizard-vertex-point';
 
 const mapRef = useTemplateRef<HTMLDivElement>('mapRef');
@@ -112,6 +117,8 @@ let pendingVertices: [number, number][] = [];
 let previewCoordinate: [number, number] | null = null;
 let skipNextAoiFit = false;
 
+const isMapStyleLoaded = ref(false);
+
 onMounted(async () => {
   if (!mapRef.value) {
     return;
@@ -131,18 +138,24 @@ onMounted(async () => {
   wizardMap.on('load', () => {
     ensureLayers();
     bindInteractionHandlers();
-    syncSources();
-    syncInteractionState();
-    applyViewport();
+    isMapStyleLoaded.value = true;
   });
 });
 
 watch(
-  () => [props.mapState, props.aoi, props.cameraPadding, props.editable],
+  () => [isMapStyleLoaded.value, props.mapState, props.aoi, props.cameraPadding, props.editable],
   () => {
     syncSources();
     syncInteractionState();
     applyViewport();
+  },
+  { deep: true },
+);
+
+watch(
+  () => props.taskGrid,
+  () => {
+    syncSources();
   },
   { deep: true },
 );
@@ -185,6 +198,11 @@ function ensureLayers() {
   });
 
   wizardMap.addSource(DRAFT_SOURCE_ID, {
+    type: 'geojson',
+    data: emptyCollection,
+  });
+
+  wizardMap.addSource(TASK_GRID_SOURCE_ID, {
     type: 'geojson',
     data: emptyCollection,
   });
@@ -329,6 +347,28 @@ function ensureLayers() {
     },
   };
 
+  const taskGridFillLayer: FillLayerSpecification = {
+    id: TASK_GRID_FILL_ID,
+    type: 'fill',
+    source: TASK_GRID_SOURCE_ID,
+    filter: ['all', ['==', ['geometry-type'], 'Polygon'], ['==', ['get', 'featureKind'], 'grid-fill']],
+    paint: {
+      'fill-color': '#000000',
+      'fill-opacity': 0.17,
+    },
+  };
+
+  const taskGridLineLayer: LineLayerSpecification = {
+    id: TASK_GRID_LINE_ID,
+    type: 'line',
+    source: TASK_GRID_SOURCE_ID,
+    filter: ['all', ['==', ['geometry-type'], 'LineString'], ['==', ['get', 'featureKind'], 'grid-line']],
+    paint: {
+      'line-color': '#dedede',
+      'line-width': 1.35,
+    },
+  };
+
   const vertexPointLayer: CircleLayerSpecification = {
     id: VERTEX_POINT_ID,
     type: 'circle',
@@ -348,6 +388,8 @@ function ensureLayers() {
   wizardMap.addLayer(overlayPointLayer);
   wizardMap.addLayer(overlayLabelLayer);
   wizardMap.addLayer(aoiFillLayer);
+  wizardMap.addLayer(taskGridFillLayer);
+  wizardMap.addLayer(taskGridLineLayer);
   wizardMap.addLayer(aoiLineLayer);
   wizardMap.addLayer(draftPolygonFillLayer);
   wizardMap.addLayer(draftPolygonLineLayer);
@@ -382,11 +424,13 @@ function syncSources() {
   const overlaySource = wizardMap.getSource(OVERLAY_SOURCE_ID) as GeoJSONSource | undefined;
   const aoiSource = wizardMap.getSource(AOI_SOURCE_ID) as GeoJSONSource | undefined;
   const draftSource = wizardMap.getSource(DRAFT_SOURCE_ID) as GeoJSONSource | undefined;
+  const taskGridSource = wizardMap.getSource(TASK_GRID_SOURCE_ID) as GeoJSONSource | undefined;
   const vertexSource = wizardMap.getSource(VERTEX_SOURCE_ID) as GeoJSONSource | undefined;
 
   overlaySource?.setData(props.mapState?.features ?? emptyCollection);
   aoiSource?.setData(createAoiFeatureCollection());
   draftSource?.setData(createDraftFeatureCollection());
+  taskGridSource?.setData(props.taskGrid ?? emptyCollection);
   vertexSource?.setData(createVertexFeatureCollection());
 }
 
