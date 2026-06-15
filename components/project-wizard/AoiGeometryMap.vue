@@ -19,6 +19,7 @@ import type {
   FeatureCollection,
   LineString,
   Point,
+  Polygon,
 } from 'geojson';
 import type {
   CircleLayerSpecification,
@@ -68,6 +69,8 @@ const OVERLAY_POINT_ID = 'project-wizard-overlay-point';
 const OVERLAY_LABEL_ID = 'project-wizard-overlay-label';
 const AOI_FILL_ID = 'project-wizard-aoi-fill';
 const AOI_LINE_ID = 'project-wizard-aoi-line';
+const DRAFT_POLYGON_FILL_ID = 'project-wizard-draft-polygon-fill';
+const DRAFT_POLYGON_LINE_ID = 'project-wizard-draft-polygon-line';
 const DRAFT_LINE_ID = 'project-wizard-draft-line';
 const DRAFT_POINT_ID = 'project-wizard-draft-point';
 const VERTEX_POINT_ID = 'project-wizard-vertex-point';
@@ -278,6 +281,29 @@ function ensureLayers() {
     },
   };
 
+  const draftPolygonFillLayer: FillLayerSpecification = {
+    id: DRAFT_POLYGON_FILL_ID,
+    type: 'fill',
+    source: DRAFT_SOURCE_ID,
+    filter: ['==', ['geometry-type'], 'Polygon'],
+    paint: {
+      'fill-color': '#e8c77a',
+      'fill-opacity': 0.14,
+    },
+  };
+
+  const draftPolygonLineLayer: LineLayerSpecification = {
+    id: DRAFT_POLYGON_LINE_ID,
+    type: 'line',
+    source: DRAFT_SOURCE_ID,
+    filter: ['==', ['geometry-type'], 'Polygon'],
+    paint: {
+      'line-color': '#d9a43d',
+      'line-width': 2.5,
+      'line-dasharray': [2, 2],
+    },
+  };
+
   const draftLineLayer: LineLayerSpecification = {
     id: DRAFT_LINE_ID,
     type: 'line',
@@ -323,6 +349,8 @@ function ensureLayers() {
   wizardMap.addLayer(overlayLabelLayer);
   wizardMap.addLayer(aoiFillLayer);
   wizardMap.addLayer(aoiLineLayer);
+  wizardMap.addLayer(draftPolygonFillLayer);
+  wizardMap.addLayer(draftPolygonLineLayer);
   wizardMap.addLayer(draftLineLayer);
   wizardMap.addLayer(draftPointLayer);
   wizardMap.addLayer(vertexPointLayer);
@@ -431,6 +459,7 @@ function handleMapClick(event: MapMouseEvent) {
 
   pendingVertices = [...pendingVertices, nextCoordinate];
   previewCoordinate = nextCoordinate;
+  syncDraftPolygon();
   syncSources();
 }
 
@@ -448,11 +477,10 @@ function handleMapDoubleClick(event: MapMouseEvent) {
   }
 
   skipNextAoiFit = true;
-  pendingVertices = [];
-  previewCoordinate = null;
   emit('update:aoi', nextFeature);
   emit('update:draw-mode', false);
-  syncSources();
+  pendingVertices = [];
+  previewCoordinate = null;
 }
 
 function handleMapMouseMove(event: MapMouseEvent) {
@@ -476,6 +504,7 @@ function handleMapMouseMove(event: MapMouseEvent) {
 
   if (props.drawMode && pendingVertices.length > 0) {
     previewCoordinate = [event.lngLat.lng, event.lngLat.lat];
+    syncDraftPolygon();
     syncSources();
   }
 }
@@ -526,10 +555,6 @@ function handlePointerRelease() {
 }
 
 function createAoiFeatureCollection(): FeatureCollection {
-  if (props.drawMode && pendingVertices.length > 0) {
-    return emptyCollection;
-  }
-
   if (!props.aoi) {
     return emptyCollection;
   }
@@ -545,7 +570,7 @@ function createDraftFeatureCollection(): FeatureCollection {
     return emptyCollection;
   }
 
-  const features: Array<Feature<Point | LineString>> = pendingVertices.map(coordinate => ({
+  const features: Array<Feature<Point | LineString | Polygon>> = pendingVertices.map(coordinate => ({
     type: 'Feature',
     geometry: {
       type: 'Point',
@@ -567,6 +592,16 @@ function createDraftFeatureCollection(): FeatureCollection {
       },
       properties: {},
     });
+  }
+
+  const draftPolygonVertices = getDraftPolygonVertices();
+
+  if (draftPolygonVertices.length >= 3) {
+    const draftFeature = buildProjectWizardAoiFeatureFromVertices(draftPolygonVertices);
+
+    if (draftFeature) {
+      features.push(draftFeature);
+    }
   }
 
   return {
@@ -615,6 +650,39 @@ function toneExpression(
     'muted', mutedColor,
     primaryColor,
   ];
+}
+
+function getDraftPolygonVertices(): [number, number][] {
+  if (!props.drawMode || pendingVertices.length === 0) {
+    return [];
+  }
+
+  if (previewCoordinate) {
+    const lastPendingVertex = pendingVertices[pendingVertices.length - 1];
+
+    if (!lastPendingVertex || lastPendingVertex[0] !== previewCoordinate[0] || lastPendingVertex[1] !== previewCoordinate[1]) {
+      return [...pendingVertices, previewCoordinate];
+    }
+  }
+
+  return [...pendingVertices];
+}
+
+function syncDraftPolygon() {
+  const draftPolygonVertices = getDraftPolygonVertices();
+
+  if (draftPolygonVertices.length < 3) {
+    return;
+  }
+
+  const draftFeature = buildProjectWizardAoiFeatureFromVertices(draftPolygonVertices);
+
+  if (!draftFeature) {
+    return;
+  }
+
+  skipNextAoiFit = true;
+  emit('update:aoi', draftFeature);
 }
 </script>
 
