@@ -40,8 +40,8 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
         return {
           id: -1,
           authUid: assignment.userId,
-          displayName: assignment.userId,
-          email: '',
+          displayName: assignment.displayName || assignment.userId,
+          email: assignment.email,
           role: assignment.role,
         } satisfies ProjectWizardWorkspaceUser;
       }),
@@ -77,7 +77,12 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
         const matchedUser = workspaceUsers.value.find(user => user.authUid === assignment.userId);
 
         return matchedUser
-          ? { ...assignment, role: matchedUser.role }
+          ? {
+              ...assignment,
+              displayName: matchedUser.displayName,
+              email: matchedUser.email,
+              role: matchedUser.role,
+            }
           : assignment;
       });
       workspaceUsersLoaded.value = true;
@@ -93,6 +98,8 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
     }
 
     options.draft.settings.roleAssignments.push({
+      displayName: user.displayName,
+      email: user.email,
       userId: user.authUid,
       role: user.role,
     });

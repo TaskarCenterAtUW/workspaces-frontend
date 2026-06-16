@@ -109,6 +109,13 @@ export interface ProjectWizardNameAvailabilityResponse {
 }
 
 export interface ProjectWizardRoleAssignment {
+  displayName: string;
+  email: string;
+  role: WorkspaceRole;
+  userId: string;
+}
+
+export interface ProjectWizardCreateRoleAssignmentPayload {
   role: WorkspaceRole;
   userId: string;
 }
@@ -201,7 +208,12 @@ export interface ProjectWizardCreatePayload {
   lockTimeoutHours: number;
   name: string;
   reviewRequired: boolean;
-  roleAssignments: ProjectWizardRoleAssignment[];
+  roleAssignments: ProjectWizardCreateRoleAssignmentPayload[];
+}
+
+export interface ProjectWizardCreateResult {
+  projectId: string;
+  status: 'draft';
 }
 
 export interface ProjectWizardState {

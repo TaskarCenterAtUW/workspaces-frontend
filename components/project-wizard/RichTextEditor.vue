@@ -74,7 +74,7 @@ const editor = useEditor({
   ],
   editorProps: {
     attributes: {
-      class: 'project-wizard-rich-text-editor-surface',
+      class: 'project-wizard-rich-text-editor-surface project-wizard-rich-text-content',
     },
   },
   onUpdate({ editor: currentEditor }) {
@@ -153,7 +153,19 @@ function applyTool(toolId: RichTextToolId) {
         return;
       }
 
-      currentEditor.chain().focus().extendMarkRange('link').setLink({ href: href.trim() }).run();
+      const trimmedHref = href.trim();
+      try {
+        const url = new URL(trimmedHref, window.location.origin);
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          alert('Only HTTP and HTTPS URLs are allowed.');
+          return;
+        }
+      } catch {
+        alert('Please enter a valid URL.');
+        return;
+      }
+
+      currentEditor.chain().focus().extendMarkRange('link').setLink({ href: trimmedHref }).run();
       return;
     }
     case 'bullet-list':
@@ -230,41 +242,5 @@ onBeforeUnmount(() => {
   font-size: 0.95rem;
   line-height: 1.55;
   outline: 0;
-}
-
-.project-wizard-rich-text-editor-content :deep(p) {
-  margin: 0 0 0.75rem;
-}
-
-.project-wizard-rich-text-editor-content :deep(p:last-child) {
-  margin-bottom: 0;
-}
-
-.project-wizard-rich-text-editor-content :deep(ul),
-.project-wizard-rich-text-editor-content :deep(ol) {
-  padding-left: 1.4rem;
-}
-
-.project-wizard-rich-text-editor-content :deep(blockquote) {
-  margin: 0;
-  padding-left: 0.8rem;
-  color: rgba($secondary, 0.98);
-  border-left: 3px solid rgba($primary, 0.22);
-}
-
-.project-wizard-rich-text-editor-content :deep(img) {
-  max-width: 100%;
-  height: auto;
-}
-
-.project-wizard-rich-text-editor-content :deep(table) {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.project-wizard-rich-text-editor-content :deep(th),
-.project-wizard-rich-text-editor-content :deep(td) {
-  padding: 0.45rem 0.55rem;
-  border: 1px solid rgba($text-navy, 0.12);
 }
 </style>
