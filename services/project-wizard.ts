@@ -1,5 +1,6 @@
 import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
 import {
+  createMockProjectWizardProject,
   getMockProjectNameAvailabilityResponse,
 } from '~/services/mock-project-wizard';
 import { buildProjectWizardCreatePayload } from '~/services/project-wizard-payload';
@@ -8,6 +9,7 @@ import type { ICancelableClient } from '~/services/loading';
 import type { TdeiAuthStore, TdeiClient } from '~/services/tdei';
 import type {
   ProjectWizardDraft,
+  ProjectWizardCreateResult,
   ProjectWizardCreatePayload,
   ProjectWizardNameAvailabilityResponse,
 } from '~/types/project-wizard';
@@ -34,15 +36,14 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
   async createProject(
     workspaceId: WorkspaceId,
     draft: ProjectWizardDraft,
-  ): Promise<void> {
+  ): Promise<ProjectWizardCreateResult> {
     const payload = buildProjectWizardCreatePayload(draft);
 
     if (USE_MOCK_PROJECT_WIZARD) {
-      await new Promise(resolve => setTimeout(resolve, 180));
-      return;
+      return await createMockProjectWizardProject(payload);
     }
 
-    await this.#createProjectRequest(workspaceId, payload);
+    return await this.#createProjectRequest(workspaceId, payload);
   }
 
   async checkProjectNameAvailability(
@@ -59,7 +60,7 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
   async #createProjectRequest(
     workspaceId: WorkspaceId,
     payload: ProjectWizardCreatePayload,
-  ): Promise<void> {
+  ): Promise<ProjectWizardCreateResult> {
     void workspaceId;
     void payload;
     throw new Error('Project creation endpoint is not configured yet.');

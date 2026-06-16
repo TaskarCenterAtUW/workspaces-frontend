@@ -11,6 +11,9 @@ export function buildProjectWizardCreatePayload(draft: ProjectWizardDraft): Proj
     reviewRequired: draft.settings.reviewRequired,
     lockTimeoutHours: draft.settings.lockTimeoutHours,
     aoi: draft.area.aoi,
-    roleAssignments: draft.settings.roleAssignments,
+    roleAssignments: draft.settings.roleAssignments.map(assignment => ({
+      userId: assignment.userId,
+      role: assignment.role,
+    })),
   };
 }
