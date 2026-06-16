@@ -101,6 +101,7 @@
                 <project-wizard-steps-review-step
                   v-else-if="reviewStep"
                   :step="reviewStep"
+                  :summary="reviewSummary"
                 />
               </template>
             </div>
@@ -158,12 +159,25 @@
           />
         </section>
       </div>
+
+      <project-wizard-status-dialog
+        :visible="Boolean(statusDialog)"
+        :variant="statusDialog?.variant ?? 'success'"
+        :title="statusDialog?.title ?? ''"
+        :message="statusDialog?.message ?? ''"
+        :primary-action-label="statusDialog?.primaryActionLabel ?? ''"
+        :secondary-action-label="statusDialog?.secondaryActionLabel"
+        @close="closeStatusDialog"
+        @primary-action="handleStatusDialogPrimaryAction"
+        @secondary-action="handleStatusDialogSecondaryAction"
+      />
     </section>
   </app-page>
 </template>
 
 <script setup lang="ts">
 import { projectWizardClient, workspacesClient } from '~/services/index';
+import { buildProjectWizardReviewSummary } from '~/services/project-wizard-review';
 import {
   PROJECT_WIZARD_TASK_AREA_MAXIMUM,
   PROJECT_WIZARD_TASK_AREA_MINIMUM,
@@ -172,6 +186,7 @@ import {
 
 import type {
   ProjectWizardAreaStepDefinition,
+  ProjectWizardCreateResult,
   ProjectWizardDetailsFieldId,
   ProjectWizardDetailsStepDefinition,
   ProjectWizardNameAvailabilityStatus,
@@ -276,6 +291,13 @@ const {
   draft,
   workspaceId,
 });
+const reviewSummary = computed(() =>
+  buildProjectWizardReviewSummary(
+    draft,
+    selectedValidators.value,
+    generatedTaskSummary.value,
+  ),
+);
 
 const canProceed = computed(() => {
   switch (currentStep.value) {
@@ -305,6 +327,19 @@ const displayedTaskGrid = computed(() =>
     ? taskPreviewGrid.value
     : null,
 );
+
+type StatusDialogState = {
+  message: string;
+  primaryActionLabel: string;
+  primaryActionType: 'navigate' | 'retry';
+  primaryRoute: string;
+  secondaryActionLabel?: string;
+  secondaryRoute?: string;
+  title: string;
+  variant: 'error' | 'success';
+};
+
+const statusDialog = ref<StatusDialogState | null>(null);
 
 const mapPadding = ref({
   top: 56,
@@ -406,8 +441,7 @@ async function exitWizard() {
 
 async function onPrimaryAction() {
   if (isLastStep.value) {
-    await createProject();
-    await navigateTo(projectsRoute);
+    await submitProject();
     return;
   }
 
@@ -425,6 +459,77 @@ async function onSecondaryAction() {
 
 async function onSelectStep(step: ProjectWizardStepId) {
   await goToStep(step);
+}
+
+function closeStatusDialog() {
+  statusDialog.value = null;
+}
+
+async function handleStatusDialogPrimaryAction() {
+  const dialog = statusDialog.value;
+  closeStatusDialog();
+
+  if (!dialog) {
+    return;
+  }
+
+  if (dialog.primaryActionType === 'retry') {
+    await submitProject();
+    return;
+  }
+
+  if (dialog.primaryRoute) {
+    await navigateTo(dialog.primaryRoute);
+  }
+}
+
+async function handleStatusDialogSecondaryAction() {
+  const targetRoute = statusDialog.value?.secondaryRoute;
+  closeStatusDialog();
+
+  if (targetRoute) {
+    await navigateTo(targetRoute);
+  }
+}
+
+async function submitProject() {
+  try {
+    const result = await createProject();
+    openProjectCreatedDialog(result);
+  }
+  catch (error) {
+    openProjectCreationErrorDialog(error);
+  }
+}
+
+function openProjectCreatedDialog(result: ProjectWizardCreateResult) {
+  statusDialog.value = {
+    variant: 'success',
+    title: 'Success!',
+    message: `Project ${draft.details.name.trim()} created successfully and is now in ${formatProjectStatus(result.status)} status.`,
+    primaryActionLabel: 'Open Project',
+    primaryActionType: 'navigate',
+    primaryRoute: `${projectsRoute}?projectId=${encodeURIComponent(result.projectId)}`,
+    secondaryActionLabel: 'Go to Projects',
+    secondaryRoute: projectsRoute,
+  };
+}
+
+function openProjectCreationErrorDialog(error: unknown) {
+  statusDialog.value = {
+    variant: 'error',
+    title: 'Something went wrong',
+    message: error instanceof Error
+      ? error.message
+      : 'Project could not be created. Please try again.',
+    primaryActionLabel: 'Try Again',
+    primaryActionType: 'retry',
+    primaryRoute: '',
+  };
+}
+
+function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
+  return status.charAt(0).toUpperCase() + status.slice(1);
 }
 </script>
 

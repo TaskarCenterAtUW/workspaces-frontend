@@ -7,6 +7,7 @@ import {
 } from '~/services/project-wizard-definitions';
 
 import type {
+  ProjectWizardCreateResult,
   ProjectWizardDraft,
   ProjectWizardStepDefinition,
   ProjectWizardStepId,
@@ -132,11 +133,19 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
   }
 
   async function createProject() {
+    let result: ProjectWizardCreateResult | null = null;
+
     await creating.wrap(projectWizardClient, async (client) => {
-      await client.createProject(workspaceId, structuredClone(toRaw(draft)));
+      result = await client.createProject(workspaceId, structuredClone(toRaw(draft)));
     });
 
     clearStoredState(workspaceId);
+
+    if (!result) {
+      throw new Error('Project creation did not return a result.');
+    }
+
+    return result;
   }
 
   function clearDraft() {

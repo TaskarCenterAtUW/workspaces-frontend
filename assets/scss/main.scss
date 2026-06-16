@@ -9,6 +9,44 @@ input:-webkit-autofill:focus {
 @import "maplibre-gl/dist/maplibre-gl.css";
 @import "vue3-toastify/dist/index.css";
 
+.project-wizard-rich-text-content {
+  p {
+    margin: 0 0 0.75rem;
+  }
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+
+  ul,
+  ol {
+    padding-left: 1.4rem;
+  }
+
+  blockquote {
+    margin: 0;
+    padding-left: 0.8rem;
+    color: rgba($secondary, 0.98);
+    border-left: 3px solid rgba($primary, 0.22);
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    padding: 0.45rem 0.55rem;
+    border: 1px solid rgba($text-navy, 0.12);
+  }
+}
+
 :root {
   --primary-font-family: "Open Sans", sans-serif;
   --secondary-font-family: "Montserrat", sans-serif;
