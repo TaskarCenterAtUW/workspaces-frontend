@@ -1,3 +1,10 @@
+// Test outline
+// @test e2e: the "from blank workspace" button takes you to a form that allows you to set the title, workspace type and project group, and submitting 
+//             creates a new workspace and takes you to the dashboard with the new workspace selected (playwright snapshot the form and loading state)
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+// @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again" button are shown, and clicking the "try again" 
+//            button resets the form (playwright snapshot the error state)
+
 <template>
   <app-page class="create-blank-page">
     <h1 class="mb-5 h2 text-lg-center">Create a Blank Workspace</h1>

@@ -9,7 +9,10 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@bootstrap-vue-next/nuxt": "^0.43.1",
@@ -35,13 +38,19 @@
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.12.1",
+    "@nuxt/test-utils": "^4.0.3",
     "@nuxtjs/google-fonts": "^3.2.0",
+    "@playwright/test": "^1.61.0",
     "@types/bootstrap": "^5.2.10",
     "@types/geojson": "^7946.0.16",
+    "@vue/test-utils": "^2.4.11",
     "eslint": "^9.39.2",
     "eslint-plugin-vue": "^10.6.2",
+    "happy-dom": "^20.10.4",
+    "msw": "^2.14.6",
     "sass": "1.77.6",
     "sass-loader": "^14.1.0",
+    "vitest": "^4.1.9",
     "vue-component-type-helpers": "^3.2.4"
   }
 }

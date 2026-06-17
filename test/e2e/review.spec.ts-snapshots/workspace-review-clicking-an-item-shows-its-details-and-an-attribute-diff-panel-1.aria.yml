@@ -1,0 +1,5 @@
+- navigation:
+  - text: "/Feedback: #\\d+/"
+  - button " Edit Here"
+  - button ""
+  - button " Mark as Resolved"

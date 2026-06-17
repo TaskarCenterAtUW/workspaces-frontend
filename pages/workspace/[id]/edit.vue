@@ -1,3 +1,10 @@
+// Test outline
+// @test e2e: loading this page successfully loads the Rapid editor with the workspace data, and shows the editor UI (playwright snapshot this)
+// @test e2e: loading this page with each. value of the "editor" query param (e.g. rapid vs rapid3) loads the correct editor version (playwright snapshot each version's UI)
+// @test e2e: loading this page with the "osw" datatype query param loads the OpenSidewalks editor, and without it loads the Pathways editor (playwright snapshot each editor's UI)
+// @test e2e: if the editor fails to load, an error message is shown (playwright snapshot this)
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+
 <template>
   <div ref="editorContainer" class="editorContainer"></div>
 </template>

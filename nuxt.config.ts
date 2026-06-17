@@ -51,7 +51,10 @@ export default defineNuxtConfig({
   },
   eslint: {
     config: {
-      stylistic: true,
+      stylistic: {
+        semi: true,
+        commaDangle: 'never',
+      },
     },
   },
   sentry: {

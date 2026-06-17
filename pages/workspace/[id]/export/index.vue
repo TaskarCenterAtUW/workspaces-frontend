@@ -1,3 +1,13 @@
+// Test outline
+//
+// @test e2e: this page shows two boxes: "Upload to TDEI" and "Download", with buttons for each option (playwright snapshot this and assert() the buttons are present)
+// @test e2e: clicking the "Start" button under "Upload to TDEI" brings you to the Export Workspace to TDEI page (playwright snapshot this)
+// @test e2e: clicking the "Start Preparing File for Download" button under "Download" shows a loading state, then shows a "Save" 
+//            button when the file is ready, and clicking the "Save" button downloads the file to your device (playwright snapshot 
+//            each change in state)
+// @test e2e: if an error occurs when preparing the download, an error message is shown in a toast (playwright snapshot this)
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+
 <template>
   <app-page>
     <div class="text-center mt-5">

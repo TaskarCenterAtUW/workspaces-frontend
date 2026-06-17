@@ -1,3 +1,18 @@
+// Test outline
+// @test e2e: this page shows a Dataset Name that is editable, and asks the user to choose a project group and service returned from the TDEI API, 
+//            as well as dataset version box (playwright snapshot this)
+// @test e2e: if the user doesn't have permissions to export to the TDEI, a message is shown indicating that and the project group and service 
+//             pickers are not shown (playwright snapshot this)
+// @test e2e: submitting the form with valid values shows a loading state
+// @test e2e: the service names and project groups shown should match the simulated TDEI API response.
+// @test e2e: submitting the form with a dataset version that already exists in the TDEI for that service shows an error message, and allows the 
+//            user to change the version and try again (playwright snapshot this)
+// @test e2e: submitting the form with an API error shows an error message and a "try again" button, and clicking the "try again" button resets 
+//            the form (playwright snapshot the error state)
+// @test e2e: if the user leaves any field blank and tries to submit, an error message is shown indicating that all fields are required (playwright 
+//            snapshot this)
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+
 <template>
   <app-page>
     <div class="text-center mt-5">

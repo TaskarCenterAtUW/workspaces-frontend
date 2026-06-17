@@ -1,0 +1,16 @@
+- text: Workspace Title
+- textbox "Workspace Title": My File Workspace
+- text: Project Group
+- textbox "Project Group":
+  - /placeholder: Search project groups...
+  - text: Puget Sound
+- text: Dataset Type
+- radio "OpenSidewalks"
+- text: OpenSidewalks
+- radio "GTFS Pathways" [checked]
+- text: GTFS Pathways Dataset File
+- button "Dataset File"
+- alert:
+  - heading " An error occurred:" [level=5]
+  - paragraph: "Unexpected error: boom"
+  - button "Try again"

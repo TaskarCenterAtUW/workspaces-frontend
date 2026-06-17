@@ -1,19 +1,32 @@
+// Test outline
+// @test e2e: the page renders with a simulated API response with no project groups
+// @test e2e: the page renders with a simulated API response with no datasets in a project group
+// @test e2e: clicking on a dataset updates the metadata panel on the right and shows the data extent in the map
+// @test e2e: clicking the edit button redirects to the RapID editor
+// @test e2e: the edit button shows two RapID editor versions in a dropdown (playwright snapshot this)
+// @test e2e: the "review" button opens the changeset editor, with simulated API responses (playwright snapshot this)
+// @test e2e: the "export" button opens the export screen
+// @test e2e: the "settings" button opens the settings screen
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json) and that success
+//            and error states are handled properly with toasts (playwright snapshot these)
 <template>
   <app-page class="dashboard-page">
     <div class="d-flex">
-        <h2 class="visually-hidden">My Workspaces</h2>
+      <h2 class="visually-hidden">
+        My Workspaces
+      </h2>
 
-        <label for="ws_project_group_picker">Project Group</label>
-        <project-group-picker
-          id="ws_project_group_picker"
-          v-model="currentProjectGroup"
-          remember-selection
-        />
+      <label for="ws_project_group_picker">Project Group</label>
+      <project-group-picker
+        id="ws_project_group_picker"
+        v-model="currentProjectGroup"
+        remember-selection
+      />
 
-        <nuxt-link class="btn btn-primary flex-shrink-0" to="/workspace/create">
-          <app-icon variant="add" size="24" />
-          New<span class="d-none d-sm-inline"> Workspace</span>
-        </nuxt-link>
+      <nuxt-link class="btn btn-primary flex-shrink-0" to="/workspace/create">
+        <app-icon variant="add" size="24" />
+        New<span class="d-none d-sm-inline"> Workspace</span>
+      </nuxt-link>
     </div>
 
     <div v-if="!currentWorkspaces" class="alert alert-info mt-4">
@@ -205,7 +218,6 @@ async function selectWorkspace(workspace: Workspace) {
     }
   }
 }
-
 
 .workspace-split-layout {
   display: flex;

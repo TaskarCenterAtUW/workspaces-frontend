@@ -1,3 +1,16 @@
+// Test outline
+// @test e2e: there are three buttons on this screen--blank workspace, from tdei and from file (playwright snapshot this)
+// @test e2e: clicking the "from tdei" button takes the user to a form that allows one to set a title and pick a dataset 
+//            from a project group in the TDEI. The available values should match the simulated API response
+// @test e2e: the "from blank workspace" button takes you to a form that allows you to set the title, workspace type and 
+//            project group, and submitting creates a new workspace and takes you to the dashboard with the new workspace 
+//            selected (playwright snapshot the form and loading state)
+// @test e2e: the "from file" button takes you to a form that allows you to set a title, workspace type, project group, and upload a file, 
+//            and submitting creates a new workspace and takes you to the dashboard with the new workspace selected (playwright 
+//            snapshot the form and loading state)
+// @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again" button are shown, and clicking the "try again" 
+//            button resets the form (playwright snapshot the error state)
+
 <template>
   <app-page>
     <div class="text-center mt-5">
