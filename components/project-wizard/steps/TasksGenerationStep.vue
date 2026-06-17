@@ -71,7 +71,7 @@
       </div>
 
       <p class="project-wizard-tasks-success-copy">
-        This project will be created with <strong>{{ generatedSummary.totalTasks }} tasks</strong>.
+        This project now has <strong>{{ generatedSummary.totalTasks }} tasks</strong>.
       </p>
       <p class="project-wizard-tasks-success-copy">
         The size of each task is

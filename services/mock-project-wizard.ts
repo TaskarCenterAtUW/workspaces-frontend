@@ -1,8 +1,11 @@
 import type {
+  ProjectWizardAreaFeature,
   ProjectWizardCreatePayload,
   ProjectWizardCreateResult,
   ProjectWizardNameAvailabilityResponse,
+  ProjectWizardTaskGenerationSummary,
 } from '~/types/project-wizard';
+import { simulateProjectWizardTaskGeneration } from '~/services/project-wizard-tasks';
 
 const UNAVAILABLE_PROJECT_NAMES = new Set([
   'drc ebola 2026',
@@ -23,6 +26,21 @@ export async function createMockProjectWizardProject(payload: ProjectWizardCreat
     projectId: crypto.randomUUID(),
     status: 'draft',
   };
+}
+
+export async function generateMockProjectWizardTasks(
+  projectId: string,
+  aoi: ProjectWizardAreaFeature,
+  requestedTaskAreaSquareKilometers: number,
+): Promise<ProjectWizardTaskGenerationSummary> {
+  if (projectId.toLowerCase().includes('error')) {
+    throw new Error('Tasks could not be generated. Please try again.');
+  }
+
+  return await simulateProjectWizardTaskGeneration(
+    aoi,
+    requestedTaskAreaSquareKilometers,
+  );
 }
 
 export async function getMockProjectNameAvailabilityResponse(projectName: string): Promise<ProjectWizardNameAvailabilityResponse> {

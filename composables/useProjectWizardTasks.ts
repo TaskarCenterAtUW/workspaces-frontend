@@ -1,94 +1,118 @@
+import { projectWizardClient } from '~/services/index';
 import {
   PROJECT_WIZARD_TASK_AREA_DEFAULT,
   buildProjectWizardTaskPreviewFeatureCollection,
   createProjectWizardTaskAoiSignature,
   getProjectWizardTaskPreviewSummary,
   normalizeTaskAreaSquareKilometers,
-  simulateProjectWizardTaskGeneration,
 } from '~/services/project-wizard-tasks';
 
 import type { Ref } from 'vue';
 import type {
-  ProjectWizardDraft,
+  ProjectWizardAreaFeature,
+  ProjectWizardCreatedProjectCheckpoint,
   ProjectWizardStepId,
+  ProjectWizardTaskGenerationSummary,
 } from '~/types/project-wizard';
+import type { WorkspaceId } from '~/types/workspaces';
 
 interface UseProjectWizardTasksOptions {
+  aoi: Ref<ProjectWizardAreaFeature | null>;
+  createdProject: Ref<ProjectWizardCreatedProjectCheckpoint | null>;
   currentStep: Ref<ProjectWizardStepId>;
-  draft: ProjectWizardDraft;
+  workspaceId: WorkspaceId;
 }
 
 export function useProjectWizardTasks(options: UseProjectWizardTasksOptions) {
   const generatingTasks = ref(false);
+  const taskAreaSquareKilometers = ref(PROJECT_WIZARD_TASK_AREA_DEFAULT);
+  const generatedTaskSummary = ref<ProjectWizardTaskGenerationSummary | null>(null);
 
   const currentTaskAreaSquareKilometers = computed(() =>
-    normalizeTaskAreaSquareKilometers(options.draft.tasks.taskAreaSquareKilometers),
+    normalizeTaskAreaSquareKilometers(taskAreaSquareKilometers.value),
   );
 
   const taskPreviewGrid = computed(() =>
     buildProjectWizardTaskPreviewFeatureCollection(
-      options.draft.area.aoi,
+      options.aoi.value,
       currentTaskAreaSquareKilometers.value,
     ),
   );
 
   const taskPreviewSummary = computed(() =>
     getProjectWizardTaskPreviewSummary(
-      options.draft.area.aoi,
+      options.aoi.value,
       currentTaskAreaSquareKilometers.value,
     ),
   );
 
   const currentAoiSignature = computed(() =>
-    createProjectWizardTaskAoiSignature(options.draft.area.aoi),
+    createProjectWizardTaskAoiSignature(options.aoi.value),
   );
-
-  const generatedTaskSummary = computed(() => {
-    const summary = options.draft.tasks.generatedSummary;
-
-    if (!summary) {
-      return null;
-    }
-
-    if (summary.aoiSignature !== currentAoiSignature.value) {
-      return null;
-    }
-
-    if (Math.abs(summary.requestedTaskAreaSquareKilometers - currentTaskAreaSquareKilometers.value) > Number.EPSILON) {
-      return null;
-    }
-
-    return summary;
-  });
 
   const isTasksStepActive = computed(() => options.currentStep.value === 'tasks');
 
   function updateTaskAreaSquareKilometers(value: number) {
-    options.draft.tasks.taskAreaSquareKilometers = normalizeTaskAreaSquareKilometers(value);
+    taskAreaSquareKilometers.value = normalizeTaskAreaSquareKilometers(value);
   }
 
   function resetTaskGeneration() {
-    options.draft.tasks.taskAreaSquareKilometers = PROJECT_WIZARD_TASK_AREA_DEFAULT;
-    options.draft.tasks.generatedSummary = null;
+    taskAreaSquareKilometers.value = PROJECT_WIZARD_TASK_AREA_DEFAULT;
+    generatedTaskSummary.value = null;
   }
 
   async function generateTasks() {
-    if (!options.draft.area.aoi) {
-      return;
+    if (!options.aoi.value || !options.createdProject.value) {
+      return null;
     }
 
     generatingTasks.value = true;
 
     try {
-      options.draft.tasks.generatedSummary = await simulateProjectWizardTaskGeneration(
-        options.draft.area.aoi,
+      const nextSummary = await projectWizardClient.generateProjectTasks(
+        options.workspaceId,
+        options.createdProject.value.projectId,
+        options.aoi.value,
         currentTaskAreaSquareKilometers.value,
       );
+
+      generatedTaskSummary.value = nextSummary;
+      return nextSummary;
     }
     finally {
       generatingTasks.value = false;
     }
   }
+
+  watch(
+    [currentTaskAreaSquareKilometers, currentAoiSignature],
+    () => {
+      const summary = generatedTaskSummary.value;
+
+      if (!summary) {
+        return;
+      }
+
+      if (summary.aoiSignature !== currentAoiSignature.value) {
+        generatedTaskSummary.value = null;
+        return;
+      }
+
+      if (Math.abs(summary.requestedTaskAreaSquareKilometers - currentTaskAreaSquareKilometers.value) > Number.EPSILON) {
+        generatedTaskSummary.value = null;
+      }
+    },
+  );
+
+  watch(
+    () => options.createdProject.value?.projectId ?? '',
+    (projectId, previousProjectId) => {
+      if (!projectId || projectId !== previousProjectId) {
+        resetTaskGeneration();
+      }
+    },
+    { immediate: true },
+  );
 
   return {
     currentTaskAreaSquareKilometers,

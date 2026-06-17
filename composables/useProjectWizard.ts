@@ -7,6 +7,7 @@ import {
 } from '~/services/project-wizard-definitions';
 
 import type {
+  ProjectWizardCreatedProjectCheckpoint,
   ProjectWizardCreateResult,
   ProjectWizardDraft,
   ProjectWizardStepDefinition,
@@ -60,6 +61,7 @@ function serializeStoredState(state: ProjectWizardStoredState) {
 
 function shouldPersistState(state: ProjectWizardStoredState) {
   const defaultState: ProjectWizardStoredState = {
+    createdProject: null,
     currentStep: 'details',
     draft: createDefaultProjectWizardDraft(),
   };
@@ -72,6 +74,7 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
   const creating = reactive(new LoadingContext());
   const currentStep = ref<ProjectWizardStepId>('details');
   const draft = reactive<ProjectWizardDraft>(createDefaultProjectWizardDraft());
+  const createdProject = ref<ProjectWizardCreatedProjectCheckpoint | null>(null);
   const stepData = ref<ProjectWizardStepDefinition>();
 
   const currentStepIndex = computed(() =>
@@ -86,10 +89,10 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
       return;
     }
 
-    currentStep.value = state.currentStep;
+    createdProject.value = state.createdProject;
+    currentStep.value = state.createdProject ? 'tasks' : state.currentStep;
     Object.assign(draft.details, state.draft.details);
     Object.assign(draft.area, state.draft.area);
-    Object.assign(draft.tasks, state.draft.tasks);
     Object.assign(draft.settings, state.draft.settings);
     Object.assign(draft.review, state.draft.review);
   }
@@ -106,6 +109,10 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
   }
 
   async function goToStep(step: ProjectWizardStepId) {
+    if (createdProject.value && step !== 'tasks') {
+      return;
+    }
+
     currentStep.value = step;
     await loadStep(step);
   }
@@ -122,6 +129,10 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
   }
 
   async function goPrevious() {
+    if (createdProject.value) {
+      return;
+    }
+
     if (isFirstStep.value) {
       return;
     }
@@ -139,11 +150,16 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
       result = await client.createProject(workspaceId, structuredClone(toRaw(draft)));
     });
 
-    clearStoredState(workspaceId);
-
     if (!result) {
       throw new Error('Project creation did not return a result.');
     }
+
+    createdProject.value = {
+      projectId: result.projectId,
+      projectName: draft.details.name.trim(),
+      status: result.status,
+    };
+    currentStep.value = 'tasks';
 
     return result;
   }
@@ -154,9 +170,9 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
     const defaultDraft = createDefaultProjectWizardDraft();
     Object.assign(draft.details, defaultDraft.details);
     Object.assign(draft.area, defaultDraft.area);
-    Object.assign(draft.tasks, defaultDraft.tasks);
     Object.assign(draft.settings, defaultDraft.settings);
     Object.assign(draft.review, defaultDraft.review);
+    createdProject.value = null;
     currentStep.value = 'details';
   }
 
@@ -165,9 +181,10 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
   }
 
   watch(
-    [currentStep, draft],
+    [currentStep, draft, createdProject],
     () => {
       const state: ProjectWizardStoredState = {
+        createdProject: structuredClone(toRaw(createdProject.value)),
         currentStep: currentStep.value,
         draft: structuredClone(toRaw(draft)),
       };
@@ -185,6 +202,7 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
   return {
     clearDraft,
     creating,
+    createdProject,
     currentStep,
     currentStepIndex,
     draft,

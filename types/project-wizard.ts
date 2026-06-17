@@ -172,12 +172,6 @@ export interface ProjectWizardTaskGenerationSummary {
   totalTasks: number;
 }
 
-export interface ProjectWizardTasksDraft {
-  generatedSummary: ProjectWizardTaskGenerationSummary | null;
-  instructions: string;
-  taskAreaSquareKilometers: number;
-}
-
 export interface ProjectWizardSettingsDraft {
   instructions: string;
   lockTimeoutHours: number;
@@ -194,10 +188,16 @@ export interface ProjectWizardDraft {
   details: ProjectWizardDetailsDraft;
   review: ProjectWizardReviewDraft;
   settings: ProjectWizardSettingsDraft;
-  tasks: ProjectWizardTasksDraft;
+}
+
+export interface ProjectWizardCreatedProjectCheckpoint {
+  projectId: string;
+  projectName: string;
+  status: 'draft';
 }
 
 export interface ProjectWizardStoredState {
+  createdProject: ProjectWizardCreatedProjectCheckpoint | null;
   currentStep: ProjectWizardStepId;
   draft: ProjectWizardDraft;
 }

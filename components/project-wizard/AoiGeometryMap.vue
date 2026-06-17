@@ -79,6 +79,9 @@ const DRAFT_POINT_ID = 'project-wizard-draft-point';
 const TASK_GRID_FILL_ID = 'project-wizard-task-grid-fill';
 const TASK_GRID_LINE_ID = 'project-wizard-task-grid-line';
 const VERTEX_POINT_ID = 'project-wizard-vertex-point';
+const AOI_FIT_MAX_ZOOM = 11.5;
+const VIEWPORT_CENTER_TOLERANCE = 0.0001;
+const VIEWPORT_ZOOM_TOLERANCE = 0.01;
 
 const mapRef = useTemplateRef<HTMLDivElement>('mapRef');
 
@@ -462,18 +465,33 @@ function applyViewport() {
       return;
     }
 
-    wizardMap.fitBounds(aoiBounds, {
+    const targetCamera = wizardMap.cameraForBounds(aoiBounds, {
       padding: resolvePadding(),
+      maxZoom: AOI_FIT_MAX_ZOOM,
+    });
+
+    if (!targetCamera || isViewportAlreadyApplied(targetCamera.center, targetCamera.zoom)) {
+      return;
+    }
+
+    wizardMap.easeTo({
+      ...targetCamera,
       duration: 500,
       essential: true,
-      maxZoom: 11.5,
     });
     return;
   }
 
+  const fallbackCenter = props.mapState?.center ?? DEFAULT_CENTER;
+  const fallbackZoom = props.mapState?.zoom ?? 8;
+
+  if (isViewportAlreadyApplied(fallbackCenter, fallbackZoom)) {
+    return;
+  }
+
   wizardMap.easeTo({
-    center: props.mapState?.center ?? DEFAULT_CENTER,
-    zoom: props.mapState?.zoom ?? 8,
+    center: fallbackCenter,
+    zoom: fallbackZoom,
     padding: resolvePadding(),
     duration: 500,
     essential: true,
@@ -487,6 +505,49 @@ function resolvePadding(): PaddingOptions {
     bottom: props.cameraPadding?.bottom ?? 48,
     left: props.cameraPadding?.left ?? 48,
   };
+}
+
+function isViewportAlreadyApplied(
+  targetCenter: unknown,
+  targetZoom: number | undefined,
+): boolean {
+  if (!wizardMap || typeof targetZoom !== 'number') {
+    return false;
+  }
+
+  const normalizedCenter = normalizeCenter(targetCenter);
+
+  if (!normalizedCenter) {
+    return false;
+  }
+
+  const currentCenter = wizardMap.getCenter();
+  const currentZoom = wizardMap.getZoom();
+
+  return Math.abs(currentCenter.lng - normalizedCenter[0]) <= VIEWPORT_CENTER_TOLERANCE
+    && Math.abs(currentCenter.lat - normalizedCenter[1]) <= VIEWPORT_CENTER_TOLERANCE
+    && Math.abs(currentZoom - targetZoom) <= VIEWPORT_ZOOM_TOLERANCE;
+}
+
+function normalizeCenter(center: unknown): [number, number] | null {
+  if (Array.isArray(center) && center.length >= 2) {
+    const [lng, lat] = center;
+
+    return typeof lng === 'number' && typeof lat === 'number'
+      ? [lng, lat]
+      : null;
+  }
+
+  if (center && typeof center === 'object' && 'lng' in center && 'lat' in center) {
+    const lng = (center as { lng: unknown }).lng;
+    const lat = (center as { lat: unknown }).lat;
+
+    return typeof lng === 'number' && typeof lat === 'number'
+      ? [lng, lat]
+      : null;
+  }
+
+  return null;
 }
 
 function handleMapClick(event: MapMouseEvent) {
