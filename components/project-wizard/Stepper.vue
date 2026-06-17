@@ -14,7 +14,7 @@
         type="button"
         :aria-current="index === currentIndex ? 'step' : undefined"
         :aria-label="`Step ${index + 1}: ${stepLabels[step]}`"
-        :disabled="index > currentIndex"
+        :disabled="selectionLocked ? index !== currentIndex : index > currentIndex"
         @click="$emit('select', step)"
       >
         <app-icon
@@ -34,6 +34,7 @@ import type { ProjectWizardStepId } from '~/types/project-wizard';
 
 interface Props {
   currentIndex: number;
+  selectionLocked?: boolean;
   steps: ProjectWizardStepId[];
 }
 

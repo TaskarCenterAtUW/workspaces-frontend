@@ -6,7 +6,7 @@ import type {
   ProjectWizardStepId,
 } from '~/types/project-wizard';
 
-const VALID_STEP_IDS: readonly ProjectWizardStepId[] = ['details', 'area', 'tasks', 'settings', 'review'];
+const VALID_STEP_IDS: readonly ProjectWizardStepId[] = ['details', 'area', 'settings', 'review', 'tasks'];
 
 function parseStepDefinitions(steps: unknown): ProjectWizardStepDefinition[] {
   if (!Array.isArray(steps)) {
@@ -58,11 +58,6 @@ export function createDefaultProjectWizardDraft(): ProjectWizardDraft {
     area: {
       aoi: null,
       importedFileName: '',
-    },
-    tasks: {
-      generatedSummary: null,
-      instructions: '',
-      taskAreaSquareKilometers: 0.45,
     },
     settings: {
       instructions: '',
