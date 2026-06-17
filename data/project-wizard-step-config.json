@@ -64,20 +64,6 @@
       }
     },
     {
-      "step": "tasks",
-      "title": "Tasks Generation",
-      "description": "Define task area to generate tasks.",
-      "nextLabel": "Next",
-      "map": {
-        "center": [-122.335, 47.61],
-        "zoom": 9.2,
-        "features": {
-          "type": "FeatureCollection",
-          "features": []
-        }
-      }
-    },
-    {
       "step": "settings",
       "title": "Settings",
       "description": "Configure project settings.",
@@ -94,11 +80,25 @@
     {
       "step": "review",
       "title": "Review",
-      "description": "Review project details and activate.",
+      "description": "Review project details and create the project.",
       "nextLabel": "Create Project",
       "map": {
         "center": [-122.334, 47.606],
         "zoom": 8.9,
+        "features": {
+          "type": "FeatureCollection",
+          "features": []
+        }
+      }
+    },
+    {
+      "step": "tasks",
+      "title": "Tasks Generation",
+      "description": "Define task area to generate tasks.",
+      "nextLabel": "Finish",
+      "map": {
+        "center": [-122.335, 47.61],
+        "zoom": 9.2,
         "features": {
           "type": "FeatureCollection",
           "features": []

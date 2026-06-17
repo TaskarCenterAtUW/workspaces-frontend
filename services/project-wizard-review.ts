@@ -2,7 +2,6 @@ import { calculateProjectWizardAoiAreaSquareKilometers } from '~/services/projec
 
 import type {
   ProjectWizardDraft,
-  ProjectWizardTaskGenerationSummary,
   ProjectWizardWorkspaceUser,
 } from '~/types/project-wizard';
 
@@ -13,7 +12,7 @@ export interface ProjectWizardReviewSummary {
   instructionsHtml: string;
   instructionsProvided: boolean;
   lockTimeoutLabel: string;
-  numberOfTasksLabel: string;
+  numberOfTasksLabel: string | null;
   projectDescription: string;
   projectName: string;
   reviewRequiredLabel: string;
@@ -23,7 +22,6 @@ export interface ProjectWizardReviewSummary {
 export function buildProjectWizardReviewSummary(
   draft: ProjectWizardDraft,
   selectedValidators: ProjectWizardWorkspaceUser[],
-  generatedTaskSummary: ProjectWizardTaskGenerationSummary | null,
 ): ProjectWizardReviewSummary {
   const hasImageryUrl = draft.details.imageryUrl.trim().length > 0;
   const instructionsHtml = sanitizeReviewHtml(draft.settings.instructions);
@@ -33,7 +31,7 @@ export function buildProjectWizardReviewSummary(
     projectDescription: draft.details.description.trim() || 'Not provided',
     hasImageryUrl,
     imageryStatusLabel: hasImageryUrl ? 'Working' : 'Not provided',
-    numberOfTasksLabel: String(generatedTaskSummary?.totalTasks ?? 0),
+    numberOfTasksLabel: null,
     lockTimeoutLabel: `${draft.settings.lockTimeoutHours} ${draft.settings.lockTimeoutHours === 1 ? 'Hour' : 'Hours'}`,
     reviewRequiredLabel: draft.settings.reviewRequired ? 'Yes' : 'No',
     selectedValidators,

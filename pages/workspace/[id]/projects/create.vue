@@ -30,6 +30,7 @@
             <project-wizard-stepper
               :steps="steps"
               :current-index="currentStepIndex"
+              :selection-locked="Boolean(createdProject)"
               @select="onSelectStep"
             />
 
@@ -75,7 +76,7 @@
                   :minimum-task-area-square-kilometers="PROJECT_WIZARD_TASK_AREA_MINIMUM"
                   :task-area-square-kilometers="currentTaskAreaSquareKilometers"
                   :task-area-step="PROJECT_WIZARD_TASK_AREA_STEP"
-                  @generate="generateTasks"
+                  @generate="handleGenerateTasks"
                   @reset="resetTaskGeneration"
                   @update:task-area="updateTaskAreaSquareKilometers"
                 />
@@ -118,7 +119,7 @@
 
               <div class="project-create-footer-actions">
                 <button
-                  v-if="!isFirstStep"
+                  v-if="showPreviousAction"
                   class="btn btn-outline-secondary project-create-secondary-action"
                   type="button"
                   :disabled="loading.active || creating.active || generatingTasks"
@@ -204,6 +205,7 @@ const PROJECT_NAME_CHECK_DEBOUNCE_MS = 300;
 
 const {
   creating,
+  createdProject,
   currentStep,
   currentStepIndex,
   clearDraft,
@@ -272,8 +274,10 @@ const {
   taskPreviewSummary,
   updateTaskAreaSquareKilometers,
 } = useProjectWizardTasks({
+  aoi: computed(() => draft.area.aoi),
+  createdProject,
   currentStep,
-  draft,
+  workspaceId,
 });
 const {
   addValidator,
@@ -295,7 +299,6 @@ const reviewSummary = computed(() =>
   buildProjectWizardReviewSummary(
     draft,
     selectedValidators.value,
-    generatedTaskSummary.value,
   ),
 );
 
@@ -305,21 +308,35 @@ const canProceed = computed(() => {
       return draft.details.name.trim().length > 0 && nameAvailabilityStatus.value === 'available';
     case 'area':
       return Boolean(draft.area.aoi);
+    case 'review':
+      return !createdProject.value;
     case 'tasks':
-      return Boolean(generatedTaskSummary.value);
+      return Boolean(createdProject.value) && Boolean(generatedTaskSummary.value);
     default:
       return true;
   }
 });
 
-const primaryActionLabel = computed(() =>
-  stepData.value?.nextLabel ?? (isLastStep.value ? 'Create Project' : 'Next'),
-);
+const primaryActionLabel = computed(() => {
+  if (currentStep.value === 'review') {
+    return 'Create Project';
+  }
+
+  if (currentStep.value === 'tasks') {
+    return 'Finish';
+  }
+
+  return stepData.value?.nextLabel ?? (isLastStep.value ? 'Finish' : 'Next');
+});
 
 const liveRegionMessage = computed(() =>
   loading.active
     ? 'Loading project wizard step.'
     : `Project wizard step ${currentStepIndex.value + 1} of ${steps.length}: ${stepData.value?.title ?? ''}.`,
+);
+
+const showPreviousAction = computed(() =>
+  !isFirstStep.value && !createdProject.value,
 );
 
 const displayedTaskGrid = computed(() =>
@@ -331,7 +348,7 @@ const displayedTaskGrid = computed(() =>
 type StatusDialogState = {
   message: string;
   primaryActionLabel: string;
-  primaryActionType: 'navigate' | 'retry';
+  primaryActionType: 'navigate' | 'retry-create' | 'retry-task-generation';
   primaryRoute: string;
   secondaryActionLabel?: string;
   secondaryRoute?: string;
@@ -440,8 +457,14 @@ async function exitWizard() {
 }
 
 async function onPrimaryAction() {
-  if (isLastStep.value) {
+  if (currentStep.value === 'review') {
     await submitProject();
+    return;
+  }
+
+  if (currentStep.value === 'tasks') {
+    clearDraft();
+    await navigateTo(projectsRoute);
     return;
   }
 
@@ -449,7 +472,7 @@ async function onPrimaryAction() {
 }
 
 async function onSecondaryAction() {
-  if (isFirstStep.value) {
+  if (isFirstStep.value || createdProject.value) {
     await exitWizard();
     return;
   }
@@ -458,6 +481,10 @@ async function onSecondaryAction() {
 }
 
 async function onSelectStep(step: ProjectWizardStepId) {
+  if (createdProject.value && step !== 'tasks') {
+    return;
+  }
+
   await goToStep(step);
 }
 
@@ -473,12 +500,18 @@ async function handleStatusDialogPrimaryAction() {
     return;
   }
 
-  if (dialog.primaryActionType === 'retry') {
+  if (dialog.primaryActionType === 'retry-create') {
     await submitProject();
     return;
   }
 
+  if (dialog.primaryActionType === 'retry-task-generation') {
+    await handleGenerateTasks();
+    return;
+  }
+
   if (dialog.primaryRoute) {
+    clearDraft();
     await navigateTo(dialog.primaryRoute);
   }
 }
@@ -488,28 +521,49 @@ async function handleStatusDialogSecondaryAction() {
   closeStatusDialog();
 
   if (targetRoute) {
+    clearDraft();
     await navigateTo(targetRoute);
   }
 }
 
 async function submitProject() {
   try {
-    const result = await createProject();
-    openProjectCreatedDialog(result);
+    await createProject();
+    await goToStep('tasks');
   }
   catch (error) {
     openProjectCreationErrorDialog(error);
   }
 }
 
-function openProjectCreatedDialog(result: ProjectWizardCreateResult) {
+async function handleGenerateTasks() {
+  try {
+    const result = await generateTasks();
+
+    if (!result) {
+      return;
+    }
+
+    openTaskGenerationSuccessDialog();
+  }
+  catch (error) {
+    openTaskGenerationErrorDialog(error);
+  }
+}
+
+function openTaskGenerationSuccessDialog() {
+  const projectName = createdProject.value?.projectName || draft.details.name.trim();
+  const projectStatus = createdProject.value?.status ?? 'draft';
+
   statusDialog.value = {
     variant: 'success',
     title: 'Success!',
-    message: `Project ${draft.details.name.trim()} created successfully and is now in ${formatProjectStatus(result.status)} status.`,
+    message: `Project ${projectName} created successfully and ${generatedTaskSummary.value?.totalTasks ?? 0} tasks were generated. It is now in ${formatProjectStatus(projectStatus)} status.`,
     primaryActionLabel: 'Open Project',
     primaryActionType: 'navigate',
-    primaryRoute: `${projectsRoute}?projectId=${encodeURIComponent(result.projectId)}`,
+    primaryRoute: createdProject.value
+      ? `${projectsRoute}?projectId=${encodeURIComponent(createdProject.value.projectId)}`
+      : projectsRoute,
     secondaryActionLabel: 'Go to Projects',
     secondaryRoute: projectsRoute,
   };
@@ -523,7 +577,20 @@ function openProjectCreationErrorDialog(error: unknown) {
       ? error.message
       : 'Project could not be created. Please try again.',
     primaryActionLabel: 'Try Again',
-    primaryActionType: 'retry',
+    primaryActionType: 'retry-create',
+    primaryRoute: '',
+  };
+}
+
+function openTaskGenerationErrorDialog(error: unknown) {
+  statusDialog.value = {
+    variant: 'error',
+    title: 'Something went wrong',
+    message: error instanceof Error
+      ? error.message
+      : 'Tasks could not be generated. Please try again.',
+    primaryActionLabel: 'Try Again',
+    primaryActionType: 'retry-task-generation',
     primaryRoute: '',
   };
 }

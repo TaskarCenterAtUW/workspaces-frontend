@@ -29,7 +29,7 @@
         </div>
       </div>
 
-      <div class="project-wizard-review-item">
+      <div v-if="summary.numberOfTasksLabel" class="project-wizard-review-item">
         <h3>Number of Tasks</h3>
         <p>{{ summary.numberOfTasksLabel }}</p>
       </div>

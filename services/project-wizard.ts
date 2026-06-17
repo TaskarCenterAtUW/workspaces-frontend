@@ -1,6 +1,7 @@
 import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
 import {
   createMockProjectWizardProject,
+  generateMockProjectWizardTasks,
   getMockProjectNameAvailabilityResponse,
 } from '~/services/mock-project-wizard';
 import { buildProjectWizardCreatePayload } from '~/services/project-wizard-payload';
@@ -12,6 +13,8 @@ import type {
   ProjectWizardCreateResult,
   ProjectWizardCreatePayload,
   ProjectWizardNameAvailabilityResponse,
+  ProjectWizardAreaFeature,
+  ProjectWizardTaskGenerationSummary,
 } from '~/types/project-wizard';
 import type { WorkspaceId } from '~/types/workspaces';
 
@@ -57,6 +60,28 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
     throw new Error(`Project name availability API not implemented for workspace ${workspaceId}.`);
   }
 
+  async generateProjectTasks(
+    workspaceId: WorkspaceId,
+    projectId: string,
+    aoi: ProjectWizardAreaFeature,
+    requestedTaskAreaSquareKilometers: number,
+  ): Promise<ProjectWizardTaskGenerationSummary> {
+    if (USE_MOCK_PROJECT_WIZARD) {
+      return await generateMockProjectWizardTasks(
+        projectId,
+        aoi,
+        requestedTaskAreaSquareKilometers,
+      );
+    }
+
+    return await this.#generateProjectTasksRequest(
+      workspaceId,
+      projectId,
+      aoi,
+      requestedTaskAreaSquareKilometers,
+    );
+  }
+
   async #createProjectRequest(
     workspaceId: WorkspaceId,
     payload: ProjectWizardCreatePayload,
@@ -64,6 +89,19 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
     void workspaceId;
     void payload;
     throw new Error('Project creation endpoint is not configured yet.');
+  }
+
+  async #generateProjectTasksRequest(
+    workspaceId: WorkspaceId,
+    projectId: string,
+    aoi: ProjectWizardAreaFeature,
+    requestedTaskAreaSquareKilometers: number,
+  ): Promise<ProjectWizardTaskGenerationSummary> {
+    void workspaceId;
+    void projectId;
+    void aoi;
+    void requestedTaskAreaSquareKilometers;
+    throw new Error('Task generation endpoint is not configured yet.');
   }
 
   #setAuthHeader() {
