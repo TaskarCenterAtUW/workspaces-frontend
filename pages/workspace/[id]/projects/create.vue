@@ -70,6 +70,7 @@
                   v-else-if="tasksStep"
                   :step="tasksStep"
                   :can-generate="Boolean(draft.area.aoi) && taskPreviewSummary.totalTasks > 0"
+                  :created-project-name="createdProject?.projectName ?? draft.details.name.trim()"
                   :generated-summary="generatedTaskSummary"
                   :generating="generatingTasks"
                   :maximum-task-area-square-kilometers="PROJECT_WIZARD_TASK_AREA_MAXIMUM"
@@ -208,7 +209,7 @@ const {
   createdProject,
   currentStep,
   currentStepIndex,
-  clearDraft,
+  clearPersistedState,
   draft,
   goNext,
   goPrevious,
@@ -451,9 +452,13 @@ function updateDetailsField(fieldId: ProjectWizardDetailsFieldId, value: string)
   draft.details[fieldId] = value;
 }
 
+async function leaveWizard(targetRoute: string) {
+  clearPersistedState();
+  await navigateTo(targetRoute);
+}
+
 async function exitWizard() {
-  clearDraft();
-  await navigateTo(projectsRoute);
+  await leaveWizard(projectsRoute);
 }
 
 async function onPrimaryAction() {
@@ -463,8 +468,7 @@ async function onPrimaryAction() {
   }
 
   if (currentStep.value === 'tasks') {
-    clearDraft();
-    await navigateTo(projectsRoute);
+    await leaveWizard(projectsRoute);
     return;
   }
 
@@ -511,8 +515,7 @@ async function handleStatusDialogPrimaryAction() {
   }
 
   if (dialog.primaryRoute) {
-    clearDraft();
-    await navigateTo(dialog.primaryRoute);
+    await leaveWizard(dialog.primaryRoute);
   }
 }
 
@@ -521,8 +524,7 @@ async function handleStatusDialogSecondaryAction() {
   closeStatusDialog();
 
   if (targetRoute) {
-    clearDraft();
-    await navigateTo(targetRoute);
+    await leaveWizard(targetRoute);
   }
 }
 
