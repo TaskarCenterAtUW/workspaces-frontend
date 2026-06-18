@@ -176,6 +176,10 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
     currentStep.value = 'details';
   }
 
+  function clearPersistedState() {
+    clearStoredState(workspaceId);
+  }
+
   function hydrateDraft() {
     applyStoredState(readStoredState(workspaceId));
   }
@@ -201,6 +205,7 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
 
   return {
     clearDraft,
+    clearPersistedState,
     creating,
     createdProject,
     currentStep,
