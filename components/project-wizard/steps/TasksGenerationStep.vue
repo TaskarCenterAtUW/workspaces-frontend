@@ -5,6 +5,17 @@
       <p class="project-wizard-step-copy">{{ step.description }}</p>
     </header>
 
+    <section class="project-wizard-tasks-project-created" aria-live="polite">
+      <app-icon variant="check_circle" size="18" no-margin />
+      <div class="project-wizard-tasks-project-created-copy">
+        <strong>Project created successfully</strong>
+        <p>
+          <span v-if="createdProjectName">“{{ createdProjectName }}” is now saved as a draft.</span>
+          Generate tasks to complete the setup.
+        </p>
+      </div>
+    </section>
+
     <section class="project-wizard-tasks-callout" aria-live="polite">
       <app-icon variant="info" size="18" no-margin />
       <p class="project-wizard-tasks-callout-copy">
@@ -89,6 +100,7 @@ import type {
 
 interface Props {
   canGenerate: boolean;
+  createdProjectName: string;
   generatedSummary: ProjectWizardTaskGenerationSummary | null;
   generating: boolean;
   maximumTaskAreaSquareKilometers: number;
@@ -162,12 +174,36 @@ function onTaskAreaInput(event: Event) {
 }
 
 .project-wizard-tasks-callout,
+.project-wizard-tasks-project-created,
 .project-wizard-tasks-success {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0.8rem;
   padding: 0.95rem 1rem;
   border-radius: 0.4rem;
+}
+
+.project-wizard-tasks-project-created {
+  color: #0f5132;
+  background-color: #eef9f3;
+  border: 1px solid #b9e4ca;
+  border-left: 4px solid #69b88a;
+}
+
+.project-wizard-tasks-project-created-copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.project-wizard-tasks-project-created-copy strong,
+.project-wizard-tasks-project-created-copy p {
+  margin: 0;
+}
+
+.project-wizard-tasks-project-created-copy p {
+  color: rgba($secondary, 0.98);
+  font-size: 0.94rem;
+  line-height: 1.55;
 }
 
 .project-wizard-tasks-callout {
