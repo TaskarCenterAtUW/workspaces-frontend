@@ -8,11 +8,11 @@ export function buildProjectWizardCreatePayload(draft: ProjectWizardDraft): Proj
   return {
     name: draft.details.name.trim(),
     instructions: draft.settings.instructions.trim(),
-    reviewRequired: draft.settings.reviewRequired,
-    lockTimeoutHours: draft.settings.lockTimeoutHours,
-    aoi: draft.area.aoi,
-    roleAssignments: draft.settings.roleAssignments.map(assignment => ({
-      userId: assignment.userId,
+    review_required: draft.settings.reviewRequired,
+    lock_timeout_hours: draft.settings.lockTimeoutHours,
+    aoi: draft.area.aoi.geometry,
+    role_assignments: draft.settings.roleAssignments.map(assignment => ({
+      user_id: assignment.userId,
       role: assignment.role,
     })),
   };

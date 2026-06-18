@@ -251,7 +251,9 @@ function buildProjectsQuery(client: typeof workspaceProjectsClient): WorkspacePr
       ? undefined
       : selectedStatus.value === 'in_progress'
         ? 'open'
-        : selectedStatus.value,
+        : selectedStatus.value === 'completed'
+          ? 'done'
+          : selectedStatus.value,
     textSearch: searchQuery.value.trim() || undefined,
     page: currentPage.value,
     pageSize,
