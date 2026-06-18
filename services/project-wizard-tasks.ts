@@ -4,6 +4,7 @@ import { getProjectWizardAoiVertices } from '~/services/project-wizard-aoi';
 
 import type {
   ProjectWizardAreaFeature,
+  ProjectWizardGeneratedTaskFeatureCollection,
   ProjectWizardTaskGenerationSummary,
   ProjectWizardTaskPreviewCellFeature,
   ProjectWizardTaskPreviewFeatureCollection,
@@ -17,6 +18,15 @@ export const PROJECT_WIZARD_TASK_AREA_MINIMUM = 0.25;
 export const PROJECT_WIZARD_TASK_AREA_MAXIMUM = 1;
 export const PROJECT_WIZARD_TASK_AREA_DEFAULT = 0.45;
 export const PROJECT_WIZARD_TASK_AREA_STEP = 0.05;
+
+export function convertTaskAreaSquareKilometersToCellSizeMeters(value: number): number {
+  const normalizedArea = normalizeTaskAreaSquareKilometers(value);
+  return Math.round(Math.sqrt(normalizedArea * SQUARE_METERS_PER_SQUARE_KILOMETER));
+}
+
+export function convertCellSizeMetersToSquareKilometers(value: number): number {
+  return Number(((value * value) / SQUARE_METERS_PER_SQUARE_KILOMETER).toFixed(2));
+}
 
 interface ProjectWizardTaskGridModel {
   features: ProjectWizardTaskPreviewCellFeature[];
@@ -66,12 +76,20 @@ export async function simulateProjectWizardTaskGeneration(
   await new Promise(resolve => setTimeout(resolve, SIMULATED_TASK_GENERATION_DELAY_MS));
 
   const model = buildProjectWizardTaskGridModel(aoi, requestedTaskAreaSquareKilometers);
+  const taskGrid: ProjectWizardGeneratedTaskFeatureCollection = {
+    type: 'FeatureCollection',
+    features: model.features.filter(
+      (feature): feature is ProjectWizardGeneratedTaskFeatureCollection['features'][number] =>
+        feature.geometry.type === 'Polygon',
+    ),
+  };
 
   return {
     aoiSignature: createProjectWizardTaskAoiSignature(aoi),
     approximateTaskAreaSquareKilometers: model.taskAreaSquareKilometers,
     generatedAt: new Date().toISOString(),
     requestedTaskAreaSquareKilometers: normalizeTaskAreaSquareKilometers(requestedTaskAreaSquareKilometers),
+    taskGrid,
     totalTasks: model.totalTasks,
   };
 }

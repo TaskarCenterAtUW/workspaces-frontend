@@ -1,4 +1,4 @@
-import { listProjectWizardWorkspaceUsers } from '~/services/project-wizard-users';
+import { tdeiUserClient } from '~/services/index';
 
 import type { Ref } from 'vue';
 import type {
@@ -6,12 +6,27 @@ import type {
   ProjectWizardWorkspaceUser,
   ProjectWizardStepId,
 } from '~/types/project-wizard';
-import type { WorkspaceId } from '~/types/workspaces';
+import type { WorkspaceRole } from '~/types/workspaces';
+import type { TdeiUserItem } from '~/types/tdei';
 
 interface UseProjectWizardSettingsOptions {
   currentStep: Ref<ProjectWizardStepId>;
   draft: ProjectWizardDraft;
-  workspaceId: WorkspaceId;
+  projectGroupId: string;
+}
+
+const PROJECT_WIZARD_VALIDATOR_ROLE: WorkspaceRole = 'validator';
+
+function normalizeProjectGroupUser(user: TdeiUserItem): ProjectWizardWorkspaceUser {
+  const displayName = `${user.first_name} ${user.last_name}`.trim() || user.username || user.email;
+
+  return {
+    id: Number.NaN,
+    authUid: user.user_id,
+    displayName,
+    email: user.email,
+    role: PROJECT_WIZARD_VALIDATOR_ROLE,
+  };
 }
 
 export function useProjectWizardSettings(options: UseProjectWizardSettingsOptions) {
@@ -33,7 +48,7 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
         if (matchedUser) {
           return {
             ...matchedUser,
-            role: assignment.role,
+            role: PROJECT_WIZARD_VALIDATOR_ROLE,
           } satisfies ProjectWizardWorkspaceUser;
         }
 
@@ -42,7 +57,7 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
           authUid: assignment.userId,
           displayName: assignment.displayName || assignment.userId,
           email: assignment.email,
-          role: assignment.role,
+          role: PROJECT_WIZARD_VALIDATOR_ROLE,
         } satisfies ProjectWizardWorkspaceUser;
       }),
   );
@@ -72,7 +87,8 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
     workspaceUsersLoading.value = true;
 
     try {
-      workspaceUsers.value = await listProjectWizardWorkspaceUsers(options.workspaceId);
+      const items = await tdeiUserClient.getProjectGroupUsers(options.projectGroupId);
+      workspaceUsers.value = items.map(normalizeProjectGroupUser);
       options.draft.settings.roleAssignments = options.draft.settings.roleAssignments.map((assignment) => {
         const matchedUser = workspaceUsers.value.find(user => user.authUid === assignment.userId);
 
@@ -81,7 +97,7 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
               ...assignment,
               displayName: matchedUser.displayName,
               email: matchedUser.email,
-              role: matchedUser.role,
+              role: PROJECT_WIZARD_VALIDATOR_ROLE,
             }
           : assignment;
       });
@@ -101,7 +117,7 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
       displayName: user.displayName,
       email: user.email,
       userId: user.authUid,
-      role: user.role,
+      role: PROJECT_WIZARD_VALIDATOR_ROLE,
     });
     validatorSearchQuery.value = '';
   }

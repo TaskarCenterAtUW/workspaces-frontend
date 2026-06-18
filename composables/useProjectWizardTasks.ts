@@ -27,6 +27,7 @@ export function useProjectWizardTasks(options: UseProjectWizardTasksOptions) {
   const generatingTasks = ref(false);
   const taskAreaSquareKilometers = ref(PROJECT_WIZARD_TASK_AREA_DEFAULT);
   const generatedTaskSummary = ref<ProjectWizardTaskGenerationSummary | null>(null);
+  const generatedTaskGrid = computed(() => generatedTaskSummary.value?.taskGrid ?? null);
 
   const currentTaskAreaSquareKilometers = computed(() =>
     normalizeTaskAreaSquareKilometers(taskAreaSquareKilometers.value),
@@ -116,6 +117,7 @@ export function useProjectWizardTasks(options: UseProjectWizardTasksOptions) {
 
   return {
     currentTaskAreaSquareKilometers,
+    generatedTaskGrid,
     generatedTaskSummary,
     generateTasks,
     generatingTasks,

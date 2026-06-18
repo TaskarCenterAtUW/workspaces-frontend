@@ -14,13 +14,13 @@ import type {
 import type { WorkspaceId } from '~/types/workspaces';
 
 const PAGE_SIZE_DEFAULT = 10;
-const USE_MOCK_WORKSPACE_PROJECTS = import.meta.env.VITE_USE_MOCK_WORKSPACE_PROJECTS !== 'false';
+const USE_MOCK_WORKSPACE_PROJECTS = import.meta.env.VITE_USE_MOCK_WORKSPACE_PROJECTS === 'true';
 
 function normalizeStatus(status: WorkspaceProjectApiItem['status']): WorkspaceProject['status'] {
   switch (status) {
     case 'open':
       return 'in_progress';
-    case 'completed':
+    case 'done':
       return 'completed';
     case 'draft':
       return 'draft';
@@ -40,12 +40,12 @@ function normalizeProject(
     name: project.name,
     summary: undefined,
     status: normalizeStatus(project.status),
-    taskCount: project.taskCount,
-    percentCompleted: project.percentCompleted,
-    createdBy: project.createdBy,
-    createdByName: project.createdByName,
-    createdAt: new Date(project.createdAt),
-    updatedAt: new Date(project.updatedAt),
+    taskCount: project.task_count,
+    percentCompleted: project.percent_completed,
+    createdBy: project.created_by,
+    createdByName: project.created_by_name ?? '',
+    createdAt: new Date(project.created_at),
+    updatedAt: new Date(project.updated_at),
   };
 }
 
@@ -55,7 +55,11 @@ function normalizeProjectsResponse(
 ): WorkspaceProjectsResult {
   return {
     results: response.results.map(project => normalizeProject(workspaceId, project)),
-    pagination: response.pagination,
+    pagination: {
+      page: response.pagination.page,
+      pageSize: response.pagination.page_size,
+      total: response.pagination.total,
+    },
   };
 }
 
@@ -107,14 +111,14 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
   getSortQuery(sortBy: WorkspaceProjectSort): Pick<WorkspaceProjectsQuery, 'orderBy' | 'orderByType'> {
     switch (sortBy) {
       case 'oldest':
-        return { orderBy: 'createdAt', orderByType: 'ASC' };
+        return { orderBy: 'created_at', orderByType: 'ASC' };
       case 'name_asc':
         return { orderBy: 'name', orderByType: 'ASC' };
       case 'name_desc':
         return { orderBy: 'name', orderByType: 'DESC' };
       case 'latest':
       default:
-        return { orderBy: 'createdAt', orderByType: 'DESC' };
+        return { orderBy: 'created_at', orderByType: 'DESC' };
     }
   }
 
@@ -140,13 +144,13 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     }
 
     if (query.textSearch) {
-      params.set('textSearch', query.textSearch);
+      params.set('text_search', query.textSearch);
     }
 
     params.set('page', String(query.page));
-    params.set('pageSize', String(query.pageSize));
-    params.set('orderBy', query.orderBy);
-    params.set('orderByType', query.orderByType);
+    params.set('page_size', String(query.pageSize));
+    params.set('order_by', query.orderBy);
+    params.set('order_by_type', query.orderByType);
 
     return `workspaces/${workspaceId}/tasking/projects?${params.toString()}`;
   }

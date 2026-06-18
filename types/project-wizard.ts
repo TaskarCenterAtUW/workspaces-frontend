@@ -117,7 +117,7 @@ export interface ProjectWizardRoleAssignment {
 
 export interface ProjectWizardCreateRoleAssignmentPayload {
   role: WorkspaceRole;
-  userId: string;
+  user_id: string;
 }
 
 export interface ProjectWizardWorkspaceUser {
@@ -164,11 +164,19 @@ export type ProjectWizardTaskPreviewFeatureCollection = FeatureCollection<
   ProjectWizardTaskPreviewCellProperties
 >;
 
+export type ProjectWizardGeneratedTaskFeature = Feature<Polygon, GeoJsonProperties>;
+
+export type ProjectWizardGeneratedTaskFeatureCollection = FeatureCollection<
+  Polygon,
+  GeoJsonProperties
+>;
+
 export interface ProjectWizardTaskGenerationSummary {
   aoiSignature: string;
   approximateTaskAreaSquareKilometers: number;
   generatedAt: string;
   requestedTaskAreaSquareKilometers: number;
+  taskGrid: ProjectWizardGeneratedTaskFeatureCollection;
   totalTasks: number;
 }
 
@@ -203,12 +211,12 @@ export interface ProjectWizardStoredState {
 }
 
 export interface ProjectWizardCreatePayload {
-  aoi: ProjectWizardAreaFeature;
+  aoi: Polygon;
   instructions: string;
-  lockTimeoutHours: number;
+  lock_timeout_hours: number;
   name: string;
-  reviewRequired: boolean;
-  roleAssignments: ProjectWizardCreateRoleAssignmentPayload[];
+  review_required: boolean;
+  role_assignments: ProjectWizardCreateRoleAssignmentPayload[];
 }
 
 export interface ProjectWizardCreateResult {
