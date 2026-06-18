@@ -265,6 +265,7 @@ const {
 });
 const {
   currentTaskAreaSquareKilometers,
+  generatedTaskGrid,
   generatedTaskSummary,
   generateTasks,
   generatingTasks,
@@ -293,7 +294,7 @@ const {
 } = useProjectWizardSettings({
   currentStep,
   draft,
-  workspaceId,
+  projectGroupId: workspace.tdeiProjectGroupId,
 });
 const reviewSummary = computed(() =>
   buildProjectWizardReviewSummary(
@@ -340,9 +341,8 @@ const showPreviousAction = computed(() =>
 );
 
 const displayedTaskGrid = computed(() =>
-  isTasksStepActive.value || generatedTaskSummary.value
-    ? taskPreviewGrid.value
-    : null,
+  generatedTaskGrid.value
+    ?? (isTasksStepActive.value ? taskPreviewGrid.value : null),
 );
 
 type StatusDialogState = {

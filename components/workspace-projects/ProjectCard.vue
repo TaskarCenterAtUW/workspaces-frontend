@@ -163,6 +163,10 @@ const { progressPercent, taskSummary, createdDate } = useProjectDisplay(
   border-top: 1px solid rgba($text-navy, 0.08);
 }
 
+.project-card-footer > div {
+  min-width: 0;
+}
+
 .project-card-footer > div + div {
   padding-left: 0.9rem;
   border-left: 1px solid rgba($text-navy, 0.08);
@@ -170,9 +174,12 @@ const { progressPercent, taskSummary, createdDate } = useProjectDisplay(
 
 .project-card-footer strong {
   display: block;
+  min-width: 0;
   color: $text-navy;
   font-size: 0.95rem;
   font-weight: 400;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .project-card-label {

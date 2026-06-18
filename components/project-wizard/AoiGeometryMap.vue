@@ -34,6 +34,7 @@ import type {
 } from 'maplibre-gl';
 import type {
   ProjectWizardAreaFeature,
+  ProjectWizardGeneratedTaskFeatureCollection,
   ProjectWizardMapState,
   ProjectWizardTaskPreviewFeatureCollection,
 } from '~/types/project-wizard';
@@ -50,7 +51,7 @@ interface Props {
   drawMode?: boolean;
   editable?: boolean;
   mapState?: ProjectWizardMapState;
-  taskGrid?: ProjectWizardTaskPreviewFeatureCollection | null;
+  taskGrid?: ProjectWizardTaskPreviewFeatureCollection | ProjectWizardGeneratedTaskFeatureCollection | null;
 }
 
 const props = defineProps<Props>();
@@ -354,10 +355,11 @@ function ensureLayers() {
     id: TASK_GRID_FILL_ID,
     type: 'fill',
     source: TASK_GRID_SOURCE_ID,
-    filter: ['all', ['==', ['geometry-type'], 'Polygon'], ['==', ['get', 'featureKind'], 'grid-fill']],
+    filter: ['==', ['geometry-type'], 'Polygon'],
     paint: {
       'fill-color': '#000000',
       'fill-opacity': 0.17,
+      'fill-outline-color': '#dedede',
     },
   };
 
@@ -365,7 +367,7 @@ function ensureLayers() {
     id: TASK_GRID_LINE_ID,
     type: 'line',
     source: TASK_GRID_SOURCE_ID,
-    filter: ['all', ['==', ['geometry-type'], 'LineString'], ['==', ['get', 'featureKind'], 'grid-line']],
+    filter: ['==', ['geometry-type'], 'LineString'],
     paint: {
       'line-color': '#dedede',
       'line-width': 1.35,

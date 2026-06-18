@@ -1,10 +1,11 @@
 import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
-import {
-  createMockProjectWizardProject,
-  generateMockProjectWizardTasks,
-  getMockProjectNameAvailabilityResponse,
-} from '~/services/mock-project-wizard';
 import { buildProjectWizardCreatePayload } from '~/services/project-wizard-payload';
+import {
+  convertCellSizeMetersToSquareKilometers,
+  convertTaskAreaSquareKilometersToCellSizeMeters,
+  createProjectWizardTaskAoiSignature,
+  normalizeTaskAreaSquareKilometers,
+} from '~/services/project-wizard-tasks';
 
 import type { ICancelableClient } from '~/services/loading';
 import type { TdeiAuthStore, TdeiClient } from '~/services/tdei';
@@ -14,11 +15,57 @@ import type {
   ProjectWizardCreatePayload,
   ProjectWizardNameAvailabilityResponse,
   ProjectWizardAreaFeature,
+  ProjectWizardGeneratedTaskFeatureCollection,
   ProjectWizardTaskGenerationSummary,
+  ProjectWizardWorkspaceUser,
 } from '~/types/project-wizard';
 import type { WorkspaceId } from '~/types/workspaces';
 
-const USE_MOCK_PROJECT_WIZARD = import.meta.env.VITE_USE_MOCK_PROJECT_WIZARD !== 'false';
+interface ProjectWizardWorkspaceUserApiItem {
+  id: number;
+  auth_uid: string;
+  email: string;
+  display_name: string;
+  role: ProjectWizardWorkspaceUser['role'];
+}
+
+interface ProjectWizardProjectsListApiItem {
+  name: string;
+}
+
+interface ProjectWizardProjectsListApiResponse {
+  results: ProjectWizardProjectsListApiItem[];
+}
+
+interface ProjectWizardCreateProjectApiResponse {
+  id?: number | string;
+  projectId?: number | string;
+  project_id?: number | string;
+  status?: string;
+}
+
+function normalizeWorkspaceUser(user: ProjectWizardWorkspaceUserApiItem): ProjectWizardWorkspaceUser {
+  return {
+    id: user.id,
+    authUid: user.auth_uid,
+    email: user.email,
+    displayName: user.display_name,
+    role: user.role,
+  };
+}
+
+function normalizeCreatedProject(response: ProjectWizardCreateProjectApiResponse): ProjectWizardCreateResult {
+  const projectId = response.projectId ?? response.project_id ?? response.id;
+
+  if (projectId === undefined || projectId === null || projectId === '') {
+    throw new Error('Project creation response did not include a project id.');
+  }
+
+  return {
+    projectId: String(projectId),
+    status: 'draft',
+  };
+}
 
 export class ProjectWizardClient extends BaseHttpClient implements ICancelableClient {
   #tdeiClient: TdeiClient;
@@ -36,15 +83,18 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
     return new ProjectWizardClient(this._baseUrl, this.#tdeiClient, signal ?? this._abortSignal);
   }
 
+  async listWorkspaceUsers(workspaceId: WorkspaceId): Promise<ProjectWizardWorkspaceUser[]> {
+    const response = await this._get(`workspaces/${workspaceId}/users`);
+    const items = await response.json() as ProjectWizardWorkspaceUserApiItem[];
+
+    return items.map(normalizeWorkspaceUser);
+  }
+
   async createProject(
     workspaceId: WorkspaceId,
     draft: ProjectWizardDraft,
   ): Promise<ProjectWizardCreateResult> {
     const payload = buildProjectWizardCreatePayload(draft);
-
-    if (USE_MOCK_PROJECT_WIZARD) {
-      return await createMockProjectWizardProject(payload);
-    }
 
     return await this.#createProjectRequest(workspaceId, payload);
   }
@@ -53,11 +103,35 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
     workspaceId: WorkspaceId,
     projectName: string,
   ): Promise<ProjectWizardNameAvailabilityResponse> {
-    if (USE_MOCK_PROJECT_WIZARD) {
-      return await getMockProjectNameAvailabilityResponse(projectName);
+    const normalizedName = projectName.trim().toLowerCase();
+
+    if (normalizedName.length < 3) {
+      return {
+        available: false,
+        message: 'Enter at least 3 characters',
+      };
     }
 
-    throw new Error(`Project name availability API not implemented for workspace ${workspaceId}.`);
+    const params = new URLSearchParams({
+      text_search: projectName.trim(),
+      page: '1',
+      page_size: '20',
+      order_by: 'created_at',
+      order_by_type: 'DESC',
+    });
+    const response = await this._get(`workspaces/${workspaceId}/tasking/projects?${params.toString()}`);
+    const body = await response.json() as ProjectWizardProjectsListApiResponse;
+    const existingProject = body.results.some(project => project.name.trim().toLowerCase() === normalizedName);
+
+    return existingProject
+      ? {
+          available: false,
+          message: 'Project name already exists',
+        }
+      : {
+          available: true,
+          message: 'Name available',
+        };
   }
 
   async generateProjectTasks(
@@ -66,14 +140,6 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
     aoi: ProjectWizardAreaFeature,
     requestedTaskAreaSquareKilometers: number,
   ): Promise<ProjectWizardTaskGenerationSummary> {
-    if (USE_MOCK_PROJECT_WIZARD) {
-      return await generateMockProjectWizardTasks(
-        projectId,
-        aoi,
-        requestedTaskAreaSquareKilometers,
-      );
-    }
-
     return await this.#generateProjectTasksRequest(
       workspaceId,
       projectId,
@@ -86,9 +152,10 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
     workspaceId: WorkspaceId,
     payload: ProjectWizardCreatePayload,
   ): Promise<ProjectWizardCreateResult> {
-    void workspaceId;
-    void payload;
-    throw new Error('Project creation endpoint is not configured yet.');
+    const response = await this._post(`workspaces/${workspaceId}/tasking/projects`, payload);
+    const body = await response.json() as ProjectWizardCreateProjectApiResponse;
+
+    return normalizeCreatedProject(body);
   }
 
   async #generateProjectTasksRequest(
@@ -97,11 +164,28 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
     aoi: ProjectWizardAreaFeature,
     requestedTaskAreaSquareKilometers: number,
   ): Promise<ProjectWizardTaskGenerationSummary> {
-    void workspaceId;
-    void projectId;
-    void aoi;
-    void requestedTaskAreaSquareKilometers;
-    throw new Error('Task generation endpoint is not configured yet.');
+    const cellSizeMeters = convertTaskAreaSquareKilometersToCellSizeMeters(
+      requestedTaskAreaSquareKilometers,
+    );
+    const params = new URLSearchParams({
+      cell_size_meters: String(cellSizeMeters),
+    });
+    const response = await this._post(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks/grid?${params.toString()}`,
+    );
+    const body = await response.json() as ProjectWizardGeneratedTaskFeatureCollection;
+    const totalTasks = body.features.filter(feature => feature.geometry.type === 'Polygon').length;
+
+    return {
+      aoiSignature: createProjectWizardTaskAoiSignature(aoi),
+      approximateTaskAreaSquareKilometers: convertCellSizeMetersToSquareKilometers(cellSizeMeters),
+      generatedAt: new Date().toISOString(),
+      requestedTaskAreaSquareKilometers: normalizeTaskAreaSquareKilometers(
+        requestedTaskAreaSquareKilometers,
+      ),
+      taskGrid: body,
+      totalTasks,
+    };
   }
 
   #setAuthHeader() {

@@ -499,10 +499,16 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
       .map(s => ({ id: s.tdei_service_id, name: s.service_name }));
   }
 
-  async getProjectGroupUsers(projectGroupId: string): Promise<TdeiUserItem[]> {
+  async getProjectGroupUsers(
+    projectGroupId: string,
+    searchText: string = '',
+    pageNo: number = 1,
+    pageSize: number = 10000,
+  ): Promise<TdeiUserItem[]> {
     const params = new URLSearchParams();
-    params.append('page_no', '1');
-    params.append('page_size', '10000');
+    params.append('searchText', searchText);
+    params.append('page_no', String(pageNo));
+    params.append('page_size', String(pageSize));
 
     const response = await this._get(`project-group/${projectGroupId}/users?${params}`);
 

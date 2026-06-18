@@ -3,21 +3,21 @@ import type { WorkspaceId } from '~/types/workspaces';
 export type WorkspaceProjectStatus = 'draft' | 'in_progress' | 'completed';
 export type WorkspaceProjectView = 'grid' | 'list';
 export type WorkspaceProjectSort = 'latest' | 'oldest' | 'name_asc' | 'name_desc';
-export type WorkspaceProjectsApiStatus = 'draft' | 'open' | 'completed';
+export type WorkspaceProjectsApiStatus = 'draft' | 'open' | 'done';
 export type WorkspaceProjectsQueryStatus = WorkspaceProjectsApiStatus;
-export type WorkspaceProjectsOrderBy = 'createdAt' | 'name';
+export type WorkspaceProjectsOrderBy = 'created_at' | 'name';
 export type WorkspaceProjectsOrderByType = 'ASC' | 'DESC';
 
 export interface WorkspaceProjectApiItem {
   id: number;
   name: string;
   status: WorkspaceProjectsApiStatus;
-  taskCount: number;
-  percentCompleted: number;
-  createdBy: string;
-  createdByName: string;
-  createdAt: string;
-  updatedAt: string;
+  task_count: number;
+  percent_completed: number;
+  created_by: string;
+  created_by_name: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface WorkspaceProject {
@@ -40,6 +40,12 @@ export interface WorkspaceProjectsPagination {
   total: number;
 }
 
+export interface WorkspaceProjectsApiPagination {
+  page: number;
+  page_size: number;
+  total: number;
+}
+
 export interface WorkspaceProjectsQuery {
   status?: WorkspaceProjectsQueryStatus;
   textSearch?: string;
@@ -56,5 +62,5 @@ export interface WorkspaceProjectsResult {
 
 export interface WorkspaceProjectsApiResponse {
   results: WorkspaceProjectApiItem[];
-  pagination: WorkspaceProjectsPagination;
+  pagination: WorkspaceProjectsApiPagination;
 }
