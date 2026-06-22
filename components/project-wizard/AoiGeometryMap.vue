@@ -297,9 +297,9 @@ function ensureLayers() {
     source: AOI_SOURCE_ID,
     filter: ['==', ['geometry-type'], 'Polygon'],
     paint: {
-      'line-color': '#d9a43d',
-      'line-width': 2.5,
-      'line-dasharray': [2, 2],
+      'line-color': '#cf9830',
+      'line-width': 3.5,
+      'line-dasharray': [2, 1.6],
     },
   };
 
@@ -320,9 +320,9 @@ function ensureLayers() {
     source: DRAFT_SOURCE_ID,
     filter: ['==', ['geometry-type'], 'Polygon'],
     paint: {
-      'line-color': '#d9a43d',
-      'line-width': 2.5,
-      'line-dasharray': [2, 2],
+      'line-color': '#cf9830',
+      'line-width': 3.5,
+      'line-dasharray': [2, 1.6],
     },
   };
 
@@ -357,9 +357,24 @@ function ensureLayers() {
     source: TASK_GRID_SOURCE_ID,
     filter: ['==', ['geometry-type'], 'Polygon'],
     paint: {
-      'fill-color': '#000000',
-      'fill-opacity': 0.17,
-      'fill-outline-color': '#dedede',
+      'fill-color': [
+        'match',
+        ['coalesce', ['get', 'featureKind'], 'saved-grid'],
+        'grid-fill', '#4f8fbe',
+        '#25598d',
+      ],
+      'fill-opacity': [
+        'match',
+        ['coalesce', ['get', 'featureKind'], 'saved-grid'],
+        'grid-fill', 0.18,
+        0.24,
+      ],
+      'fill-outline-color': [
+        'match',
+        ['coalesce', ['get', 'featureKind'], 'saved-grid'],
+        'grid-fill', '#1c6ea4',
+        '#153f6e',
+      ],
     },
   };
 
@@ -369,8 +384,9 @@ function ensureLayers() {
     source: TASK_GRID_SOURCE_ID,
     filter: ['==', ['geometry-type'], 'LineString'],
     paint: {
-      'line-color': '#dedede',
-      'line-width': 1.35,
+      'line-color': '#145488',
+      'line-width': 2.1,
+      'line-opacity': 0.92,
     },
   };
 

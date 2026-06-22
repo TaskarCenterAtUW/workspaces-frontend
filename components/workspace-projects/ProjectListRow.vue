@@ -1,4 +1,11 @@
 <template>
+  <!--
+    Project list row — used in the list view on the workspace projects page.
+
+    Same stretched-link technique as ProjectCard.vue:
+    The <nuxt-link> overlay (`project-list-link`) covers the entire row, while the action
+    button stays independently clickable via `position: relative; z-index: 1`.
+  -->
   <article class="project-list-row">
     <div class="project-list-title-cell">
       <div class="project-list-title tdei-list-title">
@@ -36,15 +43,20 @@
       </div>
     </div>
 
+    <!-- Action button sits above the stretched-link overlay via z-index. -->
     <div class="project-list-actions-cell">
       <button
         class="project-list-menu-button btn btn-link"
         type="button"
         aria-label="Project actions"
+        @click.stop
       >
         <app-icon variant="more_vert" size="22" no-margin />
       </button>
     </div>
+
+    <!-- Stretched-link overlay: makes the full row surface navigate to the project detail page. -->
+    <nuxt-link :to="projectRoute" class="project-list-link" :aria-label="`Open project ${project.name}`" />
   </article>
 </template>
 
@@ -61,22 +73,54 @@ const props = defineProps<Props>();
 const { progressPercent, taskSummary, createdDate } = useProjectDisplay(
   computed(() => props.project),
 );
+
+/** The detail route for this project. Used by the stretched-link overlay. */
+const projectRoute = computed(
+  () => `/workspace/${props.project.workspaceId}/projects/${props.project.id}`,
+);
 </script>
 
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
 .project-list-row {
+  /* `position: relative` is required for the stretched-link overlay. */
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 2.9fr) minmax(8.5rem, 1.1fr) minmax(12rem, 1.35fr) minmax(11rem, 1.2fr) minmax(15rem, 1.6fr) 2.25rem;
   gap: 1.5rem;
   align-items: start;
   padding: 2.2rem 0;
+  cursor: pointer;
   border-bottom: 1px solid rgba($text-navy, 0.08);
+  transition: background-color 160ms ease;
 }
 
 .project-list-row:last-child {
   border-bottom: 0;
+}
+
+.project-list-row:hover,
+.project-list-row:focus-within {
+  background: rgba(244, 240, 251, 0.44);
+}
+
+/* Stretched-link overlay — same technique as ProjectCard.vue. */
+.project-list-link {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  text-decoration: none;
+  color: transparent;
+}
+
+/* Action button stays above the stretched-link overlay and inherits its own padding/color. */
+.project-list-menu-button {
+  position: relative;
+  z-index: 1;
+  padding: 0;
+  color: #8b92ab;
+  text-decoration: none;
 }
 
 .project-list-title {
@@ -118,11 +162,7 @@ const { progressPercent, taskSummary, createdDate } = useProjectDisplay(
   padding-top: 0.1rem;
 }
 
-.project-list-menu-button {
-  padding: 0;
-  color: #8b92ab;
-  text-decoration: none;
-}
+/* Duplicate .project-list-menu-button declaration removed — merged with block above. */
 
 @include media-breakpoint-down(xl) {
   .project-list-row {

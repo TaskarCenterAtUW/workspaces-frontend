@@ -60,6 +60,10 @@ function serializeStoredState(state: ProjectWizardStoredState) {
 }
 
 function shouldPersistState(state: ProjectWizardStoredState) {
+  if (state.createdProject) {
+    return false;
+  }
+
   const defaultState: ProjectWizardStoredState = {
     createdProject: null,
     currentStep: 'details',
@@ -89,8 +93,10 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
       return;
     }
 
-    createdProject.value = state.createdProject;
-    currentStep.value = state.createdProject ? 'tasks' : state.currentStep;
+    createdProject.value = null;
+    currentStep.value = PROJECT_WIZARD_STEPS.includes(state.currentStep)
+      ? state.currentStep
+      : 'details';
     Object.assign(draft.details, state.draft.details);
     Object.assign(draft.area, state.draft.area);
     Object.assign(draft.settings, state.draft.settings);
@@ -109,7 +115,7 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
   }
 
   async function goToStep(step: ProjectWizardStepId) {
-    if (createdProject.value && step !== 'tasks') {
+    if (createdProject.value) {
       return;
     }
 
@@ -159,7 +165,6 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
       projectName: draft.details.name.trim(),
       status: result.status,
     };
-    currentStep.value = 'tasks';
 
     return result;
   }

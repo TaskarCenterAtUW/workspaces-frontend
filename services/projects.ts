@@ -4,8 +4,15 @@ import { getMockWorkspaceProjectsResponse } from '~/services/mock-workspace-proj
 import type { ICancelableClient } from '~/services/loading';
 import type { TdeiAuthStore, TdeiClient } from '~/services/tdei';
 import type {
+  WorkspaceProjectAoiApiResponse,
+  WorkspaceProjectAoiFeature,
+  WorkspaceProjectDetail,
+  WorkspaceProjectDetailApiItem,
   WorkspaceProject,
   WorkspaceProjectApiItem,
+  WorkspaceProjectTaskApiItem,
+  WorkspaceProjectTaskListItem,
+  WorkspaceProjectTasksApiResponse,
   WorkspaceProjectsApiResponse,
   WorkspaceProjectsQuery,
   WorkspaceProjectsResult,
@@ -30,6 +37,20 @@ function normalizeStatus(status: WorkspaceProjectApiItem['status']): WorkspacePr
   }
 }
 
+function normalizeTaskStatus(status: WorkspaceProjectTaskApiItem['status']): WorkspaceProjectTaskListItem['status'] {
+  switch (status) {
+    case 'to_validate':
+      return 'ready_for_validation';
+    case 'more_mapping_needed':
+      return 'needs_more_mapping';
+    case 'done':
+      return 'completed';
+    case 'to_map':
+    default:
+      return 'ready_for_mapping';
+  }
+}
+
 function normalizeProject(
   workspaceId: WorkspaceId,
   project: WorkspaceProjectApiItem,
@@ -49,6 +70,30 @@ function normalizeProject(
   };
 }
 
+function normalizeProjectDetail(
+  workspaceId: WorkspaceId,
+  project: WorkspaceProjectDetailApiItem,
+): WorkspaceProjectDetail {
+  return {
+    id: project.id,
+    workspaceId,
+    name: project.name,
+    summary: undefined,
+    status: normalizeStatus(project.status),
+    taskCount: project.task_count,
+    percentCompleted: project.percent_completed ?? 0,
+    createdBy: project.created_by,
+    createdByName: project.created_by_name ?? '',
+    createdAt: new Date(project.created_at),
+    updatedAt: new Date(project.updated_at),
+    instructions: project.instructions,
+    reviewRequired: project.review_required,
+    lockTimeoutHours: project.lock_timeout_hours,
+    taskBoundaryType: project.task_boundary_type,
+    hasAoi: project.has_aoi,
+  };
+}
+
 function normalizeProjectsResponse(
   workspaceId: WorkspaceId,
   response: WorkspaceProjectsApiResponse,
@@ -60,6 +105,33 @@ function normalizeProjectsResponse(
       pageSize: response.pagination.page_size,
       total: response.pagination.total,
     },
+  };
+}
+
+function formatProjectTaskDate(value: string): string {
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return value;
+  }
+
+  return parsedDate.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function normalizeProjectTask(task: WorkspaceProjectTaskApiItem): WorkspaceProjectTaskListItem {
+  return {
+    id: String(task.id),
+    label: `Task #${task.task_number}`,
+    status: normalizeTaskStatus(task.status),
+    geometry: task.geometry,
+    taskNumber: task.task_number,
+    mapperName: task.last_mapper?.user_name ?? 'Unassigned',
+    updatedAt: formatProjectTaskDate(task.updated_at),
+    locked: task.lock !== null,
   };
 }
 
@@ -136,6 +208,50 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     return normalizeProjectsResponse(workspaceId, body);
   }
 
+  async getWorkspaceProjectDetail(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+  ): Promise<WorkspaceProjectDetail> {
+    const response = await this.#newApi._get(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}`,
+    );
+    const body = await response.json() as WorkspaceProjectDetailApiItem;
+
+    return normalizeProjectDetail(workspaceId, body);
+  }
+
+  async getWorkspaceProjectAoi(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+  ): Promise<WorkspaceProjectAoiFeature> {
+    const response = await this.#newApi._get(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/aoi`,
+    );
+    const body = await response.json() as WorkspaceProjectAoiApiResponse;
+
+    return {
+      type: 'Feature',
+      geometry: body.geometry,
+      properties: body.properties ?? {},
+    };
+  }
+
+  async getWorkspaceProjectTasks(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+  ): Promise<WorkspaceProjectTaskListItem[]> {
+    const params = new URLSearchParams({
+      page: '1',
+      page_size: '200',
+    });
+    const response = await this.#newApi._get(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks?${params.toString()}`,
+    );
+    const body = await response.json() as WorkspaceProjectTasksApiResponse;
+
+    return body.tasks.map(normalizeProjectTask);
+  }
+
   #buildProjectsPath(workspaceId: WorkspaceId, query: WorkspaceProjectsQuery) {
     const params = new URLSearchParams();
 
@@ -164,8 +280,8 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
   override async _send(
     url: string,
     method: string,
-    body?: any,
-    config?: object,
+    body?: unknown,
+    config?: RequestInit,
   ): Promise<Response> {
     try {
       await this.#tdeiClient.tryRefreshAuth();
