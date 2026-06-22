@@ -6,7 +6,7 @@ import type {
   ProjectWizardStepId,
 } from '~/types/project-wizard';
 
-const VALID_STEP_IDS: readonly ProjectWizardStepId[] = ['details', 'area', 'settings', 'review', 'tasks'];
+const VALID_STEP_IDS: readonly ProjectWizardStepId[] = ['details', 'area', 'settings', 'review'];
 
 function parseStepDefinitions(steps: unknown): ProjectWizardStepDefinition[] {
   if (!Array.isArray(steps)) {

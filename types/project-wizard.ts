@@ -9,7 +9,7 @@ import type {
 
 import type { WorkspaceId, WorkspaceRole } from '~/types/workspaces';
 
-export type ProjectWizardStepId = 'details' | 'area' | 'tasks' | 'settings' | 'review';
+export type ProjectWizardStepId = 'details' | 'area' | 'settings' | 'review';
 export type ProjectWizardMapTone = 'primary' | 'accent' | 'muted';
 export type ProjectWizardNameAvailabilityStatus = 'idle' | 'checking' | 'available' | 'unavailable';
 export type ProjectWizardFieldType = 'text' | 'textarea';
@@ -81,11 +81,6 @@ export interface ProjectWizardAreaStepDefinition extends ProjectWizardBaseStepDe
   content: ProjectWizardAreaStepContent;
 }
 
-export interface ProjectWizardTasksStepDefinition extends ProjectWizardBaseStepDefinition {
-  step: 'tasks';
-  content?: Record<string, never>;
-}
-
 export interface ProjectWizardSettingsStepDefinition extends ProjectWizardBaseStepDefinition {
   step: 'settings';
   content?: Record<string, never>;
@@ -99,7 +94,6 @@ export interface ProjectWizardReviewStepDefinition extends ProjectWizardBaseStep
 export type ProjectWizardStepDefinition =
   | ProjectWizardDetailsStepDefinition
   | ProjectWizardAreaStepDefinition
-  | ProjectWizardTasksStepDefinition
   | ProjectWizardSettingsStepDefinition
   | ProjectWizardReviewStepDefinition;
 
@@ -171,6 +165,8 @@ export type ProjectWizardGeneratedTaskFeatureCollection = FeatureCollection<
   GeoJsonProperties
 >;
 
+export type ProjectWizardTaskBoundarySource = 'grid';
+
 export interface ProjectWizardTaskGenerationSummary {
   aoiSignature: string;
   approximateTaskAreaSquareKilometers: number;
@@ -178,6 +174,54 @@ export interface ProjectWizardTaskGenerationSummary {
   requestedTaskAreaSquareKilometers: number;
   taskGrid: ProjectWizardGeneratedTaskFeatureCollection;
   totalTasks: number;
+}
+
+export interface ProjectWizardSavedTaskLock {
+  expires_at: string;
+  locked_at: string;
+  user_id: string;
+  user_name: string;
+}
+
+export interface ProjectWizardSavedTaskMapper {
+  user_id: string;
+  user_name: string;
+}
+
+export interface ProjectWizardSavedTaskItem {
+  area_sqkm: number;
+  created_at: string;
+  geometry: Polygon;
+  id: number;
+  last_mapper: ProjectWizardSavedTaskMapper | null;
+  lock: ProjectWizardSavedTaskLock | null;
+  status: string;
+  task_number: number;
+  updated_at: string;
+}
+
+export interface ProjectWizardTaskSavePayload {
+  feature_collection: ProjectWizardGeneratedTaskFeatureCollection;
+  source: ProjectWizardTaskBoundarySource;
+}
+
+export interface ProjectWizardTaskSaveResponse {
+  idempotency_key: string;
+  project_id: number;
+  replayed: boolean;
+  task_boundary_type: string;
+  task_count: number;
+  tasks: ProjectWizardSavedTaskItem[];
+}
+
+export interface ProjectWizardTaskSaveSummary {
+  idempotencyKey: string;
+  replayed: boolean;
+  savedAt: string;
+  source: ProjectWizardTaskBoundarySource;
+  taskBoundaryType: string;
+  taskCount: number;
+  taskGrid: ProjectWizardGeneratedTaskFeatureCollection;
 }
 
 export interface ProjectWizardSettingsDraft {

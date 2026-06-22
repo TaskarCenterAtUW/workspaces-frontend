@@ -16,7 +16,11 @@ import type {
   ProjectWizardNameAvailabilityResponse,
   ProjectWizardAreaFeature,
   ProjectWizardGeneratedTaskFeatureCollection,
+  ProjectWizardTaskBoundarySource,
   ProjectWizardTaskGenerationSummary,
+  ProjectWizardTaskSavePayload,
+  ProjectWizardTaskSaveResponse,
+  ProjectWizardTaskSaveSummary,
   ProjectWizardWorkspaceUser,
 } from '~/types/project-wizard';
 import type { WorkspaceId } from '~/types/workspaces';
@@ -44,6 +48,8 @@ interface ProjectWizardCreateProjectApiResponse {
   status?: string;
 }
 
+const PROJECT_WIZARD_TASK_SOURCE_GRID: ProjectWizardTaskBoundarySource = 'grid';
+
 function normalizeWorkspaceUser(user: ProjectWizardWorkspaceUserApiItem): ProjectWizardWorkspaceUser {
   return {
     id: user.id,
@@ -64,6 +70,25 @@ function normalizeCreatedProject(response: ProjectWizardCreateProjectApiResponse
   return {
     projectId: String(projectId),
     status: 'draft',
+  };
+}
+
+function buildSavedTaskGrid(
+  tasks: ProjectWizardTaskSaveResponse['tasks'],
+): ProjectWizardGeneratedTaskFeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: tasks.map(task => ({
+      type: 'Feature',
+      geometry: task.geometry,
+      properties: {
+        areaSqkm: task.area_sqkm,
+        status: task.status,
+        taskId: task.id,
+        taskNumber: task.task_number,
+        updatedAt: task.updated_at,
+      },
+    })),
   };
 }
 
@@ -148,6 +173,14 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
     );
   }
 
+  async saveProjectTasks(
+    workspaceId: WorkspaceId,
+    projectId: string,
+    taskGrid: ProjectWizardGeneratedTaskFeatureCollection,
+  ): Promise<ProjectWizardTaskSaveSummary> {
+    return await this.#saveProjectTasksRequest(workspaceId, projectId, taskGrid);
+  }
+
   async #createProjectRequest(
     workspaceId: WorkspaceId,
     payload: ProjectWizardCreatePayload,
@@ -185,6 +218,32 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
       ),
       taskGrid: body,
       totalTasks,
+    };
+  }
+
+  async #saveProjectTasksRequest(
+    workspaceId: WorkspaceId,
+    projectId: string,
+    taskGrid: ProjectWizardGeneratedTaskFeatureCollection,
+  ): Promise<ProjectWizardTaskSaveSummary> {
+    const payload: ProjectWizardTaskSavePayload = {
+      source: PROJECT_WIZARD_TASK_SOURCE_GRID,
+      feature_collection: taskGrid,
+    };
+    const response = await this._post(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks/save`,
+      payload,
+    );
+    const body = await response.json() as ProjectWizardTaskSaveResponse;
+
+    return {
+      idempotencyKey: body.idempotency_key,
+      replayed: body.replayed,
+      savedAt: new Date().toISOString(),
+      source: PROJECT_WIZARD_TASK_SOURCE_GRID,
+      taskBoundaryType: body.task_boundary_type,
+      taskCount: body.task_count,
+      taskGrid: buildSavedTaskGrid(body.tasks),
     };
   }
 

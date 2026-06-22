@@ -17,7 +17,7 @@
           class="project-create-close btn btn-link"
           type="button"
           aria-label="Close create project flow"
-          :disabled="generatingTasks"
+          :disabled="creating.active"
           @click="exitWizard()"
         >
           <app-icon variant="close" size="28" no-margin />
@@ -65,23 +65,6 @@
                   @reset="resetAreaOfInterest"
                   @upload="importAreaOfInterest"
                 />
-
-                <project-wizard-steps-tasks-generation-step
-                  v-else-if="tasksStep"
-                  :step="tasksStep"
-                  :can-generate="Boolean(draft.area.aoi) && taskPreviewSummary.totalTasks > 0"
-                  :created-project-name="createdProject?.projectName ?? draft.details.name.trim()"
-                  :generated-summary="generatedTaskSummary"
-                  :generating="generatingTasks"
-                  :maximum-task-area-square-kilometers="PROJECT_WIZARD_TASK_AREA_MAXIMUM"
-                  :minimum-task-area-square-kilometers="PROJECT_WIZARD_TASK_AREA_MINIMUM"
-                  :task-area-square-kilometers="currentTaskAreaSquareKilometers"
-                  :task-area-step="PROJECT_WIZARD_TASK_AREA_STEP"
-                  @generate="handleGenerateTasks"
-                  @reset="resetTaskGeneration"
-                  @update:task-area="updateTaskAreaSquareKilometers"
-                />
-
                 <project-wizard-steps-settings-step
                   v-else-if="settingsStep"
                   :step="settingsStep"
@@ -112,7 +95,7 @@
               <button
                 class="btn btn-link project-create-cancel-action"
                 type="button"
-                :disabled="loading.active || creating.active || generatingTasks"
+                :disabled="loading.active || creating.active"
                 @click="exitWizard()"
               >
                 Cancel
@@ -123,7 +106,7 @@
                   v-if="showPreviousAction"
                   class="btn btn-outline-secondary project-create-secondary-action"
                   type="button"
-                  :disabled="loading.active || creating.active || generatingTasks"
+                  :disabled="loading.active || creating.active"
                   @click="onSecondaryAction"
                 >
                   <app-icon variant="chevron_left" no-margin />
@@ -133,7 +116,7 @@
                 <button
                   class="btn btn-primary project-create-primary-action"
                   type="button"
-                  :disabled="!canProceed || loading.active || creating.active || generatingTasks"
+                  :disabled="!canProceed || loading.active || creating.active"
                   @click="onPrimaryAction"
                 >
                   <app-spinner v-if="creating.active" size="sm" />
@@ -155,7 +138,6 @@
             :draw-mode="isAreaStepActive && isAreaDrawMode"
             :editable="isAreaStepActive"
             :map-state="stepData.map"
-            :task-grid="displayedTaskGrid"
             @update:aoi="updateAreaFeature"
             @update:draw-mode="updateAreaDrawMode"
           />
@@ -180,11 +162,6 @@
 <script setup lang="ts">
 import { projectWizardClient, workspacesClient } from '~/services/index';
 import { buildProjectWizardReviewSummary } from '~/services/project-wizard-review';
-import {
-  PROJECT_WIZARD_TASK_AREA_MAXIMUM,
-  PROJECT_WIZARD_TASK_AREA_MINIMUM,
-  PROJECT_WIZARD_TASK_AREA_STEP,
-} from '~/services/project-wizard-tasks';
 
 import type {
   ProjectWizardAreaStepDefinition,
@@ -195,7 +172,6 @@ import type {
   ProjectWizardReviewStepDefinition,
   ProjectWizardSettingsStepDefinition,
   ProjectWizardStepId,
-  ProjectWizardTasksStepDefinition,
 } from '~/types/project-wizard';
 
 const route = useRoute();
@@ -236,9 +212,6 @@ const detailsStep = computed(() =>
 const areaStep = computed(() =>
   stepData.value?.step === 'area' ? stepData.value as ProjectWizardAreaStepDefinition : undefined,
 );
-const tasksStep = computed(() =>
-  stepData.value?.step === 'tasks' ? stepData.value as ProjectWizardTasksStepDefinition : undefined,
-);
 const settingsStep = computed(() =>
   stepData.value?.step === 'settings' ? stepData.value as ProjectWizardSettingsStepDefinition : undefined,
 );
@@ -263,23 +236,6 @@ const {
   areaStep,
   currentStep,
   draft,
-});
-const {
-  currentTaskAreaSquareKilometers,
-  generatedTaskGrid,
-  generatedTaskSummary,
-  generateTasks,
-  generatingTasks,
-  isTasksStepActive,
-  resetTaskGeneration,
-  taskPreviewGrid,
-  taskPreviewSummary,
-  updateTaskAreaSquareKilometers,
-} = useProjectWizardTasks({
-  aoi: computed(() => draft.area.aoi),
-  createdProject,
-  currentStep,
-  workspaceId,
 });
 const {
   addValidator,
@@ -312,8 +268,6 @@ const canProceed = computed(() => {
       return Boolean(draft.area.aoi);
     case 'review':
       return !createdProject.value;
-    case 'tasks':
-      return Boolean(createdProject.value) && Boolean(generatedTaskSummary.value);
     default:
       return true;
   }
@@ -322,10 +276,6 @@ const canProceed = computed(() => {
 const primaryActionLabel = computed(() => {
   if (currentStep.value === 'review') {
     return 'Create Project';
-  }
-
-  if (currentStep.value === 'tasks') {
-    return 'Finish';
   }
 
   return stepData.value?.nextLabel ?? (isLastStep.value ? 'Finish' : 'Next');
@@ -341,15 +291,10 @@ const showPreviousAction = computed(() =>
   !isFirstStep.value && !createdProject.value,
 );
 
-const displayedTaskGrid = computed(() =>
-  generatedTaskGrid.value
-    ?? (isTasksStepActive.value ? taskPreviewGrid.value : null),
-);
-
 type StatusDialogState = {
   message: string;
   primaryActionLabel: string;
-  primaryActionType: 'navigate' | 'retry-create' | 'retry-task-generation';
+  primaryActionType: 'navigate' | 'retry-create';
   primaryRoute: string;
   secondaryActionLabel?: string;
   secondaryRoute?: string;
@@ -467,11 +412,6 @@ async function onPrimaryAction() {
     return;
   }
 
-  if (currentStep.value === 'tasks') {
-    await leaveWizard(projectsRoute);
-    return;
-  }
-
   await goNext();
 }
 
@@ -485,7 +425,7 @@ async function onSecondaryAction() {
 }
 
 async function onSelectStep(step: ProjectWizardStepId) {
-  if (createdProject.value && step !== 'tasks') {
+  if (createdProject.value) {
     return;
   }
 
@@ -509,11 +449,6 @@ async function handleStatusDialogPrimaryAction() {
     return;
   }
 
-  if (dialog.primaryActionType === 'retry-task-generation') {
-    await handleGenerateTasks();
-    return;
-  }
-
   if (dialog.primaryRoute) {
     await leaveWizard(dialog.primaryRoute);
   }
@@ -530,41 +465,26 @@ async function handleStatusDialogSecondaryAction() {
 
 async function submitProject() {
   try {
-    await createProject();
-    await goToStep('tasks');
+    const result = await createProject();
+
+    openProjectCreationSuccessDialog(result);
   }
   catch (error) {
     openProjectCreationErrorDialog(error);
   }
 }
 
-async function handleGenerateTasks() {
-  try {
-    const result = await generateTasks();
-
-    if (!result) {
-      return;
-    }
-
-    openTaskGenerationSuccessDialog();
-  }
-  catch (error) {
-    openTaskGenerationErrorDialog(error);
-  }
-}
-
-function openTaskGenerationSuccessDialog() {
+function openProjectCreationSuccessDialog(result: ProjectWizardCreateResult) {
   const projectName = createdProject.value?.projectName || draft.details.name.trim();
-  const projectStatus = createdProject.value?.status ?? 'draft';
 
   statusDialog.value = {
     variant: 'success',
     title: 'Success!',
-    message: `Project ${projectName} created successfully and ${generatedTaskSummary.value?.totalTasks ?? 0} tasks were generated. It is now in ${formatProjectStatus(projectStatus)} status.`,
-    primaryActionLabel: 'Open Project',
+    message: `Project ${projectName} created successfully. Generate and save tasks from the Tasks tab when you are ready. It is now in ${formatProjectStatus(result.status)} status.`,
+    primaryActionLabel: 'Open Tasks Tab',
     primaryActionType: 'navigate',
     primaryRoute: createdProject.value
-      ? `${projectsRoute}?projectId=${encodeURIComponent(createdProject.value.projectId)}`
+      ? `/workspace/${workspaceId}/projects/${encodeURIComponent(createdProject.value.projectId)}?tab=tasks`
       : projectsRoute,
     secondaryActionLabel: 'Go to Projects',
     secondaryRoute: projectsRoute,
@@ -580,19 +500,6 @@ function openProjectCreationErrorDialog(error: unknown) {
       : 'Project could not be created. Please try again.',
     primaryActionLabel: 'Try Again',
     primaryActionType: 'retry-create',
-    primaryRoute: '',
-  };
-}
-
-function openTaskGenerationErrorDialog(error: unknown) {
-  statusDialog.value = {
-    variant: 'error',
-    title: 'Something went wrong',
-    message: error instanceof Error
-      ? error.message
-      : 'Tasks could not be generated. Please try again.',
-    primaryActionLabel: 'Try Again',
-    primaryActionType: 'retry-task-generation',
     primaryRoute: '',
   };
 }
