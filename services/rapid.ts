@@ -8,6 +8,8 @@ export class RapidManager {
   #baseUrl: string;
   #osmUrl: string;
   #tdeiAuth: TdeiAuthStore;
+  #stateCallback: ((state: any) => void) | null = null;
+  
 
   /** Reactive flag indicating whether the Rapid script has loaded and is ready. */
   loaded: ReturnType<typeof ref<boolean>>;
@@ -26,6 +28,16 @@ export class RapidManager {
     this.loaded = ref(false);
     this.containerNode = document.createElement('div');
     this.rapidContext = null;
+  }
+
+  onStateChange(callback: (state: any) => void) {
+    this.#stateCallback = callback;
+  }
+
+  #notifyStateChange(state: any) {
+    if (this.#stateCallback) {
+      this.#stateCallback(state);
+    }
   }
 
   load() {
@@ -74,8 +86,10 @@ export class RapidManager {
     this.rapidContext.embed(true);
     this.rapidContext.containerNode = this.containerNode;
     this.rapidContext.assetPath = this.#baseUrl;
+    
 
-    console.info('Rapid loaded', this.rapidContext);
+    console.log('Rapid loaded', this.rapidContext);
+    
   }
 
   #patchRapid() {
@@ -86,9 +100,24 @@ export class RapidManager {
     rapidOsmClient.authenticated = () => this.#tdeiAuth.ok;
 
     // Don't bother to fetch user details when uploading changesets:
-    rapidOsmService.userDetails = (callback: (err: string) => void) => {
-      callback('dummy error')
-    };
+    rapidOsmService.userDetails = (callback) => { callback('dummy error') };
+    // const editor = this.rapidContext.editor;
+    // console.info('Rapid editor', editor);
+    console.log('Rapid editor ',this.rapidContext);
+    const editSystem = this.rapidContext.systems.editor;
+    editSystem.on('stablechange', (state) => {
+      // this.#notifyStateChange(state);
+      const changes = editSystem.changes();
+      console.log('Rapid editor changes', changes);
+      const changesLength = changes.modified.length || changes.created.length || changes.deleted.length;
+       
+      this.#notifyStateChange(changesLength);
+       
+    });
+     
+    // editSystem.on('reset', () => {
+    //   console.log('Rapid editor reset');
+    // });
   }
 
   #wrapFetch(innerFetch: typeof fetch) {
