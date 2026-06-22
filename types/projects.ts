@@ -1,3 +1,9 @@
+import type {
+  Feature,
+  MultiPolygon,
+  Polygon,
+} from 'geojson';
+
 import type { WorkspaceId } from '~/types/workspaces';
 
 export type WorkspaceProjectStatus = 'draft' | 'in_progress' | 'completed';
@@ -7,6 +13,15 @@ export type WorkspaceProjectsApiStatus = 'draft' | 'open' | 'done';
 export type WorkspaceProjectsQueryStatus = WorkspaceProjectsApiStatus;
 export type WorkspaceProjectsOrderBy = 'created_at' | 'name';
 export type WorkspaceProjectsOrderByType = 'ASC' | 'DESC';
+export type WorkspaceProjectDetailTab = 'overview' | 'instructions' | 'tasks' | 'contributions';
+export type WorkspaceProjectTaskStatus =
+  | 'ready_for_mapping'
+  | 'ready_for_validation'
+  | 'needs_more_mapping'
+  | 'completed';
+export type WorkspaceProjectContributorRole = 'validator' | 'mapper' | 'lead';
+export type WorkspaceProjectTaskApiStatus = 'to_map' | 'to_validate' | 'more_mapping_needed' | 'done' | string;
+export type WorkspaceProjectAoiFeature = Feature<Polygon | MultiPolygon>;
 
 export interface WorkspaceProjectApiItem {
   id: number;
@@ -18,6 +33,59 @@ export interface WorkspaceProjectApiItem {
   created_by_name: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface WorkspaceProjectDetailApiItem {
+  id: number;
+  workspace_id: number;
+  name: string;
+  instructions: string;
+  status: WorkspaceProjectsApiStatus;
+  review_required: boolean;
+  lock_timeout_hours: number;
+  task_boundary_type: string;
+  has_aoi: boolean;
+  task_count: number;
+  percent_completed?: number | null;
+  created_by: string;
+  created_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceProjectTaskApiLock {
+  user_id: string;
+  user_name: string;
+  locked_at: string;
+  expires_at: string;
+}
+
+export interface WorkspaceProjectTaskApiMapper {
+  user_id: string;
+  user_name: string;
+}
+
+export interface WorkspaceProjectTaskApiItem {
+  id: number;
+  task_number: number;
+  status: WorkspaceProjectTaskApiStatus;
+  geometry: Polygon;
+  area_sqkm: number;
+  lock: WorkspaceProjectTaskApiLock | null;
+  last_mapper: WorkspaceProjectTaskApiMapper | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceProjectTasksApiResponse {
+  tasks: WorkspaceProjectTaskApiItem[];
+  pagination: WorkspaceProjectsApiPagination;
+}
+
+export interface WorkspaceProjectAoiApiResponse {
+  type: 'Feature';
+  geometry: Polygon | MultiPolygon;
+  properties: Record<string, unknown>;
 }
 
 export interface WorkspaceProject {
@@ -32,6 +100,47 @@ export interface WorkspaceProject {
   createdAt: Date;
   updatedAt: Date;
   createdByName: string;
+}
+
+export interface WorkspaceProjectDetail extends WorkspaceProject {
+  instructions: string;
+  reviewRequired: boolean;
+  lockTimeoutHours: number;
+  taskBoundaryType: string;
+  hasAoi: boolean;
+}
+
+export interface WorkspaceProjectTaskListItem {
+  id: string;
+  label: string;
+  status: WorkspaceProjectTaskStatus;
+  geometry?: Polygon;
+  taskNumber: number;
+  mapperName: string;
+  updatedAt: string;
+  locked: boolean;
+}
+
+export interface WorkspaceProjectContributor {
+  id: string;
+  name: string;
+  email: string;
+  role: WorkspaceProjectContributorRole;
+}
+
+export interface WorkspaceProjectContributionMetric {
+  key: 'mapped' | 'validated' | 'completed';
+  label: string;
+  percent: number;
+  color: string;
+}
+
+export interface WorkspaceProjectDetailSupplemental {
+  descriptionHtml: string;
+  instructionsHtml: string;
+  tasks: WorkspaceProjectTaskListItem[];
+  contributors: WorkspaceProjectContributor[];
+  contributionMetrics: WorkspaceProjectContributionMetric[];
 }
 
 export interface WorkspaceProjectsPagination {

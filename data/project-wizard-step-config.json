@@ -90,20 +90,6 @@
           "features": []
         }
       }
-    },
-    {
-      "step": "tasks",
-      "title": "Tasks Generation",
-      "description": "Define task area to generate tasks.",
-      "nextLabel": "Finish",
-      "map": {
-        "center": [-122.335, 47.61],
-        "zoom": 9.2,
-        "features": {
-          "type": "FeatureCollection",
-          "features": []
-        }
-      }
     }
   ]
 }
