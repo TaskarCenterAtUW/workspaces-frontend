@@ -52,19 +52,24 @@
           :class="{ 'project-detail-task-item-selected': task.id === selectedTaskId }"
         >
           <div class="project-detail-task-cell project-detail-task-cell-id">
-            <button
-              class="project-detail-task-select"
-              type="button"
-              @click="emit('select-task', task.id)"
-            >
-              <span class="project-detail-task-mobile-label">Task ID</span>
-              <div class="project-detail-task-id-copy">
+            <span class="project-detail-task-mobile-label">Task ID</span>
+            <div class="project-detail-task-id-copy">
+              <button
+                class="project-detail-task-select"
+                type="button"
+                @click="emit('select-task', task.id)"
+              >
                 <strong>{{ task.label }}</strong>
-                <span v-if="task.locked" class="project-detail-task-lock">
-                  <app-icon variant="lock" size="16" no-margin />
-                </span>
-              </div>
-            </button>
+              </button>
+
+              <workspace-project-details-task-lock-control
+                v-if="task.locked"
+                :busy="mutatingTaskNumber === task.taskNumber"
+                :can-unlock="task.lock?.user_id === currentUserId"
+                :locked-by-name="task.lock?.user_name ?? null"
+                @unlock="emit('unlock-task', task.taskNumber)"
+              />
+            </div>
           </div>
 
           <div class="project-detail-task-cell">
@@ -153,6 +158,10 @@ interface SelectOption {
 }
 
 interface Props {
+  /** Auth subject of the signed-in user. Used to decide whether a lock can be unlocked locally. */
+  currentUserId?: string | null;
+  /** Task number currently being locked/unlocked so only the affected row shows a busy state. */
+  mutatingTaskNumber?: number | null;
   /** The task ID currently highlighted on the map (synced from the parent page). */
   selectedTaskId?: string | null;
   /** Full list of tasks for this project. Filtering/sorting is applied in this component. */
@@ -162,6 +171,7 @@ interface Props {
 const props = defineProps<Props>();
 const emit = defineEmits<{
   'select-task': [taskId: string];
+  'unlock-task': [taskNumber: number];
 }>();
 
 /** Number of tasks shown per page. Change this if you want larger or smaller pages. */
@@ -388,7 +398,7 @@ function formatTaskStatus(status: WorkspaceProjectTaskStatus) {
 }
 
 .project-detail-task-select {
-  width: 100%;
+  width: auto;
   display: grid;
   gap: 0.2rem;
   padding: 0;
@@ -410,13 +420,9 @@ function formatTaskStatus(status: WorkspaceProjectTaskStatus) {
 }
 
 .project-detail-task-id-copy {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 0.55rem;
-}
-
-.project-detail-task-lock {
-  color: #d94f4f;
 }
 
 .project-detail-task-status {

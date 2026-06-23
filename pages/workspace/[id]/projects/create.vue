@@ -61,6 +61,7 @@
                   :imported-file-name="draft.area.importedFileName"
                   :is-drawing="isAreaDrawMode"
                   :warning-message="areaWarningMessage"
+                  @download="downloadAreaOfInterest"
                   @draw="startAreaDrawMode"
                   @reset="resetAreaOfInterest"
                   @upload="importAreaOfInterest"
@@ -224,6 +225,7 @@ const nameAvailabilityMessage = ref('');
 const {
   areaImportError,
   areaWarningMessage,
+  downloadAreaOfInterest,
   displayedAoi,
   importAreaOfInterest,
   isAreaDrawMode,
