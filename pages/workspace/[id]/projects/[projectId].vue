@@ -2,7 +2,10 @@
   <app-page fluid class="project-detail-page">
     <div
       class="project-detail-shell"
-      :class="{ 'project-detail-shell-tasks': activeTab === 'tasks' }"
+      :class="{
+        'project-detail-shell-tasks': activeTab === 'tasks',
+        'project-detail-shell-task-selected': showSelectedTaskBar,
+      }"
     >
       <section class="project-detail-content">
         <header class="project-detail-hero">
@@ -107,9 +110,12 @@
 
           <workspace-project-details-tasks-tab
             v-else
+            :current-user-id="currentUserId"
+            :mutating-task-number="mutatingTaskNumber"
             :selected-task-id="selectedTaskId"
             :tasks="displayedTasks"
             @select-task="selectTask"
+            @unlock-task="handleUnlockTask"
           />
         </section>
 
@@ -140,6 +146,54 @@
         @primary-action="handleStatusDialogPrimaryAction"
         @secondary-action="closeStatusDialog"
       />
+
+      <section
+        v-if="showSelectedTaskBar && selectedTask"
+        class="project-detail-task-action-bar"
+        aria-label="Selected task actions"
+      >
+        <button
+          class="btn btn-link project-detail-task-action-close"
+          type="button"
+          @click="clearSelectedTask"
+        >
+          <app-icon variant="close" size="20" no-margin />
+          Close
+        </button>
+
+        <div class="project-detail-task-action-summary">
+          <div class="project-detail-task-action-copy">
+            <span>Selected Task</span>
+            <strong>{{ selectedTask.label }}</strong>
+          </div>
+
+          <div class="project-detail-task-action-status">
+            <span>Current Status</span>
+            <strong>
+              <span
+                class="project-detail-task-action-status-swatch"
+                :class="`project-detail-task-action-status-${selectedTask.status}`"
+              />
+              {{ formatTaskStatus(selectedTask.status) }}
+            </strong>
+          </div>
+        </div>
+
+        <button
+          class="btn project-detail-task-action-primary"
+          type="button"
+          :disabled="selectedTaskActionDisabled"
+          @click="handleSelectedTaskAction"
+        >
+          <app-spinner
+            v-if="isActivatingProject || mutatingTaskNumber === selectedTask.taskNumber"
+            size="sm"
+          />
+          <template v-else>
+            {{ selectedTaskPrimaryActionLabel }}
+          </template>
+        </button>
+      </section>
     </div>
   </app-page>
 </template>
@@ -292,7 +346,62 @@ const displayedTaskGrid = computed<
 const totalTaskCount = computed(() =>
   Math.max(project.value.taskCount, displayedTasks.value.length),
 );
+// Lock ownership depends on the authenticated tasking user, so the page resolves it once and
+// passes only simple booleans/IDs down to child components.
+const currentUserId = computed(() => workspaceProjectsClient.auth.subject || null);
+const isActivatingProject = ref(false);
+const mutatingTaskNumber = ref<number | null>(null);
 const selectedTaskId = ref<string | null>(null);
+const selectedTask = computed(() =>
+  displayedTasks.value.find(task => task.id === selectedTaskId.value) ?? null,
+);
+const projectRequiresActivation = computed(() => project.value.status === 'draft');
+const selectedTaskLockedByCurrentUser = computed(() =>
+  Boolean(selectedTask.value?.lock?.user_id)
+  && selectedTask.value?.lock?.user_id === currentUserId.value,
+);
+const showSelectedTaskBar = computed(() =>
+  activeTab.value === 'tasks'
+  && !showTaskSetup.value
+  && Boolean(selectedTask.value),
+);
+const selectedTaskWorkActionLabel = computed(() => {
+  if (!selectedTask.value) {
+    return 'Map a Task';
+  }
+
+  switch (selectedTask.value.status) {
+    case 'ready_for_validation':
+      return 'Validate Task';
+    case 'completed':
+      return 'View Task';
+    case 'needs_more_mapping':
+    case 'ready_for_mapping':
+    default:
+      return 'Map a Task';
+  }
+});
+const selectedTaskPrimaryActionLabel = computed(() => {
+  if (!selectedTask.value) {
+    return 'Map a Task';
+  }
+
+  if (projectRequiresActivation.value) {
+    return 'Activate Project';
+  }
+
+  if (selectedTask.value.locked) {
+    return selectedTaskLockedByCurrentUser.value ? selectedTaskWorkActionLabel.value : 'Task Locked';
+  }
+
+  return selectedTaskWorkActionLabel.value;
+});
+const selectedTaskActionDisabled = computed(() =>
+  !selectedTask.value
+  || isActivatingProject.value
+  || mutatingTaskNumber.value === selectedTask.value.taskNumber
+  || (selectedTask.value.locked && !selectedTaskLockedByCurrentUser.value),
+);
 
 const completedTaskCount = computed(() => {
   const completedTasks = displayedTasks.value.filter(task => task.status === 'completed').length;
@@ -397,6 +506,10 @@ function selectTask(taskId: string) {
   selectedTaskId.value = taskId;
 }
 
+function clearSelectedTask() {
+  selectedTaskId.value = null;
+}
+
 async function handleStatusDialogPrimaryAction() {
   const dialog = statusDialog.value;
   closeStatusDialog();
@@ -412,6 +525,60 @@ async function handleStatusDialogPrimaryAction() {
 
   if (dialog.primaryActionType === 'retry-save') {
     await handleSaveTasks();
+  }
+}
+
+async function handleSelectedTaskAction() {
+  if (!selectedTask.value) {
+    return;
+  }
+
+  if (projectRequiresActivation.value) {
+    await handleActivateProject();
+    return;
+  }
+
+  if (selectedTask.value.locked) {
+    if (!selectedTaskLockedByCurrentUser.value) {
+      return;
+    }
+  }
+
+  if (!selectedTask.value.locked) {
+    const didLockTask = await lockTaskAndRefreshState(selectedTask.value.taskNumber);
+
+    if (!didLockTask) {
+      return;
+    }
+  }
+
+  statusDialog.value = {
+    variant: 'success',
+    title: selectedTaskWorkActionLabel.value,
+    message: `Task locked for ${selectedTask.value.label}. Connect the mapping or validation route next.`,
+    primaryActionLabel: 'Close',
+    primaryActionType: 'dismiss',
+  };
+}
+
+async function handleActivateProject() {
+  try {
+    isActivatingProject.value = true;
+
+    await workspaceProjectsClient.activateWorkspaceProject(workspaceId, projectId);
+
+    // Re-read the detail endpoint because some tasking endpoints can lag or return stale fields.
+    // The page should always pivot off the canonical detail payload before showing task actions.
+    project.value = await workspaceProjectsClient.getWorkspaceProjectDetail(workspaceId, projectId);
+  }
+  catch (error) {
+    openTaskLockErrorDialog(await resolveTaskMutationErrorMessage(
+      error,
+      'Project could not be activated. Please try again.',
+    ));
+  }
+  finally {
+    isActivatingProject.value = false;
   }
 }
 
@@ -446,6 +613,11 @@ async function loadProjectTasks(): Promise<WorkspaceProjectTaskListItem[] | null
   }
 }
 
+async function refreshProjectTasksOnly() {
+  const latestTasks = await workspaceProjectsClient.getWorkspaceProjectTasks(workspaceId, projectId);
+  projectTasks.value = latestTasks;
+}
+
 async function hydrateProjectDataFromApi() {
   // Refresh the independent project, AOI, and task resources opportunistically so one
   // failed request does not wipe out the rest of the page state.
@@ -465,10 +637,6 @@ async function hydrateProjectDataFromApi() {
 
   if (tasksResult.status === 'fulfilled') {
     projectTasks.value = tasksResult.value;
-
-    if (!selectedTaskId.value) {
-      selectedTaskId.value = tasksResult.value[0]?.id ?? null;
-    }
   }
 }
 
@@ -477,13 +645,53 @@ async function refreshProjectTaskStateAfterSave() {
     // After save, reload the canonical task list so the page exits setup mode and the
     // normal tasks tab and persisted grid take over.
     await hydrateProjectDataFromApi();
-
-    if (projectTasks.value && projectTasks.value.length > 0) {
-      selectedTaskId.value = projectTasks.value[0].id;
-    }
   }
   catch {
     // Keep the saved grid visible in setup mode if the follow-up refresh fails.
+  }
+}
+
+async function lockTaskAndRefreshState(taskNumber: number) {
+  try {
+    mutatingTaskNumber.value = taskNumber;
+
+    await workspaceProjectsClient.lockWorkspaceProjectTask(
+      workspaceId,
+      projectId,
+      taskNumber,
+    );
+    // Lock mutations can affect more than the lock object itself, so immediately re-read the
+    // full task list from the tasks endpoint instead of patching one local row optimistically.
+    await refreshProjectTasksOnly();
+    return true;
+  }
+  catch (error) {
+    openTaskLockErrorDialog(await resolveTaskMutationErrorMessage(
+      error,
+      'Task could not be locked. Please try again.',
+    ));
+    return false;
+  }
+  finally {
+    mutatingTaskNumber.value = null;
+  }
+}
+
+async function handleUnlockTask(taskNumber: number) {
+  try {
+    mutatingTaskNumber.value = taskNumber;
+    await workspaceProjectsClient.unlockWorkspaceProjectTask(workspaceId, projectId, taskNumber);
+    // Unlock does not currently return a full task payload, so re-fetch the canonical list.
+    await refreshProjectTasksOnly();
+  }
+  catch (error) {
+    openTaskLockErrorDialog(await resolveTaskMutationErrorMessage(
+      error,
+      'Task could not be unlocked. Please try again.',
+    ));
+  }
+  finally {
+    mutatingTaskNumber.value = null;
   }
 }
 
@@ -519,6 +727,63 @@ function openTaskSaveErrorDialog(error: unknown) {
     primaryActionLabel: 'Try Again',
     primaryActionType: 'retry-save',
   };
+}
+
+function openTaskLockErrorDialog(message: string) {
+  statusDialog.value = {
+    variant: 'error',
+    title: 'Task update failed',
+    message,
+    primaryActionLabel: 'Close',
+    primaryActionType: 'dismiss',
+  };
+}
+
+function formatTaskStatus(status: WorkspaceProjectTaskListItem['status']) {
+  switch (status) {
+    case 'ready_for_validation':
+      return 'Ready for validation';
+    case 'needs_more_mapping':
+      return 'More mapping needed';
+    case 'completed':
+      return 'Completed';
+    case 'ready_for_mapping':
+    default:
+      return 'Ready for mapping';
+  }
+}
+
+async function resolveTaskMutationErrorMessage(error: unknown, fallbackMessage: string) {
+  if (!(error instanceof Error) || !('response' in error)) {
+    return fallbackMessage;
+  }
+
+  const response = (error as { response?: Response }).response;
+
+  if (!response) {
+    return fallbackMessage;
+  }
+
+  try {
+    // FastAPI-style validation errors come back in `detail[]`, so prefer that over the generic
+    // HTTP status text when present.
+    const body = await response.clone().json() as {
+      detail?: Array<{ msg?: string }> | string;
+    };
+
+    if (typeof body.detail === 'string' && body.detail.trim()) {
+      return body.detail;
+    }
+
+    if (Array.isArray(body.detail) && body.detail[0]?.msg) {
+      return body.detail[0].msg;
+    }
+  }
+  catch {
+    // Fall back to the generic message when the API does not return a parseable JSON body.
+  }
+
+  return error.message || fallbackMessage;
 }
 
 function resolveProjectDescriptionHtml() {
@@ -571,6 +836,12 @@ function escapeHtml(value: string) {
 
 .project-detail-shell-tasks {
   grid-template-columns: minmax(0, 48%) minmax(0, 52%);
+}
+
+.project-detail-shell-task-selected .project-detail-content,
+.project-detail-shell-task-selected .project-detail-map-column {
+  padding-bottom: 6.6rem;
+  box-sizing: border-box;
 }
 
 .project-detail-content {
@@ -735,6 +1006,123 @@ function escapeHtml(value: string) {
   height: 100%;
 }
 
+.project-detail-task-action-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  min-height: 6.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1rem 2.2rem;
+  background: rgba(255, 255, 255, 0.98);
+  border-top: 1px solid rgba($text-navy, 0.12);
+  box-shadow: 0 -0.6rem 1.8rem rgba($text-navy, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+.project-detail-task-action-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0;
+  color: #db4b4b;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.project-detail-task-action-close:hover,
+.project-detail-task-action-close:focus-visible {
+  color: #c93c3c;
+}
+
+.project-detail-task-action-summary {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2rem;
+}
+
+.project-detail-task-action-copy,
+.project-detail-task-action-status {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.project-detail-task-action-copy span,
+.project-detail-task-action-status span {
+  color: #707796;
+  font-size: 0.95rem;
+}
+
+.project-detail-task-action-copy strong,
+.project-detail-task-action-status strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #1a1e3d;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.project-detail-task-action-status {
+  padding-left: 1.8rem;
+  border-left: 1px solid rgba($text-navy, 0.12);
+}
+
+.project-detail-task-action-status-swatch {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  border: 1px solid rgba(90, 96, 123, 0.12);
+}
+
+.project-detail-task-action-status-ready_for_mapping {
+  background: #fde9aa;
+}
+
+.project-detail-task-action-status-ready_for_validation {
+  background: #a8d8f8;
+}
+
+.project-detail-task-action-status-needs_more_mapping {
+  background: #f8be90;
+}
+
+.project-detail-task-action-status-completed {
+  background: #aae8cd;
+}
+
+.project-detail-task-action-primary {
+  min-width: 11.5rem;
+  min-height: 3.35rem;
+  padding-inline: 1.5rem;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  background: #4d158d;
+  border: 1px solid #4d158d;
+  border-radius: 0.55rem;
+}
+
+.project-detail-task-action-primary:hover:not(:disabled),
+.project-detail-task-action-primary:focus-visible:not(:disabled) {
+  color: #ffffff;
+  background: #421178;
+  border-color: #421178;
+}
+
+.project-detail-task-action-primary:disabled {
+  opacity: 0.62;
+}
+
 @include media-breakpoint-down(xl) {
   .project-detail-shell {
     grid-template-columns: minmax(0, 48%) minmax(0, 52%);
@@ -747,6 +1135,11 @@ function escapeHtml(value: string) {
   .project-detail-hero,
   .project-detail-tabs,
   .project-detail-tab-panel {
+    padding-left: 1.75rem;
+    padding-right: 1.75rem;
+  }
+
+  .project-detail-task-action-bar {
     padding-left: 1.75rem;
     padding-right: 1.75rem;
   }
@@ -766,6 +1159,21 @@ function escapeHtml(value: string) {
   .project-detail-content {
     overflow: visible;
   }
+
+  .project-detail-shell-task-selected .project-detail-content,
+  .project-detail-shell-task-selected .project-detail-map-column {
+    padding-bottom: 0;
+  }
+
+  .project-detail-task-action-bar {
+    position: static;
+    flex-wrap: wrap;
+    padding: 1rem 1.75rem;
+  }
+
+  .project-detail-task-action-summary {
+    justify-content: flex-start;
+  }
 }
 
 @include media-breakpoint-down(md) {
@@ -780,6 +1188,18 @@ function escapeHtml(value: string) {
 
   .project-detail-summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .project-detail-task-action-summary {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .project-detail-task-action-status {
+    padding-left: 0;
+    border-left: 0;
   }
 }
 
@@ -802,6 +1222,14 @@ function escapeHtml(value: string) {
   .project-detail-copy-card,
   .project-detail-summary-card {
     padding: 1rem;
+  }
+
+  .project-detail-task-action-bar {
+    padding: 1rem;
+  }
+
+  .project-detail-task-action-primary {
+    width: 100%;
   }
 }
 </style>

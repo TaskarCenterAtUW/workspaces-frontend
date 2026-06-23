@@ -19,10 +19,6 @@ interface Props {
 
 const props = defineProps<Props>();
 
-/**
- * Sanitize the incoming HTML with DOMPurify before rendering.
- * This runs on every change to `html` and prevents XSS via injected scripts or event handlers.
- */
 const safeHtml = computed(() =>
   // DOMPurify.sanitize is a no-op on the server (returns the string unchanged),
   // but on the client it strips any dangerous markup.

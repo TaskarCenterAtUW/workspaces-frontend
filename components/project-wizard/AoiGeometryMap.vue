@@ -807,6 +807,7 @@ function syncDraftPolygon() {
   skipNextAoiFit = true;
   emit('update:aoi', draftFeature);
 }
+
 </script>
 
 <style lang="scss" scoped>
