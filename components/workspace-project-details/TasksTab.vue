@@ -110,16 +110,25 @@
           <app-icon variant="chevron_left" size="22" no-margin />
         </button>
 
-        <button
-          v-for="page in totalPages"
-          :key="page"
-          type="button"
-          :class="{ 'project-detail-task-pagination-active': page === currentPage }"
-          :aria-current="page === currentPage ? 'page' : undefined"
-          @click="currentPage = page"
-        >
-          {{ page }}
-        </button>
+        <template v-for="item in visiblePaginationItems" :key="item.key">
+          <span
+            v-if="item.type === 'ellipsis'"
+            class="project-detail-task-pagination-ellipsis"
+            aria-hidden="true"
+          >
+            ...
+          </span>
+
+          <button
+            v-else
+            type="button"
+            :class="{ 'project-detail-task-pagination-active': item.page === currentPage }"
+            :aria-current="item.page === currentPage ? 'page' : undefined"
+            @click="currentPage = item.page"
+          >
+            {{ item.page }}
+          </button>
+        </template>
 
         <button
           type="button"
@@ -151,6 +160,9 @@ import type { WorkspaceProjectTaskListItem, WorkspaceProjectTaskStatus } from '~
 
 type TaskSortOption = 'latest' | 'oldest' | 'task_asc' | 'task_desc';
 type TaskStatusFilter = WorkspaceProjectTaskStatus | 'all';
+type PaginationItem =
+  | { type: 'page'; key: string; page: number }
+  | { type: 'ellipsis'; key: string };
 
 interface SelectOption {
   label: string;
@@ -174,8 +186,10 @@ const emit = defineEmits<{
   'unlock-task': [taskNumber: number];
 }>();
 
-/** Number of tasks shown per page. Change this if you want larger or smaller pages. */
-const pageSize = 5;
+/** Keep the page short enough to fit the panel while matching the requested 6-row layout. */
+const pageSize = 6;
+/** Limit how many numbered pagination buttons we render before collapsing with ellipses. */
+const maxVisiblePaginationButtons = 7;
 const searchQuery = ref('');
 const selectedStatus = ref<TaskStatusFilter>('all');
 const sortBy = ref<TaskSortOption>('latest');
@@ -257,6 +271,55 @@ const paginationSummary = computed(() => {
   const end = start + paginatedTasks.value.length - 1;
 
   return `Showing ${start} to ${end} of ${sortedTasks.value.length} entries`;
+});
+
+/**
+ * Compress long pagination runs so the footer stays readable:
+ *   1 ... 7 8 9 ... 17
+ * instead of rendering every page button in a single line.
+ */
+const visiblePaginationItems = computed<PaginationItem[]>(() => {
+  const pages = totalPages.value;
+
+  if (pages <= maxVisiblePaginationButtons) {
+    return Array.from({ length: pages }, (_, index) => ({
+      type: 'page' as const,
+      key: `page-${index + 1}`,
+      page: index + 1,
+    }));
+  }
+
+  const firstPage = 1;
+  const lastPage = pages;
+  const current = currentPage.value;
+  const interiorSlots = maxVisiblePaginationButtons - 2;
+  let windowStart = Math.max(firstPage + 1, current - Math.floor(interiorSlots / 2));
+  let windowEnd = windowStart + interiorSlots - 1;
+
+  if (windowEnd >= lastPage) {
+    windowEnd = lastPage - 1;
+    windowStart = windowEnd - interiorSlots + 1;
+  }
+
+  const items: PaginationItem[] = [
+    { type: 'page', key: `page-${firstPage}`, page: firstPage },
+  ];
+
+  if (windowStart > firstPage + 1) {
+    items.push({ type: 'ellipsis', key: 'ellipsis-start' });
+  }
+
+  for (let page = windowStart; page <= windowEnd; page += 1) {
+    items.push({ type: 'page', key: `page-${page}`, page });
+  }
+
+  if (windowEnd < lastPage - 1) {
+    items.push({ type: 'ellipsis', key: 'ellipsis-end' });
+  }
+
+  items.push({ type: 'page', key: `page-${lastPage}`, page: lastPage });
+
+  return items;
 });
 
 /**
@@ -354,11 +417,12 @@ function formatTaskStatus(status: WorkspaceProjectTaskStatus) {
 }
 
 .project-detail-task-list-wrap {
+  position: relative;
   display: grid;
   gap: 0;
   border: 1px solid rgba($text-navy, 0.08);
   border-radius: 0.85rem;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .project-detail-task-list-header,
@@ -380,6 +444,7 @@ function formatTaskStatus(status: WorkspaceProjectTaskStatus) {
   margin: 0;
   padding: 0;
   list-style: none;
+  overflow: visible;
 }
 
 .project-detail-task-item {
@@ -485,6 +550,7 @@ function formatTaskStatus(status: WorkspaceProjectTaskStatus) {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
   padding-top: 1rem;
 }
 
@@ -492,15 +558,20 @@ function formatTaskStatus(status: WorkspaceProjectTaskStatus) {
   margin: 0;
   color: #5a607b;
   font-size: 0.95rem;
+  flex: 0 1 auto;
 }
 
 .project-detail-task-pagination {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .project-detail-task-pagination button {
+  min-width: 2.15rem;
   width: 2.15rem;
   height: 2.15rem;
   display: inline-flex;
@@ -515,6 +586,15 @@ function formatTaskStatus(status: WorkspaceProjectTaskStatus) {
 .project-detail-task-pagination-active {
   color: #ffffff !important;
   background: $primary !important;
+}
+
+.project-detail-task-pagination-ellipsis {
+  min-width: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #7b819c;
+  font-size: 1rem;
 }
 
 .project-detail-task-pagination button:disabled {
@@ -563,6 +643,10 @@ function formatTaskStatus(status: WorkspaceProjectTaskStatus) {
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .project-detail-task-pagination {
+    justify-content: flex-start;
+  }
 }
 
 @container (max-width: 420px) {
@@ -579,6 +663,10 @@ function formatTaskStatus(status: WorkspaceProjectTaskStatus) {
   .project-detail-task-footer {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .project-detail-task-pagination {
+    justify-content: flex-start;
   }
 }
 </style>
