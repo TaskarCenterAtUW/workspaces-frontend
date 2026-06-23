@@ -20,7 +20,7 @@ export type WorkspaceProjectTaskStatus =
   | 'needs_more_mapping'
   | 'completed';
 export type WorkspaceProjectContributorRole = 'validator' | 'mapper' | 'lead';
-export type WorkspaceProjectTaskApiStatus = 'to_map' | 'to_validate' | 'more_mapping_needed' | 'done' | string;
+export type WorkspaceProjectTaskApiStatus = 'to_map' | 'to_validate' | 'more_mapping_needed' | 'done';
 export type WorkspaceProjectAoiFeature = Feature<Polygon | MultiPolygon>;
 
 export interface WorkspaceProjectApiItem {
@@ -99,7 +99,7 @@ export interface WorkspaceProject {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
-  createdByName: string;
+  createdByName: string | null;
 }
 
 export interface WorkspaceProjectDetail extends WorkspaceProject {

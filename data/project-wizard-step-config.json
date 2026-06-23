@@ -51,8 +51,8 @@
         "dropzoneActionLabel": "Drop files here or click to upload.",
         "dropzoneDescription": "Upload an AOI GeoJSON file.",
         "resetLabel": "Reset",
-        "uploadWarningThresholdSquareKilometers": 1,
-        "uploadWarningText": "Project area is higher than 1 square kilometer."
+        "uploadWarningThresholdSquareKilometers": 5000,
+        "uploadWarningText": "Project area is higher than 5000 squared kilometers."
       },
       "map": {
         "center": [-122.3321, 47.6062],

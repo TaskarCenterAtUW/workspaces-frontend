@@ -105,7 +105,7 @@
       >
         <app-spinner v-if="saving" size="sm" />
         <template v-else>
-          <app-icon variant="save_alt" size="18" no-margin />
+          <app-icon variant="task_alt" size="18" no-margin />
           Save Tasks
         </template>
       </button>
