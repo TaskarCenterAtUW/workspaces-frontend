@@ -129,8 +129,11 @@ function normalizeProjectTask(task: WorkspaceProjectTaskApiItem): WorkspaceProje
     status: normalizeTaskStatus(task.status),
     geometry: task.geometry,
     taskNumber: task.task_number,
-    mapperName: task.last_mapper?.user_name ?? 'Unassigned',
+    // While a task is actively locked, the UI should show the current lock owner instead of a
+    // historical mapper so the list matches the real live task ownership state.
+    mapperName: task.lock?.user_name ?? 'Unassigned',
     updatedAt: formatProjectTaskDate(task.updated_at),
+    lock: task.lock,
     locked: task.lock !== null,
   };
 }
@@ -220,6 +223,23 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     return normalizeProjectDetail(workspaceId, body);
   }
 
+  /**
+   * Open a draft project for tasking.
+   * We normalize the response like any other detail payload so callers can replace the local
+   * project detail state directly.
+   */
+  async activateWorkspaceProject(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+  ): Promise<WorkspaceProjectDetail> {
+    const response = await this.#newApi._post(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/activate`,
+    );
+    const body = await response.json() as WorkspaceProjectDetailApiItem;
+
+    return normalizeProjectDetail(workspaceId, body);
+  }
+
   async getWorkspaceProjectAoi(
     workspaceId: WorkspaceId,
     projectId: number | string,
@@ -250,6 +270,34 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     const body = await response.json() as WorkspaceProjectTasksApiResponse;
 
     return body.tasks.map(normalizeProjectTask);
+  }
+
+  async lockWorkspaceProjectTask(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+    taskNumber: number,
+  ): Promise<WorkspaceProjectTaskListItem> {
+    const response = await this.#newApi._post(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks/${taskNumber}/lock`,
+    );
+    const body = await response.json() as WorkspaceProjectTaskApiItem;
+
+    return normalizeProjectTask(body);
+  }
+
+  async unlockWorkspaceProjectTask(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+    taskNumber: number,
+    force: boolean = false,
+  ): Promise<void> {
+    const params = new URLSearchParams({
+      force: String(force),
+    });
+
+    await this.#newApi._delete(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks/${taskNumber}/lock?${params.toString()}`,
+    );
   }
 
   #buildProjectsPath(workspaceId: WorkspaceId, query: WorkspaceProjectsQuery) {

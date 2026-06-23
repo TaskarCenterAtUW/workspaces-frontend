@@ -57,6 +57,11 @@ export function useProjectWizardAoi(options: UseProjectWizardAoiOptions) {
   }
 
   function startAreaDrawMode() {
+    // Drawing and uploading are mutually exclusive entry points.
+    // Starting a fresh draw clears any previously uploaded file + geometry so the map cannot
+    // fall back to a stale AOI when the uploaded file is later removed.
+    options.draft.area.aoi = null;
+    options.draft.area.importedFileName = '';
     areaImportError.value = '';
     isAreaDrawMode.value = true;
   }
@@ -70,6 +75,10 @@ export function useProjectWizardAoi(options: UseProjectWizardAoiOptions) {
 
   async function importAreaOfInterest(file: File) {
     try {
+      // Uploading a GeoJSON replaces any previously drawn/uploaded AOI entirely.
+      // We clear first so the UI cannot retain an older polygon if parsing or later resets happen.
+      options.draft.area.aoi = null;
+      options.draft.area.importedFileName = '';
       const fileContent = await file.text();
       const { feature } = parseProjectWizardAoiFileContent(fileContent);
 
@@ -85,10 +94,33 @@ export function useProjectWizardAoi(options: UseProjectWizardAoiOptions) {
     }
   }
 
+  function downloadAreaOfInterest() {
+    if (!import.meta.client || !options.draft.area.aoi) {
+      return;
+    }
+
+    const featureCollection = {
+      type: 'FeatureCollection',
+      features: [options.draft.area.aoi],
+    };
+    const blob = new Blob([`${JSON.stringify(featureCollection, null, 2)}\n`], {
+      type: 'application/geo+json',
+    });
+    const objectUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = objectUrl;
+    link.download = 'project-aoi.geojson';
+    link.click();
+
+    window.URL.revokeObjectURL(objectUrl);
+  }
+
   return {
     areaImportError,
     areaWarningMessage,
     displayedAoi,
+    downloadAreaOfInterest,
     importAreaOfInterest,
     isAreaDrawMode,
     isAreaStepActive,

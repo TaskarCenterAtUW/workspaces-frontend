@@ -465,7 +465,9 @@ function syncSources() {
 
 /**
  * Zoom and pan the map to frame all available data.
- * Priority: AOI bounds > task bounds > task-grid bounds > default center.
+ * Priority: task bounds > task-grid bounds > AOI bounds > default center.
+ * On the tasks tab, real task geometry is the most important context — if we fit to a large AOI
+ * first, newly created tasks can be technically present but visually imperceptible on initial load.
  * If nothing is available yet, we just ease back to the default Seattle center.
  */
 function fitMapToData() {
@@ -480,7 +482,7 @@ function fitMapToData() {
   const taskGridBounds = props.taskGrid && props.taskGrid.features.length > 0
     ? getGenericFeatureCollectionBounds(props.taskGrid)
     : null;
-  const bounds = aoiBounds ?? taskBounds ?? taskGridBounds;
+  const bounds = taskBounds ?? taskGridBounds ?? aoiBounds;
 
   if (!bounds) {
     detailMap.easeTo({
@@ -752,7 +754,7 @@ function syncLockedTaskMarkers() {
     element.type = 'button';
     element.className = 'project-detail-map-lock-marker';
     element.setAttribute('aria-label', 'Locked task');
-    element.innerHTML = '<span aria-hidden="true">&#128274;</span>';
+    element.innerHTML = '<i class="material-icons md-16 md-lock" aria-hidden="true"></i>';
     element.addEventListener('click', () => emit('select-task', id));
 
     return new maplibregl!.Marker({
@@ -859,12 +861,14 @@ function clearLockedTaskMarkers() {
   width: 1.85rem;
   height: 1.85rem;
   color: #d94f4f;
-  font-size: 1rem;
-  line-height: 1;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(217, 79, 79, 0.2);
   border-radius: 999px;
   box-shadow: 0 0.35rem 0.85rem rgba(25, 30, 61, 0.16);
+}
+
+:deep(.project-detail-map-lock-marker .material-icons) {
+  margin-top: 0;
 }
 
 @include media-breakpoint-down(sm) {

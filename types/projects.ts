@@ -118,6 +118,7 @@ export interface WorkspaceProjectTaskListItem {
   taskNumber: number;
   mapperName: string;
   updatedAt: string;
+  lock: WorkspaceProjectTaskApiLock | null;
   locked: boolean;
 }
 
