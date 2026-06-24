@@ -1,10 +1,19 @@
 <template>
   <div class="map-container">
-    <div v-show="workspaceAreaPolygon" id="map" />
-    <div v-show="!workspaceAreaPolygon" class="missing-workspace-area-notice">
+    <div
+      v-show="workspaceAreaPolygon"
+      id="map"
+    />
+    <div
+      v-show="!workspaceAreaPolygon"
+      class="missing-workspace-area-notice"
+    >
       <loading-spinner v-if="loadingBbox.active" />
       <template v-else>
-        <app-icon variant="info" size="48" />
+        <app-icon
+          variant="info"
+          size="48"
+        />
         <div>This workspace is empty.</div>
       </template>
     </div>

@@ -1,4 +1,4 @@
-import { BaseHttpClient, BaseHttpClientError } from "~/services/http";
+import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
 import { buildPathwaysCsvArchive } from '~/services/pathways';
 import { compareStringAsc } from '~/util/compare';
 

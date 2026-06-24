@@ -1,6 +1,6 @@
 // Test outline
 // @test e2e: only users with POC or team lead permissions should be able to access this page
-// @test e2e: there should be two primary features: 1) a way to edit the team, including it's name and members, and a way to delete the team; 
+// @test e2e: there should be two primary features: 1) a way to edit the team, including it's name and members, and a way to delete the team;
 //            and 2) a way to show a QR code to participants to join the team.
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 // @test e2e: if the editor fails to load, an error message is shown (playwright snapshot this)

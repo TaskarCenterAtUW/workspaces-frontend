@@ -14,6 +14,7 @@ export abstract class BaseHttpClient {
     'Authorization': '',
     'Content-Type': 'application/json'
   };
+
   _abortSignal?: AbortSignal;
 
   constructor(baseUrl: string, signal?: AbortSignal) {
@@ -50,8 +51,8 @@ export abstract class BaseHttpClient {
       method,
       body,
       headers: {
-        'Accept': 'application/text',
-        'Authorization': this._requestHeaders.Authorization
+        Accept: 'application/text',
+        Authorization: this._requestHeaders.Authorization
       }
     });
 

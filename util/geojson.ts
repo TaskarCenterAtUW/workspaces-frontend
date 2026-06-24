@@ -1,4 +1,3 @@
-
 export function featureCollection(features: Array) {
   return { type: 'FeatureCollection', features }
 }

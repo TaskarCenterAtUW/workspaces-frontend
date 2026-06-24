@@ -6,7 +6,10 @@
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
-  <div ref="editorContainer" class="editorContainer"></div>
+  <div
+    ref="editorContainer"
+    class="editorContainer"
+  />
 </template>
 
 <script setup lang="ts">

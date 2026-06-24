@@ -285,7 +285,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     }
 
     const response = await this._post(resource, body, {
-      headers: { 'Authorization': this._requestHeaders['Authorization'] }
+      headers: { Authorization: this._requestHeaders['Authorization'] }
     });
 
     return await response.text();
@@ -309,7 +309,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     }
 
     const response = await this._post(resource, body, {
-      headers: { 'Authorization': this._requestHeaders['Authorization'] }
+      headers: { Authorization: this._requestHeaders['Authorization'] }
     });
 
     return await response.text();
@@ -336,8 +336,8 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
 
       const statusResponse = await this._get(`jobs?job_id=${jobId}&tdei_project_group_id=${projectGroupId}`, {
         headers: {
-          'Accept': 'application/text',
-          'Authorization': this._requestHeaders['Authorization']
+          Accept: 'application/text',
+          Authorization: this._requestHeaders['Authorization']
         }
       });
       const statusBody = (await statusResponse.json())[0];
@@ -460,7 +460,7 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     return new TdeiUserClient(this._baseUrl, this.#tdeiClient, signal ?? this._abortSignal);
   }
 
-  async getMyProjectGroups(pageNo: number = 1, searchText: string = '', pageSize: number = 10, sortBy: 'name' | 'created_at' = 'name'): Promise<{ items: TdeiProjectGroup[], total?: number }> {
+  async getMyProjectGroups(pageNo: number = 1, searchText: string = '', pageSize: number = 10, sortBy: 'name' | 'created_at' = 'name'): Promise<{ items: TdeiProjectGroup[]; total?: number }> {
     let url = `project-group-roles/${this.#auth.subject}?page_size=${pageSize}&page_no=${pageNo}&sort_by=${sortBy}`;
     if (searchText) {
       url += `&searchText=${encodeURIComponent(searchText)}`;

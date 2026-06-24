@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { TdeiAuthStore } from '~/services/tdei';
+import type { TdeiAuthStore } from '~/services/tdei';
 
 export class RapidManager {
   #baseUrl: string;
@@ -74,7 +74,9 @@ export class RapidManager {
     rapidOsmClient.authenticated = () => this.#tdeiAuth.ok;
 
     // Don't bother to fetch user details when uploading changesets:
-    rapidOsmService.userDetails = (callback) => { callback('dummy error') };
+    rapidOsmService.userDetails = (callback) => {
+      callback('dummy error')
+    };
   }
 
   #wrapFetch(innerFetch) {

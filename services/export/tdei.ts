@@ -1,8 +1,7 @@
-import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
-
-import { OsmApiClient } from '~/services/osm';
+import type { OsmApiClient } from '~/services/osm';
 import { buildPathwaysCsvArchive, openTdeiPathwaysArchive } from '~/services/pathways';
-import { TdeiClient, TdeiClientError, TdeiConversionError } from '~/services/tdei';
+import type { TdeiClient } from '~/services/tdei';
+import { TdeiClientError, TdeiConversionError } from '~/services/tdei';
 import * as geojson from '~/util/geojson'
 
 const status = {
@@ -132,7 +131,6 @@ export class TdeiExporter {
       csvZip,
       { dataset_detail: metadata }
     );
-
 
     this._context.status = status.complete;
 

@@ -1,11 +1,11 @@
 // Test outline
-// @test e2e: submitting the form with valid values shows a loading state, then redirects to the dashboard with the 
+// @test e2e: submitting the form with valid values shows a loading state, then redirects to the dashboard with the
 //            new workspace selected (playwright snapshot the loading state)
-// @test e2e: submitting the form with an API error shows an error message and a "try again" button, and 
+// @test e2e: submitting the form with an API error shows an error message and a "try again" button, and
 //            clicking the "try again" button resets the form (playwright snapshot the error state)
-// @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again" 
+// @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again"
 //            button are shown, and clicking the "try again" button resets the form (playwright snapshot the error state)
-// @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again" button are shown, and clicking the "try again" 
+// @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again" button are shown, and clicking the "try again"
 //            button resets the form (playwright snapshot the error state)
 <template>
   <app-page class="create-tdei-page">
@@ -15,7 +15,10 @@
       <app-spinner />
     </template>
 
-    <div v-else class="row">
+    <div
+      v-else
+      class="row"
+    >
       <div class="col-md d-flex flex-column">
         <div class="card mb-3">
           <div class="card-body">
@@ -30,7 +33,10 @@
             </label>
 
             <div class="mb-3">
-              <label class="d-block" for="create_tdei_project_group">
+              <label
+                class="d-block"
+                for="create_tdei_project_group"
+              >
                 Project Group
               </label>
               <project-group-picker
@@ -41,7 +47,10 @@
               />
             </div>
 
-            <label v-if="!$route.query.tdeiRecordId" class="d-block mb-3">
+            <label
+              v-if="!$route.query.tdeiRecordId"
+              class="d-block mb-3"
+            >
               Dataset
               <dataset-picker
                 v-model="tdeiRecordId"
@@ -50,7 +59,11 @@
                 required
               />
             </label>
-            <div v-if="datasetError" class="alert alert-danger py-2" role="alert">
+            <div
+              v-if="datasetError"
+              class="alert alert-danger py-2"
+              role="alert"
+            >
               {{ datasetError }}
             </div>
           </div><!-- .card-body -->
@@ -60,10 +73,17 @@
               <app-spinner size="sm" />
               {{ context.status }}
             </template>
-            <section v-else-if="context.error" class="alert alert-danger m-0" role="alert">
+            <section
+              v-else-if="context.error"
+              class="alert alert-danger m-0"
+              role="alert"
+            >
               <h5><app-icon variant="info" />An error occurred:</h5>
               <p class="mb-3">{{ context.error }}</p>
-              <button class="btn btn-primary" @click="context.reset()">
+              <button
+                class="btn btn-primary"
+                @click="context.reset()"
+              >
                 Try again
               </button>
             </section>
@@ -71,8 +91,8 @@
               v-else-if="!context.complete"
               type="submit"
               class="btn btn-primary"
-              @click.prevent="create"
               :disabled="!complete || context.active"
+              @click.prevent="create"
             >
               Create Workspace
             </button>
@@ -145,10 +165,11 @@
 </template>
 
 <script setup lang="ts">
-declare const L: any;
 import { LoadingContext } from '~/services/loading'
 import { TdeiImporter, TdeiImporterContext } from '~/services/import/tdei';
 import { osmClient, tdeiClient, workspacesClient } from '~/services/index';
+
+declare const L: any;
 
 const context = reactive(new TdeiImporterContext());
 const importer = new TdeiImporter(workspacesClient, tdeiClient, osmClient, context);
@@ -162,7 +183,7 @@ const workspaceTitle = ref('');
 const projectGroupId = ref<string | null>(null);
 const datasetError = ref<string | null>(null);
 
-watch(tdeiRecordId, (val) => getDatasetInfo(val));
+watch(tdeiRecordId, val => getDatasetInfo(val));
 
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
@@ -191,7 +212,7 @@ async function getDatasetInfo(id: string | null) {
     // Clear stale keys from any previously loaded dataset before merging,
     // so switching datasets never leaves orphaned fields in record.
     for (const key of Object.keys(record)) {
-      delete record[key]
+      Reflect.deleteProperty(record, key)
     }
 
     Object.assign(record, info)

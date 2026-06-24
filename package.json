@@ -10,6 +10,7 @@
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "typecheck": "nuxt typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test"
@@ -50,7 +51,9 @@
     "msw": "^2.14.6",
     "sass": "1.77.6",
     "sass-loader": "^14.1.0",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.9",
-    "vue-component-type-helpers": "^3.2.4"
+    "vue-component-type-helpers": "^3.2.4",
+    "vue-tsc": "^3.3.5"
   }
 }

@@ -7,20 +7,54 @@ on:
     branches: [ master ]
 
 jobs:
- run-lint:
+  check:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '24'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
 
-    - name: Install dependencies
-      run: npm ci
+      # Runs `nuxt prepare` via the postinstall hook, which generates the .nuxt
+      # types + eslint typegen that both `lint` and `typecheck` rely on.
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Run lint script
-      run: npm run lint
+      # The quality steps below use `if: ${{ !cancelled() }}` so every check runs
+      # and reports its own result even when an earlier one fails.
+      - name: Lint
+        if: ${{ !cancelled() }}
+        run: npm run lint
+
+      - name: Type check
+        if: ${{ !cancelled() }}
+        run: npm run typecheck
+
+      - name: Unit tests
+        if: ${{ !cancelled() }}
+        run: npm test
+
+      - name: Install Playwright browser
+        if: ${{ !cancelled() }}
+        run: npx playwright install --with-deps chromium
+
+      # The e2e suite intentionally contains failing tests that document real app
+      # bugs (see ISSUES.md), so it is non-blocking for now. Flip
+      # `continue-on-error` to false once those are resolved to gate on it.
+      - name: E2E tests
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

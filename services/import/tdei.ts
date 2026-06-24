@@ -1,9 +1,10 @@
-import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
-
-import { OsmApiClient, OsmApiClientError, osm2osc } from '~/services/osm';
+import type { OsmApiClient } from '~/services/osm';
+import { OsmApiClientError, osm2osc } from '~/services/osm';
 import { openTdeiPathwaysArchive, pathways2osc } from '~/services/pathways';
-import { TdeiClient, TdeiClientError } from '~/services/tdei';
-import { WorkspacesClient, WorkspacesClientError } from '~/services/workspaces';
+import type { TdeiClient } from '~/services/tdei';
+import { TdeiClientError } from '~/services/tdei';
+import type { WorkspacesClient } from '~/services/workspaces';
+import { WorkspacesClientError } from '~/services/workspaces';
 
 import type { WorkspaceCreation } from '~/types/workspaces';
 

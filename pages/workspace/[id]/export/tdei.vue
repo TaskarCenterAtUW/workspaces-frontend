@@ -1,22 +1,25 @@
 // Test outline
-// @test e2e: this page shows a Dataset Name that is editable, and asks the user to choose a project group and service returned from the TDEI API, 
+// @test e2e: this page shows a Dataset Name that is editable, and asks the user to choose a project group and service returned from the TDEI API,
 //            as well as dataset version box (playwright snapshot this)
-// @test e2e: if the user doesn't have permissions to export to the TDEI, a message is shown indicating that and the project group and service 
+// @test e2e: if the user doesn't have permissions to export to the TDEI, a message is shown indicating that and the project group and service
 //             pickers are not shown (playwright snapshot this)
 // @test e2e: submitting the form with valid values shows a loading state
 // @test e2e: the service names and project groups shown should match the simulated TDEI API response.
-// @test e2e: submitting the form with a dataset version that already exists in the TDEI for that service shows an error message, and allows the 
+// @test e2e: submitting the form with a dataset version that already exists in the TDEI for that service shows an error message, and allows the
 //            user to change the version and try again (playwright snapshot this)
-// @test e2e: submitting the form with an API error shows an error message and a "try again" button, and clicking the "try again" button resets 
+// @test e2e: submitting the form with an API error shows an error message and a "try again" button, and clicking the "try again" button resets
 //            the form (playwright snapshot the error state)
-// @test e2e: if the user leaves any field blank and tries to submit, an error message is shown indicating that all fields are required (playwright 
+// @test e2e: if the user leaves any field blank and tries to submit, an error message is shown indicating that all fields are required (playwright
 //            snapshot this)
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 // @test e2e: ensure that the service selector and project group selector display something meaningful even when there are no services or project groups to display to the user, e.g. "No services available" or "No project groups available" (playwright snapshot this)
 <template>
   <app-page>
     <div class="text-center mt-5">
-      <app-icon variant="drive_folder_upload" size="48" />
+      <app-icon
+        variant="drive_folder_upload"
+        size="48"
+      />
     </div>
     <h1 class="mb-5 text-center">
       Export Workspace to the TDEI
@@ -53,7 +56,10 @@
           </div>
         </div>
 
-        <div v-else-if="workspace.type === 'pathways' && !workspace.tdeiRecordId" class="card">
+        <div
+          v-else-if="workspace.type === 'pathways' && !workspace.tdeiRecordId"
+          class="card"
+        >
           <div class="card-body">
             <p>
               This GTFS Pathways workspace is not derived from a TDEI dataset and
@@ -65,20 +71,35 @@
               to="../export"
               class="btn btn-primary"
             >
-              <app-icon variant="arrow_circle_left" no-margin />
+              <app-icon
+                variant="arrow_circle_left"
+                no-margin
+              />
               Go back
             </nuxt-link>
           </div>
         </div>
 
-        <form v-else class="card">
-          <fieldset class="card-body" :disabled="context.active || context.error">
+        <form
+          v-else
+          class="card"
+        >
+          <fieldset
+            class="card-body"
+            :disabled="context.active || context.error"
+          >
             <label class="d-block">
               Dataset Name
-              <input v-model.trim="datasetName" class="form-control" />
+              <input
+                v-model.trim="datasetName"
+                class="form-control"
+              >
             </label>
             <div class="mt-3">
-              <label class="d-block" for="export_tdei_project_group">
+              <label
+                class="d-block"
+                for="export_tdei_project_group"
+              >
                 Project Group
               </label>
               <project-group-picker
@@ -97,7 +118,10 @@
             </label>
             <label class="d-block mt-3">
               Dataset Version
-              <input v-model.trim="datasetVersion" class="form-control" />
+              <input
+                v-model.trim="datasetVersion"
+                class="form-control"
+              >
             </label>
           </fieldset>
           <div class="card-footer">
@@ -105,10 +129,17 @@
               <app-spinner size="sm" />
               {{ context.status }}
             </template>
-            <section v-else-if="context.error" class="alert alert-danger m-0" role="alert">
+            <section
+              v-else-if="context.error"
+              class="alert alert-danger m-0"
+              role="alert"
+            >
               <h5><app-icon variant="info" />An error occurred:</h5>
               <p class="mb-3">{{ context.error }}</p>
-              <button class="btn btn-primary" @click="context.reset()">
+              <button
+                class="btn btn-primary"
+                @click="context.reset()"
+              >
                 Try again
               </button>
             </section>
@@ -116,11 +147,14 @@
               v-else-if="!context.complete"
               type="submit"
               class="btn btn-primary"
-              @click.prevent="upload"
               :disabled="context.active"
+              @click.prevent="upload"
             >
               Upload
-              <app-icon variant="arrow_circle_right" no-margin />
+              <app-icon
+                variant="arrow_circle_right"
+                no-margin
+              />
             </button>
           </div><!-- .card-footer -->
         </form><!-- .card -->
@@ -166,17 +200,17 @@ const datasetVersion = ref(oldMetadata.metadata?.dataset_detail?.version);
 
 async function upload() {
   // TODO: enable metadata customization
-	const metadata = {
-		"name": datasetName.value,
-		"version": datasetVersion.value,
-		"description": oldMetadata.description ?? '',
-		"collected_by": oldMetadata.collected_by ?? 'TDEI Workspaces',
-		"collection_date": new Date().toISOString(),
-		"collection_method": oldMetadata.collection_method ?? 'manual',
-		"data_source": oldMetadata.data_source ?? '3rdParty',
-		"schema_version": workspace.type === 'osw' ? 'v0.3' : 'v1.0',
-		"dataset_area": oldMetadata.dataset_area
-	};
+  const metadata = {
+    name: datasetName.value,
+    version: datasetVersion.value,
+    description: oldMetadata.description ?? '',
+    collected_by: oldMetadata.collected_by ?? 'TDEI Workspaces',
+    collection_date: new Date().toISOString(),
+    collection_method: oldMetadata.collection_method ?? 'manual',
+    data_source: oldMetadata.data_source ?? '3rdParty',
+    schema_version: workspace.type === 'osw' ? 'v0.3' : 'v1.0',
+    dataset_area: oldMetadata.dataset_area
+  };
 
   const jobId = await exporter.upload(workspace, metadata);
 

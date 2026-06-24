@@ -1,8 +1,8 @@
 // Test outline
-// @test e2e: the "from blank workspace" button takes you to a form that allows you to set the title, workspace type and project group, and submitting 
+// @test e2e: the "from blank workspace" button takes you to a form that allows you to set the title, workspace type and project group, and submitting
 //             creates a new workspace and takes you to the dashboard with the new workspace selected (playwright snapshot the form and loading state)
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
-// @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again" button are shown, and clicking the "try again" 
+// @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again" button are shown, and clicking the "try again"
 //            button resets the form (playwright snapshot the error state)
 
 <template>
@@ -15,11 +15,17 @@
           <div class="card-body">
             <label class="d-block mb-3">
               Workspace Title
-              <input v-model.trim="workspaceTitle" class="form-control" />
+              <input
+                v-model.trim="workspaceTitle"
+                class="form-control"
+              >
             </label>
 
             <div class="mb-3">
-              <label class="d-block" for="create_blank_project_group">
+              <label
+                class="d-block"
+                for="create_blank_project_group"
+              >
                 Project Group
               </label>
               <project-group-picker
@@ -29,12 +35,23 @@
             </div>
 
             <div>Dataset Type</div>
-            <dataset-type-radio v-model="datasetType" class="mb-3" />
+            <dataset-type-radio
+              v-model="datasetType"
+              class="mb-3"
+            />
           </div><!-- .card-body -->
 
           <div class="card-footer">
-            <button type="submit" class="btn btn-primary" :disabled="!complete" @click="create">
-              <app-spinner v-if="creating.active" size="sm" />
+            <button
+              type="submit"
+              class="btn btn-primary"
+              :disabled="!complete"
+              @click="create"
+            >
+              <app-spinner
+                v-if="creating.active"
+                size="sm"
+              />
               <template v-else>Create Workspace</template>
             </button>
           </div><!-- .card-footer -->
@@ -55,8 +72,8 @@ const datasetType = ref('osw');
 
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
-    && projectGroupId.value !== null
-    && datasetType.value !== null
+  && projectGroupId.value !== null
+  && datasetType.value !== null
 );
 
 async function create() {

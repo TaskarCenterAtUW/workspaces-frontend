@@ -1,26 +1,32 @@
 <template>
   <div class="btn-group">
     <input
+      id="radio_type_osw"
       v-model="model"
       type="radio"
-      id="radio_type_osw"
       name="radio_type"
       class="btn-check"
       autocomplete="off"
       value="osw"
     >
-    <label class="btn btn-outline-secondary" for="radio_type_osw">OpenSidewalks</label>
+    <label
+      class="btn btn-outline-secondary"
+      for="radio_type_osw"
+    >OpenSidewalks</label>
 
     <input
+      id="radio_type_pathways"
       v-model="model"
       type="radio"
-      id="radio_type_pathways"
       name="radio_type"
       class="btn-check"
       autocomplete="off"
       value="pathways"
     >
-    <label class="btn btn-outline-secondary" for="radio_type_pathways">GTFS Pathways</label>
+    <label
+      class="btn btn-outline-secondary"
+      for="radio_type_pathways"
+    >GTFS Pathways</label>
   </div>
 </template>
 

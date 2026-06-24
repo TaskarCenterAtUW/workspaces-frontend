@@ -1,10 +1,10 @@
 // Test outline
-// @test e2e: the "from file" button takes you to a form that allows you to set a title, workspace type, project group, and upload a file, and submitting creates a 
+// @test e2e: the "from file" button takes you to a form that allows you to set a title, workspace type, project group, and upload a file, and submitting creates a
 //             new workspace and takes you to the dashboard with the new workspace selected (playwright snapshot the form and loading state)
-// @test e2e: test that both a valid file upload and an invalid file upload (e.g. wrong file type) are handled correctly, with the valid file successfully creating a 
+// @test e2e: test that both a valid file upload and an invalid file upload (e.g. wrong file type) are handled correctly, with the valid file successfully creating a
 //            workspace and the invalid file showing an error message (playwright snapshot both scenarios)
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
-// @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again" button are shown, and clicking the "try again" 
+// @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again" button are shown, and clicking the "try again"
 //            button resets the form (playwright snapshot the error state)
 
 <template>
@@ -26,7 +26,10 @@
             </label>
 
             <div class="mb-3">
-              <label class="d-block" for="create_file_project_group">
+              <label
+                class="d-block"
+                for="create_file_project_group"
+              >
                 Project Group
               </label>
               <project-group-picker
@@ -50,9 +53,9 @@
               <input
                 type="file"
                 class="form-control"
-                @change="onFileChange"
                 :disabled="context.active"
                 required
+                @change="onFileChange"
               >
             </label>
           </div><!-- .card-body -->
@@ -62,10 +65,17 @@
               <app-spinner size="sm" />
               {{ context.status }}
             </template>
-            <section v-else-if="context.error" class="alert alert-danger m-0" role="alert">
+            <section
+              v-else-if="context.error"
+              class="alert alert-danger m-0"
+              role="alert"
+            >
               <h5><app-icon variant="info" />An error occurred:</h5>
               <p class="mb-3">{{ context.error }}</p>
-              <button class="btn btn-primary" @click="context.reset()">
+              <button
+                class="btn btn-primary"
+                @click="context.reset()"
+              >
                 Try again
               </button>
             </section>
@@ -73,8 +83,8 @@
               v-else-if="!context.complete"
               type="submit"
               class="btn btn-primary"
-              @click.prevent="create"
               :disabled="!complete || context.active"
+              @click.prevent="create"
             >
               Create Workspace
             </button>
@@ -99,10 +109,10 @@ const datasetFile = ref(null);
 
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
-    && projectGroupId.value !== null
-    && datasetType.value !== null
-    && datasetFile.value instanceof File
-    && datasetFile.value.name.endsWith('.zip')
+  && projectGroupId.value !== null
+  && datasetType.value !== null
+  && datasetFile.value instanceof File
+  && datasetFile.value.name.endsWith('.zip')
 );
 
 function onFileChange(e) {

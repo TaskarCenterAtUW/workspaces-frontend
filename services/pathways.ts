@@ -1,10 +1,8 @@
 import {
   BlobReader,
   BlobWriter,
-  TextReader,
   TextWriter,
-  ZipReader,
-  ZipWriter
+  ZipReader
 } from '@zip.js/zip.js';
 
 import { parseCsv } from '~/util/csv';
@@ -26,7 +24,7 @@ export async function openTdeiPathwaysArchive(
 ) {
   const blobReader = new BlobReader(zip);
   const zipReader = new ZipReader(blobReader);
-  var entries = await zipReader.getEntries();
+  let entries = await zipReader.getEntries();
 
   // if we are opening a TDEI archive then entries are zipped up,
   // otherwise the legacy Workspaces archive has everything in a single directory
@@ -46,13 +44,13 @@ export async function openTdeiPathwaysArchive(
     if (!filterPathways || PATHWAYS_FILES.has(e.filename)) {
       const textWriter = new TextWriter();
 
-      filePromises.push(new Promise(async (resolve, reject) => {
+      filePromises.push(new Promise(async (resolve, _reject) => {
         const csv = await e.getData(textWriter);
 
         if (parseObjects) {
-          resolve([ e.filename, await parseCsv(csv) ]);
+          resolve([e.filename, await parseCsv(csv)]);
         } else {
-          resolve([ e.filename, csv ]);
+          resolve([e.filename, csv]);
         }
       }));
     }
@@ -127,7 +125,9 @@ function makeStopColumnMap() {
   ]);
 
   map.reset = () => {
-    map.forEach((val, key) => { map.set(key, ''); });
+    map.forEach((val, key) => {
+      map.set(key, '');
+    });
   }
 
   return map;
@@ -143,7 +143,9 @@ function makePathwayColumnMap() {
   ]);
 
   map.reset = () => {
-    map.forEach((val, key) => { map.set(key, ''); });
+    map.forEach((val, key) => {
+      map.set(key, '');
+    });
   }
 
   return map;
@@ -273,7 +275,9 @@ export class PathwaysEditorManager {
     pathwaysOsmClient.authenticated = () => this.#tdeiAuth.ok;
 
     // Don't bother to fetch user details when uploading changesets:
-    pathwaysOsmService.userDetails = (callback) => { callback('dummy error') };
+    pathwaysOsmService.userDetails = (callback) => {
+      callback('dummy error')
+    };
   }
 
   #wrapXhr(innerXhr) {

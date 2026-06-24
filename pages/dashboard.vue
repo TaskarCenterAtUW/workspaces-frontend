@@ -23,13 +23,22 @@
         remember-selection
       />
 
-      <nuxt-link class="btn btn-primary flex-shrink-0" to="/workspace/create">
-        <app-icon variant="add" size="24" />
+      <nuxt-link
+        class="btn btn-primary flex-shrink-0"
+        to="/workspace/create"
+      >
+        <app-icon
+          variant="add"
+          size="24"
+        />
         New<span class="d-none d-sm-inline"> Workspace</span>
       </nuxt-link>
     </div>
 
-    <div v-if="!currentWorkspaces" class="alert alert-info mt-4">
+    <div
+      v-if="!currentWorkspaces"
+      class="alert alert-info mt-4"
+    >
       <app-icon variant="info" />
       No workspaces exist in the selected project group.
     </div>
@@ -55,7 +64,10 @@
             <nav class="card-header">
               <dashboard-toolbar :workspace="currentWorkspace" />
             </nav>
-            <dashboard-map :workspace="currentWorkspace" @center-loaded="onCenterLoaded" />
+            <dashboard-map
+              :workspace="currentWorkspace"
+              @center-loaded="onCenterLoaded"
+            />
             <dashboard-details-table
               :workspace="currentWorkspace"
               :my-tdei-roles="currentWorkspaceTdeiRoles"
@@ -118,9 +130,6 @@ const currentWorkspaces = computed(() =>
     ? workspacesByProjectGroup.get(currentProjectGroup.value)
     : undefined,
 );
-const selectedProjectGroupName = computed(() =>
-  myProjectGroups.find(pg => pg.tdei_project_group_id === currentProjectGroup.value)?.name ?? null
-);
 const currentWorkspaceTdeiRoles = computed(() =>
   currentWorkspace.value
     ? rolesByProjectGroup.get(currentWorkspace.value.tdeiProjectGroupId) ?? []
@@ -134,7 +143,9 @@ for (const w of workspaces) {
 }
 
 onMounted(() => {
-  watch(currentWorkspace, (val) => { if (val?.id) setLastWorkspaceId(val.id) });
+  watch(currentWorkspace, (val) => {
+    if (val?.id) setLastWorkspaceId(val.id)
+  });
   watch(currentWorkspaces, onCurrentWorkspacesChange);
 
   autoSelectPreferredView();

@@ -1,4 +1,3 @@
-
 const xmlParser = new DOMParser();
 const xmlSerializer = new XMLSerializer();
 

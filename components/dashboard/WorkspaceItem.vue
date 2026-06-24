@@ -1,26 +1,45 @@
 <template>
-  <button :class="getClasses()" :aria-label="`Select workspace ${workspace.title}, ID ${workspace.id}`">
+  <button
+    :class="getClasses()"
+    :aria-label="`Select workspace ${workspace.title}, ID ${workspace.id}`"
+  >
     <div class="workspace-card-main">
       <div class="workspace-names">
-        <img class="workspace-type-icon" :src="typeIconSrc" alt="" />
+        <img
+          class="workspace-type-icon"
+          :src="typeIconSrc"
+          alt=""
+        >
 
         <div class="workspace-copy">
           <div class="workspace-meta-row">
             <span class="workspace-type">{{ formatTypeLabel(workspace.type) }}</span>
 
-            <span v-if="workspace.externalAppAccess > 0" class="workspace-status workspace-status-success">
+            <span
+              v-if="workspace.externalAppAccess > 0"
+              class="workspace-status workspace-status-success"
+            >
               <app-icon variant="lock" /> App Access
             </span>
 
-            <span v-if="workspace.role === 'lead'" class="workspace-status">
+            <span
+              v-if="workspace.role === 'lead'"
+              class="workspace-status"
+            >
               <app-icon variant="star" /> {{ ROLE_LABELS.lead }}
             </span>
-            <span v-else-if="workspace.role === 'validator'" class="workspace-status">
+            <span
+              v-else-if="workspace.role === 'validator'"
+              class="workspace-status"
+            >
               <app-icon variant="task_alt" /> {{ ROLE_LABELS.validator }}
             </span>
           </div>
 
-          <div class="workspace-title" :title="workspace.title">
+          <div
+            class="workspace-title"
+            :title="workspace.title"
+          >
             <span>{{ workspace.title }}</span>
           </div>
         </div>

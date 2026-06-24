@@ -4,7 +4,11 @@
     class="service-picker form-select"
     aria-label="Service Selection"
   >
-    <option v-for="s in services" :key="s.id" :value="s.id">
+    <option
+      v-for="s in services"
+      :key="s.id"
+      :value="s.id"
+    >
       {{ s.name }}
     </option>
   </select>
@@ -28,8 +32,8 @@ const props = defineProps({
 const { projectGroupId, serviceType } = toRefs(props);
 const services = ref([]);
 
-watch(projectGroupId, (val) => refreshServices());
-watch(serviceType, (val) => refreshServices());
+watch(projectGroupId, _val => refreshServices());
+watch(serviceType, _val => refreshServices());
 
 refreshServices();
 
@@ -43,5 +47,4 @@ async function refreshServices() {
     model.value = services.value[0]?.id ?? null
   }
 }
-
 </script>

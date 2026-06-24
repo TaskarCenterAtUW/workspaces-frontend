@@ -1,7 +1,7 @@
 import parseOsmChangeXml from '@osmcha/osmchange-parser';
 import type { FeatureCollection, Point } from 'geojson';
 
-import { BaseHttpClient, BaseHttpClientError } from "~/services/http";
+import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
 import * as xml from '~/util/xml';
 
 import type { ICancelableClient } from '~/services/loading';
@@ -14,7 +14,6 @@ import type {
   OsmElement,
   OsmNode,
   OsmNote,
-  OsmTags,
   OsmWay,
 } from '~/types/osm';
 import type { WorkspaceId } from '~/types/workspaces';
@@ -396,8 +395,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return changeset;
   }
 
-  async getOsmChange(workspaceId: WorkspaceId, changesetId: number)
-    : Promise<OsmChange>
+  async getOsmChange(workspaceId: WorkspaceId, changesetId: number): Promise<OsmChange>
   {
     const response = await this._get(`changeset/${changesetId}/download`, {
       headers: {
@@ -421,9 +419,9 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
   async createChangeset(workspaceId: WorkspaceId): Promise<number> {
     const doc = xml.parse('<osm><changeset></changeset></osm>');
     const changesetNode = doc.firstChild.firstChild;
-    changesetNode.appendChild(xml.makeNode(doc, "tag", { k: 'workspace', v: workspaceId }));
-    changesetNode.appendChild(xml.makeNode(doc, "tag", { k: 'comment', v: 'Import workspace' }));
-    changesetNode.appendChild(xml.makeNode(doc, "tag", { k: 'created_by', v: 'TDEI Workspaces' }));
+    changesetNode.appendChild(xml.makeNode(doc, 'tag', { k: 'workspace', v: workspaceId }));
+    changesetNode.appendChild(xml.makeNode(doc, 'tag', { k: 'comment', v: 'Import workspace' }));
+    changesetNode.appendChild(xml.makeNode(doc, 'tag', { k: 'created_by', v: 'TDEI Workspaces' }));
 
     const body = xml.serialize(doc);
     const response = await this._put('changeset/create', body, {
