@@ -458,6 +458,12 @@ function buildTabRoute(tab: WorkspaceProjectDetailTab) {
   };
 }
 
+function buildTaskEditorRoute(taskNumber: number) {
+  return {
+    path: `/workspaces/${workspaceId}/${projectId}/${taskNumber}/editor`,
+  };
+}
+
 type StatusDialogState = {
   message: string;
   primaryActionLabel: string;
@@ -529,7 +535,9 @@ async function handleStatusDialogPrimaryAction() {
 }
 
 async function handleSelectedTaskAction() {
-  if (!selectedTask.value) {
+  const taskToOpen = selectedTask.value;
+
+  if (!taskToOpen) {
     return;
   }
 
@@ -538,27 +546,21 @@ async function handleSelectedTaskAction() {
     return;
   }
 
-  if (selectedTask.value.locked) {
+  if (taskToOpen.locked) {
     if (!selectedTaskLockedByCurrentUser.value) {
       return;
     }
   }
 
-  if (!selectedTask.value.locked) {
-    const didLockTask = await lockTaskAndRefreshState(selectedTask.value.taskNumber);
+  if (!taskToOpen.locked) {
+    const didLockTask = await lockTaskAndRefreshState(taskToOpen.taskNumber);
 
     if (!didLockTask) {
       return;
     }
   }
 
-  statusDialog.value = {
-    variant: 'success',
-    title: selectedTaskWorkActionLabel.value,
-    message: `Task locked for ${selectedTask.value.label}. Connect the mapping or validation route next.`,
-    primaryActionLabel: 'Close',
-    primaryActionType: 'dismiss',
-  };
+  await navigateTo(buildTaskEditorRoute(taskToOpen.taskNumber));
 }
 
 async function handleActivateProject() {

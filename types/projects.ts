@@ -21,6 +21,11 @@ export type WorkspaceProjectTaskStatus =
   | 'completed';
 export type WorkspaceProjectContributorRole = 'validator' | 'mapper' | 'lead';
 export type WorkspaceProjectTaskApiStatus = 'to_map' | 'to_validate' | 'more_mapping_needed' | 'done';
+export type WorkspaceProjectTaskFeedbackReasonCategory =
+  | 'incomplete_mapping'
+  | 'data_quality_issue'
+  | 'wrong_area'
+  | 'other';
 export type WorkspaceProjectAoiFeature = Feature<Polygon | MultiPolygon>;
 
 export interface WorkspaceProjectApiItem {
@@ -120,6 +125,24 @@ export interface WorkspaceProjectTaskListItem {
   updatedAt: string;
   lock: WorkspaceProjectTaskApiLock | null;
   locked: boolean;
+}
+
+export interface WorkspaceProjectTaskDetail extends WorkspaceProjectTaskListItem {
+  areaSquareKilometers: number;
+  createdAt: Date;
+  lastMapperName: string | null;
+  updatedAtIso: string;
+}
+
+export interface WorkspaceProjectTaskSubmitFeedback {
+  notes: string;
+  reasonCategory?: WorkspaceProjectTaskFeedbackReasonCategory;
+}
+
+export interface WorkspaceProjectTaskSubmitPayload {
+  osmChangesetId: number;
+  done: boolean;
+  feedback?: WorkspaceProjectTaskSubmitFeedback;
 }
 
 export interface WorkspaceProjectContributor {
