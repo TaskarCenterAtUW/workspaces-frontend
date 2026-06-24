@@ -458,9 +458,9 @@ function buildTabRoute(tab: WorkspaceProjectDetailTab) {
   };
 }
 
-function buildTaskEditorRoute(taskNumber: number) {
+function buildTaskEditorRoute(taskId: string) {
   return {
-    path: `/workspaces/${workspaceId}/${projectId}/${taskNumber}/editor`,
+    path: `/workspace/${workspaceId}/projects/${projectId}/tasks/${taskId}/editor`,
   };
 }
 
@@ -560,7 +560,7 @@ async function handleSelectedTaskAction() {
     }
   }
 
-  await navigateTo(buildTaskEditorRoute(taskToOpen.taskNumber));
+  await navigateTo(buildTaskEditorRoute(taskToOpen.id));
 }
 
 async function handleActivateProject() {
