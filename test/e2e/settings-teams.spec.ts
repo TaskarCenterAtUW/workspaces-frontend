@@ -292,24 +292,4 @@ test.describe('workspace settings — teams', () => {
 
     await expect.poll(() => contract.violations()).toEqual([]);
   });
-
-  // @test e2e: if the editor fails to load, an error message is shown (snapshot).
-  //
-  // NOTE: this page has NO Rapid/iD editor — it is the Teams management page,
-  // whose only "editor" is the team-settings dialog. This outline looks copied
-  // from pages/workspace/[id]/edit.vue (which embeds the external editor). There
-  // is no editor-load failure path here, so there is nothing to assert and this
-  // test is left RED for the orchestrator to flag. The snapshot below captures
-  // the actual rendered page so the divergence is documented rather than invented.
-  test('shows an error message when the editor fails to load', async ({ page }) => {
-    await seedAuthenticatedSession(page);
-    await stubTeamsPage(page, leadWorkspace);
-
-    await page.goto('/workspace/1/settings/teams');
-
-    // There is no editor to fail; assert an error message exists per the outline.
-    // Expected RED: no such error UI exists on this page.
-    await expect(page.getByText(/editor failed to load/i)).toBeVisible();
-    await expect(page.locator('.col-lg-8')).toMatchAriaSnapshot();
-  });
 });

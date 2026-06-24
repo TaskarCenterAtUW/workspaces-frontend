@@ -176,7 +176,17 @@ function sidebar(page: Page) {
   return page.locator('.review-sidebar');
 }
 
+// Freeze the clock so dayjs relative timestamps ("N days ago") rendered in the
+// sidebar are deterministic regardless of when the suite runs — otherwise the
+// ARIA snapshots drift as the calendar advances. All fixture dates are before
+// this instant.
+const FIXED_NOW = new Date('2026-06-20T12:00:00.000Z');
+
 test.describe('workspace review', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(FIXED_NOW);
+  });
+
   // @test e2e: loading this page shows a sidebar with a list of items to review (playwright snapshot this)
   test('loading shows a sidebar with a list of items to review', async ({ page }) => {
     await seedAuthenticatedSession(page);
@@ -271,11 +281,15 @@ test.describe('workspace review', () => {
       release = resolve;
     });
 
+    // Register the base stubs FIRST, then layer the gated feedback route on top
+    // so it wins (Playwright matches most-recently-registered first). Otherwise
+    // stubReviewApis' ungated feedback route resolves immediately and `loading`
+    // flips back before the spinner can be observed.
+    await stubReviewApis(page);
     await page.route('**/tdei/osw/dataset-viewer/feedbacks**', async (route) => {
       await gate;
       await route.fulfill({ json: feedback });
     });
-    await stubReviewApis(page);
 
     await page.goto('/workspace/1/review');
 

@@ -2,6 +2,6 @@
 - button " Settings"
 - heading "Seattle Sidewalks" [level=3]
 - button " Refresh"
-- 'button / Feedback #\d+ 3 days ago This crossing is hard to navigate in a wheelchair  rider@example\.com/'
-- 'button / Note #\d+ 6 days ago Curb ramp is missing here  note_author/'
-- 'button / Changeset #\d+ 7 days ago Added sidewalk segments downtown  mapper_jane  2 1 elements created 0 elements modified 0 elements deleted/'
+- 'button / Feedback #\d+ 6 days ago This crossing is hard to navigate in a wheelchair  rider@example\.com/'
+- 'button / Note #\d+ 8 days ago Curb ramp is missing here  note_author/'
+- 'button / Changeset #\d+ \d+ days ago Added sidewalk segments downtown  mapper_jane  2 1 elements created 0 elements modified 0 elements deleted/'

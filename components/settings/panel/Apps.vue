@@ -47,7 +47,7 @@
             type="radio"
             name="longFormQuestType"
             value="JSON"
-            :disabled="!isLead"
+            :disabled="appControlsDisabled"
           >
         </label>
       </div>
@@ -60,7 +60,7 @@
             type="radio"
             name="longFormQuestType"
             value="URL"
-            :disabled="!isLead"
+            :disabled="appControlsDisabled"
           >
         </label>
       </div>
@@ -74,7 +74,7 @@
             :class="{ 'drag-over': isDraggingQuest }"
             rows="5"
             placeholder="Optional"
-            :disabled="!isLead"
+            :disabled="appControlsDisabled"
             @dragover.prevent="isDraggingQuest = true"
             @dragleave.prevent="isDraggingQuest = false"
             @drop.prevent="onQuestFileDrop"
@@ -110,7 +110,7 @@
             type="text"
             class="form-control"
             placeholder="https://..."
-            :disabled="!isLead"
+            :disabled="appControlsDisabled"
           >
         </label>
         <div
@@ -150,14 +150,6 @@
       >
         Save
       </button>
-      <div
-        v-if="externalAppSaveStatus"
-        :class="`mt-2 form-text text-${
-          externalAppSaveStatus.type === 'success' ? 'success' : 'danger'
-        }`"
-      >
-        {{ externalAppSaveStatus.message }}
-      </div>
     </div><!-- .card-body -->
   </form><!-- .card -->
 </template>
@@ -166,6 +158,8 @@
 import { workspacesClient } from '~/services/index';
 import { handleFileDrop, validateJson } from '~/util/schema';
 import { isHttpUrl, normalizeUrl } from '~/util/url';
+import { toast } from 'vue3-toastify';
+import 'vue3-toastify/dist/index.css';
 
 import type { Workspace } from '~/types/workspaces';
 
@@ -174,6 +168,10 @@ const longFormQuestExampleUrl = import.meta.env.VITE_LONG_FORM_QUEST_EXAMPLE_URL
 
 const workspace = inject<Workspace>('workspace')!;
 const { isLead } = useWorkspaceRole();
+
+// The quest-definition controls only apply when the workspace is published for
+// external apps, so they're disabled when "Publish" is off (or for non-leads).
+const appControlsDisabled = computed(() => !isLead.value || !workspace.externalAppAccess);
 
 const [longFormQuestSettings] = await Promise.all([
   workspacesClient.getLongFormQuestSettings(workspace.id),
@@ -184,7 +182,6 @@ const longFormQuestType = ref(longFormQuestSettings.type);
 const longFormQuestDef = ref(longFormQuestSettings.definition);
 const longFormQuestUrl = ref(longFormQuestSettings.url);
 const longFormQuestError = ref<string | null>(null);
-const externalAppSaveStatus = ref<{ type: 'success' | 'error'; message: string } | null>(null);
 const isDraggingQuest = ref(false);
 
 watch(
@@ -199,7 +196,6 @@ watch(
 
 function clearExternalAppMessages() {
   longFormQuestError.value = null;
-  externalAppSaveStatus.value = null;
 }
 
 function onQuestFileDrop(event: DragEvent) {
@@ -260,17 +256,14 @@ async function saveExternalAppConfiguration() {
       }),
     ]);
 
-    externalAppSaveStatus.value = { type: 'success', message: 'Changes saved.' };
+    toast.success('Changes saved.');
     longFormQuestType.value = type;
     longFormQuestDef.value = definition;
     longFormQuestUrl.value = url;
   }
   catch (e) {
     const errorMessage = e instanceof Error ? e.message : 'unexpected error';
-    externalAppSaveStatus.value = {
-      type: 'error',
-      message: 'Failed to save changes: ' + errorMessage,
-    };
+    toast.error('Failed to save changes: ' + errorMessage);
   }
 }
 </script>

@@ -10,7 +10,4 @@
 - radio "GTFS Pathways" [checked]
 - text: GTFS Pathways Dataset File
 - button "Dataset File"
-- alert:
-  - heading " An error occurred:" [level=5]
-  - paragraph: "Unexpected error: boom"
-  - button "Try again"
+- button "Create Workspace" [disabled]

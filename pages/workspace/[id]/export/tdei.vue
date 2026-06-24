@@ -3,16 +3,15 @@
 //            as well as dataset version box (playwright snapshot this)
 // @test e2e: if the user doesn't have permissions to export to the TDEI, a message is shown indicating that and the project group and service
 //             pickers are not shown (playwright snapshot this)
-// @test e2e: submitting the form with valid values shows a loading state
+// @test e2e: all fields are required. Empty values should not be allowed, and the form should not be submittable with no values provided. Version should also only accept numbers.
+// @test e2e: submitting the form with valid values shows a loading state, an error is shown for any invalid values or the form is not submittable and the issue flagged to the user
 // @test e2e: the service names and project groups shown should match the simulated TDEI API response.
 // @test e2e: submitting the form with a dataset version that already exists in the TDEI for that service shows an error message, and allows the
 //            user to change the version and try again (playwright snapshot this)
-// @test e2e: submitting the form with an API error shows an error message and a "try again" button, and clicking the "try again" button resets
-//            the form (playwright snapshot the error state)
-// @test e2e: if the user leaves any field blank and tries to submit, an error message is shown indicating that all fields are required (playwright
-//            snapshot this)
+// @test e2e: submitting the form with an API error shows an error message
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
-// @test e2e: ensure that the service selector and project group selector display something meaningful even when there are no services or project groups to display to the user, e.g. "No services available" or "No project groups available" (playwright snapshot this)
+// @test e2e: ensure that the service selector and project group selector display something meaningful even when there are no services or project groups to display to 
+//            the user, e.g. "No services available" or "No project groups available" (playwright snapshot this)
 <template>
   <app-page>
     <div class="text-center mt-5">
@@ -93,6 +92,7 @@
               <input
                 v-model.trim="datasetName"
                 class="form-control"
+                required
               >
             </label>
             <div class="mt-3">
@@ -106,6 +106,7 @@
                 id="export_tdei_project_group"
                 v-model="workspace.tdeiProjectGroupId"
                 :options="eligibleProjectGroups"
+                required
               />
             </div>
             <label class="d-block mt-3">
@@ -114,6 +115,7 @@
                 v-model="workspace.tdeiServiceId"
                 :project-group-id="workspace.tdeiProjectGroupId"
                 :service-type="workspace.type"
+                required
               />
             </label>
             <label class="d-block mt-3">
@@ -121,6 +123,7 @@
               <input
                 v-model.trim="datasetVersion"
                 class="form-control"
+                required
               >
             </label>
           </fieldset>
@@ -199,6 +202,16 @@ const datasetName = ref(workspace.title);
 const datasetVersion = ref(oldMetadata.metadata?.dataset_detail?.version);
 
 async function upload() {
+  const allFieldsProvided = String(datasetName.value ?? '').trim()
+    && workspace.tdeiProjectGroupId
+    && workspace.tdeiServiceId
+    && String(datasetVersion.value ?? '').trim();
+
+  if (!allFieldsProvided) {
+    toast.error('All fields are required: Dataset Name, Project Group, Service, and Dataset Version.');
+    return;
+  }
+
   // TODO: enable metadata customization
   const metadata = {
     name: datasetName.value,

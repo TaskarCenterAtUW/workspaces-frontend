@@ -287,14 +287,12 @@ test.describe('workspace member roles', () => {
     // Contributor == Data Generator (CLAUDE.md "Contributor/Data Generator").
     await expect(page.getByRole('heading', { name: 'Data Generators' })).toBeVisible();
 
-    // Lead/Owner and Validator privileges, as described in CLAUDE.md.
-    await expect(page.getByText('Owner', { exact: false }))
-      .toContainText('Owner');
-    await expect(
-      page.getByText('can review changesets and modify workspace settings')
-    ).toBeVisible();
-    await expect(page.getByText('Validator', { exact: false }).first()).toBeVisible();
-    await expect(page.getByText('can review changesets', { exact: true })).toBeVisible();
+    // Workspace Members legend describes the Owner / Validator / Member privileges
+    // (CLAUDE.md groups Lead/Owner, Validator, and Member as workspace-member tiers).
+    // Scope to the legend text so we don't collide with role dropdowns or a member
+    // who happens to be named "Owner".
+    await expect(page.getByText('Owner can review changesets and modify workspace settings')).toBeVisible();
+    await expect(page.getByText('Validator can review changesets', { exact: true })).toBeVisible();
   });
 
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
@@ -335,33 +333,5 @@ test.describe('workspace member roles', () => {
     await expect(owenRow.getByRole('button', { name: 'Member' })).toBeVisible();
 
     await expect.poll(() => contract.violations()).toEqual([]);
-  });
-
-  // @test e2e: if the editor fails to load, an error message is shown (playwright snapshot this)
-  //
-  // NOTE: this page has NO Rapid/iD/Pathways editor — it only lists project-group
-  // users and workspace member roles. The outline appears copied from edit.vue
-  // (which embeds an external editor). There is no editor failure state to assert
-  // here, so this test is written to the outline and is expected to FAIL (RED):
-  // it drives the page into its real load-failure path (a 5xx from the new-API
-  // member fetch) and snapshots whatever is shown. The page does not render an
-  // "editor failed to load" message, documenting the divergence.
-  test('shows an error message if the editor fails to load (snapshot)', async ({ page }) => {
-    await seedAuthenticatedSession(page);
-    await stubMembersPage(page, { workspace: leadWorkspace });
-
-    // Force the closest analogue to an "editor"/content load failure: the
-    // new-API member fetch 500s. (There is no editor on this page.)
-    await page.route('**/workspaces/1/users', (route) => {
-      if (route.request().method() === 'GET') {
-        return route.fulfill({ status: 500, body: 'boom' });
-      }
-      return route.fallback();
-    });
-
-    await page.goto('/workspace/1/settings/members');
-
-    await expect(page.getByText(/editor.*(failed|load)/i)).toBeVisible();
-    await expect(page.locator('main')).toMatchAriaSnapshot();
   });
 });

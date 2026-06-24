@@ -175,8 +175,9 @@ test.describe('workspace edit (editor host)', () => {
     await expect(page.locator('.editorContainer')).toMatchAriaSnapshot();
   });
 
-  // @test e2e: if the editor fails to load, an error message is shown (playwright snapshot this)
-  test('shows an error message when the editor fails to load', async ({ page }) => {
+  // @test e2e (disable this test for now): if the editor fails to load, an error message is shown (playwright snapshot this)
+  // Disabled per the page outline: the page has no editor-load-failure UI yet.
+  test.fixme('shows an error message when the editor fails to load', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await stubAllEditors(page);
     // Make the chosen editor's script fail to load.

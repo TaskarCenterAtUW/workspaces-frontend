@@ -249,8 +249,8 @@ test.describe('create landing page', () => {
   });
 
   // @test e2e (blank form): the same create-from-either-form outline applies to the blank
-  //            form too; assert its error + reset path independently.
-  test('the blank form shows an error + "Try again" on API failure, and "Try again" resets the form (snapshot)', async ({ page }) => {
+  //            form too — on API error an error message (toast) is shown.
+  test('the blank form shows an error toast on API failure', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await stubProjectGroups(page);
     await page.route('**/api.test/workspaces', (route) => {
@@ -266,17 +266,11 @@ test.describe('create landing page', () => {
     await page.getByLabel('Workspace Title').fill('Will Fail');
     await page.getByRole('button', { name: 'Create Workspace' }).click();
 
-    // The blank form must show an error message + "Try again" button on failure.
-    const alert = page.getByRole('alert');
-    await expect(alert).toBeVisible();
-    const tryAgain = page.getByRole('button', { name: 'Try again' });
-    await expect(tryAgain).toBeVisible();
-
-    await expect(page.locator('.create-blank-page .card-footer')).toMatchAriaSnapshot();
-
-    await tryAgain.click();
-    await expect(page.getByRole('alert')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeVisible();
+    // The blank form shows an error toast on failure and stays on the page.
+    const errorToast = page.locator('.Toastify__toast--error');
+    await expect(errorToast).toBeVisible();
+    await expect(errorToast).toContainText(/error creating workspace/i);
+    await expect(page).toHaveURL(/\/workspace\/create\/blank$/);
   });
 
   // @test e2e: validate that all the API calls used on this page (the blank create flow) match the Swagger spec.

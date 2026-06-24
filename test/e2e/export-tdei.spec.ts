@@ -297,10 +297,13 @@ test('submitting with a blank field shows an all-fields-required error', async (
   await datasetVersionInput(page).fill('');
   await uploadButton(page).click();
 
-  // A validation message indicates that all fields are required.
-  const error = page.getByText(/all fields are required|required/i);
-  await expect(error).toBeVisible();
-  await expect(page.locator('form.card')).toMatchAriaSnapshot();
+  // An error toast indicates that all fields are required, and the form is not
+  // submitted (the page does not navigate away). The toast is transient, so we
+  // assert its text rather than snapshotting it.
+  const errorToast = page.locator('.Toastify__toast--error');
+  await expect(errorToast).toBeVisible();
+  await expect(errorToast).toContainText(/all fields are required/i);
+  await expect(page).toHaveURL(/\/workspace\/1\/export\/tdei$/);
 });
 
 // @test e2e: validate that all the API calls used on this page match the Swagger spec

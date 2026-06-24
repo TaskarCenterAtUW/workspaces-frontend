@@ -29,8 +29,9 @@ an **OpenAPI contract validator**. Config: [vitest.config.ts](vitest.config.ts),
 ./run-tests.sh --update-snapshots   # extra args pass through to playwright
 ```
 
-The e2e suite **intentionally has failing tests** that document real app bugs —
-see [ISSUES.md](ISSUES.md). A non-zero exit on a full run is expected. Unit is
+The e2e suite is written **to the `@test` outline comments (the spec), not the
+current code**, so a new e2e failure flags a real app/spec divergence. It
+currently passes aside from intentionally-skipped (`test.fixme`) flows. Unit is
 always green.
 
 ### Layout
@@ -81,8 +82,8 @@ test/
 
 Pages carry `@test e2e:` / `@test unit:` outline comments at the top describing
 intended behavior. Tests are generated **to the comment (the spec), not the
-current code** — if the code diverges, the test is left RED to document the bug
-(see ISSUES.md). Don't soften assertions to make buggy code pass.
+current code** — if the code diverges, the test is left RED to document the bug.
+Don't soften assertions to make buggy code pass.
 
 ## Gotchas (learned the hard way)
 
@@ -139,11 +140,11 @@ Viewer/Member/Everyone Else
 * With express TDEI sign-up, the need for this access level diminishes greatly
 * Granted by Workspaces setting.
 
-## Known app bugs
+## Test status
 
-Tracked in [ISSUES.md](ISSUES.md) — surfaced by the e2e suite (write-to-spec
-tests). Currently 9 distinct app bugs plus 2 outline/spec mismatches across the
-97-test e2e suite. The 6 skipped are `test.fixme` dashboard flows blocked by
-maplibre/external-editor rendering. Some heavy authed pages (e.g.
-`settings/members`) flake under high parallelism — run serially (`--workers=1`)
-for deterministic results.
+The e2e suite currently passes aside from **7 intentionally-skipped tests**: 6
+`test.fixme` dashboard flows blocked by maplibre/external-editor rendering, plus
+the edit "editor fails to load" test (disabled per its page outline — the page
+has no editor-load-failure UI yet). Some heavy authed pages (e.g.
+`settings/members`) can flake under high parallelism (the lazy-compile issue
+above) — run serially (`--workers=1`) for deterministic results.

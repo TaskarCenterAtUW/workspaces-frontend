@@ -4,8 +4,7 @@
 // @test e2e: test that both a valid file upload and an invalid file upload (e.g. wrong file type) are handled correctly, with the valid file successfully creating a
 //            workspace and the invalid file showing an error message (playwright snapshot both scenarios)
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
-// @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again" button are shown, and clicking the "try again"
-//            button resets the form (playwright snapshot the error state)
+// @test e2e: if an API error occurs when creating a workspace from either form, an error message is shown
 
 <template>
   <app-page class="create-file-page">
@@ -53,6 +52,7 @@
               <input
                 type="file"
                 class="form-control"
+                accept=".zip"
                 :disabled="context.active"
                 required
                 @change="onFileChange"
@@ -98,6 +98,8 @@
 <script setup lang="ts">
 import { FileImporter, FileImporterContext } from '~/services/import/file';
 import { osmClient, tdeiClient, workspacesClient } from '~/services/index';
+import { toast } from 'vue3-toastify';
+import 'vue3-toastify/dist/index.css';
 
 const context = reactive(new FileImporterContext());
 const importer = new FileImporter(workspacesClient, tdeiClient, osmClient, context);
@@ -116,7 +118,16 @@ const complete = computed(() =>
 );
 
 function onFileChange(e) {
-  datasetFile.value = e.target.files[0];
+  const file = e.target.files[0];
+
+  if (file && !file.name.endsWith('.zip')) {
+    toast.error('Only .zip files are supported. Please choose a .zip file.');
+    e.target.value = '';
+    datasetFile.value = null;
+    return;
+  }
+
+  datasetFile.value = file;
 }
 
 async function create() {

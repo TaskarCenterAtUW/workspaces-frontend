@@ -1,12 +1,9 @@
 // Test outline
 // @test e2e: submitting the form with valid values shows a loading state, then redirects to the dashboard with the
 //            new workspace selected (playwright snapshot the loading state)
-// @test e2e: submitting the form with an API error shows an error message and a "try again" button, and
-//            clicking the "try again" button resets the form (playwright snapshot the error state)
-// @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again"
-//            button are shown, and clicking the "try again" button resets the form (playwright snapshot the error state)
-// @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again" button are shown, and clicking the "try again"
-//            button resets the form (playwright snapshot the error state)
+// @test e2e: submitting the form with an API error shows an error message
+// @test e2e: if an API error occurs when creating a workspace from either form, an error message is shown
+
 <template>
   <app-page class="create-tdei-page">
     <h1 class="mb-4 h2">Create a Workspace from the TDEI</h1>

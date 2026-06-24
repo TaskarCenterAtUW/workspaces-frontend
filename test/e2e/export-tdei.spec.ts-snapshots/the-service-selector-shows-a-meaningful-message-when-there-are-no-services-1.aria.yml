@@ -1,0 +1,12 @@
+- group:
+  - text: Dataset Name
+  - textbox "Dataset Name": Seattle Sidewalks
+  - text: Project Group
+  - textbox "Project Group":
+    - /placeholder: Search project groups...
+    - text: Puget Sound
+  - text: Service
+  - combobox "Service Selection"
+  - text: No services available Dataset Version
+  - textbox "Dataset Version"
+- button "Upload "

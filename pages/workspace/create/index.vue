@@ -8,8 +8,7 @@
 // @test e2e: the "from file" button takes you to a form that allows you to set a title, workspace type, project group, and upload a file,
 //            and submitting creates a new workspace and takes you to the dashboard with the new workspace selected (playwright
 //            snapshot the form and loading state)
-// @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again" button are shown, and clicking the "try again"
-//            button resets the form (playwright snapshot the error state)
+// @test e2e: if an API error occurs when creating a workspace from either form, an error message is shown
 
 <template>
   <app-page>

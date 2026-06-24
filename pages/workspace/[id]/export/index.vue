@@ -4,7 +4,7 @@
 // @test e2e: clicking the "Start" button under "Upload to TDEI" brings you to the Export Workspace to TDEI page (playwright snapshot this)
 // @test e2e: clicking the "Start Preparing File for Download" button under "Download" shows a loading state, then shows a "Save"
 //            button when the file is ready, and clicking the "Save" button downloads the file to your device (playwright snapshot
-//            each change in state)
+//            each change in state here of the button)
 // @test e2e: if an error occurs when preparing the download, an error message is shown in a toast (playwright snapshot this)
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
@@ -148,7 +148,7 @@ async function _exportTdei() {
 
 async function download() {
   try {
-    downloading.wrap(workspacesClient, async (_client) => {
+    await downloading.wrap(workspacesClient, async (_client) => {
       const zip = await workspacesClient.exportWorkspaceArchive(workspace);
       downloadUrl.value = URL.createObjectURL(zip);
 
