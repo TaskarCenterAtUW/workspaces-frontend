@@ -4,8 +4,15 @@ Bugs surfaced by the e2e suite. Each test was written to the `@test` outline
 comment (the intended behavior) rather than to the current code, so these
 failures document real divergences between intent and implementation.
 
-As of the latest run: **7 distinct bugs across 11 failing e2e tests** (60 pass,
-6 skipped). Run `./run-tests.sh e2e` to reproduce.
+As of the latest run: **9 distinct app bugs** documented below, plus **2
+outline/spec mismatches** (see the end). The suite has 97 e2e tests; run
+`./run-tests.sh e2e` to reproduce.
+
+> Flakiness note: a few heavy authenticated pages (notably `settings/members`)
+> can intermittently fail under high parallelism due to the Nuxt dev server
+> compiling routes lazily under load. Run those serially (`npx playwright test
+> settings-members --workers=1`) for deterministic results, or run e2e against a
+> production build.
 
 ---
 
@@ -159,3 +166,63 @@ the intended behavior, and `settings.spec.ts:291` now matches it (types
 > [pages/workspace/[id]/settings.vue](pages/workspace/[id]/settings.vue) still
 > says "type in the workspace name" — update that comment to match if you want
 > the spec source to agree with the implementation.
+
+---
+
+## 9. Service selector shows no message when there are no services
+
+**Component:** [components/ServicePicker.vue](components/ServicePicker.vue)
+**Test:** `export-tdei.spec.ts` — "the service selector shows a meaningful message when there are no services"
+
+`ServicePicker` renders only a `<select>` with an `<option v-for>` over its
+fetched services. When a project group has **no services**, it shows an empty
+dropdown with no options and **no explanatory text** — the user gets no
+indication of why the picker is empty.
+
+**Repro:** On `/workspace/1/export/tdei`, with the selected project group's
+service list empty (`GET tdei-user/service?...` → `[]`). Expected: a meaningful
+message like "No services available". Actual: an empty `<select>`, no message.
+
+**Fix direction:** Render a placeholder/empty-state message when `services` is
+empty (e.g. a disabled `<option>` "No services available").
+
+> Scope note: the outline also mentions the project-group selector's empty
+> state. On this page the form only renders when ≥1 eligible project group
+> exists, so that picker is never empty here; the `ProjectGroupPicker` itself
+> *does* show "No project groups found." when empty
+> ([ProjectGroupPicker.vue:42-46](components/ProjectGroupPicker.vue#L42-L46)).
+
+---
+
+## 10. Member-roles page grouping diverges from the documented permission model
+
+**Page:** [pages/workspace/[id]/settings/members.vue](pages/workspace/[id]/settings/members.vue)
+**Test:** `settings-members.spec.ts` — "permission structure on the page matches CLAUDE.md"
+
+The page groups users as **Project Group Admins / Data Generators / Workspace
+Members** (with an Owner/Validator legend), collapsing Lead/Validator/Member into
+one "Workspace Members" section and never surfacing the "Contributor" or "Viewer"
+tiers named in CLAUDE.md's Permission Structure.
+
+**Repro:** Open `/workspace/1/settings/members` as a POC. Expected (per
+CLAUDE.md): the five documented tiers are represented. Actual: three sections
+that don't map 1:1 to the documented model.
+
+**Fix direction:** Reconcile the page's role grouping/labels with CLAUDE.md, or
+update CLAUDE.md if the page is the intended source of truth.
+
+---
+
+## Outline/spec mismatches (not app bugs)
+
+Two `@test` outlines reference an **"if the editor fails to load, an error
+message is shown"** behavior on pages that have **no editor** — the lines were
+copied from `edit.vue`:
+
+- [pages/workspace/[id]/settings/teams/index.vue](pages/workspace/[id]/settings/teams/index.vue)
+- [pages/workspace/[id]/settings/members.vue](pages/workspace/[id]/settings/members.vue)
+
+Their tests (`settings-teams.spec.ts` / `settings-members.spec.ts` — "editor
+fails to load") are RED because the asserted error UI can never exist on these
+pages. **Recommended action:** delete those two outline lines and their tests
+(they're not real divergences). Left in place for now pending confirmation.

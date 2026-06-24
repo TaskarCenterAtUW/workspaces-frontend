@@ -112,9 +112,38 @@ current code** — if the code diverges, the test is left RED to document the bu
 - **Playwright route precedence is most-recently-registered-first** — register
   per-test override routes AFTER (or in a way that wins over) shared stub helpers.
 
+## Permission Structure
+
+Project Group Admin ("POC")
+* Superuser for the whole project group
+* Implied by "poc" role in TDEI
+
+Lead/Owner/Workspace Admin
+* Admin-level access for a workspace
+* Configures workspace settings and quest definitions
+* Assigns users to workspace teams
+* Ability to merge changes from other workspace
+* Exports data to TDEI (with appropriate TDEI core roles)
+* Granted by Workspaces setting.
+
+Contributor/Data Generator
+* Modifies workspace data--all modifications need validation
+* Implied by membership in TDEI project group
+
+Validator
+* Modifies workspace data and approves changes from contributors
+* Granted by Workspaces setting.
+
+Viewer/Member/Everyone Else
+* Read-only access to workspace data
+* With express TDEI sign-up, the need for this access level diminishes greatly
+* Granted by Workspaces setting.
+
 ## Known app bugs
 
 Tracked in [ISSUES.md](ISSUES.md) — surfaced by the e2e suite (write-to-spec
-tests). Currently 7 open bugs across 11 failing e2e tests (60 pass, 6 skipped).
-The 6 skipped are `test.fixme` dashboard flows blocked by maplibre/external-editor
-rendering.
+tests). Currently 9 distinct app bugs plus 2 outline/spec mismatches across the
+97-test e2e suite. The 6 skipped are `test.fixme` dashboard flows blocked by
+maplibre/external-editor rendering. Some heavy authed pages (e.g.
+`settings/members`) flake under high parallelism — run serially (`--workers=1`)
+for deterministic results.

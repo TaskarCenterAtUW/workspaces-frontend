@@ -1,7 +1,6 @@
 // Test outline
 // @test e2e: the page renders with two sections that have buttons to off-site resources
 // @test e2e: the two buttons on this page link to offsite resources and/or a mailto:// link.
-
 <template>
   <app-page>
     <div class="text-center mt-5">

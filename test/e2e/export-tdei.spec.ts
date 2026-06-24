@@ -317,3 +317,27 @@ test('all API calls conform to the OpenAPI spec', async ({ page }) => {
 
   expect(contract.violations()).toEqual([]);
 });
+
+// @test e2e: ensure that the service selector and project group selector display something meaningful
+//            even when there are no services or project groups to display, e.g. "No services available"
+//            or "No project groups available" (playwright snapshot this).
+// NOTE: on this page the form only renders when at least one eligible project group exists (otherwise the
+// permission notice shows), so the project-group picker is never empty here. The reachable empty case is a
+// project group that has no services, which the service selector must communicate.
+test('the service selector shows a meaningful message when there are no services', async ({ page }) => {
+  await seedAuthenticatedSession(page);
+  await stubPageLoad(page, [eligibleProjectGroup]);
+  // The selected project group has no services.
+  await page.route('**/service?**', route => route.fulfill({ json: [] }));
+
+  await page.goto('/workspace/1/export/tdei');
+
+  // The service picker renders but has no options...
+  await expect(serviceSelect(page)).toBeVisible();
+  await expect(serviceSelect(page).getByRole('option')).toHaveCount(0);
+
+  // ...and the user should still see something meaningful explaining the empty state.
+  await expect(page.getByText(/no services available|no services/i)).toBeVisible();
+
+  await expect(page.locator('form.card')).toMatchAriaSnapshot();
+});
