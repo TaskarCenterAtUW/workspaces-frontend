@@ -145,9 +145,10 @@ import type {
   WorkspaceProjectTaskFeedbackReasonCategory,
   WorkspaceProjectTaskSubmitFeedback,
 } from '~/types/projects';
+import { shapeToCenter } from '~/util/geojson';
 
 const route = useRoute();
-const workspaceId = Number(route.params.workspaceId);
+const workspaceId = Number(route.params.id);
 const projectId = String(route.params.projectId);
 const taskId = String(route.params.taskId);
 const editorContainer = ref<HTMLDivElement | null>(null);
@@ -232,6 +233,7 @@ onMounted(() => {
   }
 
   editorContainer.value.appendChild(manager.containerNode);
+  syncTaskHash();
   void manager.switchWorkspace(workspaceId);
 });
 
@@ -261,12 +263,46 @@ async function loadTaskDetail(): Promise<WorkspaceProjectTaskDetail> {
     );
   }
   catch (error) {
+    const fallbackTaskDetail = await loadTaskDetailByTaskNumber(taskId, error);
+
+    if (fallbackTaskDetail) {
+      return fallbackTaskDetail;
+    }
+
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to load task details',
       data: error,
     });
   }
+}
+
+async function loadTaskDetailByTaskNumber(
+  taskIdentifier: string,
+  error: unknown,
+): Promise<WorkspaceProjectTaskDetail | null> {
+  if (!(error instanceof WorkspaceProjectsClientError) || error.response.status !== 404) {
+    return null;
+  }
+
+  const taskNumber = Number(taskIdentifier);
+
+  if (!Number.isInteger(taskNumber) || taskNumber < 1) {
+    return null;
+  }
+
+  const tasks = await workspaceProjectsClient.getWorkspaceProjectTasks(workspaceId, projectId);
+  const matchedTask = tasks.find(candidate => candidate.taskNumber === taskNumber);
+
+  if (!matchedTask) {
+    return null;
+  }
+
+  return await workspaceProjectsClient.getWorkspaceProjectTaskDetail(
+    workspaceId,
+    projectId,
+    matchedTask.id,
+  );
 }
 function handleTaskAction(actionId: 'complete' | 'skip') {
   if (hasActiveEdits.value) {
@@ -326,6 +362,23 @@ function buildFeedbackPayload(): WorkspaceProjectTaskSubmitFeedback | undefined 
     notes: trimmedFeedbackNotes.value,
     reasonCategory: feedbackReasonCategory.value || undefined,
   };
+}
+function generateInitialHash() {
+  const center = shapeToCenter(task.geometry);
+  const lat = center[0];
+  const lon = center[1];
+  const zoom = 17;
+  return `#map=${zoom}/${lat}/${lon}`;
+}
+
+function syncTaskHash() {
+  if (!task.geometry) {
+    return;
+  }
+
+  const initialHash = generateInitialHash();
+  const nextUrl = `${window.location.pathname}${window.location.search}${initialHash}`;
+  window.history.replaceState(window.history.state, '', nextUrl);
 }
 
 async function submitCompletedMapping() {
@@ -399,6 +452,7 @@ function mountEditor() {
   }
 
   editorContainer.value.appendChild(manager.containerNode);
+  syncTaskHash();
   void manager.init(workspaceId);
 }
 
