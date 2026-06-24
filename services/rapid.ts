@@ -57,6 +57,7 @@ export class RapidManager {
 
   switchWorkspace(workspaceId: number) {
     this.rapidContext.workspaceId = workspaceId;
+    console.log('Rapid workspace switched to', workspaceId);
 
     // Induce the editor to re-read the configuration from the URL hash:
     window.dispatchEvent(new HashChangeEvent('hashchange', {
@@ -102,6 +103,7 @@ export class RapidManager {
       this.#notifyStateChange(changesLength);
        
     });
+    // Change the viewport
      
     // editSystem.on('reset', () => {
     //   console.log('Rapid editor reset');
