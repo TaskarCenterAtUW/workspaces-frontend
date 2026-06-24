@@ -50,11 +50,10 @@ export class WorkspacesClientError extends Error {
 export class WorkspacesClient extends BaseHttpClient implements ICancelableClient {
   #tdeiClient: TdeiClient;
   #osmClient: OsmApiClient;
-  #newApiUrl: string;
 
   constructor(
     apiUrl: string,
-    newApiUrl: string,
+    _newApiUrl: string,
     tdeiClient: TdeiClient,
     osmClient: OsmApiClient,
     signal?: AbortSignal
@@ -63,28 +62,16 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
 
     this.#tdeiClient = tdeiClient;
     this.#osmClient = osmClient;
-    this.#newApiUrl = newApiUrl;
   }
 
   get auth(): TdeiAuthStore {
     return this.#tdeiClient.auth;
   }
 
-  // Transitional helper for migration to a new API backend
-  get #newApi() {
-    return new WorkspacesClient(
-      this.#newApiUrl,
-      this.#newApiUrl,
-      this.#tdeiClient,
-      this.#osmClient,
-      this._abortSignal
-    );
-  }
-
   clone(signal?: AbortSignal): WorkspacesClient {
     return new WorkspacesClient(
       this._baseUrl,
-      this.#newApiUrl,
+      this._baseUrl,
       this.#tdeiClient,
       this.#osmClient,
       signal ?? this._abortSignal
@@ -92,14 +79,14 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   }
 
   async getMyWorkspaces(): Promise<Workspace[]> {
-    const response = await this.#newApi._get('workspaces/mine');
+    const response = await this._get('workspaces/mine');
     const workspaces = (await response.json()) ?? [];
 
     return workspaces.map(normalizeWorkspace);
   }
 
   async getWorkspace(id: WorkspaceId): Promise<Workspace> {
-    const response = await this.#newApi._get(`workspaces/${id}`);
+    const response = await this._get(`workspaces/${id}`);
 
     return normalizeWorkspace(await response.json());
   }
@@ -112,7 +99,7 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     workspace.createdBy = this.#tdeiClient.auth.subject;
     workspace.createdByName = this.#tdeiClient.auth.displayName;
 
-    const workspaceResponse = await this.#newApi._post('workspaces', workspace);
+    const workspaceResponse = await this._post('workspaces', workspace);
     const workspaceId = (await workspaceResponse.json()).workspaceId;
     await this.#osmClient.createWorkspace(workspaceId);
 
@@ -120,7 +107,7 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   }
 
   async updateWorkspace(id: WorkspaceId, workspaceDetails: WorkspacePatch): Promise<void> {
-    await this.#newApi._patch(`workspaces/${id}`, workspaceDetails);
+    await this._patch(`workspaces/${id}`, workspaceDetails);
   }
 
   async exportWorkspaceArchive(workspace: Workspace): Promise<Blob> {
@@ -141,46 +128,46 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
 
   async deleteWorkspace(id: WorkspaceId): Promise<void> {
     await Promise.all([
-      this.#newApi._delete(`workspaces/${id}`),
+      this._delete(`workspaces/${id}`),
       this.#osmClient.deleteWorkspace(id),
     ]);
   }
 
   async getLongFormQuestSettings(id: WorkspaceId): Promise<QuestSettings> {
-    const response = await this.#newApi._get(`workspaces/${id}/quests/long/settings`);
+    const response = await this._get(`workspaces/${id}/quests/long/settings`);
 
     return await response.json();
   }
 
   async saveLongFormQuestSettings(id: WorkspaceId, settings: QuestSettingsPatch): Promise<void> {
-    await this.#newApi._patch(`workspaces/${id}/quests/long/settings`, settings);
+    await this._patch(`workspaces/${id}/quests/long/settings`, settings);
   }
 
   async getImagerySettings(id: WorkspaceId): Promise<ImagerySettings> {
-    const response = await this.#newApi._get(`workspaces/${id}/imagery/settings`);
+    const response = await this._get(`workspaces/${id}/imagery/settings`);
 
     return await response.json();
   }
 
   async saveImageryDefSettings(id: WorkspaceId, settings: object): Promise<void> {
-    await this.#newApi._patch(`workspaces/${id}/imagery/settings`, settings);
+    await this._patch(`workspaces/${id}/imagery/settings`, settings);
   }
 
   async getTeams(id: WorkspaceId): Promise<WorkspaceTeam[]> {
-    const response = await this.#newApi._get(`workspaces/${id}/teams`);
+    const response = await this._get(`workspaces/${id}/teams`);
 
     return (await response.json())
       .sort(compareStringAsc<WorkspaceTeam>(t => t.name));
   }
 
   async getTeam(id: WorkspaceId, teamId: number): Promise<WorkspaceTeam> {
-    const response = await this.#newApi._get(`workspaces/${id}/teams/${teamId}`);
+    const response = await this._get(`workspaces/${id}/teams/${teamId}`);
 
     return await response.json();
   }
 
   async createTeam(id: WorkspaceId, name: string): Promise<number> {
-    const response = await this.#newApi._post(`workspaces/${id}/teams`, {
+    const response = await this._post(`workspaces/${id}/teams`, {
       name,
     });
 
@@ -188,36 +175,36 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   }
 
   async updateTeam(id: WorkspaceId, teamId: number, name: string): Promise<void> {
-    await this.#newApi._put(`workspaces/${id}/teams/${teamId}`, { name });
+    await this._put(`workspaces/${id}/teams/${teamId}`, { name });
   }
 
   async deleteTeam(id: WorkspaceId, teamId: number): Promise<void> {
-    await this.#newApi._delete(`workspaces/${id}/teams/${teamId}`);
+    await this._delete(`workspaces/${id}/teams/${teamId}`);
   }
 
   async getTeamMembers(id: WorkspaceId, teamId: number): Promise<User[]> {
-    const response = await this.#newApi._get(`workspaces/${id}/teams/${teamId}/members`);
+    const response = await this._get(`workspaces/${id}/teams/${teamId}/members`);
 
     return (await response.json())
       .sort(compareStringAsc<User>(u => u.display_name));
   }
 
   async joinTeam(id: WorkspaceId, teamId: number): Promise<User> {
-    const response = await this.#newApi._post(`workspaces/${id}/teams/${teamId}/members`);
+    const response = await this._post(`workspaces/${id}/teams/${teamId}/members`);
 
     return await response.json();
   }
 
   async addToTeam(id: WorkspaceId, teamId: number, userId: number): Promise<void> {
-    await this.#newApi._put(`workspaces/${id}/teams/${teamId}/members/${userId}`);
+    await this._put(`workspaces/${id}/teams/${teamId}/members/${userId}`);
   }
 
   async removeFromTeam(id: WorkspaceId, teamId: number, userId: number): Promise<void> {
-    await this.#newApi._delete(`workspaces/${id}/teams/${teamId}/members/${userId}`);
+    await this._delete(`workspaces/${id}/teams/${teamId}/members/${userId}`);
   }
 
   async getWorkspaceMembers(id: WorkspaceId): Promise<WorkspaceMember[]> {
-    const response = await this.#newApi._get(`workspaces/${id}/users`);
+    const response = await this._get(`workspaces/${id}/users`);
     const items: Array<User & { role: WorkspaceRole }> = await response.json();
     return items.map(item => ({
       user: {
@@ -231,11 +218,11 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   }
 
   async assignRole(id: WorkspaceId, userUuid: string, role: WorkspaceRole): Promise<void> {
-    await this.#newApi._put(`workspaces/${id}/users/${userUuid}/role`, { role });
+    await this._put(`workspaces/${id}/users/${userUuid}/role`, { role });
   }
 
   async removeRole(id: WorkspaceId, userUuid: string): Promise<void> {
-    await this.#newApi._delete(`workspaces/${id}/users/${userUuid}`);
+    await this._delete(`workspaces/${id}/users/${userUuid}`);
   }
 
   async resolveChangeset(workspaceId: WorkspaceId, changesetId: number): Promise<void> {
