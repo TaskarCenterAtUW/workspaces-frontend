@@ -11,7 +11,9 @@ import type {
   WorkspaceProject,
   WorkspaceProjectApiItem,
   WorkspaceProjectTaskApiItem,
+  WorkspaceProjectTaskDetail,
   WorkspaceProjectTaskListItem,
+  WorkspaceProjectTaskSubmitPayload,
   WorkspaceProjectTasksApiResponse,
   WorkspaceProjectsApiResponse,
   WorkspaceProjectsQuery,
@@ -138,6 +140,16 @@ function normalizeProjectTask(task: WorkspaceProjectTaskApiItem): WorkspaceProje
   };
 }
 
+function normalizeProjectTaskDetail(task: WorkspaceProjectTaskApiItem): WorkspaceProjectTaskDetail {
+  return {
+    ...normalizeProjectTask(task),
+    areaSquareKilometers: task.area_sqkm,
+    createdAt: new Date(task.created_at),
+    lastMapperName: task.last_mapper?.user_name ?? null,
+    updatedAtIso: task.updated_at,
+  };
+}
+
 export class WorkspaceProjectsClientError extends Error {
   response: Response;
 
@@ -149,31 +161,23 @@ export class WorkspaceProjectsClientError extends Error {
 
 export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelableClient {
   #tdeiClient: TdeiClient;
-  #newApiUrl: string;
+  #taskingApiUrl: string;
 
-  constructor(apiUrl: string, newApiUrl: string, tdeiClient: TdeiClient, signal?: AbortSignal) {
-    super(apiUrl, signal);
+  constructor(taskingApiUrl: string, tdeiClient: TdeiClient, signal?: AbortSignal) {
+    super(taskingApiUrl, signal);
     this.#tdeiClient = tdeiClient;
-    this.#newApiUrl = newApiUrl;
+    // All methods in this client target tasking/project endpoints, so keep one canonical
+    // tasking base URL and do not bounce between legacy and new backends internally.
+    this.#taskingApiUrl = taskingApiUrl;
   }
 
   get auth(): TdeiAuthStore {
     return this.#tdeiClient.auth;
   }
 
-  get #newApi() {
-    return new WorkspaceProjectsClient(
-      this.#newApiUrl,
-      this.#newApiUrl,
-      this.#tdeiClient,
-      this._abortSignal,
-    );
-  }
-
   clone(signal?: AbortSignal): WorkspaceProjectsClient {
     return new WorkspaceProjectsClient(
-      this._baseUrl,
-      this.#newApiUrl,
+      this.#taskingApiUrl,
       this.#tdeiClient,
       signal ?? this._abortSignal,
     );
@@ -205,7 +209,7 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
       return normalizeProjectsResponse(workspaceId, getMockWorkspaceProjectsResponse(query));
     }
 
-    const response = await this.#newApi._get(this.#buildProjectsPath(workspaceId, query));
+    const response = await this._get(this.#buildProjectsPath(workspaceId, query));
     const body = await response.json() as WorkspaceProjectsApiResponse;
 
     return normalizeProjectsResponse(workspaceId, body);
@@ -215,7 +219,7 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     workspaceId: WorkspaceId,
     projectId: number | string,
   ): Promise<WorkspaceProjectDetail> {
-    const response = await this.#newApi._get(
+    const response = await this._get(
       `workspaces/${workspaceId}/tasking/projects/${projectId}`,
     );
     const body = await response.json() as WorkspaceProjectDetailApiItem;
@@ -232,7 +236,7 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     workspaceId: WorkspaceId,
     projectId: number | string,
   ): Promise<WorkspaceProjectDetail> {
-    const response = await this.#newApi._post(
+    const response = await this._post(
       `workspaces/${workspaceId}/tasking/projects/${projectId}/activate`,
     );
     const body = await response.json() as WorkspaceProjectDetailApiItem;
@@ -244,7 +248,7 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     workspaceId: WorkspaceId,
     projectId: number | string,
   ): Promise<WorkspaceProjectAoiFeature> {
-    const response = await this.#newApi._get(
+    const response = await this._get(
       `workspaces/${workspaceId}/tasking/projects/${projectId}/aoi`,
     );
     const body = await response.json() as WorkspaceProjectAoiApiResponse;
@@ -264,7 +268,7 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
       page: '1',
       page_size: '200',
     });
-    const response = await this.#newApi._get(
+    const response = await this._get(
       `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks?${params.toString()}`,
     );
     const body = await response.json() as WorkspaceProjectTasksApiResponse;
@@ -272,12 +276,29 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     return body.tasks.map(normalizeProjectTask);
   }
 
+  /**
+   * Read the canonical payload for one selected task so task-specific screens do not need to
+   * pull the full project task collection just to show a sidebar summary.
+   */
+  async getWorkspaceProjectTaskDetail(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+    taskId: number | string,
+  ): Promise<WorkspaceProjectTaskDetail> {
+    const response = await this._get(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks/${taskId}`,
+    );
+    const body = await response.json() as WorkspaceProjectTaskApiItem;
+
+    return normalizeProjectTaskDetail(body);
+  }
+
   async lockWorkspaceProjectTask(
     workspaceId: WorkspaceId,
     projectId: number | string,
     taskNumber: number,
   ): Promise<WorkspaceProjectTaskListItem> {
-    const response = await this.#newApi._post(
+    const response = await this._post(
       `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks/${taskNumber}/lock`,
     );
     const body = await response.json() as WorkspaceProjectTaskApiItem;
@@ -295,8 +316,29 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
       force: String(force),
     });
 
-    await this.#newApi._delete(
+    await this._delete(
       `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks/${taskNumber}/lock?${params.toString()}`,
+    );
+  }
+
+  async submitWorkspaceProjectTask(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+    taskNumber: number,
+    payload: WorkspaceProjectTaskSubmitPayload,
+  ): Promise<void> {
+    await this._post(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks/${taskNumber}/submit`,
+      {
+        osm_changeset_id: payload.osmChangesetId,
+        done: payload.done,
+        feedback: payload.feedback
+          ? {
+              notes: payload.feedback.notes,
+              reason_category: payload.feedback.reasonCategory,
+            }
+          : undefined,
+      },
     );
   }
 
