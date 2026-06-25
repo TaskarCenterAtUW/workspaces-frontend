@@ -1,4 +1,4 @@
-import { tdeiUserClient } from '~/services/index';
+import { listProjectGroupUsers } from '~/services/project-wizard-users';
 
 import type { Ref } from 'vue';
 import type {
@@ -7,7 +7,6 @@ import type {
   ProjectWizardStepId,
 } from '~/types/project-wizard';
 import type { WorkspaceRole } from '~/types/workspaces';
-import type { TdeiUserItem } from '~/types/tdei';
 
 interface UseProjectWizardSettingsOptions {
   currentStep: Ref<ProjectWizardStepId>;
@@ -16,18 +15,6 @@ interface UseProjectWizardSettingsOptions {
 }
 
 const PROJECT_WIZARD_VALIDATOR_ROLE: WorkspaceRole = 'validator';
-
-function normalizeProjectGroupUser(user: TdeiUserItem): ProjectWizardWorkspaceUser {
-  const displayName = `${user.first_name} ${user.last_name}`.trim() || user.username || user.email;
-
-  return {
-    id: Number.NaN,
-    authUid: user.user_id,
-    displayName,
-    email: user.email,
-    role: PROJECT_WIZARD_VALIDATOR_ROLE,
-  };
-}
 
 export function useProjectWizardSettings(options: UseProjectWizardSettingsOptions) {
   const validatorSearchQuery = ref('');
@@ -87,8 +74,10 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
     workspaceUsersLoading.value = true;
 
     try {
-      const items = await tdeiUserClient.getProjectGroupUsers(options.projectGroupId);
-      workspaceUsers.value = items.map(normalizeProjectGroupUser);
+      workspaceUsers.value = await listProjectGroupUsers(
+        options.projectGroupId,
+        PROJECT_WIZARD_VALIDATOR_ROLE,
+      );
       options.draft.settings.roleAssignments = options.draft.settings.roleAssignments.map((assignment) => {
         const matchedUser = workspaceUsers.value.find(user => user.authUid === assignment.userId);
 

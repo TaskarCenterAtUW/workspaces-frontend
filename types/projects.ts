@@ -4,7 +4,7 @@ import type {
   Polygon,
 } from 'geojson';
 
-import type { WorkspaceId } from '~/types/workspaces';
+import type { WorkspaceId, WorkspaceRole } from '~/types/workspaces';
 
 export type WorkspaceProjectStatus = 'draft' | 'in_progress' | 'completed';
 export type WorkspaceProjectView = 'grid' | 'list';
@@ -13,14 +13,15 @@ export type WorkspaceProjectsApiStatus = 'draft' | 'open' | 'done';
 export type WorkspaceProjectsQueryStatus = WorkspaceProjectsApiStatus;
 export type WorkspaceProjectsOrderBy = 'created_at' | 'name';
 export type WorkspaceProjectsOrderByType = 'ASC' | 'DESC';
-export type WorkspaceProjectDetailTab = 'overview' | 'instructions' | 'tasks' | 'contributions';
+export type WorkspaceProjectDetailTab = 'overview' | 'instructions' | 'tasks' | 'contributions' | 'contributors';
 export type WorkspaceProjectTaskStatus =
   | 'ready_for_mapping'
   | 'ready_for_validation'
   | 'needs_more_mapping'
   | 'completed';
-export type WorkspaceProjectContributorRole = 'validator' | 'mapper' | 'lead';
-export type WorkspaceProjectTaskApiStatus = 'to_map' | 'to_validate' | 'more_mapping_needed' | 'done';
+export type WorkspaceProjectContributorRole = WorkspaceRole;
+export type WorkspaceProjectContributorApiRole = WorkspaceRole;
+export type WorkspaceProjectTaskApiStatus = 'to_map' | 'to_validate' | 'more_mapping_needed' | 'done'|'completed'| 'to_review';
 export type WorkspaceProjectTaskFeedbackReasonCategory =
   | 'incomplete_mapping'
   | 'data_quality_issue'
@@ -80,6 +81,17 @@ export interface WorkspaceProjectTaskApiItem {
   last_mapper: WorkspaceProjectTaskApiMapper | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface WorkspaceProjectRoleApiItem {
+  user_id: string;
+  user_name: string;
+  role: WorkspaceProjectContributorApiRole;
+  updated_at: string;
+}
+
+export interface WorkspaceProjectRolesApiResponse {
+  results: WorkspaceProjectRoleApiItem[];
 }
 
 export interface WorkspaceProjectTasksApiResponse {
@@ -148,8 +160,8 @@ export interface WorkspaceProjectTaskSubmitPayload {
 export interface WorkspaceProjectContributor {
   id: string;
   name: string;
-  email: string;
   role: WorkspaceProjectContributorRole;
+  updatedAt: Date;
 }
 
 export interface WorkspaceProjectContributionMetric {

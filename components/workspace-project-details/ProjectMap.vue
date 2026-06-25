@@ -174,6 +174,7 @@ let maplibregl: typeof import('maplibre-gl') | null = null;
 let detailMap: import('maplibre-gl').Map | null = null;
 /** Holds references to DOM Marker instances for locked tasks so we can remove them on update. */
 let lockedTaskMarkers: Marker[] = [];
+let mapResizeObserver: ResizeObserver | null = null;
 
 /** Show the legend only when there's something meaningful to show on the map. */
 const showLegend = computed(() =>
@@ -262,11 +263,17 @@ onMounted(async () => {
   detailMap.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
 
   detailMap.on('load', () => {
+    detailMap?.resize();
     ensureLayers();
     bindInteractionHandlers();
     syncSources();
     fitMapToData();
   });
+
+  mapResizeObserver = new ResizeObserver(() => {
+    detailMap?.resize();
+  });
+  mapResizeObserver.observe(mapRef.value);
 });
 
 /**
@@ -277,6 +284,7 @@ onMounted(async () => {
 watch(
   () => [props.aoi, taskFeatureCollection.value, props.taskGrid],
   () => {
+    detailMap?.resize();
     syncSources();
     fitMapToData();
   },
@@ -289,6 +297,8 @@ watch(
  */
 onBeforeUnmount(() => {
   clearLockedTaskMarkers();
+  mapResizeObserver?.disconnect();
+  mapResizeObserver = null;
   detailMap?.remove();
   detailMap = null;
 });
@@ -378,15 +388,22 @@ function ensureLayers() {
         'case',
         ['==', ['get', 'selected'], true],
         '#2f3858',
-        '#8691a8',
+        [
+          'match',
+          ['coalesce', ['get', 'status'], 'ready_for_mapping'],
+          'ready_for_validation', '#5f98cc',
+          'needs_more_mapping', '#d08f57',
+          'completed', '#69b28d',
+          '#d0b24f',
+        ],
       ],
       'line-width': [
         'case',
         ['==', ['get', 'selected'], true],
         2.6,
-        1.7,
+        2.4,
       ],
-      'line-opacity': 0.92,
+      'line-opacity': 1,
     },
   };
 
@@ -407,17 +424,17 @@ function ensureLayers() {
     type: 'line',
     source: TASK_GRID_SOURCE_ID,
     paint: {
-      'line-color': '#8f9ab1',
-      'line-width': 1.9,
-      'line-opacity': 0.98,
+      'line-color': '#6f7c99',
+      'line-width': 2,
+      'line-opacity': 1,
     },
   };
 
   detailMap.addLayer(aoiFillLayer);
   detailMap.addLayer(taskGridFillLayer);
-  detailMap.addLayer(taskGridLineLayer);
   detailMap.addLayer(taskFillLayer);
   detailMap.addLayer(taskLineLayer);
+  detailMap.addLayer(taskGridLineLayer);
   detailMap.addLayer(aoiLineLayer);
 }
 
@@ -460,6 +477,12 @@ function syncSources() {
   aoiOutlineSource?.setData(aoiOutlineFeatureCollection.value);
   taskSource?.setData(taskFeatureCollection.value);
   taskGridSource?.setData(props.taskGrid ?? emptyCollection);
+
+  // Once tasks or a generated grid exist, remove the AOI wash so the task cells stay legible.
+  const hasTaskOverlay = taskFeatureCollection.value.features.length > 0
+    || Boolean(props.taskGrid?.features.length);
+  detailMap.setPaintProperty(AOI_FILL_ID, 'fill-opacity', hasTaskOverlay ? 0.08 : 0.3);
+
   syncLockedTaskMarkers();
 }
 
