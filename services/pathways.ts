@@ -44,15 +44,15 @@ export async function openTdeiPathwaysArchive(
     if (!filterPathways || PATHWAYS_FILES.has(e.filename)) {
       const textWriter = new TextWriter();
 
-      filePromises.push(new Promise(async (resolve, _reject) => {
+      filePromises.push((async (): Promise<[string, any]> => {
         const csv = await e.getData(textWriter);
 
         if (parseObjects) {
-          resolve([e.filename, await parseCsv(csv)]);
+          return [e.filename, await parseCsv(csv)];
         } else {
-          resolve([e.filename, csv]);
+          return [e.filename, csv];
         }
-      }));
+      })());
     }
   }
 
