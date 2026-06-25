@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  check:
+  ci:
     runs-on: ubuntu-latest
 
     steps:
@@ -48,7 +48,6 @@ jobs:
       # `continue-on-error` to false once those are resolved to gate on it.
       - name: E2E tests
         if: ${{ !cancelled() }}
-        continue-on-error: true
         run: npm run test:e2e
 
       - name: Upload Playwright report
