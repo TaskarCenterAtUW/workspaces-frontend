@@ -3,7 +3,6 @@
     <div
       class="project-detail-shell"
       :class="{
-        'project-detail-shell-tasks': activeTab === 'tasks',
         'project-detail-shell-task-selected': showSelectedTaskBar,
       }"
     >
@@ -119,10 +118,25 @@
           />
         </section>
 
-        <section v-else class="project-detail-tab-panel">
+        <section v-else-if="activeTab === 'contributions'" class="project-detail-tab-panel">
           <workspace-project-details-contributions-tab
             :contributors="supplemental.contributors"
             :metrics="supplemental.contributionMetrics"
+          />
+        </section>
+
+        <section v-else class="project-detail-tab-panel">
+          <workspace-project-details-contributors-tab
+            :adding-contributor="addingContributor"
+            :available-users="projectGroupUsers"
+            :available-users-loading="projectGroupUsersLoading"
+            :contributors="supplemental.contributors"
+            :updating-contributor-id="mutatingContributorId"
+            @add-contributor="handleAddContributor"
+            @open-add-contributor="handleOpenAddContributorDialog"
+            @remove-contributor="confirmRemoveContributor"
+            @search-available-users="handleSearchAvailableUsers"
+            @update-role="handleUpdateContributorRole"
           />
         </section>
       </section>
@@ -199,6 +213,9 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from 'vue3-toastify';
+import 'vue3-toastify/dist/index.css';
+import { listProjectGroupUsers } from '~/services/project-wizard-users';
 import { normalizeProjectWizardAoiInput } from '~/services/project-wizard-aoi';
 import {
   PROJECT_WIZARD_TASK_AREA_MAXIMUM,
@@ -209,6 +226,7 @@ import { workspaceProjectsClient, workspacesClient } from '~/services/index';
 
 import type {
   WorkspaceProjectAoiFeature,
+  WorkspaceProjectContributor,
   WorkspaceProjectDetail,
   WorkspaceProjectDetailSupplemental,
   WorkspaceProjectDetailTab,
@@ -219,6 +237,7 @@ import type {
   ProjectWizardGeneratedTaskFeatureCollection,
   ProjectWizardTaskPreviewFeatureCollection,
   ProjectWizardTaskSaveSummary,
+  ProjectWizardWorkspaceUser,
 } from '~/types/project-wizard';
 
 interface ProjectDetailTabOption {
@@ -226,6 +245,7 @@ interface ProjectDetailTabOption {
   label: string;
 }
 
+const { create } = useModal();
 const route = useRoute();
 const workspaceId = Number(route.params.id);
 const projectId = String(route.params.projectId);
@@ -236,12 +256,15 @@ const tabs: ProjectDetailTabOption[] = [
   { id: 'instructions', label: 'Instructions' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'contributions', label: 'Contributions' },
+  { id: 'contributors', label: 'Contributors' },
 ];
 
 const workspace = await workspacesClient.getWorkspace(workspaceId);
 const project = ref(await loadProjectDetail());
 const projectAoi = ref(await loadProjectAoi());
 const projectTasks = ref<WorkspaceProjectTaskListItem[] | null>(await loadProjectTasks());
+const projectContributors = ref<WorkspaceProjectContributor[]>(await loadProjectContributors());
+const projectGroupUsers = ref<ProjectWizardWorkspaceUser[]>([]);
 
 // The detail API does not expose separate rich-text fields for overview content yet,
 // so the page derives its renderable sections from the real project payload.
@@ -249,7 +272,7 @@ const supplemental = computed<WorkspaceProjectDetailSupplemental>(() => ({
   descriptionHtml: resolveProjectDescriptionHtml(),
   instructionsHtml: resolveProjectInstructionsHtml(),
   tasks: projectTasks.value ?? [],
-  contributors: [],
+  contributors: projectContributors.value,
   contributionMetrics: [],
 }));
 
@@ -349,7 +372,12 @@ const totalTaskCount = computed(() =>
 // Lock ownership depends on the authenticated tasking user, so the page resolves it once and
 // passes only simple booleans/IDs down to child components.
 const currentUserId = computed(() => workspaceProjectsClient.auth.subject || null);
+const addingContributor = ref(false);
 const isActivatingProject = ref(false);
+const projectGroupUserSearchQuery = ref('');
+const projectGroupUsersLoaded = ref(false);
+const projectGroupUsersLoading = ref(false);
+const mutatingContributorId = ref<string | null>(null);
 const mutatingTaskNumber = ref<number | null>(null);
 const selectedTaskId = ref<string | null>(null);
 const selectedTask = computed(() =>
@@ -402,6 +430,9 @@ const selectedTaskActionDisabled = computed(() =>
   || mutatingTaskNumber.value === selectedTask.value.taskNumber
   || (selectedTask.value.locked && !selectedTaskLockedByCurrentUser.value),
 );
+
+let projectGroupUserSearchDebounce: ReturnType<typeof setTimeout> | undefined;
+let projectGroupUserSearchRequestId = 0;
 
 const completedTaskCount = computed(() => {
   const completedTasks = displayedTasks.value.filter(task => task.status === 'completed').length;
@@ -458,9 +489,9 @@ function buildTabRoute(tab: WorkspaceProjectDetailTab) {
   };
 }
 
-function buildTaskEditorRoute(taskId: string) {
+function buildTaskEditorRoute(taskNumber: number) {
   return {
-    path: `/workspace/${workspaceId}/projects/${projectId}/tasks/${taskId}/editor`,
+    path: `/workspace/${workspaceId}/projects/${projectId}/tasks/${taskNumber}/editor`,
   };
 }
 
@@ -560,7 +591,7 @@ async function handleSelectedTaskAction() {
     }
   }
 
-  await navigateTo(buildTaskEditorRoute(taskToOpen.id));
+  await navigateTo(buildTaskEditorRoute(taskToOpen.taskNumber));
 }
 
 async function handleActivateProject() {
@@ -615,18 +646,195 @@ async function loadProjectTasks(): Promise<WorkspaceProjectTaskListItem[] | null
   }
 }
 
+async function loadProjectContributors(): Promise<WorkspaceProjectContributor[]> {
+  try {
+    return await workspaceProjectsClient.getWorkspaceProjectRoles(workspaceId, projectId);
+  }
+  catch {
+    return [];
+  }
+}
+
 async function refreshProjectTasksOnly() {
   const latestTasks = await workspaceProjectsClient.getWorkspaceProjectTasks(workspaceId, projectId);
   projectTasks.value = latestTasks;
 }
 
+async function loadProjectGroupUsers(searchText: string = '') {
+  const requestId = ++projectGroupUserSearchRequestId;
+  projectGroupUsersLoading.value = true;
+
+  try {
+    const users = await listProjectGroupUsers(
+      workspace.tdeiProjectGroupId,
+      'contributor',
+      searchText,
+    );
+
+    if (requestId !== projectGroupUserSearchRequestId) {
+      return;
+    }
+
+    projectGroupUsers.value = users;
+    projectGroupUsersLoaded.value = true;
+  }
+  catch (error) {
+    if (requestId === projectGroupUserSearchRequestId) {
+      toast.error(error instanceof Error ? error.message : 'Failed to load workspace users');
+    }
+  }
+  finally {
+    if (requestId === projectGroupUserSearchRequestId) {
+      projectGroupUsersLoading.value = false;
+    }
+  }
+}
+
+function handleOpenAddContributorDialog() {
+  if (projectGroupUsersLoaded.value || projectGroupUsersLoading.value) {
+    return;
+  }
+
+  void loadProjectGroupUsers(projectGroupUserSearchQuery.value);
+}
+
+function handleSearchAvailableUsers(value: string) {
+  projectGroupUserSearchQuery.value = value;
+
+  if (projectGroupUserSearchDebounce) {
+    clearTimeout(projectGroupUserSearchDebounce);
+  }
+
+  projectGroupUserSearchDebounce = setTimeout(() => {
+    void loadProjectGroupUsers(projectGroupUserSearchQuery.value);
+  }, 250);
+}
+
+async function handleAddContributor(payload: {
+  role: WorkspaceProjectContributor['role'];
+  userId: string;
+}) {
+  if (projectContributors.value.some(contributor => contributor.id === payload.userId)) {
+    return;
+  }
+
+  addingContributor.value = true;
+
+  try {
+    await workspaceProjectsClient.addWorkspaceProjectRole(workspaceId, projectId, payload);
+    projectContributors.value = await workspaceProjectsClient.getWorkspaceProjectRoles(workspaceId, projectId);
+  }
+  catch (error) {
+    toast.error(error instanceof Error ? error.message : 'Failed to add contributor');
+  }
+  finally {
+    addingContributor.value = false;
+  }
+}
+
+async function confirmRemoveContributor(contributor: WorkspaceProjectContributor) {
+  const value = await create({
+    title: 'Remove Contributor',
+    body: `Remove ${contributor.name} from this project?`,
+    okTitle: 'Remove',
+    okVariant: 'danger',
+    cancelTitle: 'Cancel',
+    cancelClass: 'btn-link p-0',
+    cancelVariant: null,
+  }).show();
+
+  if (!value?.ok) {
+    return;
+  }
+
+  mutatingContributorId.value = contributor.id;
+
+  try {
+    await workspaceProjectsClient.deleteWorkspaceProjectRole(workspaceId, projectId, contributor.id);
+    projectContributors.value = projectContributors.value.filter(
+      item => item.id !== contributor.id,
+    );
+  }
+  catch (error) {
+    toast.error(error instanceof Error ? error.message : 'Failed to remove contributor');
+  }
+  finally {
+    mutatingContributorId.value = null;
+  }
+}
+
+async function handleUpdateContributorRole(payload: {
+  contributorId: string;
+  role: WorkspaceProjectContributor['role'];
+}) {
+  const existingContributor = projectContributors.value.find(
+    contributor => contributor.id === payload.contributorId,
+  );
+
+  if (!existingContributor || existingContributor.role === payload.role) {
+    return;
+  }
+
+  const previousRole = existingContributor.role;
+  const previousUpdatedAt = existingContributor.updatedAt;
+
+  projectContributors.value = projectContributors.value.map((contributor) => {
+    if (contributor.id !== payload.contributorId) {
+      return contributor;
+    }
+
+    return {
+      ...contributor,
+      role: payload.role,
+      updatedAt: new Date(),
+    };
+  });
+
+  mutatingContributorId.value = payload.contributorId;
+
+  try {
+    await workspaceProjectsClient.updateWorkspaceProjectRole(
+      workspaceId,
+      projectId,
+      payload.contributorId,
+      payload.role,
+    );
+    projectContributors.value = await workspaceProjectsClient.getWorkspaceProjectRoles(workspaceId, projectId);
+  }
+  catch (error) {
+    projectContributors.value = projectContributors.value.map((contributor) => {
+      if (contributor.id !== payload.contributorId) {
+        return contributor;
+      }
+
+      return {
+        ...contributor,
+        role: previousRole,
+        updatedAt: previousUpdatedAt,
+      };
+    });
+
+    toast.error(error instanceof Error ? error.message : 'Failed to update contributor role');
+  }
+  finally {
+    mutatingContributorId.value = null;
+  }
+}
+
+onBeforeUnmount(() => {
+  if (projectGroupUserSearchDebounce) {
+    clearTimeout(projectGroupUserSearchDebounce);
+  }
+});
+
 async function hydrateProjectDataFromApi() {
   // Refresh the independent project, AOI, and task resources opportunistically so one
   // failed request does not wipe out the rest of the page state.
-  const [projectResult, aoiResult, tasksResult] = await Promise.allSettled([
+  const [projectResult, aoiResult, tasksResult, contributorsResult] = await Promise.allSettled([
     workspaceProjectsClient.getWorkspaceProjectDetail(workspaceId, projectId),
     workspaceProjectsClient.getWorkspaceProjectAoi(workspaceId, projectId),
     workspaceProjectsClient.getWorkspaceProjectTasks(workspaceId, projectId),
+    workspaceProjectsClient.getWorkspaceProjectRoles(workspaceId, projectId),
   ]);
 
   if (projectResult.status === 'fulfilled') {
@@ -639,6 +847,10 @@ async function hydrateProjectDataFromApi() {
 
   if (tasksResult.status === 'fulfilled') {
     projectTasks.value = tasksResult.value;
+  }
+
+  if (contributorsResult.status === 'fulfilled') {
+    projectContributors.value = contributorsResult.value;
   }
 }
 
@@ -828,16 +1040,12 @@ function escapeHtml(value: string) {
 .project-detail-shell {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 44%) minmax(0, 56%);
+  grid-template-columns: minmax(0, 50%) minmax(0, 50%);
   height: 100%;
   background: #ffffff;
   border: 1px solid rgba($text-navy, 0.12);
   border-radius: 1rem;
   overflow: hidden;
-}
-
-.project-detail-shell-tasks {
-  grid-template-columns: minmax(0, 48%) minmax(0, 52%);
 }
 
 .project-detail-shell-task-selected .project-detail-content,
@@ -1126,14 +1334,6 @@ function escapeHtml(value: string) {
 }
 
 @include media-breakpoint-down(xl) {
-  .project-detail-shell {
-    grid-template-columns: minmax(0, 48%) minmax(0, 52%);
-  }
-
-  .project-detail-shell-tasks {
-    grid-template-columns: minmax(0, 52%) minmax(0, 48%);
-  }
-
   .project-detail-hero,
   .project-detail-tabs,
   .project-detail-tab-panel {

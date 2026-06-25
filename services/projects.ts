@@ -6,10 +6,13 @@ import type { TdeiAuthStore, TdeiClient } from '~/services/tdei';
 import type {
   WorkspaceProjectAoiApiResponse,
   WorkspaceProjectAoiFeature,
+  WorkspaceProjectContributor,
   WorkspaceProjectDetail,
   WorkspaceProjectDetailApiItem,
   WorkspaceProject,
   WorkspaceProjectApiItem,
+  WorkspaceProjectRoleApiItem,
+  WorkspaceProjectRolesApiResponse,
   WorkspaceProjectTaskApiItem,
   WorkspaceProjectTaskDetail,
   WorkspaceProjectTaskListItem,
@@ -47,6 +50,10 @@ function normalizeTaskStatus(status: WorkspaceProjectTaskApiItem['status']): Wor
       return 'needs_more_mapping';
     case 'done':
       return 'completed';
+     case 'completed':
+      return 'completed';
+    case 'to_review':
+      return 'ready_for_validation'
     case 'to_map':
     default:
       return 'ready_for_mapping';
@@ -133,7 +140,7 @@ function normalizeProjectTask(task: WorkspaceProjectTaskApiItem): WorkspaceProje
     taskNumber: task.task_number,
     // While a task is actively locked, the UI should show the current lock owner instead of a
     // historical mapper so the list matches the real live task ownership state.
-    mapperName: task.lock?.user_name ?? 'Unassigned',
+    mapperName: task.last_mapper?.user_name ?? 'Unassigned',
     updatedAt: formatProjectTaskDate(task.updated_at),
     lock: task.lock,
     locked: task.lock !== null,
@@ -147,6 +154,15 @@ function normalizeProjectTaskDetail(task: WorkspaceProjectTaskApiItem): Workspac
     createdAt: new Date(task.created_at),
     lastMapperName: task.last_mapper?.user_name ?? null,
     updatedAtIso: task.updated_at,
+  };
+}
+
+function normalizeProjectContributor(role: WorkspaceProjectRoleApiItem): WorkspaceProjectContributor {
+  return {
+    id: role.user_id,
+    name: role.user_name,
+    role: role.role,
+    updatedAt: new Date(role.updated_at),
   };
 }
 
@@ -274,6 +290,57 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     const body = await response.json() as WorkspaceProjectTasksApiResponse;
 
     return body.tasks.map(normalizeProjectTask);
+  }
+
+  async getWorkspaceProjectRoles(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+  ): Promise<WorkspaceProjectContributor[]> {
+    const response = await this._get(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/roles`,
+    );
+    const body = await response.json() as WorkspaceProjectRolesApiResponse;
+
+    return body.results.map(normalizeProjectContributor);
+  }
+
+  async updateWorkspaceProjectRole(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+    userId: string,
+    role: WorkspaceProjectContributor['role'],
+  ): Promise<void> {
+    await this._put(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/roles/${userId}`,
+      { role },
+    );
+  }
+
+  async addWorkspaceProjectRole(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+    payload: {
+      role: WorkspaceProjectContributor['role'];
+      userId: string;
+    },
+  ): Promise<void> {
+    await this._post(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/roles`,
+      {
+        user_id: payload.userId,
+        role: payload.role,
+      },
+    );
+  }
+
+  async deleteWorkspaceProjectRole(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+    userId: string,
+  ): Promise<void> {
+    await this._delete(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/roles/${userId}`,
+    );
   }
 
   /**
