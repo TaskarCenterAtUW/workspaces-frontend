@@ -43,9 +43,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: npx playwright install --with-deps chromium
 
-      # The e2e suite intentionally contains failing tests that document real app
-      # bugs (see ISSUES.md), so it is non-blocking for now. Flip
-      # `continue-on-error` to false once those are resolved to gate on it.
       - name: E2E tests
         if: ${{ !cancelled() }}
         run: npm run test:e2e
