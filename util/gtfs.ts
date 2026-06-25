@@ -78,12 +78,12 @@ const EMPTY_DATASET_TEMPLATE = new Map([
     []
   ),
   datasetEntry(
-    'trips.txt'
-      [
-        'route_id',
-        'service_id',
-        'trip_id'
-      ],
+    'trips.txt',
+    [
+      'route_id',
+      'service_id',
+      'trip_id'
+    ],
     []
   )
 ]);

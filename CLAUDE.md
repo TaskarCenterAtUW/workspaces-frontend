@@ -140,6 +140,54 @@ Viewer/Member/Everyone Else
 * With express TDEI sign-up, the need for this access level diminishes greatly
 * Granted by Workspaces setting.
 
+## What Each Role Can Do
+
+Below is the *intended* capability matrix annotated with **what the frontend
+actually enforces** (validated against the code on 2026-06-25). The frontend
+recognizes only three workspace roles — `lead | validator | contributor`
+([types/workspaces.ts](types/workspaces.ts)) — exposed via
+[composables/useWorkspaceRole.ts](composables/useWorkspaceRole.ts), which
+provides `isLead` and `isValidator` only (and **`isValidator` is true for leads
+too**). There is no `isContributor`/`isPoc` helper at the workspace-role layer.
+
+Project Lead
+* Edit Metadata — ✅ enforced (`isLead`, [General.vue](components/settings/panel/General.vue))
+* Edit Longform Quests — ⚠️ enforced but also requires the workspace be
+  published for external apps: `appControlsDisabled = !isLead || !externalAppAccess`
+  ([Apps.vue](components/settings/panel/Apps.vue))
+* Toggle App-Enabled Flag — ✅ enforced (`isLead`, [Apps.vue](components/settings/panel/Apps.vue))
+* Delete Workspace — ✅ enforced (`isLead`, [Delete.vue](components/settings/panel/Delete.vue))
+* Define User Teams — ✅ enforced (`isLead`, [teams/index.vue](pages/workspace/[id]/settings/teams/index.vue), [MembersDialog.vue](components/teams/MembersDialog.vue))
+* Define Groups or Roles — ✅ enforced (`isLead`, [members.vue](pages/workspace/[id]/settings/members.vue))
+* Export to TDEI — ❌ **not gated by the workspace `lead` role.** Eligibility is
+  `pg.roles.includes('poc') || pg.roles.includes('<type>_data_generator')` —
+  i.e. **TDEI project-group roles**, not the workspace role
+  ([export/tdei.vue](pages/workspace/[id]/export/tdei.vue)). A Lead without one
+  of those TDEI roles cannot export; a non-lead with `poc` can.
+* Validate Changeset — ✅ enforced (`isValidator`, [review/Toolbar.vue](components/review/Toolbar.vue))
+* Move Workspace from Project Group to Project Group — ❌ **not implemented.**
+  No `move`/`transfer`/`changeProjectGroup` code exists anywhere in the frontend.
+* Edit POSM Element — ✅ available, but **not role-gated** (see note below)
+
+Validator
+* Export to TDEI — ❌ same as above — gated on TDEI `poc`/`data_generator`,
+  never on the `validator` workspace role
+* Validate Changeset — ✅ enforced (`isValidator` covers `validator`)
+* Edit POSM Element — ✅ available, but **not role-gated** (see note below)
+
+Contributor
+* Edit POSM Element — ✅ available, but **not role-gated** (see note below)
+
+Authenticated User With PG/Workspace Association
+* Edit POSM Element — ✅ available, but **not role-gated** (see note below)
+
+**Note on "Edit POSM Element":** the editor page
+([edit.vue](pages/workspace/[id]/edit.vue)) has **zero role gating** — the only
+gate is `auth.global.ts` (authentication, not role), so any authenticated user
+who reaches it loads the editor. The "contributor edits need validation" and
+"viewer is read-only" distinctions are **not enforced in this frontend**; they
+would have to be enforced by the backend / changeset-validation flow.
+
 ## Test status
 
 The e2e suite currently passes aside from **7 intentionally-skipped tests**: 6

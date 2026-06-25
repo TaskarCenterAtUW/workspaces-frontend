@@ -31,7 +31,7 @@
 <script setup lang="ts">
 import { tdeiClient } from '~/services/index'
 
-const model = defineModel({ required: true });
+const model = defineModel<string | null>({ required: true });
 const props = defineProps({
   projectGroupId: {
     type: String,

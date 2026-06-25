@@ -10,7 +10,7 @@
 //            user to change the version and try again (playwright snapshot this)
 // @test e2e: submitting the form with an API error shows an error message
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
-// @test e2e: ensure that the service selector and project group selector display something meaningful even when there are no services or project groups to display to 
+// @test e2e: ensure that the service selector and project group selector display something meaningful even when there are no services or project groups to display to
 //            the user, e.g. "No services available" or "No project groups available" (playwright snapshot this)
 <template>
   <app-page>

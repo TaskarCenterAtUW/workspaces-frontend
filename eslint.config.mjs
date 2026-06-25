@@ -7,7 +7,8 @@ export default withNuxt(
       'vue/singleline-html-element-content-newline': 'off',
       '@stylistic/semi': 'off',
       '@stylistic/brace-style': 'off',
-      '@stylistic/comma-dangle': 'off'
+      '@stylistic/comma-dangle': 'off',
+      '@typescript-eslint/no-explicit-any': 'off'
     }
   }
 )

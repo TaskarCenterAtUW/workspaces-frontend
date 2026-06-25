@@ -6,7 +6,7 @@
 // @test e2e: Workspace Members can have one of three permissions assigned to them which should match the response of the Workspaces API call to fetch permissions: "Member", "Owner" or "Validator".
 // @test e2e: The permissions structure on this page should match the one described in CLAUDE.md
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
-
+// @test e2e: validate that each member has a badge or clear role via being listed under a header that names the role
 <template>
   <b-col lg="8">
     <b-alert

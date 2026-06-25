@@ -295,6 +295,48 @@ test.describe('workspace member roles', () => {
     await expect(page.getByText('Validator can review changesets', { exact: true })).toBeVisible();
   });
 
+  // @test e2e: validate that each member has a badge or clear role via being listed
+  //            under a header that names the role
+  // Every person is rendered in one of three sections, each under a heading that
+  // names their role/category (Project Group Admins / Data Generators / Workspace
+  // Members), and every member row carries a role badge. Use the read-only
+  // (non-lead) view so all three sections render badges — the lead view swaps the
+  // Workspace Members badge for a role dropdown.
+  test('every listed member has a role badge under a role-naming header', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubMembersPage(page, { workspace: memberWorkspace });
+
+    await page.goto('/workspace/1/settings/members');
+
+    const content = page.locator('.col-lg-8');
+
+    // Each section heading names the role/category its members fall under.
+    await expect(content.getByRole('heading', { name: /^Project Group Admins/ })).toBeVisible();
+    await expect(content.getByRole('heading', { name: /^Data Generators/ })).toBeVisible();
+    await expect(content.getByRole('heading', { name: /^Workspace Members/ })).toBeVisible();
+
+    // POC section: Petra Poc carries a "poc" badge.
+    const pocItem = content.locator('.list-group').nth(0)
+      .locator('.list-group-item', { hasText: 'Petra Poc' });
+    await expect(pocItem.locator('.badge')).toContainText('poc');
+
+    // Data Generators section: Gabriela Generator carries her data-generator badge.
+    const genItem = content.locator('.list-group').nth(1)
+      .locator('.list-group-item', { hasText: 'Gabriela Generator' });
+    await expect(genItem.locator('.badge')).toContainText('osw');
+
+    // Workspace Members section: every member row carries a role badge. In the
+    // read-only view the local role is unknown (no GET workspaces/1/users), so
+    // each defaults to the "Member" label — the point is a badge is always shown.
+    const membersList = content.locator('.list-group').last();
+    const memberRows = membersList.locator('.list-group-item');
+    const count = await memberRows.count();
+    expect(count).toBeGreaterThan(0);
+    for (let i = 0; i < count; i++) {
+      await expect(memberRows.nth(i).locator('.badge')).toBeVisible();
+    }
+  });
+
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
   test('all API calls conform to the OpenAPI spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
