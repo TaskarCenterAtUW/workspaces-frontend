@@ -69,7 +69,7 @@ import 'vue3-toastify/dist/index.css';
 
 const creating = reactive(new LoadingContext());
 const workspaceTitle = ref('');
-const projectGroupId = ref<string | undefined>();
+const projectGroupId = ref<string | null>(null);
 const datasetType = ref<string | null>('osw');
 
 const complete = computed(() =>

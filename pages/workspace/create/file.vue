@@ -106,7 +106,7 @@ const context = reactive(new FileImporterContext());
 const importer = new FileImporter(workspacesClient, tdeiClient, osmClient, context);
 
 const workspaceTitle = ref('');
-const projectGroupId = ref<string | undefined>();
+const projectGroupId = ref<string | null>(null);
 const datasetType = ref<string | null>(null);
 const datasetFile = ref<File | null>(null);
 

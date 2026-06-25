@@ -177,7 +177,7 @@ const tdeiRecordId = ref<string | null>(null);
 const record = reactive<Record<string, any>>({});
 const map = ref<any>({});
 const workspaceTitle = ref('');
-const projectGroupId = ref<string | undefined>();
+const projectGroupId = ref<string | null>(null);
 const datasetError = ref<string | null>(null);
 
 watch(tdeiRecordId, val => getDatasetInfo(val));
