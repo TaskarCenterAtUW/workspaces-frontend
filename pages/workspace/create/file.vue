@@ -98,6 +98,7 @@
 <script setup lang="ts">
 import { FileImporter, FileImporterContext } from '~/services/import/file';
 import { osmClient, tdeiClient, workspacesClient } from '~/services/index';
+import type { WorkspaceType } from '~/types/workspaces';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 
@@ -105,19 +106,19 @@ const context = reactive(new FileImporterContext());
 const importer = new FileImporter(workspacesClient, tdeiClient, osmClient, context);
 
 const workspaceTitle = ref('');
-const projectGroupId = ref(null);
-const datasetType = ref(null);
-const datasetFile = ref(null);
+const projectGroupId = ref<string | undefined>();
+const datasetType = ref<string | null>(null);
+const datasetFile = ref<File | null>(null);
 
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
-  && projectGroupId.value !== null
+  && projectGroupId.value != null
   && datasetType.value !== null
   && datasetFile.value instanceof File
   && datasetFile.value.name.endsWith('.zip')
 );
 
-function onFileChange(e) {
+function onFileChange(e: any) {
   const file = e.target.files[0];
 
   if (file && !file.name.endsWith('.zip')) {
@@ -131,10 +132,10 @@ function onFileChange(e) {
 }
 
 async function create() {
-  const workspaceId = await importer.import(datasetFile.value, {
+  const workspaceId = await importer.import(datasetFile.value!, {
     title: workspaceTitle.value,
-    type: datasetType.value,
-    tdeiProjectGroupId: projectGroupId.value
+    type: datasetType.value as WorkspaceType,
+    tdeiProjectGroupId: projectGroupId.value!
   });
 
   if (workspaceId) {

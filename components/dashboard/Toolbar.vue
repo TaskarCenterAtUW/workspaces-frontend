@@ -118,7 +118,7 @@ const reviewRoute = computed(() => workspacePath('review'));
 const exportRoute = computed(() => workspacePath('export'));
 const settingsRoute = computed(() => workspacePath('settings'));
 
-function workspacePath(page) {
+function workspacePath(page: any) {
   return `/workspace/${props.workspace.id}/${page}`;
 }
 </script>

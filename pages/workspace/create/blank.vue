@@ -63,17 +63,18 @@
 <script setup lang="ts">
 import { LoadingContext } from '~/services/loading';
 import { workspacesClient } from '~/services/index';
+import type { WorkspaceType } from '~/types/workspaces';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 
 const creating = reactive(new LoadingContext());
 const workspaceTitle = ref('');
-const projectGroupId = ref(null);
-const datasetType = ref('osw');
+const projectGroupId = ref<string | undefined>();
+const datasetType = ref<string | null>('osw');
 
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
-  && projectGroupId.value !== null
+  && projectGroupId.value != null
   && datasetType.value !== null
 );
 
@@ -86,8 +87,8 @@ async function create() {
     await creating.wrap(workspacesClient, async (client) => {
       await client.createWorkspace({
         title: workspaceTitle.value,
-        type: datasetType.value,
-        tdeiProjectGroupId: projectGroupId.value
+        type: datasetType.value as WorkspaceType,
+        tdeiProjectGroupId: projectGroupId.value!
       });
     });
   } catch (e) {

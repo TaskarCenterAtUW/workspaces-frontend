@@ -137,7 +137,7 @@ const currentWorkspaceTdeiRoles = computed(() =>
 );
 
 for (const w of workspaces) {
-  if (w.tdeiMetadata?.length > 0) {
+  if (w.tdeiMetadata && w.tdeiMetadata.length > 0) {
     w.tdeiMetadata = JSON.parse(w.tdeiMetadata);
   }
 }
@@ -178,7 +178,7 @@ function autoSelectPreferredView() {
   // currentProjectGroup is already initialized from sessionStorage synchronously
 }
 
-async function onCurrentWorkspacesChange(val) {
+async function onCurrentWorkspacesChange(val: any) {
   if (val?.length > 0) {
     if (val[0].tdeiProjectGroupId !== currentWorkspace.value?.tdeiProjectGroupId) {
       await selectWorkspace(val[0]);
@@ -189,8 +189,8 @@ async function onCurrentWorkspacesChange(val) {
   }
 }
 
-function onCenterLoaded(center) {
-  currentWorkspace.value!.center = center;
+function onCenterLoaded(center: any) {
+  (currentWorkspace.value! as any).center = center;
 }
 
 async function selectWorkspace(workspace: Workspace) {

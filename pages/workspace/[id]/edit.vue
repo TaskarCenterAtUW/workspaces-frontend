@@ -16,16 +16,16 @@
 import { pathwaysManager, rapidManager, rapid3Manager } from '~/services/index';
 
 const route = useRoute();
-const workspaceId = route.params.id;
+const workspaceId = Number(route.params.id);
 const datatype = route.query.datatype;
 const editor = route.query.editor;
-const editorContainer = ref(null);
+const editorContainer = ref<HTMLDivElement | null>(null);
 
 const oswManager = (editor === 'rapid3' && rapid3Manager) ? rapid3Manager : rapidManager
 const manager = datatype === 'osw' ? oswManager : pathwaysManager
 
 function onEditorLoaded() {
-  editorContainer.value.appendChild(manager.containerNode);
+  editorContainer.value!.appendChild(manager.containerNode);
   manager.init(workspaceId);
 }
 
@@ -49,7 +49,7 @@ onMounted(() => {
 
     manager.load();
   } else {
-    editorContainer.value.appendChild(manager.containerNode);
+    editorContainer.value!.appendChild(manager.containerNode);
     manager.switchWorkspace(workspaceId);
   }
 });

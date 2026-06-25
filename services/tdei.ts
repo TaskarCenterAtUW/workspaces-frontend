@@ -1,4 +1,5 @@
 import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
+import type { FileEntry } from '@zip.js/zip.js';
 
 import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
 import type { ICancelableClient } from '~/services/loading';
@@ -257,8 +258,12 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     const isDataset = (filename: string) => !filename.startsWith('changeset')
       && (filename.endsWith('.zip') || filename.endsWith('.xml'));
 
+    const datasetEntry = entries.find(
+      (e): e is FileEntry => !e.directory && isDataset(e.filename)
+    );
+
     const out = {
-      dataset: await entries.find(e => isDataset(e.filename))?.getData?.(blobWriter),
+      dataset: datasetEntry ? await datasetEntry.getData(blobWriter) : undefined,
       metadata: entries.find(e => e.filename.endsWith('.json'))
     };
 
@@ -268,7 +273,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async uploadOswDataset(
-    tdeiRecordId: string,
+    tdeiRecordId: string | undefined,
     projectGroupId: string,
     serviceId: string,
     dataset: Blob,
@@ -280,7 +285,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
 
     let resource = `osw/upload/${projectGroupId}/${serviceId}`;
 
-    if (tdeiRecordId?.length > 0) {
+    if ((tdeiRecordId?.length ?? 0) > 0) {
       resource += '?derived_from_dataset_id=' + tdeiRecordId;
     }
 
@@ -292,7 +297,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async uploadPathwaysDataset(
-    tdeiRecordId: string,
+    tdeiRecordId: string | undefined,
     projectGroupId: string,
     serviceId: string,
     dataset: Blob,
@@ -304,7 +309,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
 
     let resource = `gtfs-pathways/upload/${projectGroupId}/${serviceId}`;
 
-    if (tdeiRecordId?.length > 0) {
+    if ((tdeiRecordId?.length ?? 0) > 0) {
       resource += '?derived_from_dataset_id=' + tdeiRecordId;
     }
 

@@ -24,8 +24,9 @@
 
 <script setup lang="ts">
 import { tdeiUserClient } from '~/services/index'
+import type { TdeiService } from '~/types/tdei'
 
-const model = defineModel<string | null>({ required: true });
+const model = defineModel<string | null | undefined>({ required: true });
 const props = defineProps({
   projectGroupId: {
     type: String,
@@ -38,7 +39,7 @@ const props = defineProps({
 })
 
 const { projectGroupId, serviceType } = toRefs(props);
-const services = ref([]);
+const services = ref<TdeiService[]>([]);
 
 watch(projectGroupId, _val => refreshServices());
 watch(serviceType, _val => refreshServices());

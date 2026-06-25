@@ -9,11 +9,11 @@
 import { rapidManager } from '~/services/index';
 
 const route = useRoute();
-const workspaceId = route.params.id;
-const oswEditorContainer = ref(null);
+const workspaceId = Number(route.params.id);
+const oswEditorContainer = ref<HTMLDivElement | null>(null);
 
 function onRapidLoaded() {
-  oswEditorContainer.value.appendChild(rapidManager.containerNode);
+  oswEditorContainer.value!.appendChild(rapidManager.containerNode);
   rapidManager.init(workspaceId);
 }
 
@@ -27,7 +27,7 @@ onMounted(() => {
 
     rapidManager.load();
   } else {
-    oswEditorContainer.value.appendChild(rapidManager.containerNode);
+    oswEditorContainer.value!.appendChild(rapidManager.containerNode);
     rapidManager.switchWorkspace(workspaceId);
   }
 });

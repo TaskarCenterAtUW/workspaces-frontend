@@ -47,7 +47,7 @@ export const myWorkspaces = [
 ];
 
 // A single WorkspaceResponse for `GET /api/v1/workspaces/{id}` (settings/edit/etc).
-export const aWorkspace = myWorkspaces[0];
+export const aWorkspace = myWorkspaces[0]!;
 
 // Shape mirrors `GET project-group-roles/{subject}` (the TDEI user API — not in
 // the new-API OpenAPI spec). The client maps `project_group_name` → `name`.

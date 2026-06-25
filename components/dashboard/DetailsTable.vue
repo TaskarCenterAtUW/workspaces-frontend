@@ -78,7 +78,7 @@
         </tr>
         <tr>
           <th><app-icon variant="update" />TDEI Dataset Version</th>
-          <td>{{ workspace.tdeiMetadata?.metadata?.dataset_detail?.version ?? "N/A" }}</td>
+          <td>{{ (workspace.tdeiMetadata as any)?.metadata?.dataset_detail?.version ?? "N/A" }}</td>
         </tr>
       </tbody>
     </table>

@@ -37,17 +37,11 @@
               class="btn btn-primary"
               to="./export/tdei"
             >
-              <app-spinner
-                v-if="exporting.active"
-                size="sm"
+              Start
+              <app-icon
+                variant="arrow_circle_right"
+                no-margin
               />
-              <template v-else>
-                Start
-                <app-icon
-                  variant="arrow_circle_right"
-                  no-margin
-                />
-              </template>
             </nuxt-link>
           </div>
         </div>
@@ -114,37 +108,11 @@ import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 
 const downloading = reactive(new LoadingContext());
-const exporting = reactive(new LoadingContext());
 const route = useRoute();
-const workspaceId = route.params.id;
+const workspaceId = Number(route.params.id);
 const workspace = await workspacesClient.getWorkspace(workspaceId);
-const oldMetadata = workspace.tdeiMetadata ? JSON.parse(workspace.tdeiMetadata) : {};
-const datasetName = ref(workspace.title);
-const datasetVersion = ref(oldMetadata.version);
-const downloadUrl = ref(null);
+const downloadUrl = ref<string | null>(null);
 const downloadFilename = computed(() => `workspace-${workspaceId}-${workspace.type}-export.zip`);
-
-async function _exportTdei() {
-  // TODO: enable metadata customization
-  const metadata = {
-    name: datasetName.value,
-    version: datasetVersion.value,
-    description: oldMetadata.description ?? '',
-    collected_by: oldMetadata.collected_by ?? 'TDEI Workspaces',
-    collection_date: new Date().toISOString(),
-    collection_method: oldMetadata.collection_method ?? 'manual',
-    data_source: oldMetadata.data_source ?? '3rdParty',
-    schema_version: oldMetadata.schema_version ?? 'v1.0',
-    dataset_area: oldMetadata.dataset_area
-  };
-
-  exporting.wrap(workspacesClient, async (client) => {
-    const jobId = await client.exportWorkspaceToTdei(workspace, metadata);
-
-    toast.info(`TDEI import job ${jobId} created sucessfully.`);
-    navigateTo('/dashboard');
-  });
-}
 
 async function download() {
   try {
@@ -155,7 +123,7 @@ async function download() {
       toast.info(`Download is ready. Click the "Save" button to save the file to your device.`);
     });
   } catch (e) {
-    toast.error(`Error preparing download: ${e.message}`);
+    toast.error(`Error preparing download: ${e instanceof Error ? e.message : e}`);
   }
 }
 </script>

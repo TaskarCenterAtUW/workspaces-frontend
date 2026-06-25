@@ -113,7 +113,7 @@ const props = withDefaults(defineProps<{ id?: string; disabled?: boolean; option
   rememberSelection: false,
 })
 
-const model = defineModel<string | undefined>({ required: true })
+const model = defineModel<string | null | undefined>({ required: true })
 const searchText = ref('')
 const isOpen = ref(false)
 const fetchedGroups = ref<TdeiProjectGroupItem[]>([])

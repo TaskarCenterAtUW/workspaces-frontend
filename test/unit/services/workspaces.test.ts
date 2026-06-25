@@ -27,10 +27,10 @@ describe('WorkspacesClient.getMyWorkspaces', () => {
     const workspaces = await makeClient().getMyWorkspaces();
 
     expect(workspaces).toHaveLength(2);
-    expect(workspaces[0].id).toBe(1);
-    expect(workspaces[0].title).toBe('Seattle Sidewalks');
-    expect(workspaces[0].createdAt).toBeInstanceOf(Date);
-    expect(workspaces[0].createdAt.toISOString()).toBe('2026-01-15T12:00:00.000Z');
+    expect(workspaces[0]!.id).toBe(1);
+    expect(workspaces[0]!.title).toBe('Seattle Sidewalks');
+    expect(workspaces[0]!.createdAt).toBeInstanceOf(Date);
+    expect(workspaces[0]!.createdAt.toISOString()).toBe('2026-01-15T12:00:00.000Z');
   });
 
   it('throws a WorkspacesClientError on a non-2xx response', async () => {

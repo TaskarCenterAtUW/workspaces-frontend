@@ -7,6 +7,7 @@ import type { TdeiClient } from '~/services/tdei';
 import { TdeiClientError, TdeiConversionError } from '~/services/tdei';
 import type { WorkspacesClient } from '~/services/workspaces';
 import { WorkspacesClientError } from '~/services/workspaces';
+import type { WorkspaceCreation } from '~/types/workspaces';
 
 const status = {
   idle: 'Idle',
@@ -19,6 +20,10 @@ const status = {
 };
 
 export class FileImporterContext {
+  active!: boolean;
+  status!: string;
+  error!: string | null;
+
   constructor() {
     this.reset();
   }
@@ -35,6 +40,11 @@ export class FileImporterContext {
 }
 
 export class FileImporter {
+  private _workspacesClient: WorkspacesClient;
+  private _tdeiClient: TdeiClient;
+  private _osmClient: OsmApiClient;
+  private _context: FileImporterContext;
+
   constructor(
     workspacesClient: WorkspacesClient,
     tdeiClient: TdeiClient,
@@ -51,7 +61,7 @@ export class FileImporter {
     return this._context;
   }
 
-  async import(data: Blob, workspace): Promise<number> {
+  async import(data: Blob, workspace: WorkspaceCreation): Promise<number | undefined> {
     this._context.reset();
     this._context.active = true;
 
@@ -64,7 +74,7 @@ export class FileImporter {
     }
   }
 
-  async _run(data: Blob, workspace): Promise<number> {
+  async _run(data: Blob, workspace: WorkspaceCreation): Promise<number> {
     if (workspace.type === 'osw') {
       this._context.status = status.convertOsm;
       data = await this._tdeiClient.convertDataset(data, 'osw', 'osm', workspace.tdeiProjectGroupId);
@@ -88,10 +98,16 @@ export class FileImporter {
     return workspaceId
   }
 
-  async _unwrapConvertedDataset(zip: Blob): Blob {
+  async _unwrapConvertedDataset(zip: Blob): Promise<Blob> {
     const zipReader = new ZipReader(new BlobReader(zip));
     const entries = await zipReader.getEntries();
-    const out = await entries[0].getData(new BlobWriter());
+    const entry = entries[0];
+
+    if (!entry || entry.directory) {
+      throw new Error('Converted dataset archive contained no file entry');
+    }
+
+    const out = await entry.getData(new BlobWriter());
 
     await zipReader.close();
 

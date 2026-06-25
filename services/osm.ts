@@ -155,7 +155,7 @@ export function osm2osc(changesetId: number, osmXml: string): string {
 
   // Filter features and build an intermediate collection. Appending
   // nodes to another document will break this iterator:
-  for (const feature of osmDoc.firstChild.children) {
+  for (const feature of osmDoc.documentElement.children) {
     if (feature.nodeType === Node.TEXT_NODE) {
       continue;
     }
@@ -164,13 +164,12 @@ export function osm2osc(changesetId: number, osmXml: string): string {
   }
 
   const oscDoc = xml.parse(
-    '<osmChange version="0.6"><create /><modify /><delete /></osmChange>',
-    'application/xml'
+    '<osmChange version="0.6"><create /><modify /><delete /></osmChange>'
   );
-  const createNode = oscDoc.firstChild.firstChild;
+  const createNode = oscDoc.firstChild!.firstChild!;
 
   for (const feature of features) {
-    feature.setAttribute('changeset', changesetId);
+    feature.setAttribute('changeset', String(changesetId));
     formatFeatureIdPlaceholders(feature);
 
     createNode.appendChild(feature);
@@ -418,7 +417,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
 
   async createChangeset(workspaceId: WorkspaceId): Promise<number> {
     const doc = xml.parse('<osm><changeset></changeset></osm>');
-    const changesetNode = doc.firstChild.firstChild;
+    const changesetNode = doc.firstChild!.firstChild!;
     changesetNode.appendChild(xml.makeNode(doc, 'tag', { k: 'workspace', v: workspaceId }));
     changesetNode.appendChild(xml.makeNode(doc, 'tag', { k: 'comment', v: 'Import workspace' }));
     changesetNode.appendChild(xml.makeNode(doc, 'tag', { k: 'created_by', v: 'TDEI Workspaces' }));
@@ -491,7 +490,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return notesGeoJsonToEntities(await response.json());
   }
 
-  async getWorkspaceData(workspaceId: WorkspaceId): Promise<Array> {
+  async getWorkspaceData(workspaceId: WorkspaceId): Promise<any[]> {
     const bboxParam = await this.getExportBbox(workspaceId);
     const response = await this._get(`map.json?bbox=${bboxParam}`, {
       headers: {
@@ -523,7 +522,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     }
   }
 
-  async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
+  override async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
     try {
       await this.#tdeiClient.tryRefreshAuth();
       this.#setAuthHeader();

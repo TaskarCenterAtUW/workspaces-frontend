@@ -88,7 +88,7 @@ const EMPTY_DATASET_TEMPLATE = new Map([
   )
 ]);
 
-function datasetEntry(filename: string, fields: Array, values: Array) {
+function datasetEntry(filename: string, fields: string[], values: (string | number)[]): [string, string] {
   let csv = fields.join(',') + '\n';
 
   if (values?.length > 0) {
@@ -108,7 +108,7 @@ export function formatGtfsDate(date: Date): string {
     + date.getDate().toString().padStart(2, '0')
 }
 
-export async function createGtfsArchive(files: Map): Blob {
+export async function createGtfsArchive(files: Map<string, string>): Promise<Blob> {
   const blobWriter = new BlobWriter('application/zip');
   const zipWriter = new ZipWriter(blobWriter);
   const filePromises = []

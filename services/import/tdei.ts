@@ -76,11 +76,15 @@ export class TdeiImporter {
 
     this._context.status = status.downloadDataset;
     const datasetZip = workspace.type === 'osw'
-      ? await this._tdeiClient.downloadOswDataset(workspace.tdeiRecordId, 'osm')
-      : await this._tdeiClient.downloadPathwaysDataset(workspace.tdeiRecordId);
+      ? await this._tdeiClient.downloadOswDataset(workspace.tdeiRecordId!, 'osm')
+      : await this._tdeiClient.downloadPathwaysDataset(workspace.tdeiRecordId!);
 
     this._context.status = status.extractDataset;
     const { dataset } = await this._tdeiClient.openDatasetArchive(datasetZip);
+
+    if (!dataset) {
+      throw new Error('Downloaded dataset archive contained no data file');
+    }
 
     this._context.status = status.createWorkspace;
     const workspaceId = await workspacePromise;

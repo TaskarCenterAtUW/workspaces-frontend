@@ -85,7 +85,7 @@
         >
           <fieldset
             class="card-body"
-            :disabled="context.active || context.error"
+            :disabled="context.active || !!context.error"
           >
             <label class="d-block">
               Dataset Name

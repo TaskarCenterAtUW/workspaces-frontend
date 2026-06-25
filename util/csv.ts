@@ -8,7 +8,7 @@ export async function parseCsv(csv: string) {
       complete(result) {
         resolve(result.data);
       },
-      error(e) {
+      error(e: Error) {
         reject(e);
       }
     });

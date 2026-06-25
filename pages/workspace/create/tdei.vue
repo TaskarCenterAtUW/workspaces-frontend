@@ -177,14 +177,14 @@ const tdeiRecordId = ref<string | null>(null);
 const record = reactive<Record<string, any>>({});
 const map = ref<any>({});
 const workspaceTitle = ref('');
-const projectGroupId = ref<string | null>(null);
+const projectGroupId = ref<string | undefined>();
 const datasetError = ref<string | null>(null);
 
 watch(tdeiRecordId, val => getDatasetInfo(val));
 
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
-  && projectGroupId.value !== null
+  && projectGroupId.value != null
   && tdeiRecordId.value !== null
   && datasetError.value === null,
 );

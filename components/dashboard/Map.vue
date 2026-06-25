@@ -34,8 +34,8 @@ const props = defineProps({
 const emit = defineEmits(['centerLoaded']);
 
 const loadingBbox = reactive(new LoadingContext());
-const map = ref(null);
-const workspaceAreaPolygon = ref(null);
+const map = ref<any>(null);
+const workspaceAreaPolygon = ref<any>(null);
 
 onMounted(() => {
   watch(
@@ -61,7 +61,7 @@ function initMap() {
   }).addTo(map.value);
 }
 
-async function updateMapPreview(workspace) {
+async function updateMapPreview(workspace: any) {
   if (workspaceAreaPolygon.value) {
     workspaceAreaPolygon.value.remove();
     workspaceAreaPolygon.value = null
@@ -92,7 +92,7 @@ async function updateMapPreview(workspace) {
   emit('centerLoaded', { zoom, latitude: center.lat, longitude: center.lng });
 }
 
-async function setCurrentWorkspacePolygon(workspace) {
+async function setCurrentWorkspacePolygon(workspace: any) {
   const metadataArea = workspace.tdeiMetadata?.metadata?.dataset_detail?.dataset_area;
 
   if (metadataArea) {

@@ -9,11 +9,11 @@
 import { pathwaysManager } from '~/services/index';
 
 const route = useRoute();
-const workspaceId = route.params.id;
-const pathwaysEditorContainer = ref(null);
+const workspaceId = Number(route.params.id);
+const pathwaysEditorContainer = ref<HTMLDivElement | null>(null);
 
 function onRapidLoaded() {
-  pathwaysEditorContainer.value.appendChild(pathwaysManager.containerNode);
+  pathwaysEditorContainer.value!.appendChild(pathwaysManager.containerNode);
   pathwaysManager.init(workspaceId);
 }
 
@@ -27,7 +27,7 @@ onMounted(() => {
 
     pathwaysManager.load();
   } else {
-    pathwaysEditorContainer.value.appendChild(pathwaysManager.containerNode);
+    pathwaysEditorContainer.value!.appendChild(pathwaysManager.containerNode);
     pathwaysManager.switchWorkspace(workspaceId);
   }
 });

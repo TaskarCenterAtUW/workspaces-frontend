@@ -12,7 +12,6 @@
     aria-label="Dataset Selection"
   >
     <option
-      :selected
       value="null"
       disabled
     >
@@ -30,6 +29,7 @@
 
 <script setup lang="ts">
 import { tdeiClient } from '~/services/index'
+import type { TdeiDatasetSummary } from '~/types/tdei'
 
 const model = defineModel<string | null>({ required: true });
 const props = defineProps({
@@ -41,7 +41,7 @@ const props = defineProps({
 
 const { projectGroupId } = toRefs(props);
 const searchText = ref('');
-const datasets = ref([]);
+const datasets = ref<TdeiDatasetSummary[]>([]);
 refreshDatasets(projectGroupId.value, searchText.value);
 
 watch(projectGroupId, val => refreshDatasets(val, searchText.value));

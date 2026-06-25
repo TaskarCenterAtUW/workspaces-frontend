@@ -44,6 +44,7 @@
     "@playwright/test": "^1.61.0",
     "@types/bootstrap": "^5.2.10",
     "@types/geojson": "^7946.0.16",
+    "@types/papaparse": "^5.5.2",
     "@vue/test-utils": "^2.4.11",
     "eslint": "^9.39.2",
     "eslint-plugin-vue": "^10.6.2",
