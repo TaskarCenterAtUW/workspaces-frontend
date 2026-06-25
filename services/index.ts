@@ -19,7 +19,7 @@ import { WorkspacesClient } from '~/services/workspaces';
 const tdeiApiUrl = import.meta.env.VITE_TDEI_API_URL;
 const tdeiUserApiUrl = import.meta.env.VITE_TDEI_USER_API_URL;
 const apiUrl = import.meta.env.VITE_API_URL;
-const newApiUrl = 'http://127.0.0.1:8000/api/v1/';
+const newApiUrl = import.meta.env.VITE_NEW_API_URL||'https://new-api.workspaces-dev.sidewalks.washington.edu/api/v1/'
 // import.meta.env.VITE_NEW_API_URL
 //   || 'https://new-api.workspaces-dev.sidewalks.washington.edu/api/v1/';
 const osmWebUrl = import.meta.env.VITE_OSM_URL;

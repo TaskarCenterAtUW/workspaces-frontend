@@ -47,30 +47,10 @@
           </section>
 
           <section class="task-editor-sidebar-section task-editor-actions">
-            <div class="task-editor-section-heading">
-              <h2>Actions</h2>
-              <span>Available next steps</span>
-            </div>
             <div class="task-editor-feedback">
               <div class="task-editor-feedback-fields">
-                <label class="task-editor-field-label" for="task-editor-changeset-id">
-                  OSM changeset ID
-                </label>
-                <input
-                  id="task-editor-changeset-id"
-                  v-model="changesetIdInput"
-                  class="form-control task-editor-field"
-                  type="number"
-                  min="1"
-                  step="1"
-                  inputmode="numeric"
-                  placeholder="Enter uploaded changeset ID"
-                >
-              </div>
-
-              <div class="task-editor-feedback-fields">
                 <label class="task-editor-field-label" for="task-editor-feedback-notes">
-                  Feedback notes
+                 Comments
                 </label>
                 <textarea
                   id="task-editor-feedback-notes"
@@ -82,9 +62,6 @@
               </div>
 
               <fieldset class="task-editor-feedback-group">
-                <legend class="task-editor-feedback-legend">
-                  Reason category
-                </legend>
                 <label
                   v-for="option in feedbackReasonOptions"
                   :key="option.value"
@@ -100,10 +77,6 @@
                   <span>{{ option.label }}</span>
                 </label>
               </fieldset>
-
-              <!-- <p class="task-editor-feedback-hint">
-                Enter the uploaded OSM changeset ID before submitting. Feedback is optional, but notes are required if you send feedback.
-              </p> -->
             </div>
             <div class="task-editor-action-list">
               <button
@@ -157,11 +130,14 @@ const pendingEditCount = ref(0);
 const isSidebarOpen = ref(true);
 const hasActiveEdits = computed(() => pendingEditCount.value > 0);
 const taskEditorSidebarId = 'task-editor-sidebar';
-const changesetIdInput = ref('');
 const feedbackNotes = ref('');
 const feedbackReasonCategory = ref<WorkspaceProjectTaskFeedbackReasonCategory | ''>('');
 const isSubmittingTask = ref(false);
 const submitErrorMessage = ref('');
+const newApiUrl = import.meta.env.VITE_NEW_API_URL;
+//'http://127.0.0.1:8000/api/v1/';
+const placeholderChangesetId = 999999;
+//import.meta.env.VITE_NEW_API_URL;
 
 const taskActions = [
   { id: 'complete', label: 'Completed Mapping', variant: 'primary' },
@@ -176,7 +152,6 @@ const feedbackReasonOptions: Array<{
   { label: 'Wrong Area', value: 'wrong_area' },
   { label: 'Other', value: 'other' },
 ];
-const parsedChangesetId = computed(() => Number(changesetIdInput.value));
 const trimmedFeedbackNotes = computed(() => feedbackNotes.value.trim());
 
 const [project, task] = await Promise.all([
@@ -213,6 +188,8 @@ onMounted(() => {
     return;
   }
 
+  syncTaskHash();
+
   if (!manager.loaded.value) {
     stopLoadedWatch = watch(manager.loaded, (isLoaded) => {
       if (!isLoaded) {
@@ -233,7 +210,6 @@ onMounted(() => {
   }
 
   editorContainer.value.appendChild(manager.containerNode);
-  syncTaskHash();
   void manager.switchWorkspace(workspaceId);
 });
 
@@ -368,7 +344,12 @@ function generateInitialHash() {
   const lat = center[0];
   const lon = center[1];
   const zoom = 17;
-  return `#map=${zoom}/${lat}/${lon}`;
+  const boundaryUrl = new URL(
+    `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks/${task.taskNumber}/boundary.geojson`,
+    newApiUrl,
+  ).toString();
+  const dataUrl = boundaryUrl;
+  return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}`;
 }
 
 function syncTaskHash() {
@@ -383,11 +364,6 @@ function syncTaskHash() {
 
 async function submitCompletedMapping() {
   submitErrorMessage.value = '';
-
-  if (!Number.isInteger(parsedChangesetId.value) || parsedChangesetId.value < 1) {
-    submitErrorMessage.value = 'Enter a valid OSM changeset ID before submitting the task.';
-    return;
-  }
 
   let feedback: WorkspaceProjectTaskSubmitFeedback | undefined;
 
@@ -409,7 +385,7 @@ async function submitCompletedMapping() {
       projectId,
       task.taskNumber,
       {
-        osmChangesetId: parsedChangesetId.value,
+        osmChangesetId: placeholderChangesetId,
         done: true,
         feedback,
       },
@@ -452,7 +428,6 @@ function mountEditor() {
   }
 
   editorContainer.value.appendChild(manager.containerNode);
-  syncTaskHash();
   void manager.init(workspaceId);
 }
 
