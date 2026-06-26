@@ -127,6 +127,7 @@
 
         <section v-else class="project-detail-tab-panel">
           <workspace-project-details-contributors-tab
+            :can-manage="canManageContributors"
             :adding-contributor="addingContributor"
             :available-users="projectGroupUsers"
             :available-users-loading="projectGroupUsersLoading"
@@ -194,6 +195,7 @@
         </div>
 
         <button
+          v-if="showSelectedTaskActionButton"
           class="btn project-detail-task-action-primary"
           type="button"
           :disabled="selectedTaskActionDisabled"
@@ -251,12 +253,11 @@ const workspaceId = Number(route.params.id);
 const projectId = String(route.params.projectId);
 const projectsRoute = `/workspace/${workspaceId}/projects`;
 
-const tabs: ProjectDetailTabOption[] = [
+const BASE_TABS: ProjectDetailTabOption[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'instructions', label: 'Instructions' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'contributions', label: 'Contributions' },
-  { id: 'contributors', label: 'Contributors' },
 ];
 
 const workspace = await workspacesClient.getWorkspace(workspaceId);
@@ -265,6 +266,31 @@ const projectAoi = ref(await loadProjectAoi());
 const projectTasks = ref<WorkspaceProjectTaskListItem[] | null>(await loadProjectTasks());
 const projectContributors = ref<WorkspaceProjectContributor[]>(await loadProjectContributors());
 const projectGroupUsers = ref<ProjectWizardWorkspaceUser[]>([]);
+
+// Resolve the user's effective project role (workspace lead always wins).
+// This is awaited so the tabs and action guards are correct on first render.
+const currentUserIdForRole = workspaceProjectsClient.auth.subject || null;
+const {
+  isWorkspaceLead,
+  isExplicitProjectLead,
+  canValidate,
+  canMap,
+  canManageContributors,
+} = await useProjectRole(
+  workspaceId,
+  projectId,
+  currentUserIdForRole,
+  workspace.role,
+);
+
+/**
+ * The Contributors tab is only visible to project leads.
+ * All other tabs are always visible.
+ */
+const tabs = computed<ProjectDetailTabOption[]>(() => [
+  ...BASE_TABS,
+  ...(isExplicitProjectLead.value ? [{ id: 'contributors' as WorkspaceProjectDetailTab, label: 'Contributors' }] : []),
+]);
 
 // The detail API does not expose separate rich-text fields for overview content yet,
 // so the page derives its renderable sections from the real project payload.
@@ -337,7 +363,7 @@ const {
 const activeTab = computed<WorkspaceProjectDetailTab>(() => {
   const requestedTab = route.query.tab;
 
-  if (typeof requestedTab === 'string' && tabs.some(tab => tab.id === requestedTab)) {
+  if (typeof requestedTab === 'string' && tabs.value.some(tab => tab.id === requestedTab)) {
     return requestedTab as WorkspaceProjectDetailTab;
   }
 
@@ -424,6 +450,19 @@ const selectedTaskPrimaryActionLabel = computed(() => {
 
   return selectedTaskWorkActionLabel.value;
 });
+
+const showSelectedTaskActionButton = computed(() => {
+  if (!selectedTask.value) {
+    return false;
+  }
+
+  if (selectedTask.value.status === 'ready_for_validation') {
+    return canValidate.value;
+  }
+
+  return canMap.value;
+});
+
 const selectedTaskActionDisabled = computed(() =>
   !selectedTask.value
   || isActivatingProject.value

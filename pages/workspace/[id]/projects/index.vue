@@ -64,7 +64,11 @@
 
         <span class="workspace-projects-toolbar-divider" aria-hidden="true" />
 
-        <nuxt-link :to="createProjectRoute" class="btn btn-primary workspace-projects-create-button">
+        <nuxt-link
+          v-if="isWorkspaceLead"
+          :to="createProjectRoute"
+          class="btn btn-primary workspace-projects-create-button"
+        >
           <app-icon variant="add" size="22" />
           New Project
         </nuxt-link>
@@ -172,6 +176,9 @@ const [workspace, { items: projectGroups }] = await Promise.all([
   workspacesClient.getWorkspace(workspaceId),
   tdeiUserClient.getMyProjectGroups(1, '', 10000),
 ]);
+
+/** Only workspace leads are allowed to create new projects. */
+const isWorkspaceLead = computed(() => workspace.role === 'lead');
 
 const emptyProjectsResponse: WorkspaceProjectsResult = {
   results: [],
