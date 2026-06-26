@@ -11,7 +11,7 @@ import type { WorkspaceRole } from '~/types/workspaces';
  *
  * Returns reactive computed flags for all permission checks needed across the project UI.
  */
-export async function useProjectRole(
+export function useProjectRole(
   workspaceId: number,
   projectId: string,
   currentUserId: string | null,
@@ -19,19 +19,6 @@ export async function useProjectRole(
 ) {
   // Fetch the user's explicit project-level role. Returns null if none is assigned (404).
   const projectRole = ref<WorkspaceProjectContributorRole | null>(null);
-
-  if (currentUserId) {
-    try {
-      projectRole.value = await workspaceProjectsClient.getWorkspaceProjectUserRole(
-        workspaceId,
-        projectId,
-        currentUserId,
-      );
-    }
-    catch {
-      projectRole.value = null;
-    }
-  }
 
   /**
    * The effective role is the highest-privilege role the user holds.
@@ -73,6 +60,21 @@ export async function useProjectRole(
 
   const isExplicitProjectLead = computed(() => projectRole.value === 'lead');
 
+  const promise = (async () => {
+    if (currentUserId) {
+      try {
+        projectRole.value = await workspaceProjectsClient.getWorkspaceProjectUserRole(
+          workspaceId,
+          projectId,
+          currentUserId,
+        );
+      }
+      catch {
+        projectRole.value = null;
+      }
+    }
+  })();
+
   return {
     effectiveRole,
     isProjectLead,
@@ -81,5 +83,6 @@ export async function useProjectRole(
     canValidate,
     canMap,
     canManageContributors,
+    promise,
   };
 }

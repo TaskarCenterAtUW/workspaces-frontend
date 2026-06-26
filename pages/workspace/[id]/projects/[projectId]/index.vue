@@ -259,12 +259,14 @@ const {
   canValidate,
   canMap,
   canManageContributors,
-} = await useProjectRole(
+  promise: rolePromise,
+} = useProjectRole(
   workspaceId,
   projectId,
   currentUserIdForRole,
   workspace.role,
 );
+await rolePromise;
 
 /**
  * The Contributors tab is only visible to project leads.
