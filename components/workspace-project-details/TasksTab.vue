@@ -428,8 +428,8 @@ function formatTaskStatus(status: WorkspaceProjectTaskStatus) {
 .project-detail-task-list-header,
 .project-detail-task-item {
   display: grid;
-  grid-template-columns: minmax(8.5rem, 1fr) minmax(12rem, 1.55fr) minmax(9rem, 1fr) minmax(7.75rem, 0.95fr);
-  gap: 0.9rem;
+  grid-template-columns: minmax(5.5rem, 1fr) minmax(9.5rem, 1.4fr) minmax(7.5rem, 1fr) minmax(6.5rem, 0.9fr);
+  gap: 0.75rem;
 }
 
 .project-detail-task-list-header {

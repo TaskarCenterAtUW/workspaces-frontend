@@ -134,10 +134,8 @@ const feedbackNotes = ref('');
 const feedbackReasonCategory = ref<WorkspaceProjectTaskFeedbackReasonCategory | ''>('');
 const isSubmittingTask = ref(false);
 const submitErrorMessage = ref('');
+const uploadedChangesetId = ref(-1);
 const newApiUrl = import.meta.env.VITE_NEW_API_URL;
-//'http://127.0.0.1:8000/api/v1/';
-const placeholderChangesetId = 999999;
-//import.meta.env.VITE_NEW_API_URL;
 
 const taskActions = [
   { id: 'complete', label: 'Completed Mapping', variant: 'primary' },
@@ -175,8 +173,18 @@ onMounted(() => {
     isSidebarOpen.value = false;
   }
 
-  rapidManager.onStateChange((state) => {
+  manager.onStateChange((state) => {
     pendingEditCount.value = normalizePendingEditCount(state);
+  });
+  manager.onUploadResult((result) => {
+    const nextChangesetId = extractChangesetId(result);
+
+    if (nextChangesetId === null) {
+      console.warn('Rapid upload succeeded but no changeset ID was found in the result.', result);
+      return;
+    }
+    uploadedChangesetId.value = nextChangesetId;
+    submitErrorMessage.value = '';
   });
 
   // Rapid 2 and Rapid 3 both expose a global `Rapid` namespace. Even though this page
@@ -305,6 +313,57 @@ function normalizePendingEditCount(state: unknown) {
   return Math.max(0, Math.trunc(state));
 }
 
+function extractChangesetId(result: unknown): number | null {
+  const candidates: unknown[] = [];
+
+  if (typeof result === 'number' || typeof result === 'string') {
+    candidates.push(result);
+  }
+
+  if (result && typeof result === 'object') {
+    const record = result as Record<string, unknown>;
+    candidates.push(
+      record.changesetId,
+      record.changesetID,
+      record.changeset_id,
+      record.id,
+    );
+
+    if (record.changeset && typeof record.changeset === 'object') {
+      const changeset = record.changeset as Record<string, unknown>;
+      candidates.push(
+        changeset.id,
+        changeset.changesetId,
+        changeset.changesetID,
+        changeset.changeset_id,
+      );
+    }
+  }
+
+  for (const candidate of candidates) {
+    const parsed = normalizeChangesetId(candidate);
+
+    if (parsed !== null) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function normalizeChangesetId(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === 'string' && /^\d+$/.test(value)) {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  return null;
+}
+
 function isTaskActionDisabled(actionId: typeof taskActions[number]['id']) {
   if (hasActiveEdits.value || isSubmittingTask.value) {
     return true;
@@ -385,7 +444,7 @@ async function submitCompletedMapping() {
       projectId,
       task.taskNumber,
       {
-        osmChangesetId: placeholderChangesetId,
+        osmChangesetId: uploadedChangesetId.value,
         done: true,
         feedback,
       },

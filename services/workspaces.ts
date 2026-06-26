@@ -50,10 +50,12 @@ export class WorkspacesClientError extends Error {
 export class WorkspacesClient extends BaseHttpClient implements ICancelableClient {
   #tdeiClient: TdeiClient;
   #osmClient: OsmApiClient;
+  /** Base URL for the new tasking API — the one that returns `role` on workspace responses. */
+  #newApiUrl: string;
 
   constructor(
     apiUrl: string,
-    _newApiUrl: string,
+    newApiUrl: string,
     tdeiClient: TdeiClient,
     osmClient: OsmApiClient,
     signal?: AbortSignal
@@ -62,6 +64,7 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
 
     this.#tdeiClient = tdeiClient;
     this.#osmClient = osmClient;
+    this.#newApiUrl = newApiUrl;
   }
 
   get auth(): TdeiAuthStore {
@@ -71,7 +74,7 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   clone(signal?: AbortSignal): WorkspacesClient {
     return new WorkspacesClient(
       this._baseUrl,
-      this._baseUrl,
+      this.#newApiUrl,
       this.#tdeiClient,
       this.#osmClient,
       signal ?? this._abortSignal
@@ -86,9 +89,16 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   }
 
   async getWorkspace(id: WorkspaceId): Promise<Workspace> {
-    const response = await this._get(`workspaces/${id}`);
+    const originalBaseUrl = this._baseUrl;
+    this._baseUrl = this.#newApiUrl;
 
-    return normalizeWorkspace(await response.json());
+    try {
+      const response = await this._send(`workspaces/${id}`, 'GET');
+      return normalizeWorkspace(await response.json());
+    }
+    finally {
+      this._baseUrl = originalBaseUrl;
+    }
   }
 
   getWorkspaceBbox(id: WorkspaceId): Promise<BoundingBox> {
