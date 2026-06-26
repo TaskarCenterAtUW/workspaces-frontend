@@ -137,10 +137,10 @@ function formatRole(role: WorkspaceRole) {
   margin: 0;
   text-align: left;
   font-family: Lato, var(--primary-font-family), sans-serif;
-  font-size: 18px;
+  font-size: 1.125rem;
   font-style: normal;
   font-weight: 600;
-  line-height: 22px;
+  line-height: 1.375rem;
   letter-spacing: 0;
   color: #1a1e3d;
   opacity: 1;
@@ -150,10 +150,10 @@ function formatRole(role: WorkspaceRole) {
   margin: 0;
   text-align: left;
   font-family: Lato, var(--primary-font-family), sans-serif;
-  font-size: 18px;
+  font-size: 1.125rem;
   font-style: normal;
   font-weight: 400;
-  line-height: 26px;
+  line-height: 1.625rem;
   letter-spacing: 0;
   color: #5a607b;
   opacity: 1;
@@ -165,10 +165,10 @@ function formatRole(role: WorkspaceRole) {
   gap: 0.35rem;
   text-align: left;
   font-family: Lato, var(--primary-font-family), sans-serif;
-  font-size: 18px;
+  font-size: 1.125rem;
   font-style: normal;
   font-weight: 400;
-  line-height: 26px;
+  line-height: 1.625rem;
   letter-spacing: 0;
   color: #5a607b;
   opacity: 1;
@@ -186,10 +186,10 @@ function formatRole(role: WorkspaceRole) {
   gap: 0.55rem;
   color: #5a607b;
   font-family: Lato, var(--primary-font-family), sans-serif;
-  font-size: 18px;
+  font-size: 1.125rem;
   font-style: normal;
   font-weight: 400;
-  line-height: 26px;
+  line-height: 1.625rem;
 }
 
 .project-wizard-review-validator-avatar {
@@ -217,9 +217,9 @@ function formatRole(role: WorkspaceRole) {
 .project-wizard-review-instructions {
   color: #5a607b;
   font-family: Lato, var(--primary-font-family), sans-serif;
-  font-size: 18px;
+  font-size: 1.125rem;
   font-style: normal;
   font-weight: 400;
-  line-height: 26px;
+  line-height: 1.625rem;
 }
 </style>
