@@ -152,7 +152,6 @@ export interface WorkspaceProjectTaskSubmitFeedback {
 }
 
 export interface WorkspaceProjectTaskSubmitPayload {
-  osmChangesetId: number;
   done: boolean;
   feedback?: WorkspaceProjectTaskSubmitFeedback;
 }

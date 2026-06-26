@@ -20,14 +20,21 @@
           :aria-label="isSidebarOpen ? 'Hide task details panel' : 'Show task details panel'"
           @click="toggleSidebar"
         >
-          <app-icon :variant="isSidebarOpen ? 'chevron_left' : 'menu'" size="20" no-margin />
+          <app-icon :variant="isSidebarOpen ? 'chevron_right' : 'chevron_left'" size="20" no-margin />
         </button>
 
         <div class="task-editor-sidebar-scroll">
           <header class="task-editor-sidebar-hero">
-            <p class="task-editor-kicker">
-              Rapid task editor
-            </p>
+            <div class="task-editor-sidebar-topbar">
+              <p class="task-editor-kicker">
+                Rapid task editor
+              </p>
+
+              <nuxt-link class="btn btn-outline-secondary task-editor-back" :to="backToTasksRoute">
+                <app-icon variant="arrow_back" size="18" no-margin />
+                Back to Tasks
+              </nuxt-link>
+            </div>
 
             <h1 class="task-editor-title">
               {{ project.name }}
@@ -46,38 +53,60 @@
             <workspace-project-details-rich-text-content class="task-editor-rich-copy" :html="project.instructions" />
           </section>
 
-          <section class="task-editor-sidebar-section task-editor-actions">
-            <div class="task-editor-feedback">
-              <div class="task-editor-feedback-fields">
-                <label class="task-editor-field-label" for="task-editor-feedback-notes">
-                 Comments
-                </label>
-                <textarea
-                  id="task-editor-feedback-notes"
-                  v-model="feedbackNotes"
-                  class="form-control task-editor-field task-editor-feedback-notes"
-                  rows="4"
-                  placeholder="Optional notes for task feedback"
-                ></textarea>
-              </div>
-
-              <fieldset class="task-editor-feedback-group">
-                <label
-                  v-for="option in feedbackReasonOptions"
-                  :key="option.value"
-                  class="task-editor-feedback-option"
-                >
-                  <input
-                    v-model="feedbackReasonCategory"
-                    class="form-check-input"
-                    type="radio"
-                    name="task-editor-feedback-reason"
-                    :value="option.value"
-                  >
-                  <span>{{ option.label }}</span>
-                </label>
-              </fieldset>
+          <section class="task-editor-sidebar-section task-editor-feedback">
+            <div class="task-editor-feedback-fields">
+              <label class="task-editor-field-label" for="task-editor-feedback-notes">
+                Comments
+              </label>
+              <textarea
+                id="task-editor-feedback-notes"
+                v-model="feedbackNotes"
+                class="form-control task-editor-field task-editor-feedback-notes"
+                rows="4"
+                placeholder="Optional notes for task feedback"
+              ></textarea>
             </div>
+
+            <fieldset class="task-editor-feedback-group">
+              <label
+                v-for="option in feedbackReasonOptions"
+                :key="option.value"
+                class="task-editor-feedback-option"
+              >
+                <input
+                  v-model="feedbackReasonCategory"
+                  class="form-check-input"
+                  type="radio"
+                  name="task-editor-feedback-reason"
+                  :value="option.value"
+                >
+                <span>{{ option.label }}</span>
+              </label>
+            </fieldset>
+          </section>
+        </div>
+
+        <footer class="task-editor-sidebar-footer">
+          <section class="task-editor-sidebar-section task-editor-actions">
+            <p v-if="submitErrorMessage" class="task-editor-submit-error">
+              {{ submitErrorMessage }}
+            </p>
+
+            <div
+              v-if="completeTaskStatusMessage"
+              class="task-editor-action-status"
+              :class="{
+                'task-editor-action-status-blocked': Boolean(completeTaskBlockedReason),
+              }"
+            >
+              <app-icon
+                :variant="completeTaskBlockedReason ? 'info' : 'check_circle'"
+                size="18"
+                no-margin
+              />
+              <span>{{ completeTaskStatusMessage }}</span>
+            </div>
+
             <div class="task-editor-action-list">
               <button
                 v-for="action in taskActions"
@@ -91,19 +120,8 @@
                 {{ getTaskActionLabel(action.id, action.label) }}
               </button>
             </div>
-            <p v-if="submitErrorMessage" class="task-editor-submit-error">
-              {{ submitErrorMessage }}
-            </p>
-            <p v-if="hasActiveEdits" class="task-editor-action-note">
-              Resolve or clear active edits before taking a task action.
-            </p>
           </section>
-
-          <nuxt-link class="btn btn-outline-secondary task-editor-back" :to="backToTasksRoute">
-            <app-icon variant="arrow_back" size="18" no-margin />
-            Back to Tasks
-          </nuxt-link>
-        </div>
+        </footer>
       </aside>
     </section>
   </app-page>
@@ -133,7 +151,10 @@ const taskEditorSidebarId = 'task-editor-sidebar';
 const feedbackNotes = ref('');
 const feedbackReasonCategory = ref<WorkspaceProjectTaskFeedbackReasonCategory | ''>('');
 const isSubmittingTask = ref(false);
+const isSubmittingChangeset = ref(false);
+const activeTaskAction = ref<'complete' | 'skip' | null>(null);
 const submitErrorMessage = ref('');
+const pendingChangesetId = ref<number | null>(null);
 const uploadedChangesetId = ref(-1);
 const newApiUrl = import.meta.env.VITE_NEW_API_URL;
 
@@ -151,6 +172,37 @@ const feedbackReasonOptions: Array<{
   { label: 'Other', value: 'other' },
 ];
 const trimmedFeedbackNotes = computed(() => feedbackNotes.value.trim());
+const completeTaskBlockedReason = computed(() => {
+  if (isSubmittingTask.value) {
+    return 'Task submission is in progress.';
+  }
+
+  if (isSubmittingChangeset.value && pendingChangesetId.value !== null) {
+    return `Attaching uploaded changeset #${pendingChangesetId.value} to this task.`;
+  }
+
+  if (hasActiveEdits.value) {
+    const editLabel = pendingEditCount.value === 1 ? 'edit' : 'edits';
+    return `Push or discard your ${pendingEditCount.value} active ${editLabel} in Rapid before completing this task.`;
+  }
+
+  if (pendingChangesetId.value !== null) {
+    return `Uploaded changeset #${pendingChangesetId.value} has not been attached to this task yet. Please upload again before completing.`;
+  }
+
+  return '';
+});
+const completeTaskStatusMessage = computed(() => {
+  if (completeTaskBlockedReason.value) {
+    return completeTaskBlockedReason.value;
+  }
+
+  if (uploadedChangesetId.value > 0) {
+    return `Last uploaded changeset #${uploadedChangesetId.value} will be attached when you complete this task.`;
+  }
+
+  return 'Push your edits in Rapid, then complete this task.';
+});
 
 const [project, task] = await Promise.all([
   loadProjectDetail(),
@@ -183,8 +235,8 @@ onMounted(() => {
       console.warn('Rapid upload succeeded but no changeset ID was found in the result.', result);
       return;
     }
-    uploadedChangesetId.value = nextChangesetId;
-    submitErrorMessage.value = '';
+    pendingChangesetId.value = nextChangesetId;
+    void submitLatestUploadedChangeset(nextChangesetId);
   });
 
   // Rapid 2 and Rapid 3 both expose a global `Rapid` namespace. Even though this page
@@ -289,16 +341,16 @@ async function loadTaskDetailByTaskNumber(
   );
 }
 function handleTaskAction(actionId: 'complete' | 'skip') {
-  if (hasActiveEdits.value) {
-    return;
-  }
-
   if (actionId === 'complete') {
+    if (hasActiveEdits.value) {
+      return;
+    }
+
     void submitCompletedMapping();
     return;
   }
 
-  console.log('Task action selected:', actionId, task.taskNumber);
+  void skipTask();
 }
 
 function toggleSidebar() {
@@ -365,20 +417,22 @@ function normalizeChangesetId(value: unknown): number | null {
 }
 
 function isTaskActionDisabled(actionId: typeof taskActions[number]['id']) {
-  if (hasActiveEdits.value || isSubmittingTask.value) {
+  if (isSubmittingTask.value || isSubmittingChangeset.value || activeTaskAction.value !== null) {
     return true;
   }
 
-  if (actionId === 'complete') {
-    return false;
-  }
-
-  return false;
+  return actionId === 'complete'
+    ? hasActiveEdits.value || pendingChangesetId.value !== null
+    : false;
 }
 
 function getTaskActionLabel(actionId: typeof taskActions[number]['id'], fallback: string) {
   if (actionId === 'complete' && isSubmittingTask.value) {
     return 'Submitting...';
+  }
+
+  if (actionId === 'skip' && activeTaskAction.value === 'skip') {
+    return 'Skipping...';
   }
 
   return fallback;
@@ -437,6 +491,7 @@ async function submitCompletedMapping() {
   }
 
   isSubmittingTask.value = true;
+  activeTaskAction.value = 'complete';
 
   try {
     await workspaceProjectsClient.submitWorkspaceProjectTask(
@@ -444,7 +499,6 @@ async function submitCompletedMapping() {
       projectId,
       task.taskNumber,
       {
-        osmChangesetId: uploadedChangesetId.value,
         done: true,
         feedback,
       },
@@ -457,6 +511,54 @@ async function submitCompletedMapping() {
   }
   finally {
     isSubmittingTask.value = false;
+    activeTaskAction.value = null;
+  }
+}
+
+async function submitLatestUploadedChangeset(osmChangesetId: number) {
+  isSubmittingChangeset.value = true;
+  submitErrorMessage.value = '';
+
+  try {
+    await workspaceProjectsClient.submitWorkspaceProjectTaskChangeset(
+      workspaceId,
+      projectId,
+      task.taskNumber,
+      osmChangesetId,
+    );
+
+    uploadedChangesetId.value = osmChangesetId;
+
+    if (pendingChangesetId.value === osmChangesetId) {
+      pendingChangesetId.value = null;
+    }
+  }
+  catch {
+    submitErrorMessage.value = `Uploaded changeset #${osmChangesetId} could not be attached to this task. Please upload again before completing.`;
+  }
+  finally {
+    isSubmittingChangeset.value = false;
+  }
+}
+
+async function skipTask() {
+  submitErrorMessage.value = '';
+  activeTaskAction.value = 'skip';
+
+  try {
+    await workspaceProjectsClient.unlockWorkspaceProjectTask(
+      workspaceId,
+      projectId,
+      task.taskNumber,
+    );
+
+    await navigateTo(backToTasksRoute.value);
+  }
+  catch (error) {
+    submitErrorMessage.value = await getTaskSubmitErrorMessage(error);
+  }
+  finally {
+    activeTaskAction.value = null;
   }
 }
 
@@ -534,6 +636,8 @@ function mountEditor() {
 
 .task-editor-sidebar {
   position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   overflow: visible;
   width: 100%;
   height: 100%;
@@ -569,24 +673,53 @@ function mountEditor() {
   overflow: hidden;
 }
 
+.task-editor-sidebar-footer {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  gap: 0.9rem;
+  padding: 0 1rem 1rem 1.05rem;
+  background: linear-gradient(180deg, rgba($purple-background-light, 0) 0%, rgba($purple-background-light, 0.96) 16%, $purple-background-light 100%);
+}
+
+.task-editor-sidebar:not(.task-editor-sidebar-open) .task-editor-sidebar-footer {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .task-editor-sidebar-handle {
   position: absolute;
-  top: 1.05rem;
+  top: clamp(4.1rem, 9vh, 5.35rem);
   left: 0.9rem;
   z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.1rem;
-  height: 3rem;
-  color: $primary;
-  background: $white;
-  border: 1px solid rgba($text-navy, 0.12);
+  width: 2.35rem;
+  height: 3.15rem;
+  color: $white;
+  background: $primary;
+  border: 1px solid rgba($text-navy, 0.18);
   border-radius: 0.8rem;
-  box-shadow: 0 0.8rem 1.8rem rgba($text-navy, 0.16);
+  box-shadow:
+    0 0 0 0.22rem rgba($white, 0.92),
+    0 0.8rem 1.8rem rgba($text-navy, 0.22);
   transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
     left 0.28s ease,
     transform 0.28s ease;
+}
+
+.task-editor-sidebar-handle:hover,
+.task-editor-sidebar-handle:focus-visible {
+  color: $white;
+  background: $brand-accent;
+  box-shadow:
+    0 0 0 0.22rem rgba($white, 0.96),
+    0 0 0 0.38rem rgba($primary, 0.2),
+    0 0.95rem 2rem rgba($text-navy, 0.24);
 }
 
 .task-editor-sidebar.task-editor-sidebar-open .task-editor-sidebar-handle {
@@ -623,8 +756,15 @@ function mountEditor() {
 
 .task-editor-sidebar-hero {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.8rem;
   padding: 0.35rem 0.2rem 0;
+}
+
+.task-editor-sidebar-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .task-editor-sidebar-section {
@@ -693,6 +833,8 @@ function mountEditor() {
 .task-editor-actions {
   display: grid;
   gap: 0.9rem;
+  position: relative;
+  z-index: 1;
 }
 
 .task-editor-feedback {
@@ -770,8 +912,34 @@ function mountEditor() {
   color: $danger-red;
 }
 
+.task-editor-action-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.85rem 0.9rem;
+  color: $tdei-green;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  background: rgba($white, 0.92);
+  border: 1px solid rgba($tdei-green, 0.24);
+  border-radius: 0.85rem;
+}
+
+.task-editor-action-status :deep(.material-icons) {
+  margin-top: 0;
+}
+
+.task-editor-action-status-blocked {
+  color: $text-navy;
+  background: $purple-background-medium;
+  border-color: rgba($primary, 0.18);
+}
+
 .task-editor-action-list {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.7rem;
 }
 
@@ -810,12 +978,13 @@ function mountEditor() {
 }
 
 .task-editor-back {
-  width: 100%;
+  width: fit-content;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 3rem;
+  min-height: 2.4rem;
+  padding-inline: 0.9rem;
   font-weight: 700;
   color: $secondary;
   background: $white;
@@ -842,6 +1011,11 @@ function mountEditor() {
 
   .task-editor-title {
     font-size: 1.45rem;
+  }
+
+  .task-editor-sidebar-topbar {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>
