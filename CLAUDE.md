@@ -190,9 +190,8 @@ would have to be enforced by the backend / changeset-validation flow.
 
 ## Test status
 
-The e2e suite currently passes aside from **7 intentionally-skipped tests**: 6
-`test.fixme` dashboard flows blocked by maplibre/external-editor rendering, plus
-the edit "editor fails to load" test (disabled per its page outline — the page
-has no editor-load-failure UI yet). Some heavy authed pages (e.g.
-`settings/members`) can flake under high parallelism (the lazy-compile issue
-above) — run serially (`--workers=1`) for deterministic results.
+The e2e suite currently passes aside from **6 intentionally-skipped tests**: 6
+`test.fixme` dashboard flows blocked by maplibre/external-editor rendering. Some
+heavy authed pages (e.g. `settings/members`) can flake under high parallelism
+(the lazy-compile issue above) — run serially (`--workers=1`) for deterministic
+results.

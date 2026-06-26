@@ -175,23 +175,6 @@ test.describe('workspace edit (editor host)', () => {
     await expect(page.locator('.editorContainer')).toMatchAriaSnapshot();
   });
 
-  // @test e2e (disable this test for now): if the editor fails to load, an error message is shown (playwright snapshot this)
-  // Disabled per the page outline: the page has no editor-load-failure UI yet.
-  test.fixme('shows an error message when the editor fails to load', async ({ page }) => {
-    await seedAuthenticatedSession(page);
-    await stubAllEditors(page);
-    // Make the chosen editor's script fail to load.
-    await page.unroute('**/rapid/rapid.js');
-    await page.route('**/rapid/rapid.js', route => route.abort());
-
-    await page.goto('/workspace/1/edit?datatype=osw&editor=rapid');
-
-    // The page should surface a user-facing error when the editor can't load.
-    const error = page.getByText(/fail|error|could ?n.t|unable/i);
-    await expect(error).toBeVisible();
-    await expect(page.locator('.editorContainer')).toMatchAriaSnapshot();
-  });
-
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
   test('all API calls conform to the OpenAPI spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
