@@ -1,4 +1,9 @@
-import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
+import {
+  BaseHttpClient,
+  BaseHttpClientError,
+  type FetchConfig,
+  type HttpBody,
+} from '~/services/http';
 import { buildPathwaysCsvArchive } from '~/services/pathways';
 import { compareStringAsc } from '~/util/compare';
 
@@ -238,15 +243,16 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   override async _send(
     url: string,
     method: string,
-    body?: any,
-    config?: object
+    body?: HttpBody,
+    config?: FetchConfig,
   ): Promise<Response> {
     try {
       await this.#tdeiClient.tryRefreshAuth();
       this.#setAuthHeader();
 
       return await super._send(url, method, body, config);
-    } catch (e) {
+    }
+    catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {
         throw new WorkspacesClientError(e.response);
       }
