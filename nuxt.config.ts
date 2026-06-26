@@ -103,5 +103,7 @@ export default defineNuxtConfig({
     project: 'workspaces-frontend',
     authToken: process.env.VITE_SENTRY_AUTH_TOKEN,
     debug: (process.env.ENV === 'dev' || process.env.ENV === 'local'),
+    // Don't phone home to Sentry's telemetry during CI builds/tests.
+    telemetry: !process.env.CI,
   },
 });
