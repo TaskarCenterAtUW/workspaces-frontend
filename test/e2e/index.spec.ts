@@ -21,8 +21,9 @@ test.describe('home page', () => {
     await expect(cta).toHaveAttribute('href', '/signin');
 
     // Snapshot the hero copy block (not the full page) to avoid the background
-    // image. Baseline in test/e2e/index.spec.ts-snapshots/ (macOS-specific).
-    await expect(page.locator('.hero-copy')).toHaveScreenshot('home-hero.png');
+    // image. ARIA snapshot (text-based) so the baseline is cross-platform stable
+    // — pixel screenshots need a per-OS baseline and break on Linux CI.
+    await expect(page.locator('.hero-copy')).toMatchAriaSnapshot();
   });
 
   // @test e2e: an already-authenticated visitor is shown the hero, but the CTA points to the

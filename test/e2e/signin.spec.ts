@@ -28,12 +28,11 @@ test('shows the sign-in form to an unauthenticated visitor', async ({ page }) =>
   await expect(form).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Welcome!' })).toBeVisible();
 
-  // Visual snapshot of just the form card (full-page would include the
-  // background image / fonts and be needlessly brittle). The baseline lives in
-  // test/e2e/signin.spec.ts-snapshots/ and is regenerated with
-  // `npx playwright test --update-snapshots`. NOTE: screenshots are
-  // platform-specific, so a Linux CI baseline differs from this macOS one.
-  await expect(form).toHaveScreenshot('signin-form.png');
+  // Snapshot just the form card (full-page would include the background image /
+  // fonts and be needlessly brittle). ARIA snapshot (text-based) so the baseline
+  // is cross-platform stable; regenerate with `--update-snapshots`. Pixel
+  // screenshots need a per-OS baseline and break on Linux CI.
+  await expect(form).toMatchAriaSnapshot();
 });
 
 // @test e2e: the toolbar doesn't show a username when the user is not logged in,

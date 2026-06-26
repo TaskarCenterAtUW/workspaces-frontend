@@ -1,0 +1,8 @@
+- heading "Welcome!" [level=1]
+- paragraph: Please login to your account.
+- text: TDEI Username
+- textbox "TDEI Username"
+- text: Enter the same username that you provide to use the TDEI API. Password
+- textbox "Password"
+- button "Show password": 
+- button "Sign In" [disabled]
