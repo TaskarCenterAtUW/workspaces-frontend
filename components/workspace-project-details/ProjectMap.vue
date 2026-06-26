@@ -1,8 +1,5 @@
 <template>
   <!--
-    Interactive MapLibre GL map for the project detail page.
-
-    Responsibilities:
     - Renders the Area of Interest (AOI) as a semi-transparent fill with a dashed outline.
     - Renders individual project tasks as coloured polygons (colour = task status).
     - Renders a task-grid preview (used during the task-setup workflow).
@@ -84,30 +81,19 @@ import type {
 } from '~/types/project-wizard';
 
 interface Props {
-  /** The project's area-of-interest polygon. Null when the project has no AOI yet. */
   aoi: WorkspaceProjectAoiFeature | null;
-  /** The task ID that is currently highlighted/selected. */
   selectedTaskId?: string | null;
-  /**
-   * Optional task grid to show on the map. Used in two scenarios:
-   * - Preview grid (task-setup workflow, before tasks are saved)
-   * - Persisted task grid (built from saved task geometries on the detail page)
-   */
   taskGrid?: ProjectWizardGeneratedTaskFeatureCollection | ProjectWizardTaskPreviewFeatureCollection | null;
-  /** Saved project tasks. Each task has geometry + status used to colour the polygon. */
   tasks: WorkspaceProjectTaskListItem[];
 }
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
-  /** Fired when the user clicks on a task polygon. The parent should update `selectedTaskId`. */
   'select-task': [taskId: string];
 }>();
 
-/** Ref to the div that MapLibre will mount into. */
 const mapRef = useTemplateRef<HTMLDivElement>('mapRef');
 
-// ─── MapLibre Source & Layer IDs ─────────────────────────────────────────────
 const AOI_SOURCE_ID = 'project-detail-aoi';
 const AOI_OUTLINE_SOURCE_ID = 'project-detail-aoi-outline';
 const TASK_SOURCE_ID = 'project-detail-tasks';
@@ -118,14 +104,8 @@ const TASK_FILL_ID = 'project-detail-task-fill';
 const TASK_LINE_ID = 'project-detail-task-line';
 const TASK_GRID_FILL_ID = 'project-detail-task-grid-fill';
 const TASK_GRID_LINE_ID = 'project-detail-task-grid-line';
-
-/** Default map center (Seattle) shown when no AOI/tasks are available yet. */
 const DEFAULT_CENTER: [number, number] = [-122.3321, 47.6062];
 
-/**
- * Minimal MapLibre style that only loads OpenStreetMap raster tiles.
- * We don't use a hosted style (e.g. MapTiler) to keep things self-contained and free.
- */
 const baseMapStyle: StyleSpecification = {
   version: 8,
   sources: {
@@ -146,17 +126,11 @@ const baseMapStyle: StyleSpecification = {
   ],
 };
 
-/**
- * A reusable empty FeatureCollection used to initialise MapLibre sources.
- * Sources must have valid GeoJSON at creation time, so we give them this placeholder
- * and update them later via `setData()` once real data is available.
- */
 const emptyCollection: FeatureCollection = {
   type: 'FeatureCollection',
   features: [],
 };
 
-/** Colours to display in the legend — must stay in sync with the MapLibre paint expressions below. */
 const legendItems = [
   { label: 'Ready for mapping', color: '#fde9aa' },
   { label: 'Ready for validation', color: '#a8d8f8' },
@@ -164,30 +138,19 @@ const legendItems = [
   { label: 'Completed', color: '#aae8cd' },
 ];
 
-/**
- * Module-level references to the MapLibre instances.
- * These are intentionally NOT Vue refs because MapLibre manages its own internal state —
- * wrapping the map object in Vue's reactivity system would cause unnecessary overhead.
- * We only interact with them through regular function calls.
- */
 let maplibregl: typeof import('maplibre-gl') | null = null;
 let detailMap: import('maplibre-gl').Map | null = null;
-/** Holds references to DOM Marker instances for locked tasks so we can remove them on update. */
 let lockedTaskMarkers: Marker[] = [];
 let mapResizeObserver: ResizeObserver | null = null;
+const mapReady = ref(false);
+let hasFittedInitialBounds = false;
 
-/** Show the legend only when there's something meaningful to show on the map. */
 const showLegend = computed(() =>
   Boolean(props.aoi)
   || props.tasks.length > 0
   || Boolean(props.taskGrid?.features.length),
 );
 
-/**
- * Convert the task list items into a GeoJSON FeatureCollection that MapLibre can render.
- * Each feature carries `status`, `selected`, and `locked` properties which are used
- * by the paint expressions on the task fill/line layers to drive colours and widths.
- */
 const taskFeatureCollection = computed<FeatureCollection<Polygon>>(() => ({
   type: 'FeatureCollection',
   features: props.tasks
@@ -205,11 +168,6 @@ const taskFeatureCollection = computed<FeatureCollection<Polygon>>(() => ({
     })),
 }));
 
-/**
- * The AOI polygon converted to LineStrings for the dashed-outline layer.
- * We use a separate source for the outline because MapLibre doesn't support
- * dashed fill-outlines directly — you need a dedicated `line` layer.
- */
 const aoiOutlineFeatureCollection = computed<FeatureCollection<LineString | MultiLineString>>(() => ({
   type: 'FeatureCollection',
   features: props.aoi ? createOutlineFeatures(props.aoi.geometry) : [],
@@ -237,10 +195,8 @@ const lockedTaskMarkersData = computed(() =>
 );
 
 /**
- * Lazy-load MapLibre GL on mount so it doesn't bloat the initial page bundle.
- * The map is only needed when this component is actually rendered, not on every page.
  *
- * Setup order matters:
+ * Setup order:
  *   1. Create the Map instance.
  *   2. Add the navigation control (zoom buttons).
  *   3. Wait for the `load` event — sources/layers can only be added after the style is ready.
@@ -268,10 +224,21 @@ onMounted(async () => {
     bindInteractionHandlers();
     syncSources();
     fitMapToData();
+    mapReady.value = true;
+    setTimeout(() => {
+      if (!detailMap) return;
+      syncSources();
+      fitMapToData();
+    }, 300);
   });
 
   mapResizeObserver = new ResizeObserver(() => {
-    detailMap?.resize();
+    if (!detailMap) return;
+    detailMap.resize();
+    const container = detailMap.getContainer();
+    if (container.clientWidth > 0 && container.clientHeight > 0 && !hasFittedInitialBounds && mapReady.value) {
+      fitMapToData();
+    }
   });
   mapResizeObserver.observe(mapRef.value);
 });
@@ -279,12 +246,24 @@ onMounted(async () => {
 /**
  * When any of the key data props change (AOI, tasks, task grid), push the updated
  * FeatureCollections into the MapLibre sources and re-fit the viewport.
- * `deep: true` is required here because the FeatureCollection objects are complex nested structures.
- */
+ *
+**/
 watch(
-  () => [props.aoi, taskFeatureCollection.value, props.taskGrid],
+  [
+    () => props.aoi,
+    () => props.tasks,
+    () => props.taskGrid,
+    () => taskFeatureCollection.value,
+    () => mapReady.value,
+  ],
   () => {
-    detailMap?.resize();
+    // Whenever props change, reset the fit flag so we attempt to fit the new data
+    hasFittedInitialBounds = false;
+
+    if (!mapReady.value) {
+      return;
+    }
+
     syncSources();
     fitMapToData();
   },
@@ -304,8 +283,6 @@ onBeforeUnmount(() => {
 });
 
 /**
- * Create all MapLibre sources and layers exactly once, after the style has loaded.
- * We guard with `getSource(AOI_SOURCE_ID)` so this is idempotent — calling it twice is safe.
  *
  * Layer order (painter's algorithm — later layers paint over earlier ones):
  *   aoiFill → taskGridFill → taskGridLine → taskFill → taskLine → aoiLine
@@ -438,11 +415,6 @@ function ensureLayers() {
   detailMap.addLayer(aoiLineLayer);
 }
 
-/**
- * Wire up mouse-enter/leave (cursor changes) and click (task selection) events.
- * We listen on both the fill AND line layers because a click on the border of two
- * tasks might only hit the line layer, not the fill.
- */
 function bindInteractionHandlers() {
   if (!detailMap) {
     return;
@@ -455,16 +427,9 @@ function bindInteractionHandlers() {
   detailMap.on('click', TASK_FILL_ID, handleTaskClick);
   detailMap.on('click', TASK_LINE_ID, handleTaskClick);
 }
-
-/**
- * Push the latest data from props/computed values into the MapLibre GeoJSON sources.
- * This is called after the style loads (initial render) and every time watched props change.
- *
- * We guard with `isStyleLoaded()` because `setData()` will throw if called before the
- * style is ready — for example, if props change before the async `load` event fires.
- */
+// sync the computed FeatureCollections into the MapLibre sources so they render on the map.
 function syncSources() {
-  if (!detailMap || !detailMap.isStyleLoaded()) {
+  if (!detailMap) {
     return;
   }
 
@@ -473,10 +438,14 @@ function syncSources() {
   const taskSource = detailMap.getSource(TASK_SOURCE_ID) as GeoJSONSource | undefined;
   const taskGridSource = detailMap.getSource(TASK_GRID_SOURCE_ID) as GeoJSONSource | undefined;
 
-  aoiSource?.setData(props.aoi ?? emptyCollection);
-  aoiOutlineSource?.setData(aoiOutlineFeatureCollection.value);
-  taskSource?.setData(taskFeatureCollection.value);
-  taskGridSource?.setData(props.taskGrid ?? emptyCollection);
+  if (!aoiSource || !aoiOutlineSource || !taskSource || !taskGridSource) {
+    return;
+  }
+
+  aoiSource.setData(props.aoi ?? emptyCollection);
+  aoiOutlineSource.setData(aoiOutlineFeatureCollection.value);
+  taskSource.setData(taskFeatureCollection.value);
+  taskGridSource.setData(props.taskGrid ?? emptyCollection);
 
   // Once tasks or a generated grid exist, remove the AOI wash so the task cells stay legible.
   const hasTaskOverlay = taskFeatureCollection.value.features.length > 0
@@ -486,15 +455,13 @@ function syncSources() {
   syncLockedTaskMarkers();
 }
 
-/**
- * Zoom and pan the map to frame all available data.
- * Priority: task bounds > task-grid bounds > AOI bounds > default center.
- * On the tasks tab, real task geometry is the most important context — if we fit to a large AOI
- * first, newly created tasks can be technically present but visually imperceptible on initial load.
- * If nothing is available yet, we just ease back to the default Seattle center.
- */
 function fitMapToData() {
   if (!detailMap) {
+    return;
+  }
+
+  const container = detailMap.getContainer();
+  if (container.clientWidth === 0 || container.clientHeight === 0) {
     return;
   }
 
@@ -523,13 +490,10 @@ function fitMapToData() {
     maxZoom: 14,
     essential: true,
   });
+
+  hasFittedInitialBounds = true;
 }
 
-/**
- * Returns the padding (in px) to apply when fitting the map to feature bounds.
- * Expressed as an object so we can later make per-side adjustments if the UI changes
- * (e.g. a side-panel overlapping the left side of the map).
- */
 function resolvePadding(): PaddingOptions {
   return {
     top: 64,
@@ -748,7 +712,6 @@ function handleTaskMouseLeave() {
 /**
  * Emit the clicked task's ID to the parent page.
  * We validate that the feature has a non-empty string `id` property before emitting
- * to avoid passing null/undefined IDs when the user clicks on the map background.
  */
 function handleTaskClick(event: MapLayerMouseEvent) {
   const clickedTask = event.features?.[0]?.properties?.id;

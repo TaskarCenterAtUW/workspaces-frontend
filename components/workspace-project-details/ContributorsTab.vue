@@ -7,6 +7,7 @@
       </div>
 
       <button
+        v-if="props.canManage"
         class="btn btn-primary project-detail-contributors-add"
         type="button"
         :disabled="props.addingContributor"
@@ -68,13 +69,14 @@
               <app-select
                 :model-value="localRoles[contributor.id] ?? contributor.role"
                 :aria-label="`Change role for ${contributor.name}`"
-                :disabled="props.updatingContributorId === contributor.id"
+                :disabled="!props.canManage || props.updatingContributorId === contributor.id"
                 :id="`project-detail-contributor-role-${contributor.id}`"
                 :options="rowRoleOptions"
                 @update:model-value="handleRoleSelectUpdate(contributor, $event)"
               />
 
               <button
+                v-if="props.canManage"
                 class="btn btn-outline-danger project-detail-contributors-delete"
                 type="button"
                 :disabled="props.updatingContributorId === contributor.id"
@@ -181,6 +183,8 @@ interface SelectOption {
 }
 
 interface Props {
+  /** Whether the current user may add, update, or remove contributors. */
+  canManage: boolean;
   addingContributor: boolean;
   availableUsers: ProjectWizardWorkspaceUser[];
   availableUsersLoading: boolean;

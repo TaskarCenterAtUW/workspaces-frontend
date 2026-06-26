@@ -7,6 +7,7 @@ import type {
   WorkspaceProjectAoiApiResponse,
   WorkspaceProjectAoiFeature,
   WorkspaceProjectContributor,
+  WorkspaceProjectContributorRole,
   WorkspaceProjectDetail,
   WorkspaceProjectDetailApiItem,
   WorkspaceProject,
@@ -302,6 +303,28 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     const body = await response.json() as WorkspaceProjectRolesApiResponse;
 
     return body.results.map(normalizeProjectContributor);
+  }
+
+  /**
+   * Fetch the project-level role for a single user.
+   * Returns null when the user has no explicit project role (API responds with 404).
+   */
+  async getWorkspaceProjectUserRole(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+    userId: string,
+  ): Promise<WorkspaceProjectContributorRole | null> {
+    try {
+      const response = await this._get(
+        `workspaces/${workspaceId}/tasking/projects/${projectId}/roles/${userId}`,
+      );
+      const body = await response.json() as WorkspaceProjectRoleApiItem;
+      return body.role as WorkspaceProjectContributorRole;
+    }
+    catch {
+      // 404 or network error → user has no explicit project role; treat as null.
+      return null;
+    }
   }
 
   async updateWorkspaceProjectRole(
