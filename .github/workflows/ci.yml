@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ master ]
 
+# Cancel any in-progress run for the same branch/PR when a newer commit lands.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     runs-on: ubuntu-latest
