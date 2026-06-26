@@ -292,7 +292,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     const response = await this._get(`${type}/${id}/${version}`, {
       headers: {
         'Accept': 'application/json',
-        'X-Workspace': workspaceId,
+        'X-Workspace': String(workspaceId),
       },
     });
 
@@ -306,7 +306,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     const response = await this._get(`nodes?nodes=${nodeIds.join(',')}`, {
       headers: {
         'Accept': 'application/json',
-        'X-Workspace': workspaceId,
+        'X-Workspace': String(workspaceId),
       },
     });
 
@@ -323,7 +323,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     const response = await this._get(`ways?ways=${wayIds.join(',')}`, {
       headers: {
         'Accept': 'application/json',
-        'X-Workspace': workspaceId,
+        'X-Workspace': String(workspaceId),
       },
     });
 
@@ -340,7 +340,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     const response = await this._get(`node/${nodeId}/ways`, {
       headers: {
         'Accept': 'application/json',
-        'X-Workspace': workspaceId,
+        'X-Workspace': String(workspaceId),
       },
     });
 
@@ -349,7 +349,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
 
   async listChangesets(workspaceId: WorkspaceId): Promise<OsmChangeset[]> {
     const response = await this._get(`changesets.json`, {
-      headers: { 'X-Workspace': workspaceId },
+      headers: { 'X-Workspace': String(workspaceId) },
     });
 
     const changesets = (await response.json())?.changesets ?? [];
@@ -376,7 +376,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     const response = await this._get(url, {
       headers: {
         'Accept': 'application/json',
-        'X-Workspace': workspaceId,
+        'X-Workspace': String(workspaceId),
       },
     });
 
@@ -401,7 +401,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     const response = await this._get(`changeset/${changesetId}/download`, {
       headers: {
         'Accept': 'application/xml',
-        'X-Workspace': workspaceId,
+        'X-Workspace': String(workspaceId),
       },
     });
 
@@ -425,7 +425,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
 
     const body = xml.serialize(doc);
     const response = await this._put('changeset/create', body, {
-      headers: { 'X-Workspace': workspaceId },
+      headers: { 'X-Workspace': String(workspaceId) },
     });
 
     return Number(await response.text());
@@ -439,7 +439,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     await this._post(`changeset/${changesetId}/upload`, changesetXml, {
       headers: {
         'Content-Type': 'application/xml',
-        'X-Workspace': workspaceId,
+        'X-Workspace': String(workspaceId),
       },
     });
   }
@@ -465,7 +465,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     body.append('text', message);
 
     await this._post(`changeset/${changesetId}/comment`, body, {
-      headers: { 'X-Workspace': workspaceId },
+      headers: { 'X-Workspace': String(workspaceId) },
     });
   }
 
@@ -479,7 +479,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     const response = await this._get(`notes/search.json?${params}`, {
       headers: {
         'Accept': 'application/json',
-        'X-Workspace': workspaceId,
+        'X-Workspace': String(workspaceId),
       },
     });
 
@@ -491,7 +491,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     const response = await this._get(`map.json?bbox=${bboxParam}`, {
       headers: {
         'Accept': 'application/json',
-        'X-Workspace': workspaceId
+        'X-Workspace': String(workspaceId)
       }
     });
 
@@ -503,7 +503,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     const response = await this._get(`map?bbox=${bboxParam}`, {
       headers: {
         'Accept': 'application/xml',
-        'X-Workspace': workspaceId
+        'X-Workspace': String(workspaceId)
       }
     });
 
