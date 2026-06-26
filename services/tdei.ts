@@ -1,6 +1,11 @@
 import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
 
-import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
+import {
+  BaseHttpClient,
+  BaseHttpClientError,
+  type FetchConfig,
+  type HttpBody,
+} from '~/services/http';
 import type { ICancelableClient } from '~/services/loading';
 import type {
   TdeiFeedback,
@@ -237,13 +242,17 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async downloadOswDataset(tdeiRecordId: string, format: string = 'osw'): Promise<Blob> {
-    const response = await this._sendTest(`osw/${tdeiRecordId}?format=${format}`, 'GET');
+    const response = await this._get(`osw/${tdeiRecordId}?format=${format}`, {
+      headers: { Accept: '*/*' },
+    });
 
     return (await response.blob());
   }
 
   async downloadPathwaysDataset(tdeiDatasetId: string): Promise<Blob> {
-    const response = await this._sendTest(`gtfs-pathways/${tdeiDatasetId}`, 'GET');
+    const response = await this._get(`gtfs-pathways/${tdeiDatasetId}`, {
+      headers: { Accept: '*/*' },
+    });
 
     return (await response.blob());
   }
@@ -284,9 +293,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
       resource += '?derived_from_dataset_id=' + tdeiRecordId;
     }
 
-    const response = await this._post(resource, body, {
-      headers: { 'Authorization': this._requestHeaders['Authorization'] }
-    });
+    const response = await this._post(resource, body);
 
     return await response.text();
   }
@@ -308,9 +315,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
       resource += '?derived_from_dataset_id=' + tdeiRecordId;
     }
 
-    const response = await this._post(resource, body, {
-      headers: { 'Authorization': this._requestHeaders['Authorization'] }
-    });
+    const response = await this._post(resource, body);
 
     return await response.text();
   }
@@ -327,19 +332,14 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     const filename = sourceFormat === 'osw' ? 'osw.zip' : 'osm.xml';
     body.append('file', new File([dataset], filename));
 
-    const jobResponse = await this._sendTest('osw/convert', 'POST', body);
+    const jobResponse = await this._post('osw/convert', body);
     const jobId = (await jobResponse.text());
 
     while (true) {
       console.info(`Waiting for dataset conversion job ${jobId}...`);
       await new Promise(resolve => setTimeout(resolve, 4000));
 
-      const statusResponse = await this._get(`jobs?job_id=${jobId}&tdei_project_group_id=${projectGroupId}`, {
-        headers: {
-          'Accept': 'application/text',
-          'Authorization': this._requestHeaders['Authorization']
-        }
-      });
+      const statusResponse = await this._get(`jobs?job_id=${jobId}&tdei_project_group_id=${projectGroupId}`);
       const statusBody = (await statusResponse.json())[0];
       const statusText = statusBody.status.toLowerCase();
 
@@ -352,7 +352,9 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
       }
     }
 
-    const fileResponse = await this._sendTest(`job/download/${jobId}`, 'GET');
+    const fileResponse = await this._get(`job/download/${jobId}`, {
+      headers: { 'Accept': '*/*' },
+    });
 
     return await fileResponse.blob();
   }
@@ -424,14 +426,20 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     }
   }
 
-  override async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
+  override async _send(
+    url: string,
+    method: string,
+    body?: HttpBody,
+    config?: FetchConfig,
+  ): Promise<Response> {
     try {
       if (this.#auth.needsRefresh) {
         await this.refreshToken();
       }
 
       return await super._send(url, method, body, config);
-    } catch (e: any) {
+    }
+    catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {
         throw new TdeiClientError(e.response);
       }
@@ -515,13 +523,19 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     }
   }
 
-  override async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
+  override async _send(
+    url: string,
+    method: string,
+    body?: HttpBody,
+    config?: FetchConfig,
+  ): Promise<Response> {
     try {
       await this.#tdeiClient.tryRefreshAuth();
       this.#setAuthHeader();
 
       return await super._send(url, method, body, config);
-    } catch (e: any) {
+    }
+    catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {
         throw new TdeiUserClientError(e.response);
       }
