@@ -367,7 +367,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     }
 
     const fileResponse = await this._get(`job/download/${jobId}`, {
-      headers: { 'Accept': '*/*' },
+      headers: { Accept: '*/*' },
     });
 
     return await fileResponse.blob();
