@@ -40,7 +40,7 @@
       <div v-if="paginatedTasks.length > 0" class="project-detail-task-list-header" aria-hidden="true">
         <span>Task ID</span>
         <span>Status</span>
-        <span>Mapper</span>
+        <span>Locked By</span>
         <span>Last Updated</span>
       </div>
 
@@ -76,13 +76,13 @@
             <span class="project-detail-task-mobile-label">Status</span>
             <span class="project-detail-task-status">
               <span class="project-detail-task-status-swatch" :class="`project-detail-task-status-${task.status}`" />
-              {{ formatTaskStatus(task.status) }}
+              {{ formatTaskStatus(task) }}
             </span>
           </div>
 
           <div class="project-detail-task-cell">
-            <span class="project-detail-task-mobile-label">Mapper</span>
-            <span class="project-detail-task-value">{{ task.mapperName }}</span>
+            <span class="project-detail-task-mobile-label">Locked By</span>
+            <span class="project-detail-task-value">{{ task.lock?.user_name ?? 'Not locked' }}</span>
           </div>
 
           <div class="project-detail-task-cell">
@@ -157,6 +157,8 @@
  * Emits `select-task` when a task row is clicked, so the parent page can highlight it on the map.
  */
 import type { WorkspaceProjectTaskListItem, WorkspaceProjectTaskStatus } from '~/types/projects';
+import type { WorkspaceRole } from '~/types/workspaces';
+import { resolveWorkspaceProjectTaskStatusLabel } from '~/util/task-status';
 
 type TaskSortOption = 'latest' | 'oldest' | 'task_asc' | 'task_desc';
 type TaskStatusFilter = WorkspaceProjectTaskStatus | 'all';
@@ -176,6 +178,8 @@ interface Props {
   mutatingTaskNumber?: number | null;
   /** The task ID currently highlighted on the map (synced from the parent page). */
   selectedTaskId?: string | null;
+  /** Effective role of the signed-in user within this project. */
+  viewerProjectRole?: WorkspaceRole | null;
   /** Full list of tasks for this project. Filtering/sorting is applied in this component. */
   tasks: WorkspaceProjectTaskListItem[];
 }
@@ -345,18 +349,8 @@ watch(totalPages, (pageCount) => {
  * Convert the internal API status string to a display-friendly label.
  * If you add a new status value to `WorkspaceProjectTaskStatus`, add a case here too.
  */
-function formatTaskStatus(status: WorkspaceProjectTaskStatus) {
-  switch (status) {
-    case 'ready_for_validation':
-      return 'Ready for validation';
-    case 'needs_more_mapping':
-      return 'More mapping needed';
-    case 'completed':
-      return 'Completed';
-    case 'ready_for_mapping':
-    default:
-      return 'Ready for mapping';
-  }
+function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
+  return resolveWorkspaceProjectTaskStatusLabel(task, props.viewerProjectRole);
 }
 </script>
 
