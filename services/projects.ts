@@ -420,7 +420,6 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     await this._post(
       `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks/${taskNumber}/submit`,
       {
-        osm_changeset_id: payload.osmChangesetId,
         done: payload.done,
         feedback: payload.feedback
           ? {
@@ -428,6 +427,20 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
               reason_category: payload.feedback.reasonCategory,
             }
           : undefined,
+      },
+    );
+  }
+
+  async submitWorkspaceProjectTaskChangeset(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+    taskNumber: number,
+    osmChangesetId: number,
+  ): Promise<void> {
+    await this._post(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks/${taskNumber}/submit-changeset`,
+      {
+        osm_changeset_id: osmChangesetId,
       },
     );
   }

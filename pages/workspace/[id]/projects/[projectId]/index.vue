@@ -1,154 +1,184 @@
 <template>
   <app-page fluid class="project-detail-page">
-    <div
-      class="project-detail-shell"
-      :class="{
-        'project-detail-shell-task-selected': showSelectedTaskBar,
-      }"
-    >
-      <section class="project-detail-content">
-        <header class="project-detail-hero">
-          <nav class="project-detail-breadcrumbs" aria-label="Breadcrumb">
-            <nuxt-link :to="projectsRoute">Workspaces</nuxt-link>
-            <span aria-hidden="true">&gt;</span>
-            <nuxt-link :to="projectsRoute">{{ workspace.title }}</nuxt-link>
-            <span aria-hidden="true">&gt;</span>
-            <span>{{ breadcrumbProjectName }}</span>
+    <div class="project-detail-layout">
+      <div
+        class="project-detail-shell"
+        :class="{
+          'project-detail-shell-with-footer': showSelectedTaskBar,
+        }"
+      >
+        <section class="project-detail-content">
+          <header class="project-detail-hero">
+            <nav class="project-detail-breadcrumbs" aria-label="Breadcrumb">
+              <nuxt-link :to="projectsRoute">Workspaces</nuxt-link>
+              <span aria-hidden="true">&gt;</span>
+              <nuxt-link :to="projectsRoute">{{ workspace.title }}</nuxt-link>
+              <span aria-hidden="true">&gt;</span>
+              <span>{{ breadcrumbProjectName }}</span>
+            </nav>
+
+            <div class="project-detail-title-row">
+              <h2 class="project-detail-title">
+                {{ project.name }}
+              </h2>
+
+              <button
+                v-if="showActivateProjectButton"
+                class="btn project-detail-activate-button"
+                type="button"
+                :disabled="isActivatingProject"
+                @click="handleActivateProject"
+              >
+                <app-spinner v-if="isActivatingProject" size="sm" />
+                <template v-else>
+                  Activate Project
+                </template>
+              </button>
+            </div>
+
+            <div class="project-detail-progress-copy">
+              <strong>{{ completedTaskCount }}/{{ totalTaskCount }} Tasks Completed</strong>
+              <span>{{ progressPercent }}%</span>
+            </div>
+
+            <div
+              class="progress project-detail-progress-bar"
+              role="progressbar"
+              :aria-valuenow="progressPercent"
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
+              <div class="progress-bar" :style="{ width: `${progressPercent}%` }" />
+            </div>
+          </header>
+
+          <nav class="project-detail-tabs" aria-label="Project detail sections">
+            <nuxt-link
+              v-for="tab in tabs"
+              :key="tab.id"
+              class="project-detail-tab-link"
+              :class="{ 'project-detail-tab-link-active': activeTab === tab.id }"
+              :to="buildTabRoute(tab.id)"
+            >
+              {{ tab.label }}
+            </nuxt-link>
           </nav>
 
-          <h2 class="project-detail-title">
-            {{ project.name }}
-          </h2>
+          <section v-if="activeTab === 'overview'" class="project-detail-tab-panel">
+            <article class="project-detail-card project-detail-summary-card">
+              <div class="project-detail-summary-grid">
+                <div class="project-detail-summary-item">
+                  <span>Status</span>
+                  <workspace-projects-status-badge :status="project.status" />
+                </div>
 
-          <div class="project-detail-progress-copy">
-            <strong>{{ completedTaskCount }}/{{ totalTaskCount }} Tasks Completed</strong>
-            <span>{{ progressPercent }}%</span>
-          </div>
+                <div class="project-detail-summary-item">
+                  <span>Created By</span>
+                  <strong>{{ project.createdByName || 'Unknown' }}</strong>
+                </div>
 
-          <div
-            class="progress project-detail-progress-bar"
-            role="progressbar"
-            :aria-valuenow="progressPercent"
-            aria-valuemin="0"
-            aria-valuemax="100"
-          >
-            <div class="progress-bar" :style="{ width: `${progressPercent}%` }" />
-          </div>
-        </header>
+                <div class="project-detail-summary-item">
+                  <span>Total Tasks</span>
+                  <strong>{{ totalTaskCount }}</strong>
+                </div>
 
-        <nav class="project-detail-tabs" aria-label="Project detail sections">
-          <nuxt-link
-            v-for="tab in tabs"
-            :key="tab.id"
-            class="project-detail-tab-link"
-            :class="{ 'project-detail-tab-link-active': activeTab === tab.id }"
-            :to="buildTabRoute(tab.id)"
-          >
-            {{ tab.label }}
-          </nuxt-link>
-        </nav>
-
-        <section v-if="activeTab === 'overview'" class="project-detail-tab-panel">
-          <article class="project-detail-card project-detail-summary-card">
-            <div class="project-detail-summary-grid">
-              <div class="project-detail-summary-item">
-                <span>Status</span>
-                <workspace-projects-status-badge :status="project.status" />
+                <div class="project-detail-summary-item">
+                  <span>Created Date</span>
+                  <strong>{{ createdDate }}</strong>
+                </div>
               </div>
+            </article>
 
-              <div class="project-detail-summary-item">
-                <span>Created By</span>
-                <strong>{{ project.createdByName || 'Unknown' }}</strong>
-              </div>
+            <article class="project-detail-copy-card">
+              <h2>Description</h2>
+              <workspace-project-details-rich-text-content :html="supplemental.descriptionHtml" />
+            </article>
+          </section>
 
-              <div class="project-detail-summary-item">
-                <span>Total Tasks</span>
-                <strong>{{ totalTaskCount }}</strong>
-              </div>
+          <section v-else-if="activeTab === 'instructions'" class="project-detail-tab-panel">
+            <article class="project-detail-copy-card">
+              <workspace-project-details-rich-text-content :html="supplemental.instructionsHtml" />
+            </article>
+          </section>
 
-              <div class="project-detail-summary-item">
-                <span>Created Date</span>
-                <strong>{{ createdDate }}</strong>
-              </div>
-            </div>
-          </article>
+          <section v-else-if="activeTab === 'tasks'" class="project-detail-tab-panel">
+            <workspace-project-details-task-setup-panel
+              v-if="showTaskSetup"
+              :can-generate="canGenerateTasks"
+              :can-save="canSaveTasks"
+              :generated-summary="generatedTaskSummary"
+              :generating="generatingTasks"
+              :has-aoi="Boolean(mapAoi)"
+              :maximum-task-area-square-kilometers="PROJECT_WIZARD_TASK_AREA_MAXIMUM"
+              :minimum-task-area-square-kilometers="PROJECT_WIZARD_TASK_AREA_MINIMUM"
+              :preview-task-count="taskPreviewSummary.totalTasks"
+              :project-name="project.name"
+              :saved-summary="savedTaskSummary"
+              :saving="savingTasks"
+              :task-area-square-kilometers="currentTaskAreaSquareKilometers"
+              :task-area-step="PROJECT_WIZARD_TASK_AREA_STEP"
+              @generate="handleGenerateTasks"
+              @reset="resetTasking"
+              @save="handleSaveTasks"
+              @update:task-area="updateTaskAreaSquareKilometers"
+            />
 
-          <article class="project-detail-copy-card">
-            <h2>Description</h2>
-            <workspace-project-details-rich-text-content :html="supplemental.descriptionHtml" />
-          </article>
+            <workspace-project-details-tasks-tab
+              v-else
+              :current-user-id="currentUserId"
+              :mutating-task-number="mutatingTaskNumber"
+              :selected-task-id="selectedTaskId"
+              :tasks="displayedTasks"
+              :viewer-project-role="effectiveRole"
+              @select-task="selectTask"
+              @unlock-task="handleUnlockTask"
+            />
+          </section>
+
+          <section v-else-if="activeTab === 'contributions'" class="project-detail-tab-panel">
+            <workspace-project-details-contributions-tab
+              :contributors="supplemental.contributors"
+              :metrics="supplemental.contributionMetrics"
+            />
+          </section>
+
+          <section v-else class="project-detail-tab-panel">
+            <workspace-project-details-contributors-tab
+              :can-manage="canManageContributors"
+              :adding-contributor="addingContributor"
+              :available-users="projectGroupUsers"
+              :available-users-loading="projectGroupUsersLoading"
+              :contributors="supplemental.contributors"
+              :updating-contributor-id="mutatingContributorId"
+              @add-contributor="handleAddContributor"
+              @open-add-contributor="handleOpenAddContributorDialog"
+              @remove-contributor="confirmRemoveContributor"
+              @search-available-users="handleSearchAvailableUsers"
+              @update-role="handleUpdateContributorRole"
+            />
+          </section>
         </section>
 
-        <section v-else-if="activeTab === 'instructions'" class="project-detail-tab-panel">
-          <article class="project-detail-copy-card">
-            <workspace-project-details-rich-text-content :html="supplemental.instructionsHtml" />
-          </article>
-        </section>
+        <workspace-project-details-project-map
+          :aoi="projectAoi"
+          :selected-task-id="selectedTaskId"
+          :task-grid="showTaskSetup ? displayedTaskGrid : persistedTaskGrid"
+          :tasks="showTaskSetup ? [] : displayedTasks"
+          class="project-detail-map-column"
+          @select-task="selectTask"
+        />
+      </div>
 
-        <section v-else-if="activeTab === 'tasks'" class="project-detail-tab-panel">
-          <workspace-project-details-task-setup-panel
-            v-if="showTaskSetup"
-            :can-generate="canGenerateTasks"
-            :can-save="canSaveTasks"
-            :generated-summary="generatedTaskSummary"
-            :generating="generatingTasks"
-            :has-aoi="Boolean(mapAoi)"
-            :maximum-task-area-square-kilometers="PROJECT_WIZARD_TASK_AREA_MAXIMUM"
-            :minimum-task-area-square-kilometers="PROJECT_WIZARD_TASK_AREA_MINIMUM"
-            :preview-task-count="taskPreviewSummary.totalTasks"
-            :project-name="project.name"
-            :saved-summary="savedTaskSummary"
-            :saving="savingTasks"
-            :task-area-square-kilometers="currentTaskAreaSquareKilometers"
-            :task-area-step="PROJECT_WIZARD_TASK_AREA_STEP"
-            @generate="handleGenerateTasks"
-            @reset="resetTasking"
-            @save="handleSaveTasks"
-            @update:task-area="updateTaskAreaSquareKilometers"
-          />
-
-          <workspace-project-details-tasks-tab
-            v-else
-            :current-user-id="currentUserId"
-            :mutating-task-number="mutatingTaskNumber"
-            :selected-task-id="selectedTaskId"
-            :tasks="displayedTasks"
-            @select-task="selectTask"
-            @unlock-task="handleUnlockTask"
-          />
-        </section>
-
-        <section v-else-if="activeTab === 'contributions'" class="project-detail-tab-panel">
-          <workspace-project-details-contributions-tab
-            :contributors="supplemental.contributors"
-            :metrics="supplemental.contributionMetrics"
-          />
-        </section>
-
-        <section v-else class="project-detail-tab-panel">
-          <workspace-project-details-contributors-tab
-            :can-manage="canManageContributors"
-            :adding-contributor="addingContributor"
-            :available-users="projectGroupUsers"
-            :available-users-loading="projectGroupUsersLoading"
-            :contributors="supplemental.contributors"
-            :updating-contributor-id="mutatingContributorId"
-            @add-contributor="handleAddContributor"
-            @open-add-contributor="handleOpenAddContributorDialog"
-            @remove-contributor="confirmRemoveContributor"
-            @search-available-users="handleSearchAvailableUsers"
-            @update-role="handleUpdateContributorRole"
-          />
-        </section>
-      </section>
-
-      <workspace-project-details-project-map
-        :aoi="projectAoi"
-        :selected-task-id="selectedTaskId"
-        :task-grid="showTaskSetup ? displayedTaskGrid : persistedTaskGrid"
-        :tasks="showTaskSetup ? [] : displayedTasks"
-        class="project-detail-map-column"
-        @select-task="selectTask"
+      <workspace-project-details-selected-task-bar
+        v-if="showSelectedTaskBar && selectedTask"
+        :action-disabled="selectedTaskActionDisabled"
+        :action-label="selectedTaskPrimaryActionLabel"
+        :busy="selectedTaskActionBusy"
+        :show-action-button="showSelectedTaskActionButton"
+        :status-label="formatTaskStatus(selectedTask)"
+        :task="selectedTask"
+        @action="handleSelectedTaskAction"
+        @close="clearSelectedTask"
       />
 
       <project-wizard-status-dialog
@@ -161,55 +191,6 @@
         @primary-action="handleStatusDialogPrimaryAction"
         @secondary-action="closeStatusDialog"
       />
-
-      <section
-        v-if="showSelectedTaskBar && selectedTask"
-        class="project-detail-task-action-bar"
-        aria-label="Selected task actions"
-      >
-        <button
-          class="btn btn-link project-detail-task-action-close"
-          type="button"
-          @click="clearSelectedTask"
-        >
-          <app-icon variant="close" size="20" no-margin />
-          Close
-        </button>
-
-        <div class="project-detail-task-action-summary">
-          <div class="project-detail-task-action-copy">
-            <span>Selected Task</span>
-            <strong>{{ selectedTask.label }}</strong>
-          </div>
-
-          <div class="project-detail-task-action-status">
-            <span>Current Status</span>
-            <strong>
-              <span
-                class="project-detail-task-action-status-swatch"
-                :class="`project-detail-task-action-status-${selectedTask.status}`"
-              />
-              {{ formatTaskStatus(selectedTask.status) }}
-            </strong>
-          </div>
-        </div>
-
-        <button
-          v-if="showSelectedTaskActionButton"
-          class="btn project-detail-task-action-primary"
-          type="button"
-          :disabled="selectedTaskActionDisabled"
-          @click="handleSelectedTaskAction"
-        >
-          <app-spinner
-            v-if="isActivatingProject || mutatingTaskNumber === selectedTask.taskNumber"
-            size="sm"
-          />
-          <template v-else>
-            {{ selectedTaskPrimaryActionLabel }}
-          </template>
-        </button>
-      </section>
     </div>
   </app-page>
 </template>
@@ -225,6 +206,7 @@ import {
   PROJECT_WIZARD_TASK_AREA_STEP,
 } from '~/services/project-wizard-tasks';
 import { workspaceProjectsClient, workspacesClient } from '~/services/index';
+import { resolveWorkspaceProjectTaskStatusLabel } from '~/util/task-status';
 
 import type {
   WorkspaceProjectAoiFeature,
@@ -271,7 +253,8 @@ const projectGroupUsers = ref<ProjectWizardWorkspaceUser[]>([]);
 // This is awaited so the tabs and action guards are correct on first render.
 const currentUserIdForRole = workspaceProjectsClient.auth.subject || null;
 const {
-  isWorkspaceLead,
+  effectiveRole,
+  isProjectLead,
   isExplicitProjectLead,
   canValidate,
   canMap,
@@ -440,10 +423,6 @@ const selectedTaskPrimaryActionLabel = computed(() => {
     return 'Map a Task';
   }
 
-  if (projectRequiresActivation.value) {
-    return 'Activate Project';
-  }
-
   if (selectedTask.value.locked) {
     return selectedTaskLockedByCurrentUser.value ? selectedTaskWorkActionLabel.value : 'Task Locked';
   }
@@ -452,7 +431,11 @@ const selectedTaskPrimaryActionLabel = computed(() => {
 });
 
 const showSelectedTaskActionButton = computed(() => {
-  if (!selectedTask.value) {
+  if (!selectedTask.value || projectRequiresActivation.value) {
+    return false;
+  }
+
+  if (selectedTask.value.status === 'completed') {
     return false;
   }
 
@@ -465,9 +448,17 @@ const showSelectedTaskActionButton = computed(() => {
 
 const selectedTaskActionDisabled = computed(() =>
   !selectedTask.value
-  || isActivatingProject.value
   || mutatingTaskNumber.value === selectedTask.value.taskNumber
   || (selectedTask.value.locked && !selectedTaskLockedByCurrentUser.value),
+);
+const selectedTaskActionBusy = computed(() =>
+  Boolean(
+    selectedTask.value
+    && mutatingTaskNumber.value === selectedTask.value.taskNumber,
+  ),
+);
+const showActivateProjectButton = computed(() =>
+  projectRequiresActivation.value && isProjectLead.value,
 );
 
 let projectGroupUserSearchDebounce: ReturnType<typeof setTimeout> | undefined;
@@ -608,11 +599,6 @@ async function handleSelectedTaskAction() {
   const taskToOpen = selectedTask.value;
 
   if (!taskToOpen) {
-    return;
-  }
-
-  if (projectRequiresActivation.value) {
-    await handleActivateProject();
     return;
   }
 
@@ -992,18 +978,8 @@ function openTaskLockErrorDialog(message: string) {
   };
 }
 
-function formatTaskStatus(status: WorkspaceProjectTaskListItem['status']) {
-  switch (status) {
-    case 'ready_for_validation':
-      return 'Ready for validation';
-    case 'needs_more_mapping':
-      return 'More mapping needed';
-    case 'completed':
-      return 'Completed';
-    case 'ready_for_mapping':
-    default:
-      return 'Ready for mapping';
-  }
+function formatTaskStatus(task: Pick<WorkspaceProjectTaskListItem, 'locked' | 'status'>) {
+  return resolveWorkspaceProjectTaskStatusLabel(task, effectiveRole.value);
 }
 
 async function resolveTaskMutationErrorMessage(error: unknown, fallbackMessage: string) {
@@ -1070,27 +1046,36 @@ function escapeHtml(value: string) {
 @import "~/assets/scss/theme.scss";
 
 .project-detail-page {
+  display: flex;
+  flex-direction: column;
   height: calc(100vh - #{$navbar-height});
   padding-top: 1rem !important;
   padding-bottom: 1rem !important;
   overflow: hidden;
 }
 
+.project-detail-layout {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .project-detail-shell {
-  position: relative;
   display: grid;
+  flex: 1;
   grid-template-columns: minmax(0, 50%) minmax(0, 50%);
   height: 100%;
+  min-height: 0;
   background: #ffffff;
   border: 1px solid rgba($text-navy, 0.12);
   border-radius: 1rem;
   overflow: hidden;
 }
 
-.project-detail-shell-task-selected .project-detail-content,
-.project-detail-shell-task-selected .project-detail-map-column {
-  padding-bottom: 6.6rem;
-  box-sizing: border-box;
+.project-detail-shell-with-footer {
+  border-bottom: 0;
+  border-radius: 1rem 1rem 0 0;
 }
 
 .project-detail-content {
@@ -1137,6 +1122,37 @@ function escapeHtml(value: string) {
   font-weight: 600;
   line-height: 1.18;
   letter-spacing: -0.03em;
+}
+
+.project-detail-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.project-detail-activate-button {
+  min-width: 10.5rem;
+  min-height: 2.85rem;
+  padding-inline: 1.15rem;
+  flex-shrink: 0;
+  color: #ffffff;
+  font-size: 0.98rem;
+  font-weight: 700;
+  background: #4d158d;
+  border: 1px solid #4d158d;
+  border-radius: 0.6rem;
+}
+
+.project-detail-activate-button:hover:not(:disabled),
+.project-detail-activate-button:focus-visible:not(:disabled) {
+  color: #ffffff;
+  background: #421178;
+  border-color: #421178;
+}
+
+.project-detail-activate-button:disabled {
+  opacity: 0.62;
 }
 
 .project-detail-progress-copy {
@@ -1255,132 +1271,10 @@ function escapeHtml(value: string) {
   height: 100%;
 }
 
-.project-detail-task-action-bar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 4;
-  min-height: 6.6rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
-  padding: 1rem 2.2rem;
-  background: rgba(255, 255, 255, 0.98);
-  border-top: 1px solid rgba($text-navy, 0.12);
-  box-shadow: 0 -0.6rem 1.8rem rgba($text-navy, 0.08);
-  backdrop-filter: blur(8px);
-}
-
-.project-detail-task-action-close {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0;
-  color: #db4b4b;
-  font-size: 1rem;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.project-detail-task-action-close:hover,
-.project-detail-task-action-close:focus-visible {
-  color: #c93c3c;
-}
-
-.project-detail-task-action-summary {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 2rem;
-}
-
-.project-detail-task-action-copy,
-.project-detail-task-action-status {
-  display: grid;
-  gap: 0.28rem;
-  min-width: 0;
-}
-
-.project-detail-task-action-copy span,
-.project-detail-task-action-status span {
-  color: #707796;
-  font-size: 0.95rem;
-}
-
-.project-detail-task-action-copy strong,
-.project-detail-task-action-status strong {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  color: #1a1e3d;
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.project-detail-task-action-status {
-  padding-left: 1.8rem;
-  border-left: 1px solid rgba($text-navy, 0.12);
-}
-
-.project-detail-task-action-status-swatch {
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-  border: 1px solid rgba(90, 96, 123, 0.12);
-}
-
-.project-detail-task-action-status-ready_for_mapping {
-  background: #fde9aa;
-}
-
-.project-detail-task-action-status-ready_for_validation {
-  background: #a8d8f8;
-}
-
-.project-detail-task-action-status-needs_more_mapping {
-  background: #f8be90;
-}
-
-.project-detail-task-action-status-completed {
-  background: #aae8cd;
-}
-
-.project-detail-task-action-primary {
-  min-width: 11.5rem;
-  min-height: 3.35rem;
-  padding-inline: 1.5rem;
-  color: #ffffff;
-  font-size: 1rem;
-  font-weight: 700;
-  background: #4d158d;
-  border: 1px solid #4d158d;
-  border-radius: 0.55rem;
-}
-
-.project-detail-task-action-primary:hover:not(:disabled),
-.project-detail-task-action-primary:focus-visible:not(:disabled) {
-  color: #ffffff;
-  background: #421178;
-  border-color: #421178;
-}
-
-.project-detail-task-action-primary:disabled {
-  opacity: 0.62;
-}
-
 @include media-breakpoint-down(xl) {
   .project-detail-hero,
   .project-detail-tabs,
   .project-detail-tab-panel {
-    padding-left: 1.75rem;
-    padding-right: 1.75rem;
-  }
-
-  .project-detail-task-action-bar {
     padding-left: 1.75rem;
     padding-right: 1.75rem;
   }
@@ -1397,23 +1291,12 @@ function escapeHtml(value: string) {
     height: auto;
   }
 
+  .project-detail-layout {
+    display: block;
+  }
+
   .project-detail-content {
     overflow: visible;
-  }
-
-  .project-detail-shell-task-selected .project-detail-content,
-  .project-detail-shell-task-selected .project-detail-map-column {
-    padding-bottom: 0;
-  }
-
-  .project-detail-task-action-bar {
-    position: static;
-    flex-wrap: wrap;
-    padding: 1rem 1.75rem;
-  }
-
-  .project-detail-task-action-summary {
-    justify-content: flex-start;
   }
 }
 
@@ -1423,6 +1306,11 @@ function escapeHtml(value: string) {
     padding-bottom: 1.5rem;
   }
 
+  .project-detail-title-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .project-detail-title {
     font-size: 2.2rem;
   }
@@ -1430,25 +1318,9 @@ function escapeHtml(value: string) {
   .project-detail-summary-grid {
     grid-template-columns: 1fr;
   }
-
-  .project-detail-task-action-summary {
-    width: 100%;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .project-detail-task-action-status {
-    padding-left: 0;
-    border-left: 0;
-  }
 }
 
 @include media-breakpoint-down(sm) {
-  .project-detail-shell {
-    min-height: auto;
-  }
-
   .project-detail-hero,
   .project-detail-tabs,
   .project-detail-tab-panel {
@@ -1463,14 +1335,6 @@ function escapeHtml(value: string) {
   .project-detail-copy-card,
   .project-detail-summary-card {
     padding: 1rem;
-  }
-
-  .project-detail-task-action-bar {
-    padding: 1rem;
-  }
-
-  .project-detail-task-action-primary {
-    width: 100%;
   }
 }
 </style>
