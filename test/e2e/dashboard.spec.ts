@@ -1,6 +1,6 @@
 import { test, expect, seedAuthenticatedSession, seedProjectGroupSelection } from './fixtures';
 import { recordContract } from './contract';
-import { projectGroups, PROJECT_GROUP_ID } from '../mocks/fixtures';
+import { projectGroups, PROJECT_GROUP_ID, TEST_API_BASE } from '../mocks/fixtures';
 
 // Generated from the @test outline in pages/dashboard.vue.
 //
@@ -21,8 +21,8 @@ test.describe('dashboard', () => {
   // (The populated WorkspaceResponse shape is also asserted at the unit level.)
   test('makes no new-API calls that violate the OpenAPI spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
-    await page.route('**/workspaces/mine', EMPTY);
-    await page.route('**/project-group-roles/**', EMPTY);
+    await page.route(`${TEST_API_BASE}workspaces/mine`, EMPTY);
+    await page.route(`${TEST_API_BASE}tdei-user/project-group-roles/**`, EMPTY);
 
     const contract = recordContract(page);
     await page.goto('/dashboard');
@@ -34,8 +34,8 @@ test.describe('dashboard', () => {
   // @test e2e: the page renders with a simulated API response with no project groups
   test('shows the empty notice when the user has no project groups', async ({ page }) => {
     await seedAuthenticatedSession(page);
-    await page.route('**/workspaces/mine', EMPTY);
-    await page.route('**/project-group-roles/**', EMPTY);
+    await page.route(`${TEST_API_BASE}workspaces/mine`, EMPTY);
+    await page.route(`${TEST_API_BASE}tdei-user/project-group-roles/**`, EMPTY);
 
     await page.goto('/dashboard');
 
@@ -46,8 +46,8 @@ test.describe('dashboard', () => {
   test('shows the empty notice when the selected project group has no workspaces', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
-    await page.route('**/workspaces/mine', EMPTY); // group exists, but no workspaces in it
-    await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
+    await page.route(`${TEST_API_BASE}workspaces/mine`, EMPTY); // group exists, but no workspaces in it
+    await page.route(`${TEST_API_BASE}tdei-user/project-group-roles/**`, route => route.fulfill({ json: projectGroups }));
 
     await page.goto('/dashboard');
 

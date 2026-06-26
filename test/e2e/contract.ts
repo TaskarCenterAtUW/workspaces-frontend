@@ -134,17 +134,26 @@ export function recordContract(page: Page) {
         // Response body
         const resDef = op.responses?.[String(c.status)] ?? op.responses?.default;
         const resSchema = resDef?.content?.['application/json']?.schema;
-        if (resSchema && c.contentType.includes('application/json') && c.resText) {
-          try {
-            const v = validatorFor(resSchema, `${match.key}|${c.method}|res|${c.status}`);
-            if (!v(JSON.parse(c.resText))) {
-              out.push({ method: c.method, path: c.recordedPath, status: c.status, where: 'response',
-                message: ajv.errorsText(v.errors) });
-            }
-          }
-          catch (e) {
+        // Validate any response that claims application/json, even with an empty
+        // body: an empty/missing body where the spec expects JSON is a violation,
+        // not something to skip (gating on c.resText hid that case).
+        if (resSchema && c.contentType.includes('application/json')) {
+          if (!c.resText) {
             out.push({ method: c.method, path: c.recordedPath, status: c.status, where: 'response',
-              message: `response body not valid JSON: ${(e as Error).message}` });
+              message: 'expected an application/json response body but it was empty' });
+          }
+          else {
+            try {
+              const v = validatorFor(resSchema, `${match.key}|${c.method}|res|${c.status}`);
+              if (!v(JSON.parse(c.resText))) {
+                out.push({ method: c.method, path: c.recordedPath, status: c.status, where: 'response',
+                  message: ajv.errorsText(v.errors) });
+              }
+            }
+            catch (e) {
+              out.push({ method: c.method, path: c.recordedPath, status: c.status, where: 'response',
+                message: `response body not valid JSON: ${(e as Error).message}` });
+            }
           }
         }
       }

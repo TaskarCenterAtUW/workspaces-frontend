@@ -1,5 +1,5 @@
 import { test, expect, seedAuthenticatedSession } from './fixtures';
-import { aWorkspace, USER_ID } from '../mocks/fixtures';
+import { aWorkspace, USER_ID, TEST_API_BASE } from '../mocks/fixtures';
 
 // Generated from the @test outline in pages/workspace/[id]/teams/[teamId].vue
 // (the "Join Team" page).
@@ -56,14 +56,14 @@ const joinedUser = {
 
 // Stub the three top-level awaits. `members` controls join state.
 async function stubPageLoad(page: Page, members: object[]) {
-  await page.route(`**/workspaces/${WORKSPACE_ID}`, route =>
+  await page.route(`${TEST_API_BASE}workspaces/${WORKSPACE_ID}`, route =>
     route.fulfill({ json: aWorkspace })
   );
-  await page.route(`**/workspaces/${WORKSPACE_ID}/teams/${TEAM_ID}`, route =>
+  await page.route(`${TEST_API_BASE}workspaces/${WORKSPACE_ID}/teams/${TEAM_ID}`, route =>
     route.fulfill({ json: team })
   );
   // GET lists members; POST (joinTeam) returns the joining User. Same URL.
-  await page.route(`**/workspaces/${WORKSPACE_ID}/teams/${TEAM_ID}/members`, (route) => {
+  await page.route(`${TEST_API_BASE}workspaces/${WORKSPACE_ID}/teams/${TEAM_ID}/members`, (route) => {
     if (route.request().method() === 'POST') {
       return route.fulfill({ json: joinedUser });
     }

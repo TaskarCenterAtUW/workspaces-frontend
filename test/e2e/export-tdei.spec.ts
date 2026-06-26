@@ -245,10 +245,10 @@ test('an API error shows an error message and a Try again button that resets the
   await stubPageLoad(page, [eligibleProjectGroup]);
   await stubServices(page);
 
-  await page.route('**/osm/workspaces/1/bbox.json', route =>
+  await page.route('**/osm/api/0.6/workspaces/1/bbox.json', route =>
     route.fulfill({ json: { min_lat: 47.6, min_lon: -122.34, max_lat: 47.62, max_lon: -122.32 } })
   );
-  await page.route('**/osm/map?**', route =>
+  await page.route('**/osm/api/0.6/map?**', route =>
     route.fulfill({ body: '<osm></osm>', contentType: 'application/xml' })
   );
   await page.route('**/osw/convert', route => route.fulfill({ body: 'job-1', contentType: 'text/plain' }));

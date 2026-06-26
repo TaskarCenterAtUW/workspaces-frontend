@@ -27,7 +27,11 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? 'github' : 'list',
+  // In CI: 'github' annotates the Actions log, and 'html' writes the
+  // playwright-report/ dir that the CI workflow uploads as an artifact.
+  reporter: process.env.CI
+    ? [['github'], ['html', { open: 'never' }]]
+    : 'list',
   // The Nuxt dev server compiles routes lazily on first hit, so a cold parallel
   // request can take several seconds to render. A roomy expect timeout absorbs
   // that without masking real failures. (Run E2E against `nuxt build && preview`

@@ -1,6 +1,6 @@
 import { test as base, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { myWorkspaces, USER_ID } from '../mocks/fixtures';
+import { myWorkspaces, USER_ID, TEST_API_BASE } from '../mocks/fixtures';
 
 // The display name shown in the navbar for the seeded session.
 export const TEST_USER = { subject: USER_ID, displayName: 'Tester' };
@@ -42,12 +42,12 @@ export async function seedProjectGroupSelection(page: Page, group: { id: string;
 // test flag.
 export const test = base.extend({
   page: async ({ page }, use) => {
-    await page.route('**/workspaces/mine', route =>
+    await page.route(`${TEST_API_BASE}workspaces/mine`, route =>
       route.fulfill({ json: myWorkspaces })
     );
 
     // Add further stubs here as flows need them, e.g.:
-    // await page.route('**/workspaces/ws-1', route => route.fulfill({ json: ... }))
+    // await page.route(`${TEST_API_BASE}workspaces/ws-1`, route => route.fulfill({ json: ... }))
 
     await use(page);
   }

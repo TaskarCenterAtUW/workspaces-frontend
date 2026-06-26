@@ -131,7 +131,9 @@ test.describe('workspace export landing page', () => {
 
     release();
 
-    // Ready state: the button is replaced by a "Save" link.
+    // Ready state: the button is replaced by a "Save" link. Assert the stable
+    // link text/visibility only — its href is a volatile blob: URL, so we don't
+    // ARIA-snapshot it (file-based aria snapshots capture the blob URL exactly).
     const save = page.getByRole('link', { name: /Save/ });
     await expect(save).toBeVisible();
 

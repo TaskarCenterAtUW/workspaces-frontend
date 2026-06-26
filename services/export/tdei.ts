@@ -103,6 +103,8 @@ export class TdeiExporter {
   }
 
   async _exportOswToTdei(workspace: Workspace, metadata: any): Promise<string> {
+    const tdeiServiceId = this._requireServiceId(workspace);
+
     this._context.status = status.exportOsm;
     const osm = await this._osmClient.exportWorkspaceXml(workspace.id);
 
@@ -113,7 +115,7 @@ export class TdeiExporter {
     const jobId = await this._tdeiClient.uploadOswDataset(
       (await this._filterNonexistentDataset(workspace.tdeiRecordId)),
       workspace.tdeiProjectGroupId,
-      workspace.tdeiServiceId!,
+      tdeiServiceId,
       oswZip,
       { dataset_detail: metadata }
     );
@@ -124,6 +126,8 @@ export class TdeiExporter {
   }
 
   async _exportPathwaysToTdei(workspace: Workspace, metadata: any): Promise<string> {
+    const tdeiServiceId = this._requireServiceId(workspace);
+
     this._context.status = status.exportOsm;
     const elements = await this._osmClient.getWorkspaceData(workspace.id);
     const derivedFromDatasetId = await this._filterNonexistentDataset(workspace.tdeiRecordId);
@@ -136,7 +140,7 @@ export class TdeiExporter {
     const jobId = await this._tdeiClient.uploadPathwaysDataset(
       derivedFromDatasetId,
       workspace.tdeiProjectGroupId,
-      workspace.tdeiServiceId!,
+      tdeiServiceId,
       csvZip,
       { dataset_detail: metadata }
     );
@@ -144,6 +148,19 @@ export class TdeiExporter {
     this._context.status = status.complete;
 
     return jobId
+  }
+
+  // The TDEI upload endpoints require a service id to build the request URL.
+  // Validate it up front so we fail fast with a clear message instead of
+  // sending `undefined` onward to the service layer.
+  _requireServiceId(workspace: Workspace): string {
+    if (!workspace.tdeiServiceId) {
+      throw new Error(
+        `Workspace ${workspace.id} has no TDEI service id; cannot export to TDEI.`
+      );
+    }
+
+    return workspace.tdeiServiceId;
   }
 
   async _filterNonexistentDataset(tdeiRecordId: string | undefined): Promise<string | undefined> {

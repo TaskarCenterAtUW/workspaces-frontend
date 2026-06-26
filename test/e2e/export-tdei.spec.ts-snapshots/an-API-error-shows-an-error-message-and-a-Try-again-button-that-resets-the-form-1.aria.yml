@@ -1,4 +1,4 @@
 - alert:
   - heading " An error occurred:" [level=5]
-  - paragraph: "Unexpected error: TypeError: Failed to fetch (api.test)"
+  - paragraph: "TDEI rejected the upload: Internal server error"
   - button "Try again"
