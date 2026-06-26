@@ -151,22 +151,30 @@ const showLegend = computed(() =>
   || Boolean(props.taskGrid?.features.length),
 );
 
-const taskFeatureCollection = computed<FeatureCollection<Polygon>>(() => ({
-  type: 'FeatureCollection',
-  features: props.tasks
-    .filter(task => task.geometry)
-    .map(task => ({
-      type: 'Feature',
-      geometry: task.geometry as Polygon,
-      properties: {
-        id: task.id,
-        selected: task.id === props.selectedTaskId,
-        status: task.status,
-        taskNumber: task.taskNumber,
-        locked: task.locked,
-      },
-    })),
-}));
+const taskFeatureCollection = computed<FeatureCollection<Polygon>>(() => {
+  const sortedTasks = [...props.tasks].sort((a, b) => {
+    const aSelected = a.id === props.selectedTaskId ? 1 : 0;
+    const bSelected = b.id === props.selectedTaskId ? 1 : 0;
+    return aSelected - bSelected;
+  });
+
+  return {
+    type: 'FeatureCollection',
+    features: sortedTasks
+      .filter(task => task.geometry)
+      .map(task => ({
+        type: 'Feature',
+        geometry: task.geometry as Polygon,
+        properties: {
+          id: task.id,
+          selected: task.id === props.selectedTaskId,
+          status: task.status,
+          taskNumber: task.taskNumber,
+          locked: task.locked,
+        },
+      })),
+  };
+});
 
 const aoiOutlineFeatureCollection = computed<FeatureCollection<LineString | MultiLineString>>(() => ({
   type: 'FeatureCollection',
@@ -350,8 +358,8 @@ function ensureLayers() {
       'fill-opacity': [
         'case',
         ['==', ['get', 'selected'], true],
-        0.94,
-        0.82,
+        0.9,
+        0.45,
       ],
     },
   };
@@ -364,7 +372,7 @@ function ensureLayers() {
       'line-color': [
         'case',
         ['==', ['get', 'selected'], true],
-        '#2f3858',
+        '#2f3661',
         [
           'match',
           ['coalesce', ['get', 'status'], 'ready_for_mapping'],
@@ -377,8 +385,8 @@ function ensureLayers() {
       'line-width': [
         'case',
         ['==', ['get', 'selected'], true],
-        2.6,
-        2.4,
+        4.5,
+        1.5,
       ],
       'line-opacity': 1,
     },

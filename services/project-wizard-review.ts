@@ -1,3 +1,5 @@
+import DOMPurify from 'dompurify';
+
 import { calculateProjectWizardAoiAreaSquareKilometers } from '~/services/project-wizard-aoi';
 
 import type {
@@ -48,13 +50,9 @@ export function sanitizeReviewHtml(html: string): string {
     return '';
   }
 
-  return html
-    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '')
-    .replace(/\son[a-z]+="[^"]*"/gi, '')
-    .replace(/\son[a-z]+='[^']*'/gi, '')
-    .replace(/\s(href|src)\s*=\s*(['"])javascript:[\s\S]*?\2/gi, '')
-    .trim();
+  return typeof window !== 'undefined'
+    ? DOMPurify.sanitize(html, { USE_PROFILES: { html: true } })
+    : html;
 }
 
 function formatSquareKilometers(value: number): string {
