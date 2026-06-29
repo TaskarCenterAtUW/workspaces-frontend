@@ -1,6 +1,11 @@
 import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
 
-import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
+import {
+  BaseHttpClient,
+  BaseHttpClientError,
+  type FetchConfig,
+  type HttpBody,
+} from '~/services/http';
 import type { ICancelableClient } from '~/services/loading';
 import type {
   TdeiFeedback,
@@ -10,6 +15,8 @@ import type {
   TdeiProjectGroup,
   TdeiService,
   TdeiDatasetSummary,
+  TdeiDatasetMetadata,
+  TdeiUserItem,
 } from '~/types/tdei.ts';
 
 const MIN_TOKEN_REFRESH_MS = 10 * 1000;
@@ -236,13 +243,17 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async downloadOswDataset(tdeiRecordId: string, format: string = 'osw'): Promise<Blob> {
-    const response = await this._sendTest(`osw/${tdeiRecordId}?format=${format}`, 'GET');
+    const response = await this._get(`osw/${tdeiRecordId}?format=${format}`, {
+      headers: { Accept: '*/*' },
+    });
 
     return (await response.blob());
   }
 
   async downloadPathwaysDataset(tdeiDatasetId: string): Promise<Blob> {
-    const response = await this._sendTest(`gtfs-pathways/${tdeiDatasetId}`, 'GET');
+    const response = await this._get(`gtfs-pathways/${tdeiDatasetId}`, {
+      headers: { Accept: '*/*' },
+    });
 
     return (await response.blob());
   }
@@ -267,49 +278,55 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async uploadOswDataset(
-    tdeiRecordId: string,
+    tdeiRecordId: string | undefined,
     projectGroupId: string,
     serviceId: string,
     dataset: Blob,
-    metadata: any
-  ) {
+    metadata: TdeiDatasetMetadata,
+    changeset?: Blob
+  ): Promise<string> {
     const body = new FormData();
     body.append('dataset', new File([dataset], 'dataset.zip', { type: 'application/x-zip-compressed' }));
     body.append('metadata', new File([JSON.stringify(metadata)], 'metadata.json', { type: 'application/json' }));
 
+    if (changeset) {
+      body.append('changeset', new File([changeset], 'changeset.zip', { type: 'application/x-zip-compressed' }));
+    }
+
     let resource = `osw/upload/${projectGroupId}/${serviceId}`;
 
-    if (tdeiRecordId?.length > 0) {
+    if (tdeiRecordId?.length) {
       resource += '?derived_from_dataset_id=' + tdeiRecordId;
     }
 
-    const response = await this._post(resource, body, {
-      headers: { 'Authorization': this._requestHeaders['Authorization'] }
-    });
+    const response = await this._post(resource, body);
 
     return await response.text();
   }
 
   async uploadPathwaysDataset(
-    tdeiRecordId: string,
+    tdeiRecordId: string | undefined,
     projectGroupId: string,
     serviceId: string,
     dataset: Blob,
-    metadata: any
-  ) {
+    metadata: TdeiDatasetMetadata,
+    changeset?: Blob
+  ): Promise<string> {
     const body = new FormData();
     body.append('dataset', new File([dataset], 'dataset.zip', { type: 'application/x-zip-compressed' }));
     body.append('metadata', new File([JSON.stringify(metadata)], 'metadata.json', { type: 'application/json' }));
 
+    if (changeset) {
+      body.append('changeset', new File([changeset], 'changeset.zip', { type: 'application/x-zip-compressed' }));
+    }
+
     let resource = `gtfs-pathways/upload/${projectGroupId}/${serviceId}`;
 
-    if (tdeiRecordId?.length > 0) {
+    if (tdeiRecordId?.length) {
       resource += '?derived_from_dataset_id=' + tdeiRecordId;
     }
 
-    const response = await this._post(resource, body, {
-      headers: { 'Authorization': this._requestHeaders['Authorization'] }
-    });
+    const response = await this._post(resource, body);
 
     return await response.text();
   }
@@ -326,19 +343,14 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     const filename = sourceFormat === 'osw' ? 'osw.zip' : 'osm.xml';
     body.append('file', new File([dataset], filename));
 
-    const jobResponse = await this._sendTest('osw/convert', 'POST', body);
+    const jobResponse = await this._post('osw/convert', body);
     const jobId = (await jobResponse.text());
 
     while (true) {
       console.info(`Waiting for dataset conversion job ${jobId}...`);
       await new Promise(resolve => setTimeout(resolve, 4000));
 
-      const statusResponse = await this._get(`jobs?job_id=${jobId}&tdei_project_group_id=${projectGroupId}`, {
-        headers: {
-          'Accept': 'application/text',
-          'Authorization': this._requestHeaders['Authorization']
-        }
-      });
+      const statusResponse = await this._get(`jobs?job_id=${jobId}&tdei_project_group_id=${projectGroupId}`);
       const statusBody = (await statusResponse.json())[0];
       const statusText = statusBody.status.toLowerCase();
 
@@ -351,7 +363,9 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
       }
     }
 
-    const fileResponse = await this._sendTest(`job/download/${jobId}`, 'GET');
+    const fileResponse = await this._get(`job/download/${jobId}`, {
+      headers: { 'Accept': '*/*' },
+    });
 
     return await fileResponse.blob();
   }
@@ -423,14 +437,20 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     }
   }
 
-  override async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
+  override async _send(
+    url: string,
+    method: string,
+    body?: HttpBody,
+    config?: FetchConfig,
+  ): Promise<Response> {
     try {
       if (this.#auth.needsRefresh) {
         await this.refreshToken();
       }
 
       return await super._send(url, method, body, config);
-    } catch (e: any) {
+    }
+    catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {
         throw new TdeiClientError(e.response);
       }
@@ -455,8 +475,8 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     return this.#auth;
   }
 
-  clone(signal?: AbortSignal) {
-    return new TdeiClient(this._baseUrl, this.#auth, signal ?? this._abortSignal);
+  clone(signal?: AbortSignal): TdeiUserClient {
+    return new TdeiUserClient(this._baseUrl, this.#tdeiClient, signal ?? this._abortSignal);
   }
 
   async getMyProjectGroups(pageNo: number = 1, searchText: string = '', pageSize: number = 10, sortBy: 'name' | 'created_at' = 'name'): Promise<{ items: TdeiProjectGroup[], total?: number }> {
@@ -472,11 +492,23 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
       const totalParsed = totalHeader !== null ? parseInt(totalHeader, 10) : NaN;
       const total = Number.isNaN(totalParsed) ? undefined : totalParsed;
       const items = (await response.json() as TdeiProjectGroupApiResponse[]) ?? [];
-      return { items: items.map(p => ({ id: p.tdei_project_group_id, name: p.project_group_name })), total };
+      return { items: items.map(p => ({
+        tdei_project_group_id: p.tdei_project_group_id,
+        name: p.project_group_name,
+        roles: p.roles ?? [],
+      })), total };
     } catch (e) {
       console.warn('getMyProjectGroups: failed to parse API response', e);
       return { items: [] };
     }
+  }
+
+  async getMyRolesForProjectGroup(projectGroupId: string, pgName: string): Promise<string[]> {
+    const params = new URLSearchParams({ searchText: pgName });
+    const response = await this._get(`project-group-roles/${this.#auth.subject}?${params}`);
+    const pgs = (await response.json()) as TdeiProjectGroupApiResponse[];
+
+    return pgs.find(p => p.tdei_project_group_id === projectGroupId)?.roles ?? [];
   }
 
   async getMyServices(projectGroupId: string, type: string = 'all'): Promise<TdeiService[]> {
@@ -486,19 +518,35 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
       .map(s => ({ id: s.tdei_service_id, name: s.service_name }));
   }
 
+  async getProjectGroupUsers(projectGroupId: string): Promise<TdeiUserItem[]> {
+    const params = new URLSearchParams();
+    params.append('page_no', '1');
+    params.append('page_size', '10000');
+
+    const response = await this._get(`project-group/${projectGroupId}/users?${params}`);
+
+    return await response.json();
+  }
+
   #setAuthHeader() {
     if (this.#auth.complete) {
       this._requestHeaders.Authorization = 'Bearer ' + this.#auth.accessToken;
     }
   }
 
-  override async _send(url: string, method: string, body?: any, config?: object): Promise<Response> {
+  override async _send(
+    url: string,
+    method: string,
+    body?: HttpBody,
+    config?: FetchConfig,
+  ): Promise<Response> {
     try {
       await this.#tdeiClient.tryRefreshAuth();
       this.#setAuthHeader();
 
       return await super._send(url, method, body, config);
-    } catch (e: any) {
+    }
+    catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {
         throw new TdeiUserClientError(e.response);
       }

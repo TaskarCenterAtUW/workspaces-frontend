@@ -1,5 +1,8 @@
 <template>
-  <div :class="classes" role="status">
+  <div
+    :class="classes"
+    role="status"
+  >
     <span class="visually-hidden">Loading...</span>
   </div>
 </template>

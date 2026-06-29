@@ -4,7 +4,11 @@
         <h2 class="visually-hidden">My Workspaces</h2>
 
         <label for="ws_project_group_picker">Project Group</label>
-        <project-group-picker v-model="currentProjectGroup" id="ws_project_group_picker" />
+        <project-group-picker
+          id="ws_project_group_picker"
+          v-model="currentProjectGroup"
+          remember-selection
+        />
 
         <nuxt-link class="btn btn-primary flex-shrink-0" to="/workspace/create">
           <app-icon variant="add" size="24" />
@@ -16,34 +20,45 @@
       <app-icon variant="info" />
       No workspaces exist in the selected project group.
     </div>
-    <div v-else class="row mt-4 position-relative">
-      <div class="col-md mb-3">
-        <div class="list-group">
-          <dashboard-workspace-item
-            v-for="w in currentWorkspaces"
-            :key="w.id"
-            :workspace="w"
-            :selected="w.id === currentWorkspace?.id"
-            @click="selectWorkspace(w)"
-          />
+    <template v-else>
+      <div class="workspace-split-layout mt-4">
+        <div class="workspace-list-panel">
+          <div class="workspace-list-scroll">
+            <dashboard-workspace-item
+              v-for="w in currentWorkspaces"
+              :key="w.id"
+              :workspace="w"
+              :selected="w.id === currentWorkspace?.id"
+              @click="selectWorkspace(w)"
+            />
+          </div>
         </div>
-      </div><!-- .col-md -->
 
-      <div class="col-md workspace-details-col">
-        <div class="card" :style="currentWorkspace ? '' : 'visibility: hidden'">
-          <nav class="card-header">
-            <dashboard-toolbar :workspace="currentWorkspace" />
-          </nav>
-
-          <dashboard-map :workspace="currentWorkspace" @center-loaded="onCenterLoaded" />
-          <dashboard-details-table :workspace="currentWorkspace" />
-        </div><!-- .card -->
-      </div><!-- .col-md -->
-    </div><!-- .row -->
+        <div class="workspace-details-panel">
+          <div
+            v-if="currentWorkspace"
+            class="card"
+          >
+            <nav class="card-header">
+              <dashboard-toolbar :workspace="currentWorkspace" />
+            </nav>
+            <dashboard-map :workspace="currentWorkspace" @center-loaded="onCenterLoaded" />
+            <dashboard-details-table
+              :workspace="currentWorkspace"
+              :my-tdei-roles="currentWorkspaceTdeiRoles"
+            />
+          </div>
+        </div>
+      </div>
+    </template>
   </app-page>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { tdeiUserClient, workspacesClient } from '~/services/index';
+import type { Workspace } from '~/types/workspaces';
+import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
+
 const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
 const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
 
@@ -73,20 +88,31 @@ function setLastWorkspaceId(id: number) {
     sessionStorage.setItem(STORAGE_KEY_WORKSPACE, String(id));
   } catch { /* silently fail */ }
 }
-</script>
-
-<script setup lang="ts">
-import { workspacesClient } from '~/services/index';
-import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 
 const route = useRoute();
 
-const workspaces = (await workspacesClient.getMyWorkspaces()).sort(compareWorkspaceCreatedAtDesc);
+const [workspaces, { items: myProjectGroups }] = await Promise.all([
+  workspacesClient.getMyWorkspaces().then(ws => ws.sort(compareWorkspaceCreatedAtDesc)),
+  tdeiUserClient.getMyProjectGroups(1, '', 10000),
+]);
+const rolesByProjectGroup = new Map(myProjectGroups.map(pg => [pg.tdei_project_group_id, pg.roles]));
 const workspacesByProjectGroup = Map.groupBy(workspaces, w => w.tdeiProjectGroupId);
 
 const currentProjectGroup = ref(getLastProjectGroupId());
-const currentWorkspace = ref({});
-const currentWorkspaces = computed(() => workspacesByProjectGroup.get(currentProjectGroup.value));
+const currentWorkspace = ref<Workspace>();
+const currentWorkspaces = computed(() =>
+  currentProjectGroup.value
+    ? workspacesByProjectGroup.get(currentProjectGroup.value)
+    : undefined,
+);
+const selectedProjectGroupName = computed(() =>
+  myProjectGroups.find(pg => pg.tdei_project_group_id === currentProjectGroup.value)?.name ?? null
+);
+const currentWorkspaceTdeiRoles = computed(() =>
+  currentWorkspace.value
+    ? rolesByProjectGroup.get(currentWorkspace.value.tdeiProjectGroupId) ?? []
+    : [],
+);
 
 for (const w of workspaces) {
   if (w.tdeiMetadata?.length > 0) {
@@ -130,19 +156,20 @@ function autoSelectPreferredView() {
 
 async function onCurrentWorkspacesChange(val) {
   if (val?.length > 0) {
-    if (val[0].tdeiProjectGroupId !== currentWorkspace.value.tdeiProjectGroupId) {
+    if (val[0].tdeiProjectGroupId !== currentWorkspace.value?.tdeiProjectGroupId) {
       await selectWorkspace(val[0]);
     }
-  } else {
-    currentWorkspace.value = {};
+  }
+  else {
+    currentWorkspace.value = undefined;
   }
 }
 
 function onCenterLoaded(center) {
-  currentWorkspace.value.center = center;
+  currentWorkspace.value!.center = center;
 }
 
-async function selectWorkspace(workspace) {
+async function selectWorkspace(workspace: Workspace) {
   currentWorkspace.value = workspace;
 }
 </script>
@@ -158,9 +185,7 @@ async function selectWorkspace(workspace) {
     margin-right: 1rem;
 
     @include media-breakpoint-down(md) {
-      & {
-        display: none;
-      }
+      & { display: none; }
     }
   }
 
@@ -176,16 +201,64 @@ async function selectWorkspace(workspace) {
       border-left-color: $border-color;
       margin-right: auto;
 
-      &:hover {
-        border-color: $border-color;
-      }
+      &:hover { border-color: $border-color; }
     }
   }
+}
 
-  .workspace-details-col {
-    position: sticky;
-    top: 1rem;
-    margin-bottom: auto;
+
+.workspace-split-layout {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+
+  @include media-breakpoint-down(md) {
+    flex-direction: column;
+  }
+}
+.workspace-list-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+
+  position: sticky;
+  top: calc(#{$navbar-height} + 1rem);
+  max-height: calc(100vh - #{$navbar-height} - 2rem);
+
+  @include media-breakpoint-down(md) {
+    position: static;
+    flex: none;
+    width: 100%;
+    max-height: 50vh;
+  }
+}
+
+.workspace-list-scroll {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #c9cfe0 transparent;
+
+  &::-webkit-scrollbar { width: 5px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: #c9cfe0;
+    border-radius: 10px;
+  }
+}
+
+.workspace-details-panel {
+  flex: 1;
+  min-width: 0;
+
+  position: sticky;
+  top: 1rem;
+  margin-bottom: auto;
+
+  @include media-breakpoint-down(md) {
+    position: static;
+    width: 100%;
   }
 }
 </style>

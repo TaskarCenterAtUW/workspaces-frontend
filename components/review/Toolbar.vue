@@ -1,11 +1,24 @@
 <template>
   <nav class="review-toolbar">
-    <span class="border-end pe-3 me-3 text-uppercase ">
-      <span class="fw-bold">{{ props.item.displayType }}:</span>
-      #{{ props.item.id }}
+    <button
+      class="btn btn-sm btn-light border me-3 d-md-none"
+      type="button"
+      title="Back to list"
+      @click="emit('back')"
+    >
+      <app-icon
+        variant="arrow_back"
+        no-margin
+      />
+    </button>
+    <span class="border-end pe-3 me-3">
+      <app-icon
+        :variant="props.item.badgeIcon"
+        :class="typeClass"
+      /><span class="d-none d-sm-inline fw-bold text-uppercase me-1">{{ props.item.displayType }}:</span>#{{ props.item.id }}
     </span>
     <button
-      class="btn btn-sm btn-dark"
+      class="btn btn-sm btn-primary"
       @click="edit"
     >
       <app-icon
@@ -45,16 +58,49 @@
         {{ props.item.commentCount }}
       </span>
     </button>
-    <button
-      v-show="props.item.isFeedback"
-      class="btn btn-sm btn-success ms-2"
+    <BPopover
+      content="Only validators and owners can resolve feedback"
+      placement="bottom"
+      :manual="isValidator"
     >
-      <app-icon
-        variant="check"
-        no-margin
-      />
-      <span class="d-none d-sm-inline ms-2">Mark as Resolved</span>
-    </button>
+      <template #target>
+        <div class="d-inline-block ms-2">
+          <button
+            v-show="props.item.isFeedback && !props.item.isResolved"
+            class="btn btn-sm btn-success"
+            :disabled="!isValidator"
+          >
+            <app-icon
+              variant="check"
+              no-margin
+            />
+            <span class="d-none d-sm-inline ms-2">Mark as Resolved</span>
+          </button>
+        </div>
+      </template>
+    </BPopover>
+    <BPopover
+      :disabled="isValidator"
+      content="Only validators and owners can resolve changesets reviews"
+      placement="bottom"
+    >
+      <template #target>
+        <div class="d-inline-block ms-2">
+          <button
+            v-show="props.item.isChangeset && props.item.needsReview"
+            class="btn btn-sm btn-success"
+            :disabled="!isValidator"
+            @click="resolveChangeset"
+          >
+            <app-icon
+              variant="check"
+              no-margin
+            />
+            <span class="d-none d-sm-inline ms-2">Mark as Reviewed</span>
+          </button>
+        </div>
+      </template>
+    </BPopover>
   </nav>
 </template>
 
@@ -66,13 +112,21 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const emit = defineEmits(['back', 'edit', 'resolve']);
 
-const emit = defineEmits(['edit']);
+const { isValidator } = useWorkspaceRole();
+
+const typeClass = computed(() => props.item.badgeClass.replace('bg-', 'text-'));
+
 const showDetails = defineModel<boolean>('showDetails');
 const showDiscussion = defineModel<boolean>('showDiscussion');
 
 function edit() {
   emit('edit');
+}
+
+function resolveChangeset() {
+  emit('resolve');
 }
 
 function toggleDetails() {
@@ -85,12 +139,21 @@ function toggleDiscussion() {
 </script>
 
 <style lang="scss">
+@import "assets/scss/theme.scss";
+
 .review-toolbar {
+  display: flex;
+  align-items: center;
   background-color: var(--bs-body-bg);
   border-radius: var(--bs-border-radius);
   padding: 1rem;
   margin-bottom: 0.5rem;
   white-space: nowrap;
   box-shadow: var(--bs-box-shadow-lg);
+  overflow-x: auto;
+
+  @include media-breakpoint-down(sm) {
+    & { padding: 0.5rem; }
+  }
 }
 </style>

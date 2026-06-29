@@ -1,7 +1,26 @@
 <template>
   <section class="diff-attributes">
+    <!--
+    For small screens, display a button to view the photo submission. Otherwise
+    we'll display a thumbnail as a separate component (FeatureImage.vue).
+    -->
+    <div
+      v-if="props.imageUrl"
+      class="d-lg-none"
+    >
+      <button
+        class="diff-attributes__photo-btn"
+        type="button"
+        @click="emit('open-photo')"
+      >
+        <app-icon variant="photo_camera" />
+        <span class="diff-attributes__photo-label">View photo submission</span>
+      </button>
+    </div>
+
     <header>
-      <app-icon :variant="elementIcon" />{{ elementType }}
+      <app-icon :variant="elementIcon" />
+      {{ elementType }}
       <strong>#{{ elementId }}</strong>
       {{ elementAction }} by
       <strong>{{ props.diff.new.user }}</strong>
@@ -144,9 +163,11 @@ class TagMap {
 interface Props {
   datasetType: WorkspaceType;
   diff: AdiffAction;
+  imageUrl?: string;
 }
 
 const props = defineProps<Props>();
+const emit = defineEmits(['open-photo']);
 
 const elementId = computed(() => props.diff.new?.id ?? props.diff.old?.id);
 const elementType = computed(() => {
@@ -218,11 +239,44 @@ function tagClass(vals: TagMapItem) {
   overflow: hidden;
   font-size: 0.875em;
 
+  @include media-breakpoint-down(md) {
+    & {
+      min-width: 0;
+      max-width: calc(100vw - 1.2rem);
+    }
+  }
+
   > * {
     background: var(--bs-body-bg);
     box-shadow: var(--bs-box-shadow);
     border-radius: var(--bs-border-radius);
     margin-bottom: 0.5rem;
+  }
+
+  &__photo-btn {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0.5em;
+    gap: 0.25em;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover .diff-attributes__photo-label {
+      color: var(--bs-link-hover-color);
+    }
+
+    i {
+      margin-top: 0;
+    }
+  }
+
+  &__photo-label {
+    color: var(--bs-link-color);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   header {

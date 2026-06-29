@@ -4,15 +4,34 @@
       <h3 class="mb-0">
         Teams
       </h3>
-      <b-button
-        variant="primary"
-        class="flex-shrink-0"
-        @click="openNewDialog"
+      <b-popover
+        content="Only workspace owners can create teams"
+        :manual="isLead"
       >
-        <app-icon variant="add" /> New Team
-      </b-button>
+        <template #target>
+          <div class="d-inline-block">
+            <b-button
+              variant="primary"
+              class="flex-shrink-0"
+              :disabled="!isLead"
+              @click="openNewDialog"
+            >
+              <app-icon variant="add" /> New Team
+            </b-button>
+          </div>
+        </template>
+      </b-popover>
     </div>
 
+    <b-alert
+      v-if="!isLead"
+      variant="info"
+      show
+      class="mb-3"
+    >
+      <app-icon variant="info" />
+      Only workspace owners can create, rename, or delete teams.
+    </b-alert>
     <b-alert
       v-if="!teams.length"
       variant="info"
@@ -27,6 +46,7 @@
         v-for="team in teams"
         :key="team.id"
         :team="team"
+        :is-lead="isLead"
         @join="openJoinDialog"
         @open-settings="openSettingsDialog"
         @remove="remove"
@@ -61,6 +81,7 @@ import type TeamsMembersDialog from '~/components/teams/MembersDialog.vue';
 import type TeamsSettingsDialog from '~/components/teams/SettingsDialog.vue';
 import type { WorkspaceTeam } from '~/types/workspaces';
 
+const { isLead } = useWorkspaceRole();
 const { create } = useModal();
 const route = useRoute();
 const workspaceId = Number(route.params.id);
@@ -110,7 +131,8 @@ async function remove(team: WorkspaceTeam) {
     okTitle: 'Delete',
     okVariant: 'danger',
     cancelTitle: 'Cancel',
-    cancelVariant: 'link',
+    cancelClass: 'btn-link p-0',
+    cancelVariant: null,
   }).show();
 
   if (value?.ok) {

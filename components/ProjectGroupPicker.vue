@@ -2,6 +2,7 @@
   <div class="position-relative project-group-picker" ref="pickerRef" @focusout="onFocusOut">
     <input
       v-model="searchText"
+      :id="props.id"
       type="text"
       class="form-select"
       :disabled="props.disabled"
@@ -22,7 +23,7 @@
             Showing first {{ projectGroups.length }} of {{ totalCount }} project groups
             <span v-if="hasMore && !loading" class="pg-scroll-hint">&#183; Scroll to continue loading</span>
           </template>
-          <template v-else-if="!hasMore">Showing all {{ projectGroups.length }} project group{{ projectGroups.length !== 1 ? 's' : '' }}</template>
+          <template v-else-if="!showScrollHint">Showing all {{ projectGroups.length }} project group{{ projectGroups.length !== 1 ? 's' : '' }}</template>
           <template v-else>
             Showing first {{ projectGroups.length }} results
             <span v-if="!loading" class="pg-scroll-hint">&#183; Scroll to continue loading</span>
@@ -32,7 +33,7 @@
       </div>
       <div
         class="pg-list-wrap"
-        :class="{ 'pg-has-more': hasMore && !loading }"
+        :class="{ 'pg-has-more': showScrollHint && !loading }"
         ref="listRef"
         @scroll="onScroll"
       >
@@ -45,11 +46,11 @@
           </li>
           <li
             v-for="(pg, index) in projectGroups"
-            :key="pg.id"
+            :key="pg.tdei_project_group_id"
             :id="'pg-item-' + index"
             class="list-group-item list-group-item-action cursor-pointer"
-            :class="{ highlighted: activeIndex === index, 'fw-bold': model === pg.id }"
-            @click="selectGroup(pg.id)"
+            :class="{ highlighted: activeIndex === index, 'fw-bold': model === pg.tdei_project_group_id }"
+            @click="selectGroup(pg.tdei_project_group_id)"
             @mouseenter="activeIndex = index"
           >
             {{ pg.name }}
@@ -86,21 +87,26 @@ function persistCachedName(id: string, name: string) {
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { tdeiUserClient } from '~/services/index'
+import type { TdeiProjectGroupItem } from '~/types/tdei'
 
-const props = withDefaults(defineProps<{ disabled?: boolean }>(), {
+const props = withDefaults(defineProps<{ id?: string; disabled?: boolean; options?: TdeiProjectGroupItem[]; rememberSelection?: boolean }>(), {
   disabled: false,
+  rememberSelection: false,
 })
 
 const model = defineModel({ required: true })
 const searchText = ref('')
 const isOpen = ref(false)
-const projectGroups = ref<{ id: string; name: string }[]>([])
+const fetchedGroups = ref<TdeiProjectGroupItem[]>([])
 const selectedGroupName = ref('')
 const loading = ref(false)
 const totalCount = ref<number | undefined>(undefined)
 const pickerRef = ref<HTMLElement | null>(null)
 const listRef = ref<HTMLElement | null>(null)
 const activeIndex = ref(-1)
+
+const projectGroups = computed(() => props.options ?? fetchedGroups.value)
+const showScrollHint = computed(() => !props.options && hasMore.value)
 
 let pageNo = 1
 const hasMore = ref(true)
@@ -109,6 +115,8 @@ const pageSize = 10
 let hasUnfilteredResults = false
 
 const loadGroups = async (reset = false) => {
+  if (props.options) return
+
   if (loading.value) {
     pendingReset = pendingReset || reset
     return
@@ -117,7 +125,7 @@ const loadGroups = async (reset = false) => {
   if (reset) {
     pageNo = 1
     hasMore.value = true
-    projectGroups.value = []
+    fetchedGroups.value = []
     activeIndex.value = -1
     totalCount.value = undefined
   }
@@ -136,9 +144,11 @@ const loadGroups = async (reset = false) => {
 
     const { items: newGroups, total } = await tdeiUserClient.getMyProjectGroups(pageNo, query, pageSize)
     if (total !== undefined) totalCount.value = total
-    projectGroups.value.push(...newGroups)
-    const selected = newGroups.find(g => g.id === model.value)
-    if (selected) persistCachedName(selected.id, selected.name)
+    fetchedGroups.value.push(...newGroups)
+    const selected = newGroups.find(g => g.tdei_project_group_id === model.value)
+    if (selected && props.rememberSelection) {
+      persistCachedName(selected.tdei_project_group_id, selected.name)
+    }
 
     if (newGroups.length < pageSize) {
       hasMore.value = false
@@ -178,7 +188,7 @@ const onInput = () => {
 }
 
 watch(model, (newId) => {
-  const pg = projectGroups.value.find(p => p.id === newId)
+  const pg = projectGroups.value.find(p => p.tdei_project_group_id === newId)
   if (pg && !isOpen.value) {
     searchText.value = pg.name
     selectedGroupName.value = pg.name
@@ -195,11 +205,13 @@ const onScroll = (e: Event) => {
 const selectGroup = (id: string) => {
   model.value = id
   isOpen.value = false
-  const pg = projectGroups.value.find(p => p.id === id)
+  const pg = projectGroups.value.find(p => p.tdei_project_group_id === id)
   if (pg) {
     searchText.value = pg.name
     selectedGroupName.value = pg.name
-    persistCachedName(pg.id, pg.name)
+    if (props.rememberSelection) {
+      persistCachedName(pg.tdei_project_group_id, pg.name)
+    }
   }
 }
 
@@ -257,7 +269,7 @@ const onKeydown = (e: KeyboardEvent) => {
     e.preventDefault()
     if (activeIndex.value >= 0 && activeIndex.value < projectGroups.value.length) {
       const pg = projectGroups.value[activeIndex.value]
-      if (pg) selectGroup(pg.id)
+      if (pg) selectGroup(pg.tdei_project_group_id)
     }
   } else if (e.key === 'Escape') {
     e.preventDefault()
@@ -273,7 +285,7 @@ const applyCachedName = () => {
 
 const closeDropdown = () => {
   isOpen.value = false
-  const pg = projectGroups.value.find(p => p.id === model.value)
+  const pg = projectGroups.value.find(p => p.tdei_project_group_id === model.value)
   const name = pg?.name ?? selectedGroupName.value
   searchText.value = name
   if (pg) selectedGroupName.value = name
@@ -285,38 +297,58 @@ const onFocusOut = (e: FocusEvent) => {
   }
 }
 
+watch(
+  projectGroups,
+  (groups) => {
+    if (groups.length > 0) {
+      const pgId = model.value as string | undefined
+      if (!pgId || (props.options && !groups.some(pg => pg.tdei_project_group_id === pgId))) {
+        model.value = groups[0]?.tdei_project_group_id
+      }
+      const selected = groups.find(pg => pg.tdei_project_group_id === model.value)
+      if (selected && !isOpen.value) {
+        searchText.value = selected.name
+        selectedGroupName.value = selected.name
+      }
+    }
+  },
+  { immediate: true },
+)
+
 onMounted(async () => {
   // Show cached name immediately before the API call completes
-  if (model.value && loadCachedName(model.value as string)) {
+  if (props.rememberSelection && model.value && loadCachedName(model.value as string)) {
     applyCachedName()
   }
 
-  await loadGroups(true)
+  if (!props.options) {
+    await loadGroups(true)
 
-  if (projectGroups.value.length > 0) {
-    const selected = projectGroups.value.find(pg => pg.id === model.value)
-    if (selected) {
-      searchText.value = selected.name
-      selectedGroupName.value = selected.name
-    } else if (model.value && loadCachedName(model.value as string)) {
-      // Group is beyond page 1 — use the cached name for display
-      applyCachedName()
-    } else if (model.value) {
-      // model is set but name is unknown — paginate until the group is found
-      while (hasMore.value) {
-        await loadGroups()
-        const found = projectGroups.value.find(pg => pg.id === model.value)
-        if (found) {
-          searchText.value = found.name
-          selectedGroupName.value = found.name
-          break
+    if (fetchedGroups.value.length > 0) {
+      const selected = fetchedGroups.value.find(pg => pg.tdei_project_group_id === model.value)
+      if (selected) {
+        searchText.value = selected.name
+        selectedGroupName.value = selected.name
+      } else if (props.rememberSelection && model.value && loadCachedName(model.value as string)) {
+        // Group is beyond page 1 — use the cached name for display
+        applyCachedName()
+      } else if (model.value) {
+        // model is set but name is unknown — paginate until the group is found
+        while (hasMore.value) {
+          await loadGroups()
+          const found = fetchedGroups.value.find(pg => pg.tdei_project_group_id === model.value)
+          if (found) {
+            searchText.value = found.name
+            selectedGroupName.value = found.name
+            break
+          }
         }
+      } else if (!model.value) {
+        const first = fetchedGroups.value[0]!
+        model.value = first.tdei_project_group_id
+        searchText.value = first.name
+        selectedGroupName.value = first.name
       }
-    } else if (!model.value) {
-      const first = projectGroups.value[0]!
-      model.value = first.id
-      searchText.value = first.name
-      selectedGroupName.value = first.name
     }
   }
 })

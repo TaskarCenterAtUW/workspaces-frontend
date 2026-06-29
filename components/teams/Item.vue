@@ -13,7 +13,7 @@
       </a>
       <b-button
         variant="link"
-        class="team-members-btn"
+        class="team-members-btn text-body"
         @click="viewMembers"
       >
         {{ props.team.member_count }} members
@@ -21,6 +21,7 @@
     </div>
     <div class="align-self-center flex-shrink-0 ms-auto">
       <button
+        v-if="props.isLead"
         class="btn px-1"
         @click="openSettings"
       >
@@ -41,6 +42,7 @@
         <span class="visually-hidden">View QR Code</span>
       </button>
       <button
+        v-if="props.isLead"
         class="btn ms-1 px-1 text-danger"
         @click="remove"
       >
@@ -59,6 +61,7 @@ import type { WorkspaceTeam } from '~/types/workspaces';
 
 interface Props {
   team: WorkspaceTeam;
+  isLead: boolean;
 }
 
 const props = defineProps<Props>();
@@ -87,7 +90,6 @@ async function remove() {
 .team-members-btn {
   display: block;
   padding: 0;
-  color: $body-color;
   text-decoration: none;
 
   &:hover {

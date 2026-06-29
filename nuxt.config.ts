@@ -3,8 +3,17 @@ export default defineNuxtConfig({
   modules: [
     '@bootstrap-vue-next/nuxt',
     '@nuxt/eslint',
+    '@nuxtjs/google-fonts',
     '@sentry/nuxt/module',
   ],
+  googleFonts: {
+    families: {
+      'Open Sans': [300, 400, 500, 600, 700],
+      Montserrat: [300, 400, 500, 600, 700],
+    },
+    display: 'swap',
+    download: true,
+  },
   ssr: false,
   devtools: { enabled: true },
   app: {
@@ -52,4 +61,46 @@ export default defineNuxtConfig({
     debug: (process.env.ENV === 'dev' || process.env.ENV === 'local'),
     environment: process.env.ENV || 'unknown',
   },
-})
+  vite: {
+    server: {
+      allowedHosts: [
+        'workspaces.local',
+      ],
+    },
+    optimizeDeps: {
+      // Pre-bundle these dependencies to avoid reloads during development:
+      include: [
+        '@osmcha/maplibre-adiff-viewer',
+        '@osmcha/osmchange-parser',
+        '@sindresorhus/slugify',
+        '@vue/devtools-core',
+        '@vue/devtools-kit',
+        '@zip.js/zip.js',
+        'ajv', // CJS
+        'ajv-formats', // CJS
+        'bootstrap-vue-next',
+        'bootstrap-vue-next/components/BAlert',
+        'bootstrap-vue-next/components/BApp',
+        'bootstrap-vue-next/components/BBadge',
+        'bootstrap-vue-next/components/BButton',
+        'bootstrap-vue-next/components/BCard',
+        'bootstrap-vue-next/components/BCollapse',
+        'bootstrap-vue-next/components/BContainer',
+        'bootstrap-vue-next/components/BDropdown',
+        'bootstrap-vue-next/components/BFormInput',
+        'bootstrap-vue-next/components/BListGroup',
+        'bootstrap-vue-next/components/BModal',
+        'bootstrap-vue-next/components/BNavbar',
+        'bootstrap-vue-next/components/BPopover',
+        'bootstrap-vue-next/composables/useModal',
+        'dayjs', // CJS
+        'dayjs/plugin/relativeTime', // CJS
+        'maplibre-gl', // CJS
+        'papaparse', // CJS
+        'v-viewer',
+        'vue-qrcode',
+        'vue3-toastify',
+      ],
+    },
+  },
+});

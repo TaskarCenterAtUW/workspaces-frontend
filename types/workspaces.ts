@@ -1,6 +1,7 @@
 export type WorkspaceId = number;
 export type WorkspaceType = 'osw' | 'pathways';
 export type WorkspaceAppAccess = 0 | 1 | 2;
+export type WorkspaceRole = 'lead' | 'validator' | 'contributor';
 
 export interface Workspace {
   id: WorkspaceId;
@@ -16,6 +17,8 @@ export interface Workspace {
   createdByName: string;
   externalAppAccess: WorkspaceAppAccess;
   kartaViewToken?: string;
+  autoFlagReview?: boolean;
+  role?: WorkspaceRole;
 }
 
 export interface WorkspaceCreation {
@@ -34,6 +37,7 @@ export interface WorkspacePatch {
   title?: string;
   description?: string;
   externalAppAccess?: WorkspaceAppAccess;
+  autoFlagReview?: boolean;
 }
 
 export type QuestSettingsType = 'NONE' | 'JSON' | 'URL';
@@ -60,6 +64,10 @@ export interface WorkspaceTeam {
 export interface User {
   id: number;
   auth_uid: string;
-  email: string;
   display_name: string;
+}
+
+export interface WorkspaceMember {
+  user: User;
+  role: WorkspaceRole;
 }

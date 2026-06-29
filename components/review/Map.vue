@@ -81,10 +81,17 @@ const mapRef = useTemplateRef<HTMLDivElement>('map');
 let reviewMap: maplibregl.Map;
 let adiffViewer: typeof MapLibreAugmentedDiffViewer;
 let popup: maplibregl.Popup;
+let resizeObserver: ResizeObserver | undefined;
 
 onMounted(() => {
   initMap();
 });
+
+onUnmounted(() => {
+  resizeObserver?.disconnect();
+  reviewMap?.remove();
+});
+
 watch(() => props.item, drawItem);
 
 function initMap() {
@@ -97,6 +104,9 @@ function initMap() {
       container: mapRef.value,
       style: reviewMapStyle,
     });
+
+    resizeObserver = new ResizeObserver(() => reviewMap?.resize());
+    resizeObserver.observe(mapRef.value);
   }
 }
 

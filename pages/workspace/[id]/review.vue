@@ -1,7 +1,7 @@
 <template>
   <section
     class="review-page"
-    fluid
+    :class="{ 'detail-open': currentItem }"
   >
     <review-sidebar
       v-model:item="currentItem"
@@ -41,41 +41,75 @@
         v-if="currentItem"
         :item="currentItem"
         @edit="openEditor"
+        @resolve="resolveCurrentChangeset"
+        @back="currentItem = undefined"
       />
       <review-attribute-diff
         v-if="currentDiff && reviewList.workspace"
         :dataset-type="reviewList.workspace.type"
         :diff="currentDiff"
+        :image-url="currentImageUrl"
+        @open-photo="showImage"
+      />
+      <review-feature-image
+        v-if="currentImageUrl"
+        :image-url="currentImageUrl"
+        @open="showImage"
+      />
+      <app-image-viewer
+        ref="imageViewer"
+        title="Photo Submission"
       />
     </section>
   </section>
 </template>
 
 <script setup lang="ts">
-import { reviewManager } from '~/services/index';
+import { toast } from 'vue3-toastify';
+
+import { reviewManager, workspacesClient } from '~/services/index';
+import { kartaViewImageUrl, convertKartaViewUrl } from '~/util/kartaview';
 
 import type ReviewMap from '~/components/review/Map.vue';
+import type AppImageViewer from '~/components/AppImageViewer.vue';
 import type { ReviewListItem } from '~/services/review.ts';
 import type { AdiffAction } from '~/types/adiff';
+import type { OsmChangeset } from '~/types/osm';
 
 const route = useRoute();
 const workspaceId = Number(route.params.id);
+
+const workspace = await workspacesClient.getWorkspace(workspaceId);
+provide('workspace', workspace);
 
 const reviewList = reviewManager.getList(workspaceId);
 const filter = reactive(reviewManager.getFilter());
 
 const map = useTemplateRef<InstanceType<typeof ReviewMap>>('map');
+const imageViewer = useTemplateRef<InstanceType<typeof AppImageViewer>>('imageViewer');
 
 const loading = ref(false);
 const loadingMap = ref(false);
 const currentItem = ref<ReviewListItem | undefined>();
 const currentDiff = ref<AdiffAction | undefined>();
 
+const currentImageUrl = computed(() => {
+  const raw = kartaViewImageUrl(currentDiff.value?.new?.tags)
+    ?? kartaViewImageUrl(currentDiff.value?.old?.tags);
+  return raw ? convertKartaViewUrl(raw) : undefined;
+});
+
 refresh();
 
 watch(currentItem, () => {
   currentDiff.value = undefined;
 });
+
+function showImage() {
+  if (currentImageUrl.value) {
+    imageViewer.value?.show(currentImageUrl.value);
+  }
+}
 
 async function refresh() {
   if (loading.value) {
@@ -89,6 +123,29 @@ async function refresh() {
   }
   finally {
     loading.value = false;
+  }
+}
+
+async function resolveCurrentChangeset() {
+  if (!currentItem.value?.isChangeset) {
+    return;
+  }
+
+  const changesetId = currentItem.value.id;
+
+  try {
+    await workspacesClient.resolveChangeset(workspaceId, changesetId);
+
+    const changeset = currentItem.value.data as OsmChangeset;
+    delete changeset.tags.review_requested;
+    changeset.tags.reviewed_by = String(changesetId);
+
+    toast.success('Changeset marked as reviewed.');
+
+    await refresh();
+  }
+  catch {
+    toast.error('Failed to resolve changeset.');
   }
 }
 
@@ -108,6 +165,8 @@ async function openEditor() {
 </script>
 
 <style lang="scss">
+@import "assets/scss/theme.scss";
+
 .review-page {
   display: flex;
   height: 100%;
@@ -133,6 +192,17 @@ async function openEditor() {
 
   .review-notice {
     background-color: var(--bs-body-bg);
+  }
+
+  @include media-breakpoint-down(md) {
+    & {
+      .map-container { display: none; }
+    }
+
+    &.detail-open {
+      .review-sidebar { display: none; }
+      .map-container { display: block; }
+    }
   }
 }
 </style>

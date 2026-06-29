@@ -1,6 +1,6 @@
 <template>
-  <div class="table-responsive border-top">
-    <table class="table table-striped mb-0">
+  <div class="table-responsive border-top mb-0">
+    <table class="table table-striped">
       <tbody>
         <tr>
           <th><app-icon variant="schedule" />Created At</th>
@@ -9,6 +9,41 @@
         <tr>
           <th><app-icon variant="person_outline" />Created By</th>
           <td>{{ workspace.createdByName }}</td>
+        </tr>
+        <tr>
+          <th><app-icon variant="badge" />My Role</th>
+          <td>
+            <span
+              v-if="workspace.role === 'lead'"
+              class="badge bg-dark text-uppercase"
+            >
+              <app-icon variant="star" /> Owner
+            </span>
+            <span
+              v-else-if="workspace.role === 'validator'"
+              class="badge bg-dark text-uppercase"
+            >
+              <app-icon variant="task_alt" /> Validator
+            </span>
+            <span
+              v-else
+              class="badge bg-secondary text-uppercase"
+            >
+              <app-icon variant="person" /> Member
+            </span>
+            <span
+              v-if="isPoc"
+              class="badge bg-warning text-dark text-uppercase ms-1"
+            >
+              <app-icon variant="local_police" /> POC
+            </span>
+            <span
+              v-else-if="isDataGenerator"
+              class="badge bg-warning text-dark text-uppercase ms-1"
+            >
+              <app-icon variant="offline_bolt" /> Data Generator
+            </span>
+          </td>
         </tr>
         <tr>
           <th><app-icon variant="phonelink_setup" />App Access</th>
@@ -42,12 +77,19 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps({
-  workspace: {
-    type: Object,
-    required: true
-  }
-});
+import type { Workspace } from '~/types/workspaces';
+
+interface Props {
+  workspace: Workspace;
+  myTdeiRoles: string[];
+}
+
+const props = defineProps<Props>();
+
+const isPoc = computed(() => props.myTdeiRoles.includes('poc'));
+const isDataGenerator = computed(() =>
+  props.myTdeiRoles.includes(`${props.workspace.type}_data_generator`),
+);
 </script>
 
 <style lang="scss">
