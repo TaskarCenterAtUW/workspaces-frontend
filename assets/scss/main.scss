@@ -9,6 +9,44 @@ input:-webkit-autofill:focus {
 @import "maplibre-gl/dist/maplibre-gl.css";
 @import "vue3-toastify/dist/index.css";
 
+.project-wizard-rich-text-content {
+  p {
+    margin: 0 0 0.75rem;
+  }
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+
+  ul,
+  ol {
+    padding-left: 1.4rem;
+  }
+
+  blockquote {
+    margin: 0;
+    padding-left: 0.8rem;
+    color: rgba($secondary, 0.98);
+    border-left: 3px solid rgba($primary, 0.22);
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    padding: 0.45rem 0.55rem;
+    border: 1px solid rgba($text-navy, 0.12);
+  }
+}
+
 :root {
   --primary-font-family: "Open Sans", sans-serif;
   --secondary-font-family: "Montserrat", sans-serif;
@@ -104,30 +142,79 @@ label > .form-select:first-child {
 
 .page-header-title {
   font-family: var(--secondary-font-family);
-  font-size: 24px;
+  font-size: 1.5rem;
   font-weight: 700;
-  margin-bottom: 5px;
+  margin-bottom: 0.3125rem;
 }
 
 .page-header-subtitle {
   font-family: var(--secondary-font-family);
-  font-size: 14px;
+  font-size: 0.875rem;
   color: $tdei-secondary;
 }
 
 .tdei-bold-name {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 0.5rem;
 }
 
 .tdei-name-desc {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: $tdei-secondary;
 }
 
+.tdei-page-title-lg {
+  font-size: 2.15rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: $text-navy;
+}
+
+.tdei-page-subtitle-body {
+  font-family: var(--primary-font-family);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.35;
+  color: rgba($secondary, 0.92);
+}
+
+.tdei-list-title {
+  color: $text-navy;
+  font-family: var(--secondary-font-family);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+}
+
+.tdei-list-meta-label {
+  color: rgba($secondary, 0.92);
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.tdei-list-meta-value {
+  color: $text-navy;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.tdei-list-progress-copy {
+  color: rgba($secondary, 0.95);
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.tdei-list-progress-copy strong {
+  font-weight: 400;
+}
+
 .tdei-hint-text {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: $tdei-secondary;
   font-style: italic;
 }
@@ -136,6 +223,93 @@ label > .form-select:first-child {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 20px;
+  padding-bottom: 1.25rem;
 }
 
+.tdei-inline-filter-label {
+  color: $text-navy;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.tdei-select {
+  position: relative;
+  min-width: 0;
+}
+
+.tdei-select-toggle {
+  width: 100%;
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 0.9rem;
+  color: $secondary;
+  font-size: 1rem;
+  line-height: 1.2;
+  text-align: left;
+  background-color: #fff;
+  border: 1px solid $gray-300;
+  border-radius: $border-radius;
+}
+
+.tdei-select-toggle:hover,
+.tdei-select-open .tdei-select-toggle {
+  border-color: rgba($text-navy, 0.24);
+}
+
+.tdei-select-toggle:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba($primary, 0.16);
+}
+
+.tdei-select-toggle:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.tdei-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tdei-select-toggle .material-icons {
+  color: $secondary;
+}
+
+.tdei-select-menu {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  right: 0;
+  padding: 0.4rem 0;
+  background-color: #fff;
+  border: 1px solid rgba($text-navy, 0.14);
+  border-radius: $border-radius;
+  box-shadow: $box-shadow;
+  z-index: 1000;
+}
+
+.tdei-select-option {
+  width: 100%;
+  display: block;
+  padding: 0.55rem 1rem;
+  color: $text-navy;
+  font-size: 0.95rem;
+  text-align: left;
+  background-color: transparent;
+  border: 0;
+}
+
+.tdei-select-option:hover,
+.tdei-select-option-active {
+  background-color: $gray-100;
+}
+
+.tdei-select-option-selected {
+  font-weight: 600;
+}

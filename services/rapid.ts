@@ -5,6 +5,8 @@ export class RapidManager {
   #baseUrl: string;
   #osmUrl: string;
   #tdeiAuth: TdeiAuthStore;
+  #stateCallback: ((state: any) => void) | null = null;
+  #uploadCallback: ((result: any) => void) | null = null;
 
   constructor(baseUrl: string, osmUrl: string, tdeiAuth: TdeiAuthStore) {
     this.#baseUrl = baseUrl;
@@ -15,6 +17,26 @@ export class RapidManager {
     this.containerNode = document.createElement('div');
     this.rapidContext = null;
   }
+
+  onStateChange(callback: (state: any) => void) {
+    this.#stateCallback = callback;
+  }
+
+  #notifyStateChange(state: any) {
+    if (this.#stateCallback) {
+      this.#stateCallback(state);
+    }
+  }
+  onUploadResult(callback: (result: any) => void) {
+    this.#uploadCallback = callback;
+  }
+
+  #notifyUploadResult(result: any) {
+    if (this.#uploadCallback) {
+      this.#uploadCallback(result);
+    }
+  }
+
 
   load() {
     if (this.loaded.value) {
@@ -63,7 +85,9 @@ export class RapidManager {
     this.rapidContext.containerNode = this.containerNode;
     this.rapidContext.assetPath = this.#baseUrl;
 
-    console.info('Rapid loaded', this.rapidContext);
+
+    console.log('Rapid loaded', this.rapidContext);
+
   }
 
   #patchRapid() {
@@ -75,6 +99,28 @@ export class RapidManager {
 
     // Don't bother to fetch user details when uploading changesets:
     rapidOsmService.userDetails = (callback) => { callback('dummy error') };
+    // const editor = this.rapidContext.editor;
+    // console.info('Rapid editor', editor);
+    console.log('Rapid editor ', this.rapidContext);
+    const editSystem = this.rapidContext.systems.editor;
+    editSystem.on('stablechange', (state) => {
+      // this.#notifyStateChange(state);
+      const changes = editSystem.changes();
+      console.log('Rapid editor changes', changes);
+      const changesLength = changes.modified.length || changes.created.length || changes.deleted.length;
+
+      this.#notifyStateChange(changesLength);
+
+    });
+    const uploader = this.rapidContext.systems.uploader;
+    uploader.on('resultSuccess', (result) => {
+      console.log('Rapid uploader resultSuccess', result);
+      this.#notifyUploadResult(result);
+    });
+
+    // editSystem.on('reset', () => {
+    //   console.log('Rapid editor reset');
+    // });
   }
 
   #wrapFetch(innerFetch) {

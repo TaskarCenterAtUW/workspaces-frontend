@@ -1,0 +1,95 @@
+{
+  "steps": [
+    {
+      "step": "details",
+      "title": "Project Details",
+      "description": "Basic details of the project.",
+      "nextLabel": "Next",
+      "content": {
+        "fields": [
+          {
+            "id": "name",
+            "label": "Project Name",
+            "placeholder": "Enter Project Name",
+            "required": true,
+            "type": "text"
+          },
+          {
+            "id": "description",
+            "label": "Description",
+            "placeholder": "Enter Description",
+            "rows": 4,
+            "type": "textarea"
+          },
+          {
+            "id": "imageryUrl",
+            "label": "Imagery URL",
+            "placeholder": "Paste imagery JSON or a URL reference for later validation.",
+            "rows": 8,
+            "type": "textarea"
+          }
+        ]
+      },
+      "map": {
+        "center": [-122.3321, 47.6062],
+        "zoom": 7.7,
+        "features": {
+          "type": "FeatureCollection",
+          "features": []
+        }
+      }
+    },
+    {
+      "step": "area",
+      "title": "Area Of Interest",
+      "description": "Draw the Area of Interest on the map or import a file.",
+      "nextLabel": "Next",
+      "content": {
+        "allowedFormatLabel": "Allowed format .json",
+        "dividerLabel": "OR",
+        "drawLabel": "Draw",
+        "dropzoneActionLabel": "Drop files here or click to upload.",
+        "dropzoneDescription": "Upload an AOI GeoJSON file.",
+        "resetLabel": "Reset",
+        "uploadWarningThresholdSquareKilometers": 5000,
+        "uploadWarningText": "Project area is higher than 5000 squared kilometers."
+      },
+      "map": {
+        "center": [-122.3321, 47.6062],
+        "zoom": 8.55,
+        "features": {
+          "type": "FeatureCollection",
+          "features": []
+        }
+      }
+    },
+    {
+      "step": "settings",
+      "title": "Settings",
+      "description": "Configure project settings.",
+      "nextLabel": "Next",
+      "map": {
+        "center": [-122.335, 47.61],
+        "zoom": 9.7,
+        "features": {
+          "type": "FeatureCollection",
+          "features": []
+        }
+      }
+    },
+    {
+      "step": "review",
+      "title": "Review",
+      "description": "Review project details and create the project.",
+      "nextLabel": "Create Project",
+      "map": {
+        "center": [-122.334, 47.606],
+        "zoom": 8.9,
+        "features": {
+          "type": "FeatureCollection",
+          "features": []
+        }
+      }
+    }
+  ]
+}
