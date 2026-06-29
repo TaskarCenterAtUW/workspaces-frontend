@@ -13,7 +13,7 @@
       </a>
       <b-button
         variant="link"
-        class="team-members-btn"
+        class="team-members-btn text-body"
         @click="viewMembers"
       >
         {{ props.team.member_count }} members
@@ -90,7 +90,6 @@ async function remove() {
 .team-members-btn {
   display: block;
   padding: 0;
-  color: $body-color;
   text-decoration: none;
 
   &:hover {

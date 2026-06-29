@@ -3,13 +3,27 @@
 /* Bootstrap Customization */
 $border-radius: 0.15rem;
 $card-height: 100%;
-$primary: #9b0092;
+$primary: #32006e;
+$secondary: #5f647a;
+$btn-font-weight: 600;
 
 @import "bootstrap/scss/functions";
 @import "bootstrap/scss/variables";
 @import "bootstrap/scss/mixins";
 
 $navbar-height: 58px;
+
+// TDEI brand colors
+$brand-accent: #4b2e83;
+$tdei-secondary: $secondary;
+$tdei-blue: #586ab5;
+$tdei-green: #479fa1;
+$tdei-cyan: #59c3c8;
+$purple-background-light: #f4f0fb;
+$purple-background-dark: #ddd2ee;
+$purple-background-medium: #ebe4f6;
+$text-navy: #2f3661;
+$dropdown-active-bg: #e2f0f8;
 
 $review-create-color: #39dbc0;
 $review-modify-color: #db950a;

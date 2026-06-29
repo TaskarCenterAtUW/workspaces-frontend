@@ -1,17 +1,42 @@
 @import "theme.scss";
 @import "bootstrap/scss/bootstrap.scss";
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  transition: background-color 600000s, color 600000s;
+}
 @import "maplibre-gl/dist/maplibre-gl.css";
 @import "vue3-toastify/dist/index.css";
 
 :root {
-  --ws-create-color: $review-create-color;
-  --ws-modify-color: $review-modify-color;
-  --ws-delete-color: $review-delete-color;
+  --primary-font-family: "Open Sans", sans-serif;
+  --secondary-font-family: "Montserrat", sans-serif;
+  --brand-accent: #{$brand-accent};
+  --secondary-color: #{$tdei-secondary};
+  --text-navy: #{$text-navy};
+  --tdei-blue: #{$tdei-blue};
+  --tdei-green: #{$tdei-green};
+  --tdei-cyan: #{$tdei-cyan};
+  --purple-background-light: #{$purple-background-light};
+  --purple-background-dark: #{$purple-background-dark};
+  --purple-background-medium: #{$purple-background-medium};
+  --ws-create-color: #{$review-create-color};
+  --ws-modify-color: #{$review-modify-color};
+  --ws-delete-color: #{$review-delete-color};
 }
 
 html, body, #__nuxt {
   width: 100%;
   height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--primary-font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
 }
 
 /* Vue page transitions */
@@ -47,6 +72,13 @@ label > .form-select:first-child {
   box-shadow: $box-shadow;
 }
 
+.dropdown-item.active,
+.dropdown-item:active {
+  color: $text-navy;
+  text-decoration: none;
+  background-color: $dropdown-active-bg;
+}
+
 /* Review */
 
 .bg-create {
@@ -67,3 +99,43 @@ label > .form-select:first-child {
 .text-delete {
   color: #{darken($review-delete-color, 3%)};
 }
+
+/* TDEI Utility Classes */
+
+.page-header-title {
+  font-family: var(--secondary-font-family);
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.page-header-subtitle {
+  font-family: var(--secondary-font-family);
+  font-size: 14px;
+  color: $tdei-secondary;
+}
+
+.tdei-bold-name {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.tdei-name-desc {
+  font-size: 14px;
+  color: $tdei-secondary;
+}
+
+.tdei-hint-text {
+  font-size: 14px;
+  color: $tdei-secondary;
+  font-style: italic;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 20px;
+}
+

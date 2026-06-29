@@ -1,10 +1,16 @@
-import { BaseHttpClient, BaseHttpClientError } from "~/services/http";
+import {
+  BaseHttpClient,
+  BaseHttpClientError,
+  type FetchConfig,
+  type HttpBody,
+} from '~/services/http';
 import { buildPathwaysCsvArchive } from '~/services/pathways';
 import { compareStringAsc } from '~/util/compare';
 
 import type { ICancelableClient } from '~/services/loading';
 import type { OsmApiClient } from '~/services/osm';
 import type { TdeiAuthStore, TdeiClient } from '~/services/tdei';
+import type { AugmentedDiff } from '~/types/adiff';
 import type { BoundingBox } from '~/types/bbox';
 import type { ImagerySettings } from '~/types/imagery';
 import type {
@@ -229,6 +235,16 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     await this.#newApi._delete(`workspaces/${id}/users/${userUuid}`);
   }
 
+  async resolveChangeset(workspaceId: WorkspaceId, changesetId: number): Promise<void> {
+    await this.#newApi._put(`workspaces/${workspaceId}/changesets/${changesetId}/resolve`);
+  }
+
+  async getChangesetAdiff(workspaceId: WorkspaceId, changesetId: number): Promise<AugmentedDiff> {
+    const response = await this.#newApi._get(`workspaces/${workspaceId}/changesets/${changesetId}/adiff`);
+
+    return await response.json();
+  }
+
   #setAuthHeader() {
     if (this.#tdeiClient.auth.complete) {
       this._requestHeaders.Authorization = 'Bearer ' + this.auth.accessToken;
@@ -238,15 +254,16 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   override async _send(
     url: string,
     method: string,
-    body?: any,
-    config?: object
+    body?: HttpBody,
+    config?: FetchConfig,
   ): Promise<Response> {
     try {
       await this.#tdeiClient.tryRefreshAuth();
       this.#setAuthHeader();
 
       return await super._send(url, method, body, config);
-    } catch (e) {
+    }
+    catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {
         throw new WorkspacesClientError(e.response);
       }

@@ -131,7 +131,8 @@ async function remove(team: WorkspaceTeam) {
     okTitle: 'Delete',
     okVariant: 'danger',
     cancelTitle: 'Cancel',
-    cancelVariant: 'link',
+    cancelClass: 'btn-link p-0',
+    cancelVariant: null,
   }).show();
 
   if (value?.ok) {

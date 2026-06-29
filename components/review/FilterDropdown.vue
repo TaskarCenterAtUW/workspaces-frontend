@@ -59,12 +59,22 @@
           Show Resolved
         </label>
       </div>
+      <div class="form-check form-switch">
+        <label class="form-check-label">
+          <input
+            v-model="filter.includeNeedsReview"
+            type="checkbox"
+            class="form-check-input"
+          />
+          Needs Review Only
+        </label>
+      </div>
     </div>
 
     <div class="dropdown-divider" />
 
     <div class="px-3 py-2">
-      <button class="d-block btn btn-primary btn-sm" @click="apply">Apply</button>
+      <button class="btn btn-primary btn-sm" @click="apply">Apply</button>
     </div>
   </b-dropdown>
 </template>

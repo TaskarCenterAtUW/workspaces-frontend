@@ -44,7 +44,7 @@
               v-if="downloadUrl"
               :href="downloadUrl"
               :download="downloadFilename"
-              class="btn btn-success"
+              class="btn btn-primary"
             >
               <app-icon variant="save_alt" no-margin />
               Save

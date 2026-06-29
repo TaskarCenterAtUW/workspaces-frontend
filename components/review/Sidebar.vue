@@ -96,6 +96,8 @@ function refresh() {
 </script>
 
 <style lang="scss">
+@import "assets/scss/theme.scss";
+
 .review-sidebar {
   display: flex;
   flex-direction: column;
@@ -145,6 +147,15 @@ function refresh() {
   .list-group-item:first-child {
     border-top: 0;
     border-radius: 0;
+  }
+
+  @include media-breakpoint-down(md) {
+    & {
+      flex-basis: auto;
+      min-width: 0;
+      max-width: none;
+      width: 100%;
+    }
   }
 }
 </style>
