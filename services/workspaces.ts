@@ -236,11 +236,11 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   }
 
   async resolveChangeset(workspaceId: WorkspaceId, changesetId: number): Promise<void> {
-    await this.#newApi._put(`workspaces/${workspaceId}/changesets/${changesetId}/resolve`);
+    await this._put(`workspaces/${workspaceId}/changesets/${changesetId}/resolve`);
   }
 
   async getChangesetAdiff(workspaceId: WorkspaceId, changesetId: number): Promise<AugmentedDiff> {
-    const response = await this.#newApi._get(`workspaces/${workspaceId}/changesets/${changesetId}/adiff`);
+    const response = await this._get(`workspaces/${workspaceId}/changesets/${changesetId}/adiff`);
 
     return await response.json();
   }
