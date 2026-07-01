@@ -22,7 +22,7 @@ jobs:
             - name: Set Environment
               id: set-env
               run: |
-                case "${{ inputs.environment_input }}" in
+                case "${{ inputs.environment }}" in
                     testing)     echo "target_env=Testing" >> $GITHUB_OUTPUT ;;
                     development) echo "target_env=dev" >> $GITHUB_OUTPUT ;;
                     staging)     echo "target_env=stage" >> $GITHUB_OUTPUT ;;
