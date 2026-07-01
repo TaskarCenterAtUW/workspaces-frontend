@@ -34,7 +34,7 @@
     "vue3-toastify": "^0.2.8"
   },
   "devDependencies": {
-    "@nuxt/eslint": "^1.12.1",
+    "@nuxt/eslint": "^1.16.0",
     "@nuxtjs/google-fonts": "^3.2.0",
     "@types/bootstrap": "^5.2.10",
     "@types/geojson": "^7946.0.16",
