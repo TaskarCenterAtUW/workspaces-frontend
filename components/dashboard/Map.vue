@@ -1,10 +1,19 @@
 <template>
   <div class="map-container">
-    <div v-show="workspaceAreaPolygon" id="map" />
-    <div v-show="!workspaceAreaPolygon" class="missing-workspace-area-notice">
+    <div
+      v-show="workspaceAreaPolygon"
+      id="map"
+    />
+    <div
+      v-show="!workspaceAreaPolygon"
+      class="missing-workspace-area-notice"
+    >
       <loading-spinner v-if="loadingBbox.active" />
       <template v-else>
-        <app-icon variant="info" size="48" />
+        <app-icon
+          variant="info"
+          size="48"
+        />
         <div>This workspace is empty.</div>
       </template>
     </div>
@@ -25,8 +34,8 @@ const props = defineProps({
 const emit = defineEmits(['centerLoaded']);
 
 const loadingBbox = reactive(new LoadingContext());
-const map = ref(null);
-const workspaceAreaPolygon = ref(null);
+const map = ref<any>(null);
+const workspaceAreaPolygon = ref<any>(null);
 
 onMounted(() => {
   watch(
@@ -52,7 +61,7 @@ function initMap() {
   }).addTo(map.value);
 }
 
-async function updateMapPreview(workspace) {
+async function updateMapPreview(workspace: any) {
   if (workspaceAreaPolygon.value) {
     workspaceAreaPolygon.value.remove();
     workspaceAreaPolygon.value = null
@@ -83,7 +92,7 @@ async function updateMapPreview(workspace) {
   emit('centerLoaded', { zoom, latitude: center.lat, longitude: center.lng });
 }
 
-async function setCurrentWorkspacePolygon(workspace) {
+async function setCurrentWorkspacePolygon(workspace: any) {
   const metadataArea = workspace.tdeiMetadata?.metadata?.dataset_detail?.dataset_area;
 
   if (metadataArea) {

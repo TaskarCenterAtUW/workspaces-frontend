@@ -1,0 +1,15 @@
+- main:
+  - text: 
+  - heading "Join Team" [level=1]
+  - text: "You've been invited to join a team: Survey Crew"
+  - button " Join Team"
+  - heading " Workspace" [level=2]
+  - link "Seattle Sidewalks":
+    - /url: /dashboard?workspace=1
+  - heading " On the team" [level=2]
+  - text:  Ada Lovelace  Grace Hopper
+  - heading " Invite more teammates" [level=2]
+  - img
+  - text: "Share this link:"
+  - link /http:\/\/localhost:\d+\/workspace\/1\/teams\/5/:
+    - /url: /workspace/1/teams/5

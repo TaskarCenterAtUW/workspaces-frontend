@@ -1,3 +1,13 @@
+// Test outline
+// @test e2e: loading this page shows a sidebar with a list of items to review (playwright snapshot this)
+// @test e2e: clicking on an item in the sidebar shows its details in the map and its attribute differences in a panel on the right (playwright snapshot this)
+// @test e2e: clicking the "edit" button in the review overlay opens the editor centered on the item (playwright snapshot this and assert() the URL has the proper hash for the map view)
+// @test e2e: while the data is loading on the map a spinner appears (assert() this is true)
+// @test e2e: the "gear" menu allows filtering of the elements in the sidebar--make sure the simulated response and the display on the UI matches (playright snapshot or assert() this)
+// @test e2e: clicking the "refresh" button in the sidebar refreshes the data in the sidebar and on the map (playwright snapshot this)
+// @test e2e: check that both changeset entries and feedback entries display in the sidebar, and that clicking on each shows the proper details in the map and attribute diff panel (playwright snapshot this)
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+
 <template>
   <section
     class="review-page"

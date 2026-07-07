@@ -1,5 +1,4 @@
-
-export function featureCollection(features: Array) {
+export function featureCollection(features: any[]) {
   return { type: 'FeatureCollection', features }
 }
 

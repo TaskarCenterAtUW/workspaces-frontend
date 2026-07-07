@@ -4,6 +4,9 @@ Look at the [Nuxt 3 documentation](https://nuxt.com/docs/getting-started/introdu
 
 ### ⚠️ Reminder: you must set the tag of the environment you wish to deploy in this repo, then run the deploy workflow in workspaces-stack to deploy to dev, stage or prod.
 
+# TODOs
+* Remove "any" typing, currently ignored by linter/tsc
+
 ## Dev Setup
 
 ```zsh

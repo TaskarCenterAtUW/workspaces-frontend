@@ -62,6 +62,7 @@ export interface WorkspaceTeam {
 export interface User {
   id: number;
   auth_uid: string;
+  email: string;
   display_name: string;
 }
 

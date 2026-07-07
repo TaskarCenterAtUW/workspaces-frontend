@@ -2,5 +2,13 @@
 import withNuxt from './.nuxt/eslint.config.mjs'
 
 export default withNuxt(
-  // Your custom configs here
+  {
+    rules: {
+      'vue/singleline-html-element-content-newline': 'off',
+      '@stylistic/semi': 'off',
+      '@stylistic/brace-style': 'off',
+      '@stylistic/comma-dangle': 'off',
+      '@typescript-eslint/no-explicit-any': 'off'
+    }
+  }
 )

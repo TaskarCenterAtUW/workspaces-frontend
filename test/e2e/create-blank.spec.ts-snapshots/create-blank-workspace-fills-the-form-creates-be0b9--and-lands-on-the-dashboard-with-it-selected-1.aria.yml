@@ -1,0 +1,12 @@
+- text: Workspace Title
+- textbox "Workspace Title"
+- text: Project Group
+- textbox "Project Group":
+  - /placeholder: Search project groups...
+  - text: Puget Sound
+- text: Dataset Type
+- radio "OpenSidewalks" [checked]
+- text: OpenSidewalks
+- radio "GTFS Pathways"
+- text: GTFS Pathways
+- button "Create Workspace" [disabled]

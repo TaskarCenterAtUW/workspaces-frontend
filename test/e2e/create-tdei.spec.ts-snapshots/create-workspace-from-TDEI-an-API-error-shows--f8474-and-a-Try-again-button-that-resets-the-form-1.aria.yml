@@ -1,0 +1,4 @@
+- alert:
+  - heading " An error occurred:" [level=5]
+  - paragraph: "Unexpected error: workspace create failed"
+  - button "Try again"

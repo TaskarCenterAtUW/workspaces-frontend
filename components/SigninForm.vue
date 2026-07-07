@@ -1,3 +1,9 @@
+<!--
+  Test outline → generated in test/e2e/signin.spec.ts
+  @test e2e: the Sign In button is disabled until both username and password are entered
+  @test e2e: invalid credentials (401) surface "Incorrect TDEI username/password."
+  @test e2e: the show/hide toggle switches the password field between hidden and visible text
+-->
 <template>
   <div class="signin-card card">
     <form
@@ -97,11 +103,11 @@ async function submit() {
   }
   catch (e: unknown) {
     const isFetchError = (err: unknown): err is { response: { status: number; json: () => Promise<unknown> } } =>
-      typeof err === 'object' && err !== null &&
-      'response' in err &&
-      typeof (err as { response: unknown }).response === 'object' &&
-      (err as { response: unknown }).response !== null &&
-      typeof ((err as { response: { json?: unknown } }).response).json === 'function'
+      typeof err === 'object' && err !== null
+      && 'response' in err
+      && typeof (err as { response: unknown }).response === 'object'
+      && (err as { response: unknown }).response !== null
+      && typeof ((err as { response: { json?: unknown } }).response).json === 'function'
 
     if (isFetchError(e)) {
       if (e.response.status === 400) {

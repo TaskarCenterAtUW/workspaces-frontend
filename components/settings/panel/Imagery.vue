@@ -66,14 +66,6 @@
       >
         Save
       </button>
-      <div
-        v-if="imagerySaveStatus"
-        :class="`mt-2 form-text text-${
-          imagerySaveStatus.type === 'success' ? 'success' : 'danger'
-        }`"
-      >
-        {{ imagerySaveStatus.message }}
-      </div>
     </div><!-- .card-body -->
   </form><!-- .card -->
 </template>
@@ -81,6 +73,8 @@
 <script setup lang="ts">
 import { workspacesClient } from '~/services/index';
 import { handleFileDrop, validateJson } from '~/util/schema';
+import { toast } from 'vue3-toastify';
+import 'vue3-toastify/dist/index.css';
 
 import type { Workspace } from '~/types/workspaces';
 
@@ -93,7 +87,6 @@ const imageryExampleUrl = import.meta.env.VITE_IMAGERY_EXAMPLE_URL;
 const imagerySchema = ref<object | undefined>();
 const imageryListDef = ref('');
 const imageryError = ref<string | null>(null);
-const imagerySaveStatus = ref<{ type: 'success' | 'error'; message: string } | null>(null);
 const isDraggingImagery = ref(false);
 
 onMounted(async () => {
@@ -106,7 +99,6 @@ onMounted(async () => {
 
 function clearImageryMessages() {
   imageryError.value = null;
-  imagerySaveStatus.value = null;
 }
 
 function onImageryFileDrop(event: DragEvent) {
@@ -132,14 +124,11 @@ async function saveImageryConfiguration() {
     await workspacesClient.saveImageryDefSettings(workspace.id, {
       definition: imageryResult.data,
     });
-    imagerySaveStatus.value = { type: 'success', message: 'Changes saved.' };
+    toast.success('Changes saved.');
   }
   catch (e) {
     const errorMessage = e instanceof Error ? e.message : 'unexpected error';
-    imagerySaveStatus.value = {
-      type: 'error',
-      message: 'Failed to save changes: ' + errorMessage,
-    };
+    toast.error('Failed to save changes: ' + errorMessage);
   }
 }
 </script>

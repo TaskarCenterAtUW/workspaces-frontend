@@ -6,14 +6,6 @@ export default defineNuxtConfig({
     '@nuxtjs/google-fonts',
     '@sentry/nuxt/module',
   ],
-  googleFonts: {
-    families: {
-      'Open Sans': [300, 400, 500, 600, 700],
-      Montserrat: [300, 400, 500, 600, 700],
-    },
-    display: 'swap',
-    download: true,
-  },
   ssr: false,
   devtools: { enabled: true },
   app: {
@@ -48,18 +40,6 @@ export default defineNuxtConfig({
       // '/api': 'http://localhost:8000/api/',
       // '/workspaces': 'http://localhost:8000/workspaces/',
     },
-  },
-  eslint: {
-    config: {
-      stylistic: true,
-    },
-  },
-  sentry: {
-    org: 'taskar-center-at-uw',
-    project: 'workspaces-frontend',
-    authToken: process.env.VITE_SENTRY_AUTH_TOKEN,
-    debug: (process.env.ENV === 'dev' || process.env.ENV === 'local'),
-    environment: process.env.ENV || 'unknown',
   },
   vite: {
     server: {
@@ -101,5 +81,29 @@ export default defineNuxtConfig({
         'vue3-toastify',
       ],
     },
+  },
+  eslint: {
+    config: {
+      stylistic: {
+        semi: true,
+        commaDangle: 'never',
+      },
+    },
+  },
+  googleFonts: {
+    families: {
+      'Open Sans': [300, 400, 500, 600, 700],
+      'Montserrat': [300, 400, 500, 600, 700],
+    },
+    display: 'swap',
+    download: true,
+  },
+  sentry: {
+    org: 'taskar-center-at-uw',
+    project: 'workspaces-frontend',
+    authToken: process.env.VITE_SENTRY_AUTH_TOKEN,
+    debug: (process.env.ENV === 'dev' || process.env.ENV === 'local'),
+    // Don't phone home to Sentry's telemetry during CI builds/tests.
+    telemetry: !process.env.CI,
   },
 });
