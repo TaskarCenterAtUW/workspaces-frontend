@@ -22,18 +22,55 @@
                 {{ project.name }}
               </h2>
 
-              <button
-                v-if="showActivateProjectButton"
-                class="btn project-detail-activate-button"
-                type="button"
-                :disabled="isActivatingProject"
-                @click="handleActivateProject"
-              >
-                <app-spinner v-if="isActivatingProject" size="sm" />
-                <template v-else>
-                  Activate Project
-                </template>
-              </button>
+              <div v-if="showActivateProjectButton" class="project-detail-activate-actions">
+                <button
+                  class="btn project-detail-activate-button"
+                  type="button"
+                  :disabled="isActivatingProject || isProjectActivationBlocked"
+                  @click="handleActivateProject"
+                >
+                  <app-spinner v-if="isActivatingProject" size="sm" />
+                  <template v-else>
+                    Activate Project
+                  </template>
+                </button>
+              </div>
+            </div>
+
+            <div
+              v-if="projectActivationBlockedReason"
+              class="project-detail-activation-note"
+              role="note"
+              aria-live="polite"
+            >
+              <div class="project-detail-activation-note-icon">
+                <app-icon variant="info" size="18" no-margin />
+              </div>
+
+              <div class="project-detail-activation-note-copy">
+                <p class="project-detail-activation-note-label">
+                  Activation unavailable
+                </p>
+                <p class="project-detail-activation-note-message">
+                  {{ projectActivationBlockedReason }}
+                </p>
+
+                <nuxt-link
+                  v-if="showContributorsTab && activeTab !== 'contributors'"
+                  class="project-detail-activation-note-link"
+                  :to="buildTabRoute('contributors')"
+                >
+                  Open the Contributors tab
+                  <app-icon variant="arrow_forward" size="16" no-margin />
+                </nuxt-link>
+
+                <p
+                  v-else-if="showContributorsTab"
+                  class="project-detail-activation-note-hint"
+                >
+                  Use the Contributors tab below to add a contributor or validator.
+                </p>
+              </div>
             </div>
 
             <div class="project-detail-progress-copy">
@@ -255,7 +292,6 @@ const currentUserIdForRole = workspaceProjectsClient.auth.subject || null;
 const {
   effectiveRole,
   isProjectLead,
-  isExplicitProjectLead,
   canValidate,
   canMap,
   canManageContributors,
@@ -269,12 +305,14 @@ const {
 await rolePromise;
 
 /**
- * The Contributors tab is only visible to project leads.
- * All other tabs are always visible.
+ * The Contributors tab is visible to anyone who can manage project contributors:
+ * workspace leads and explicit project leads.
  */
+const showContributorsTab = computed(() => canManageContributors.value);
+
 const tabs = computed<ProjectDetailTabOption[]>(() => [
   ...BASE_TABS,
-  ...(isExplicitProjectLead.value ? [{ id: 'contributors' as WorkspaceProjectDetailTab, label: 'Contributors' }] : []),
+  ...(showContributorsTab.value ? [{ id: 'contributors' as WorkspaceProjectDetailTab, label: 'Contributors' }] : []),
 ]);
 
 // The detail API does not expose separate rich-text fields for overview content yet,
@@ -459,6 +497,25 @@ const selectedTaskActionBusy = computed(() =>
     && mutatingTaskNumber.value === selectedTask.value.taskNumber,
   ),
 );
+const hasAssignedProjectWorker = computed(() =>
+  projectContributors.value.some(contributor =>
+    contributor.role === 'contributor' || contributor.role === 'validator',
+  ),
+);
+const projectActivationBlockedReason = computed(() => {
+  if (!projectRequiresActivation.value || !project.value.reviewRequired) {
+    return '';
+  }
+
+  if (hasAssignedProjectWorker.value) {
+    return '';
+  }
+
+  return 'Assign at least one contributor or validator before activating a project with Review Required enabled.';
+});
+const isProjectActivationBlocked = computed(() =>
+  projectActivationBlockedReason.value.length > 0,
+);
 const showActivateProjectButton = computed(() =>
   projectRequiresActivation.value && isProjectLead.value,
 );
@@ -622,6 +679,10 @@ async function handleSelectedTaskAction() {
 }
 
 async function handleActivateProject() {
+  if (isProjectActivationBlocked.value) {
+    return;
+  }
+
   try {
     isActivatingProject.value = true;
 
@@ -632,7 +693,7 @@ async function handleActivateProject() {
     project.value = await workspaceProjectsClient.getWorkspaceProjectDetail(workspaceId, projectId);
   }
   catch (error) {
-    openTaskLockErrorDialog(await resolveTaskMutationErrorMessage(
+    openTaskLockErrorDialog(await resolveApiErrorMessage(
       error,
       'Project could not be activated. Please try again.',
     ));
@@ -707,7 +768,7 @@ async function loadProjectGroupUsers(searchText: string = '') {
   }
   catch (error) {
     if (requestId === projectGroupUserSearchRequestId) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load workspace users');
+      toast.error(await resolveApiErrorMessage(error, 'Failed to load workspace users'));
     }
   }
   finally {
@@ -752,7 +813,7 @@ async function handleAddContributor(payload: {
     projectContributors.value = await workspaceProjectsClient.getWorkspaceProjectRoles(workspaceId, projectId);
   }
   catch (error) {
-    toast.error(error instanceof Error ? error.message : 'Failed to add contributor');
+    toast.error(await resolveApiErrorMessage(error, 'Failed to add contributor'));
   }
   finally {
     addingContributor.value = false;
@@ -783,7 +844,7 @@ async function confirmRemoveContributor(contributor: WorkspaceProjectContributor
     );
   }
   catch (error) {
-    toast.error(error instanceof Error ? error.message : 'Failed to remove contributor');
+    toast.error(await resolveApiErrorMessage(error, 'Failed to remove contributor'));
   }
   finally {
     mutatingContributorId.value = null;
@@ -841,7 +902,7 @@ async function handleUpdateContributorRole(payload: {
       };
     });
 
-    toast.error(error instanceof Error ? error.message : 'Failed to update contributor role');
+    toast.error(await resolveApiErrorMessage(error, 'Failed to update contributor role'));
   }
   finally {
     mutatingContributorId.value = null;
@@ -907,7 +968,7 @@ async function lockTaskAndRefreshState(taskNumber: number) {
     return true;
   }
   catch (error) {
-    openTaskLockErrorDialog(await resolveTaskMutationErrorMessage(
+    openTaskLockErrorDialog(await resolveApiErrorMessage(
       error,
       'Task could not be locked. Please try again.',
     ));
@@ -926,7 +987,7 @@ async function handleUnlockTask(taskNumber: number) {
     await refreshProjectTasksOnly();
   }
   catch (error) {
-    openTaskLockErrorDialog(await resolveTaskMutationErrorMessage(
+    openTaskLockErrorDialog(await resolveApiErrorMessage(
       error,
       'Task could not be unlocked. Please try again.',
     ));
@@ -984,7 +1045,7 @@ function formatTaskStatus(task: Pick<WorkspaceProjectTaskListItem, 'locked' | 's
   return resolveWorkspaceProjectTaskStatusLabel(task, effectiveRole.value);
 }
 
-async function resolveTaskMutationErrorMessage(error: unknown, fallbackMessage: string) {
+async function resolveApiErrorMessage(error: unknown, fallbackMessage: string) {
   if (!(error instanceof Error) || !('response' in error)) {
     return fallbackMessage;
   }
@@ -999,11 +1060,21 @@ async function resolveTaskMutationErrorMessage(error: unknown, fallbackMessage: 
     // FastAPI-style validation errors come back in `detail[]`, so prefer that over the generic
     // HTTP status text when present.
     const body = await response.clone().json() as {
-      detail?: Array<{ msg?: string }> | string;
+      detail?: Array<{ msg?: string }> | Record<string, unknown> | string;
     };
 
     if (typeof body.detail === 'string' && body.detail.trim()) {
       return body.detail;
+    }
+
+    if (body.detail && typeof body.detail === 'object' && !Array.isArray(body.detail)) {
+      const normalizedDetail = Object.values(body.detail)
+        .map(value => typeof value === 'string' ? value.trim() : '')
+        .find(value => value.length > 0);
+
+      if (normalizedDetail) {
+        return normalizedDetail;
+      }
     }
 
     if (Array.isArray(body.detail) && body.detail[0]?.msg) {
@@ -1133,6 +1204,11 @@ function escapeHtml(value: string) {
   gap: 1rem;
 }
 
+.project-detail-activate-actions {
+  display: flex;
+  flex-shrink: 0;
+}
+
 .project-detail-activate-button {
   min-width: 10.5rem;
   min-height: 2.85rem;
@@ -1155,6 +1231,78 @@ function escapeHtml(value: string) {
 
 .project-detail-activate-button:disabled {
   opacity: 0.62;
+}
+
+.project-detail-activation-note {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  padding: 0.85rem 0.95rem;
+  background: rgba(255, 250, 240, 0.9);
+  border: 1px solid rgba(196, 118, 28, 0.18);
+  border-radius: 0.9rem;
+  box-shadow: 0 0.5rem 1.2rem rgba($text-navy, 0.06);
+  text-align: left;
+}
+
+.project-detail-activation-note-icon {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #a75a12;
+  background: rgba(196, 118, 28, 0.12);
+  border-radius: 999px;
+}
+
+.project-detail-activation-note-copy {
+  min-width: 0;
+}
+
+.project-detail-activation-note-label,
+.project-detail-activation-note-message,
+.project-detail-activation-note-hint {
+  margin: 0;
+}
+
+.project-detail-activation-note-label {
+  color: #7a3f00;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.project-detail-activation-note-message,
+.project-detail-activation-note-hint {
+  margin-top: 0.25rem;
+  color: #6f4d2a;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.project-detail-activation-note-link {
+  margin-top: 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #6d2db4;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.project-detail-activation-note-link:hover {
+  color: #572091;
+}
+
+.project-detail-activation-note-link:focus-visible {
+  outline: 2px solid rgba(109, 45, 180, 0.24);
+  outline-offset: 3px;
+  border-radius: 0.35rem;
 }
 
 .project-detail-progress-copy {
@@ -1311,6 +1459,10 @@ function escapeHtml(value: string) {
   .project-detail-title-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .project-detail-activate-actions {
+    flex-shrink: 1;
   }
 
   .project-detail-title {

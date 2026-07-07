@@ -9,6 +9,20 @@ input:-webkit-autofill:focus {
 @import "maplibre-gl/dist/maplibre-gl.css";
 @import "vue3-toastify/dist/index.css";
 
+.Toastify__toast-container {
+  width: min(26rem, calc(100vw - 1rem));
+}
+
+.Toastify__toast {
+  align-items: flex-start;
+}
+
+.Toastify__toast-body {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .project-wizard-rich-text-content {
   p {
     margin: 0 0 0.75rem;

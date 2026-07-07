@@ -143,12 +143,14 @@ function handleWindowKeydown(event: KeyboardEvent) {
 .project-wizard-status-dialog {
   position: relative;
   width: min(35.5rem, 100%);
+  max-height: min(100%, 42rem);
   display: grid;
   gap: 1rem;
   padding: 1.7rem 1.95rem 1.95rem;
   background-color: #fff;
   border-radius: 1rem;
   box-shadow: 0 1rem 2.5rem rgba($text-navy, 0.18);
+  overflow: auto;
 }
 
 .project-wizard-status-dialog-close {
@@ -196,6 +198,9 @@ function handleWindowKeydown(event: KeyboardEvent) {
   color: rgba($secondary, 0.98);
   font-size: 1rem;
   line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .project-wizard-status-dialog-actions {
