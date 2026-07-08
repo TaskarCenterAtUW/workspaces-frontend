@@ -22,18 +22,30 @@
                 {{ project.name }}
               </h2>
 
-              <button
-                v-if="showActivateProjectButton"
-                class="btn project-detail-activate-button"
-                type="button"
-                :disabled="isActivatingProject"
-                @click="handleActivateProject"
-              >
-                <app-spinner v-if="isActivatingProject" size="sm" />
-                <template v-else>
-                  Activate Project
-                </template>
-              </button>
+              <div class="project-detail-hero-actions">
+                <button
+                  v-if="showProjectEditButton"
+                  class="btn project-detail-edit-button"
+                  type="button"
+                  aria-label="Edit project"
+                  @click="openProjectEditPage"
+                >
+                  <app-icon variant="edit" size="20" no-margin />
+                </button>
+
+                <button
+                  v-if="showActivateProjectButton"
+                  class="btn project-detail-activate-button"
+                  type="button"
+                  :disabled="isActivatingProject"
+                  @click="handleActivateProject"
+                >
+                  <app-spinner v-if="isActivatingProject" size="sm" />
+                  <template v-else>
+                    Activate Project
+                  </template>
+                </button>
+              </div>
             </div>
 
             <div class="project-detail-progress-copy">
@@ -462,6 +474,7 @@ const selectedTaskActionBusy = computed(() =>
 const showActivateProjectButton = computed(() =>
   projectRequiresActivation.value && isProjectLead.value,
 );
+const showProjectEditButton = computed(() => isProjectLead.value);
 
 let projectGroupUserSearchDebounce: ReturnType<typeof setTimeout> | undefined;
 let projectGroupUserSearchRequestId = 0;
@@ -577,6 +590,12 @@ function selectTask(taskId: string) {
 
 function clearSelectedTask() {
   selectedTaskId.value = null;
+}
+
+async function openProjectEditPage() {
+  await navigateTo({
+    path: `/workspace/${workspaceId}/projects/${projectId}/edit`,
+  });
 }
 
 async function handleStatusDialogPrimaryAction() {
@@ -1133,6 +1152,37 @@ function escapeHtml(value: string) {
   gap: 1rem;
 }
 
+.project-detail-hero-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.project-detail-edit-button {
+  width: 3rem;
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #4d158d;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(77, 21, 141, 0.28);
+  border-radius: 0.75rem;
+  box-shadow: 0 0.4rem 1rem rgba(77, 21, 141, 0.08);
+}
+
+.project-detail-edit-button:hover:not(:disabled),
+.project-detail-edit-button:focus-visible:not(:disabled) {
+  color: #421178;
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(77, 21, 141, 0.42);
+}
+
+.project-detail-edit-button:disabled {
+  opacity: 0.6;
+}
+
 .project-detail-activate-button {
   min-width: 10.5rem;
   min-height: 2.85rem;
@@ -1311,6 +1361,10 @@ function escapeHtml(value: string) {
   .project-detail-title-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .project-detail-hero-actions {
+    width: 100%;
   }
 
   .project-detail-title {

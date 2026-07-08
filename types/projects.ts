@@ -127,6 +127,13 @@ export interface WorkspaceProjectDetail extends WorkspaceProject {
   hasAoi: boolean;
 }
 
+export interface WorkspaceProjectUpdatePayload {
+  instructions: string;
+  lockTimeoutHours: number;
+  name: string;
+  reviewRequired: boolean;
+}
+
 export interface WorkspaceProjectTaskListItem {
   id: string;
   label: string;

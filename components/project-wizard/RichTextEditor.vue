@@ -43,6 +43,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
   'update:modelValue': [value: string];
 }>();
+const lastEmittedValue = ref(props.modelValue || '');
 
 const tools: Array<{ icon: string; id: RichTextToolId; label: string }> = [
   { id: 'bold', icon: 'format_bold', label: 'Bold' },
@@ -78,7 +79,9 @@ const editor = useEditor({
     },
   },
   onUpdate({ editor: currentEditor }) {
-    emit('update:modelValue', currentEditor.isEmpty ? '' : currentEditor.getHTML());
+    const nextValue = currentEditor.isEmpty ? '' : currentEditor.getHTML();
+    lastEmittedValue.value = nextValue;
+    emit('update:modelValue', nextValue);
   },
 });
 
@@ -88,6 +91,10 @@ watch(
     const currentEditor = editor.value;
 
     if (!currentEditor) {
+      return;
+    }
+
+    if (value === lastEmittedValue.value) {
       return;
     }
 

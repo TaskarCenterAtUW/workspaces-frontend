@@ -19,6 +19,7 @@ import type {
   WorkspaceProjectTaskListItem,
   WorkspaceProjectTaskSubmitPayload,
   WorkspaceProjectTasksApiResponse,
+  WorkspaceProjectUpdatePayload,
   WorkspaceProjectsApiResponse,
   WorkspaceProjectsQuery,
   WorkspaceProjectsResult,
@@ -259,6 +260,53 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     const body = await response.json() as WorkspaceProjectDetailApiItem;
 
     return normalizeProjectDetail(workspaceId, body);
+  }
+
+  async updateWorkspaceProject(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+    payload: WorkspaceProjectUpdatePayload,
+  ): Promise<WorkspaceProjectDetail> {
+    await this._patch(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}`,
+      {
+        instructions: payload.instructions,
+        lock_timeout_hours: payload.lockTimeoutHours,
+        name: payload.name,
+        review_required: payload.reviewRequired,
+      },
+    );
+
+    return await this.getWorkspaceProjectDetail(workspaceId, projectId);
+  }
+
+  async closeWorkspaceProject(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+  ): Promise<WorkspaceProjectDetail> {
+    await this._post(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/close`,
+    );
+
+    return await this.getWorkspaceProjectDetail(workspaceId, projectId);
+  }
+
+  async resetWorkspaceProject(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+  ): Promise<void> {
+    await this._post(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/reset`,
+    );
+  }
+
+  async deleteWorkspaceProject(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+  ): Promise<void> {
+    await this._delete(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}`,
+    );
   }
 
   async getWorkspaceProjectAoi(
