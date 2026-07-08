@@ -42,6 +42,7 @@ const adiffCacheDb = new AugmentedDiffDb('adiff-cache', adiffCacheTtl, adiffKeyp
 
 export const changesetManager = new ChangesetManager(
   osmClient,
+  workspacesClient,
   new OsmChangeCache(oscCacheDb),
   new AugmentedDiffCache(adiffCacheDb));
 export const reviewManager = new ReviewManager(

@@ -16,6 +16,7 @@ import type {
   TdeiProjectGroup,
   TdeiService,
   TdeiDatasetSummary,
+  TdeiDatasetMetadata,
   TdeiUserItem,
 } from '~/types/tdei.ts';
 
@@ -286,11 +287,16 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     projectGroupId: string,
     serviceId: string,
     dataset: Blob,
-    metadata: any
-  ) {
+    metadata: TdeiDatasetMetadata,
+    changeset?: Blob
+  ): Promise<string> {
     const body = new FormData();
     body.append('dataset', new File([dataset], 'dataset.zip', { type: 'application/x-zip-compressed' }));
     body.append('metadata', new File([JSON.stringify(metadata)], 'metadata.json', { type: 'application/json' }));
+
+    if (changeset) {
+      body.append('changeset', new File([changeset], 'changeset.zip', { type: 'application/x-zip-compressed' }));
+    }
 
     let resource = `osw/upload/${projectGroupId}/${serviceId}`;
 
@@ -310,11 +316,16 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     projectGroupId: string,
     serviceId: string,
     dataset: Blob,
-    metadata: any
-  ) {
+    metadata: TdeiDatasetMetadata,
+    changeset?: Blob
+  ): Promise<string> {
     const body = new FormData();
     body.append('dataset', new File([dataset], 'dataset.zip', { type: 'application/x-zip-compressed' }));
     body.append('metadata', new File([JSON.stringify(metadata)], 'metadata.json', { type: 'application/json' }));
+
+    if (changeset) {
+      body.append('changeset', new File([changeset], 'changeset.zip', { type: 'application/x-zip-compressed' }));
+    }
 
     let resource = `gtfs-pathways/upload/${projectGroupId}/${serviceId}`;
 

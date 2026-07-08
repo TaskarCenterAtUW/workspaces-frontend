@@ -38,6 +38,11 @@ const getChangesetMetadata = (changeset: OsmChangeset) => ({
   'Editor': changeset.tags?.created_by,
   'Source': changeset.tags?.source,
   'Imagery': changeset.tags?.imagery_used,
+  'Review Status': changeset.tags?.reviewed_by
+    ? `Reviewed by ${changeset.tags.reviewed_by}`
+    : changeset.tags?.review_requested === 'yes'
+      ? 'Needs Review'
+      : undefined,
   'Created By': changeset.user,
   'User ID': changeset.uid,
   'Created At': formatShort(changeset.created_at),

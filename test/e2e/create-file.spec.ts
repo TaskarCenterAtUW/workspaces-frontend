@@ -34,6 +34,12 @@ const INVALID_FILE = { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer
 
 const NEW_WORKSPACE_ID = 123;
 
+// The first hit to a Nuxt route compiles it lazily on the dev server, which can
+// exceed the default 10s expect timeout under parallel cold starts (see the
+// lazy-compile note in CLAUDE.md). Give the initial render of a freshly-navigated
+// route extra headroom so first-paint (and hydration before interaction) is stable.
+const COLD_ROUTE_TIMEOUT = 30_000;
+
 // Stubs every endpoint the create-from-file pathways flow hits so nothing 500s.
 // `opts.failCreate` forces the new-API POST /workspaces to 500 for the error path.
 async function stubCreateFlow(page: import('@playwright/test').Page, opts: { failCreate?: boolean } = {}) {
@@ -142,6 +148,10 @@ test.describe('create workspace from file', () => {
     await stubCreateFlow(page);
 
     await page.goto('/workspace/create/file');
+    // Wait for the cold route to render/hydrate before interacting, otherwise the
+    // file input's change handler may not be bound yet and no toast fires.
+    await expect(page.getByRole('heading', { name: 'Create a Workspace from a File' }))
+      .toBeVisible({ timeout: COLD_ROUTE_TIMEOUT });
     await fillForm(page, INVALID_FILE);
 
     // The outline requires invalid files to be "handled correctly ... showing an
