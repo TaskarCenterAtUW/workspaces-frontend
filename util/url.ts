@@ -1,3 +1,5 @@
+// Test outline → generated in test/unit/util/url.test.ts
+// @test unit: isHttpUrl is true for http(s) URLs, false for other protocols and garbage
 export function isHttpUrl(input: any): boolean {
   let url: URL;
 

@@ -9,7 +9,10 @@
     no-caret
   >
     <template #button-content>
-      <app-icon variant="settings" no-margin />
+      <app-icon
+        variant="settings"
+        no-margin
+      />
       <span class="visually-hidden">Settings</span>
     </template>
 
@@ -20,7 +23,7 @@
             v-model="filter.includeChangesets"
             type="checkbox"
             class="form-check-input"
-          />
+          >
           Changesets
         </label>
       </div>
@@ -30,7 +33,7 @@
             v-model="filter.includeFeedback"
             type="checkbox"
             class="form-check-input"
-          />
+          >
           Feedback
         </label>
       </div>
@@ -40,7 +43,7 @@
             v-model="filter.includeNotes"
             type="checkbox"
             class="form-check-input"
-          />
+          >
           Notes
         </label>
       </div>
@@ -55,7 +58,7 @@
             v-model="filter.includeResolved"
             type="checkbox"
             class="form-check-input"
-          />
+          >
           Show Resolved
         </label>
       </div>
@@ -65,7 +68,7 @@
             v-model="filter.includeNeedsReview"
             type="checkbox"
             class="form-check-input"
-          />
+          >
           Needs Review Only
         </label>
       </div>
@@ -74,7 +77,12 @@
     <div class="dropdown-divider" />
 
     <div class="px-3 py-2">
-      <button class="btn btn-primary btn-sm" @click="apply">Apply</button>
+      <button
+        class="btn btn-primary btn-sm"
+        @click="apply"
+      >
+        Apply
+      </button>
     </div>
   </b-dropdown>
 </template>

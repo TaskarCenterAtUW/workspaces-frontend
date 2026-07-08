@@ -1,0 +1,6 @@
+- heading "TDEI Workspaces" [level=1]
+- paragraph: TDEI Workspaces is an integrated editing platform for TDEI datasets. Workspaces provides tools and APIs for crafting and visualizing OpenSidewalks and GTFS Pathways data.
+- link "Sign In":
+  - /url: /signin
+- link "Learn more about the TDEI":
+  - /url: https://transitequity.cs.washington.edu/

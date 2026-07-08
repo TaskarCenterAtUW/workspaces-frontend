@@ -9,7 +9,11 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "typecheck": "nuxt typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@bootstrap-vue-next/nuxt": "^0.43.1",
@@ -41,19 +45,28 @@
     "v-viewer": "^3.0.23",
     "vue": "^3.5.34",
     "vue-qrcode": "^2.2.2",
-    "vue-router": "^4.2.5",
+    "vue-router": "^5.1.0",
     "vue3-toastify": "^0.2.8"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.12.1",
+    "@nuxt/test-utils": "^4.0.3",
     "@nuxtjs/google-fonts": "^3.2.0",
+    "@playwright/test": "^1.61.0",
     "@types/bootstrap": "^5.2.10",
     "@types/dompurify": "^3.0.5",
     "@types/geojson": "^7946.0.16",
+    "@types/papaparse": "^5.5.2",
+    "@vue/test-utils": "^2.4.11",
     "eslint": "^9.39.2",
     "eslint-plugin-vue": "^10.6.2",
+    "happy-dom": "^20.10.4",
+    "msw": "^2.14.6",
     "sass": "1.77.6",
     "sass-loader": "^14.1.0",
-    "vue-component-type-helpers": "^3.2.4"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9",
+    "vue-component-type-helpers": "^3.2.4",
+    "vue-tsc": "^3.3.5"
   }
 }

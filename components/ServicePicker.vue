@@ -1,19 +1,32 @@
 <template>
-  <select
-    v-model="model"
-    class="service-picker form-select"
-    aria-label="Service Selection"
-  >
-    <option v-for="s in services" :key="s.id" :value="s.id">
-      {{ s.name }}
-    </option>
-  </select>
+  <div class="service-picker-wrap">
+    <select
+      v-model="model"
+      class="service-picker form-select"
+      aria-label="Service Selection"
+    >
+      <option
+        v-for="s in services"
+        :key="s.id"
+        :value="s.id"
+      >
+        {{ s.name }}
+      </option>
+    </select>
+    <small
+      v-if="services.length === 0"
+      class="form-text text-muted"
+    >
+      No services available
+    </small>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { tdeiUserClient } from '~/services/index'
+import type { TdeiService } from '~/types/tdei'
 
-const model = defineModel({ required: true });
+const model = defineModel<string | null | undefined>({ required: true });
 const props = defineProps({
   projectGroupId: {
     type: String,
@@ -26,10 +39,10 @@ const props = defineProps({
 })
 
 const { projectGroupId, serviceType } = toRefs(props);
-const services = ref([]);
+const services = ref<TdeiService[]>([]);
 
-watch(projectGroupId, (val) => refreshServices());
-watch(serviceType, (val) => refreshServices());
+watch(projectGroupId, _val => refreshServices());
+watch(serviceType, _val => refreshServices());
 
 refreshServices();
 
@@ -43,5 +56,4 @@ async function refreshServices() {
     model.value = services.value[0]?.id ?? null
   }
 }
-
 </script>

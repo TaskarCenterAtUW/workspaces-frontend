@@ -1,5 +1,8 @@
 import { ref } from 'vue'
-import { TdeiAuthStore } from '~/services/tdei';
+import type { TdeiAuthStore } from '~/services/tdei';
+
+/** Global `Rapid` namespace injected by the Rapid script at runtime. */
+declare const Rapid: any;
 
 export class RapidManager {
   #baseUrl: string;
@@ -7,6 +10,15 @@ export class RapidManager {
   #tdeiAuth: TdeiAuthStore;
   #stateCallback: ((state: any) => void) | null = null;
   #uploadCallback: ((result: any) => void) | null = null;
+
+  /** Reactive flag indicating whether the Rapid script has loaded and is ready. */
+  loaded: ReturnType<typeof ref<boolean>>;
+
+  /** The DOM element that the Rapid editor mounts into. */
+  containerNode: HTMLDivElement;
+
+  /** The Rapid `Context` instance, available after loading completes. */
+  rapidContext: any;
 
   constructor(baseUrl: string, osmUrl: string, tdeiAuth: TdeiAuthStore) {
     this.#baseUrl = baseUrl;
@@ -70,8 +82,8 @@ export class RapidManager {
 
     // Induce the editor to re-read the configuration from the URL hash:
     window.dispatchEvent(new HashChangeEvent('hashchange', {
-      newUrl: window.location.href,
-      oldUrl: window.location.href
+      newURL: window.location.href,
+      oldURL: window.location.href
     }));
 
     return this.rapidContext.resetAsync();
@@ -123,8 +135,8 @@ export class RapidManager {
     // });
   }
 
-  #wrapFetch(innerFetch) {
-    return (resource, options) => {
+  #wrapFetch(innerFetch: typeof fetch) {
+    return (resource: RequestInfo | URL, options: RequestInit & { headers?: HeadersInit | Record<string, string> }) => {
       if (!options.headers) {
         options.headers = new Headers();
       }
@@ -134,9 +146,9 @@ export class RapidManager {
       if (options.headers instanceof Headers) {
         options.headers.set('X-Workspace', this.rapidContext.workspaceId);
         options.headers.set('Authorization', tokenHeader);
-      } else if (options.headers instanceof Array) {
+      } else if (Array.isArray(options.headers)) {
         options.headers.push(['X-Workspace', this.rapidContext.workspaceId]);
-        options.headers.push('Authorization', tokenHeader);
+        options.headers.push(['Authorization', tokenHeader]);
       } else {
         options.headers['X-Workspace'] = this.rapidContext.workspaceId;
 

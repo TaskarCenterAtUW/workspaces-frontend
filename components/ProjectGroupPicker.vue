@@ -1,8 +1,12 @@
 <template>
-  <div class="position-relative project-group-picker" ref="pickerRef" @focusout="onFocusOut">
+  <div
+    ref="pickerRef"
+    class="position-relative project-group-picker"
+    @focusout="onFocusOut"
+  >
     <input
-      v-model="searchText"
       :id="props.id"
+      v-model="searchText"
       type="text"
       class="form-select"
       :disabled="props.disabled"
@@ -11,30 +15,44 @@
       @click="onInputClick"
       @input="onInput"
       @keydown="onKeydown"
-    />
+    >
     <div
       v-if="isOpen"
       class="pg-dropdown position-absolute w-100 mt-1"
       @mousedown.prevent
     >
       <div class="pg-header">
-        <span v-if="projectGroups.length > 0" class="pg-count">
+        <span
+          v-if="projectGroups.length > 0"
+          class="pg-count"
+        >
           <template v-if="totalCount !== undefined">
             Showing first {{ projectGroups.length }} of {{ totalCount }} project groups
-            <span v-if="hasMore && !loading" class="pg-scroll-hint">&#183; Scroll to continue loading</span>
+            <span
+              v-if="hasMore && !loading"
+              class="pg-scroll-hint"
+            >&#183; Scroll to continue loading</span>
           </template>
           <template v-else-if="!showScrollHint">Showing all {{ projectGroups.length }} project group{{ projectGroups.length !== 1 ? 's' : '' }}</template>
           <template v-else>
             Showing first {{ projectGroups.length }} results
-            <span v-if="!loading" class="pg-scroll-hint">&#183; Scroll to continue loading</span>
+            <span
+              v-if="!loading"
+              class="pg-scroll-hint"
+            >&#183; Scroll to continue loading</span>
           </template>
         </span>
-        <span v-if="loading" class="spinner-border spinner-border-sm ms-auto" role="status" aria-hidden="true"></span>
+        <span
+          v-if="loading"
+          class="spinner-border spinner-border-sm ms-auto"
+          role="status"
+          aria-hidden="true"
+        />
       </div>
       <div
+        ref="listRef"
         class="pg-list-wrap"
         :class="{ 'pg-has-more': showScrollHint && !loading }"
-        ref="listRef"
         @scroll="onScroll"
       >
         <ul class="list-group list-group-flush">
@@ -46,10 +64,10 @@
           </li>
           <li
             v-for="(pg, index) in projectGroups"
-            :key="pg.tdei_project_group_id"
             :id="'pg-item-' + index"
+            :key="pg.tdei_project_group_id"
             class="list-group-item list-group-item-action cursor-pointer"
-            :class="{ highlighted: activeIndex === index, 'fw-bold': model === pg.tdei_project_group_id }"
+            :class="{ 'highlighted': activeIndex === index, 'fw-bold': model === pg.tdei_project_group_id }"
             @click="selectGroup(pg.tdei_project_group_id)"
             @mouseenter="activeIndex = index"
           >
@@ -62,6 +80,13 @@
 </template>
 
 <script lang="ts">
+</script>
+
+<script setup lang="ts">
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { tdeiUserClient } from '~/services/index'
+import type { TdeiProjectGroupItem } from '~/types/tdei'
+
 const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group'
 
 function loadCachedName(id: string): string | undefined {
@@ -82,19 +107,13 @@ function persistCachedName(id: string, name: string) {
     sessionStorage.setItem(STORAGE_KEY_PROJECT_GROUP, JSON.stringify({ id, name }))
   } catch { /* silently fail */ }
 }
-</script>
-
-<script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { tdeiUserClient } from '~/services/index'
-import type { TdeiProjectGroupItem } from '~/types/tdei'
 
 const props = withDefaults(defineProps<{ id?: string; disabled?: boolean; options?: TdeiProjectGroupItem[]; rememberSelection?: boolean }>(), {
   disabled: false,
   rememberSelection: false,
 })
 
-const model = defineModel({ required: true })
+const model = defineModel<string | null | undefined>({ required: true })
 const searchText = ref('')
 const isOpen = ref(false)
 const fetchedGroups = ref<TdeiProjectGroupItem[]>([])

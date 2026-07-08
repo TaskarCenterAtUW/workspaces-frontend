@@ -1,4 +1,3 @@
-
 export interface BoundingBox {
   min_lat: number;
   min_lon: number;
