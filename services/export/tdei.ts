@@ -1,10 +1,10 @@
-import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js';
 import parseOsmChangeXml from '@osmcha/osmchange-parser';
-
-import { OsmApiClient } from '~/services/osm';
+import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js';
+import type { OsmApiClient } from '~/services/osm';
 import { buildPathwaysCsvArchive, openTdeiPathwaysArchive } from '~/services/pathways';
-import { TdeiClient, TdeiClientError, TdeiConversionError } from '~/services/tdei';
-import type { TdeiDatasetMetadataDatasetDetail, TdeiDatasetMetadata } from '~/types/tdei';
+import type { TdeiClient } from '~/services/tdei';
+import { TdeiClientError, TdeiConversionError } from '~/services/tdei';
+import type { TdeiDatasetMetadataDatasetDetail } from '~/types/tdei';
 import type { Workspace } from '~/types/workspaces';
 import * as geojson from '~/util/geojson'
 
@@ -163,11 +163,9 @@ export class TdeiExporter {
     return await this._exportOswToTdei(workspace, metadata, changesetArchive);
   }
 
-  private async _exportOswToTdei(
-    workspace: Workspace & { tdeiServiceId: string },
-    metadata: TdeiDatasetMetadataDatasetDetail,
-    changesetArchive?: Blob
-  ): Promise<string> {
+  async _exportOswToTdei(workspace: Workspace, metadata: any, changesetArchive?: Blob): Promise<string> {
+    const tdeiServiceId = this._requireServiceId(workspace);
+
     this._context.status = status.exportOsm;
     const osm = await this._osmClient.exportWorkspaceXml(workspace.id);
 
@@ -178,7 +176,7 @@ export class TdeiExporter {
     const jobId = await this._tdeiClient.uploadOswDataset(
       (await this._filterNonexistentDataset(workspace.tdeiRecordId)),
       workspace.tdeiProjectGroupId,
-      workspace.tdeiServiceId,
+      tdeiServiceId,
       oswZip,
       { dataset_detail: metadata },
       changesetArchive
@@ -189,11 +187,9 @@ export class TdeiExporter {
     return jobId
   }
 
-  private async _exportPathwaysToTdei(
-    workspace: Workspace & { tdeiServiceId: string },
-    metadata: TdeiDatasetMetadataDatasetDetail,
-    changesetArchive?: Blob
-  ): Promise<string> {
+  async _exportPathwaysToTdei(workspace: Workspace, metadata: any, changesetArchive?: Blob): Promise<string> {
+    const tdeiServiceId = this._requireServiceId(workspace);
+
     this._context.status = status.exportOsm;
     const elements = await this._osmClient.getWorkspaceData(workspace.id);
     const derivedFromDatasetId = await this._filterNonexistentDataset(workspace.tdeiRecordId);
@@ -206,7 +202,7 @@ export class TdeiExporter {
     const jobId = await this._tdeiClient.uploadPathwaysDataset(
       derivedFromDatasetId,
       workspace.tdeiProjectGroupId,
-      workspace.tdeiServiceId,
+      tdeiServiceId,
       csvZip,
       { dataset_detail: metadata },
       changesetArchive
@@ -217,9 +213,22 @@ export class TdeiExporter {
     return jobId
   }
 
-  private async _filterNonexistentDataset(tdeiRecordId: string | undefined): Promise<string | undefined> {
-    if (tdeiRecordId === undefined) {
-      return undefined
+  // The TDEI upload endpoints require a service id to build the request URL.
+  // Validate it up front so we fail fast with a clear message instead of
+  // sending `undefined` onward to the service layer.
+  _requireServiceId(workspace: Workspace): string {
+    if (!workspace.tdeiServiceId) {
+      throw new Error(
+        `Workspace ${workspace.id} has no TDEI service id; cannot export to TDEI.`
+      );
+    }
+
+    return workspace.tdeiServiceId;
+  }
+
+  async _filterNonexistentDataset(tdeiRecordId: string | undefined): Promise<string | undefined> {
+    if (!tdeiRecordId) {
+      return undefined;
     }
 
     const oldStatus = this._context.status;
@@ -235,13 +244,17 @@ export class TdeiExporter {
     return undefined;
   }
 
-  private async _fetchPathwaysDataset(tdeiRecordId: string | undefined) {
+  async _fetchPathwaysDataset(tdeiRecordId: string | undefined) {
     if (!tdeiRecordId) {
       return undefined;
     }
 
     const zip = await this._tdeiClient.downloadPathwaysDataset(tdeiRecordId);
     const { dataset } = await this._tdeiClient.openDatasetArchive(zip);
+
+    if (!dataset) {
+      return undefined;
+    }
 
     return await openTdeiPathwaysArchive(dataset, false, false);
   }
@@ -275,7 +288,7 @@ export class TdeiExporter {
     // in to the osmChange format if they wish to use those with OSM tooling:
     //
     await Promise.all(changesets.map(async (cs) => {
-      const osc = await this._osmClient.getOsmChangeXml(workspace.id, cs.id);
+      const osc = await this._osmClient.downloadOsmChange(workspace.id, cs.id);
       const osmChange = parseOsmChangeXml(osc);
 
       files.set(`changesets/${cs.id}.json`, JSON.stringify(osmChange));

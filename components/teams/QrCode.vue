@@ -1,6 +1,6 @@
 <template>
   <div>
-    <qr-code
+    <VueQrcode
       class="d-block mx-auto mb-3 border rounded-3"
       type="image/png"
       :width="256"
@@ -18,6 +18,8 @@
 </template>
 
 <script setup lang="ts">
+import VueQrcode from 'vue-qrcode';
+
 interface Props {
   workspaceId: number;
   teamId: number;

@@ -1,3 +1,7 @@
+// Test outline
+// @test e2e: the page shows a button to join the team if the user is not a member, and clicking it adds the user to the team (playwright snapshot this)
+// @test e2e: the page has other elements about the team, including a list of members and a QR code to invite others to join the team (playwright snapshot this)
+
 <template>
   <app-page v-if="notFound">
     <div class="text-center mt-5">

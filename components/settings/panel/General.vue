@@ -90,7 +90,7 @@ async function saveAutoFlagReview() {
     });
     toast.success('Review settings saved.');
   }
-  catch (e) {
+  catch {
     autoFlagReview.value = !autoFlagReview.value;
     toast.error('Failed to save review settings.');
   }

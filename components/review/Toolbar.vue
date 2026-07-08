@@ -15,7 +15,7 @@
       <app-icon
         :variant="props.item.badgeIcon"
         :class="typeClass"
-      /><span class="d-none d-sm-inline fw-bold text-uppercase me-1">{{ props.item.displayType }}:</span>#{{ props.item.id }}
+      /><span class="d-none d-sm-inline fw-bold text-uppercase">{{ props.item.displayType }}:</span> #{{ props.item.id }}
     </span>
     <button
       class="btn btn-sm btn-primary"

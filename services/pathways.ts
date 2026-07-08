@@ -1,15 +1,17 @@
 import {
   BlobReader,
   BlobWriter,
-  TextReader,
   TextWriter,
-  ZipReader,
-  ZipWriter
+  ZipReader
 } from '@zip.js/zip.js';
 
 import { parseCsv } from '~/util/csv';
 import { createEmptyGtfsDataset, createGtfsArchive } from '~/util/gtfs';
 import * as xml from '~/util/xml';
+import type { TdeiAuthStore } from '~/services/tdei';
+
+/** A string-keyed column map with a helper to blank every value between rows. */
+type ResettableMap = Map<string, string> & { reset: () => void };
 
 const CHANGESET_FILE = 'changeset';
 
@@ -26,12 +28,12 @@ export async function openTdeiPathwaysArchive(
 ) {
   const blobReader = new BlobReader(zip);
   const zipReader = new ZipReader(blobReader);
-  var entries = await zipReader.getEntries();
+  let entries = await zipReader.getEntries();
 
   // if we are opening a TDEI archive then entries are zipped up,
   // otherwise the legacy Workspaces archive has everything in a single directory
   for (const x of entries) {
-    if (!x.filename.startsWith(CHANGESET_FILE) && x.filename.endsWith('.zip')) {
+    if (!x.directory && !x.filename.startsWith(CHANGESET_FILE) && x.filename.endsWith('.zip')) {
       const subzipBlob = await x.getData(new BlobWriter());
       const subzipFileReader = new BlobReader(subzipBlob);
       const subzipReader = new ZipReader(subzipFileReader);
@@ -43,18 +45,19 @@ export async function openTdeiPathwaysArchive(
   const filePromises = [];
 
   for (const e of entries) {
+    if (e.directory) continue;
     if (!filterPathways || PATHWAYS_FILES.has(e.filename)) {
       const textWriter = new TextWriter();
 
-      filePromises.push(new Promise(async (resolve, reject) => {
+      filePromises.push((async (): Promise<[string, any]> => {
         const csv = await e.getData(textWriter);
 
         if (parseObjects) {
-          resolve([ e.filename, await parseCsv(csv) ]);
+          return [e.filename, await parseCsv(csv)];
         } else {
-          resolve([ e.filename, csv ]);
+          return [e.filename, csv];
         }
-      }));
+      })());
     }
   }
 
@@ -63,12 +66,11 @@ export async function openTdeiPathwaysArchive(
   return map;
 }
 
-export function pathways2osc(changesetId: number, dataset) {
+export function pathways2osc(changesetId: number, dataset: Map<string, any[]>) {
   const oscDoc = xml.parse(
-    '<osmChange version="0.6"><create /><modify /><delete /></osmChange>',
-    'application/xml'
+    '<osmChange version="0.6"><create /><modify /><delete /></osmChange>'
   );
-  const createNode = oscDoc.firstChild.firstChild;
+  const createNode = oscDoc.firstChild!.firstChild!;
   const stopNodeIdMap = new Map();
   let currentId = -1;
 
@@ -117,39 +119,43 @@ export function pathways2osc(changesetId: number, dataset) {
   return xml.serialize(oscDoc);
 }
 
-function makeStopColumnMap() {
+function makeStopColumnMap(): ResettableMap {
   const map = new Map([
     ['stop_id', ''],
     ['stop_name', ''],
     ['stop_lat', ''],
     ['stop_lon', ''],
     ['location_type', ''],
-  ]);
+  ]) as ResettableMap;
 
   map.reset = () => {
-    map.forEach((val, key) => { map.set(key, ''); });
+    map.forEach((_val, key) => {
+      map.set(key, '');
+    });
   }
 
   return map;
 }
 
-function makePathwayColumnMap() {
+function makePathwayColumnMap(): ResettableMap {
   const map = new Map([
     ['pathway_id', ''],
     ['from_stop_id', ''],
     ['to_stop_id', ''],
     ['pathway_mode', ''],
     ['is_bidirectional', ''],
-  ]);
+  ]) as ResettableMap;
 
   map.reset = () => {
-    map.forEach((val, key) => { map.set(key, ''); });
+    map.forEach((_val, key) => {
+      map.set(key, '');
+    });
   }
 
   return map;
 }
 
-export async function buildPathwaysCsvArchive(elements, gtfsFiles?: Map): Blob {
+export async function buildPathwaysCsvArchive(elements: any[], gtfsFiles?: Map<string, string>): Promise<Blob> {
   if (!gtfsFiles) {
     gtfsFiles = createEmptyGtfsDataset();
   }
@@ -199,6 +205,15 @@ export class PathwaysEditorManager {
   #osmUrl: string;
   #tdeiAuth: TdeiAuthStore;
 
+  /** Reactive flag indicating whether the editor script has loaded and is ready. */
+  loaded: ReturnType<typeof ref<boolean>>;
+
+  /** The DOM element that the editor mounts into. */
+  containerNode: HTMLDivElement;
+
+  /** The iD editor context instance, available after loading completes. */
+  editorContext: any;
+
   constructor(baseUrl: string, osmUrl: string, tdeiAuth: TdeiAuthStore) {
     this.#baseUrl = baseUrl;
     this.#osmUrl = osmUrl.replace(/\/+$/, '');
@@ -244,8 +259,8 @@ export class PathwaysEditorManager {
 
     // Induce the editor to re-read the configuration from the URL hash:
     window.dispatchEvent(new HashChangeEvent('hashchange', {
-      newUrl: window.location.href,
-      oldUrl: window.location.href
+      newURL: window.location.href,
+      oldURL: window.location.href
     }));
 
     this.editorContext.reset();
@@ -273,11 +288,13 @@ export class PathwaysEditorManager {
     pathwaysOsmClient.authenticated = () => this.#tdeiAuth.ok;
 
     // Don't bother to fetch user details when uploading changesets:
-    pathwaysOsmService.userDetails = (callback) => { callback('dummy error') };
+    pathwaysOsmService.userDetails = (callback: (err: string) => void) => {
+      callback('dummy error')
+    };
   }
 
-  #wrapXhr(innerXhr) {
-    return (options, callback) => {
+  #wrapXhr(innerXhr: (options: any, callback: any) => any) {
+    return (options: any, callback: any) => {
       if (!options.headers) {
         options.headers = {};
       }

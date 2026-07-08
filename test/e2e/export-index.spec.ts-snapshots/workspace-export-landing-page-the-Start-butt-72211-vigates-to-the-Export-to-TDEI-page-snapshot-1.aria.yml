@@ -1,0 +1,9 @@
+- paragraph:
+  - text: You don't have permission to export this workspace to the TDEI. Exporting requires a
+  - strong: POC
+  - text: or
+  - strong: osw_data_generator
+  - text: role in at least one TDEI project group.
+- paragraph: Contact your TDEI project group POC to request the appropriate role.
+- link " Go back":
+  - /url: /workspace/1/export

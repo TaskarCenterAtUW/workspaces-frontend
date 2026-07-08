@@ -1,3 +1,12 @@
+// Test outline
+// @test e2e: only users with POC or team lead permissions should be able to access this page
+// @test e2e: POCs should be displayed on this page, matching the results of the simulated API response from the TDEI/KeyCloak.
+// @test e2e: Data Generators should be displayed on this page, matching the results of the simulated API response from the TDEI/KeyCloak.
+// @test e2e: Workspace Members, which includes Owners or Validators, should be displayed on this page, matching the results of the simulated API response from the TDEI/KeyCloak.
+// @test e2e: Workspace Members can have one of three permissions assigned to them which should match the response of the Workspaces API call to fetch permissions: "Member", "Owner" or "Validator".
+// @test e2e: The permissions structure on this page should match the one described in CLAUDE.md
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+// @test e2e: validate that each member has a badge or clear role via being listed under a header that names the role
 <template>
   <b-col lg="8">
     <b-alert
