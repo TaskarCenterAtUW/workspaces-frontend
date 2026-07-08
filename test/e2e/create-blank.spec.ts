@@ -15,6 +15,12 @@ import { projectGroups, myWorkspaces, PROJECT_GROUP_ID } from '../mocks/fixtures
 
 const NEW_WORKSPACE_ID = 7;
 
+// The first hit to a Nuxt route compiles it lazily on the dev server, which can
+// exceed the default 10s expect timeout under parallel cold starts (see the
+// lazy-compile note in CLAUDE.md). Give the initial render of a freshly-navigated
+// route extra headroom so these first-paint waits don't flake.
+const COLD_ROUTE_TIMEOUT = 30_000;
+
 const createdWorkspace = {
   id: NEW_WORKSPACE_ID,
   type: 'osw',
@@ -93,7 +99,9 @@ test.describe('create blank workspace', () => {
     await page.goto('/workspace/create/blank');
 
     // The form exposes title, project group, and workspace type controls.
-    await expect(page.getByRole('heading', { name: 'Create a Blank Workspace' })).toBeVisible();
+    // First paint of this cold route can be slow under parallel runs.
+    await expect(page.getByRole('heading', { name: 'Create a Blank Workspace' }))
+      .toBeVisible({ timeout: COLD_ROUTE_TIMEOUT });
     const card = page.locator('.create-blank-page .card');
     await expect(card).toMatchAriaSnapshot();
 
@@ -109,7 +117,8 @@ test.describe('create blank workspace', () => {
     const selectedItem = page.getByRole('button', {
       name: `Select workspace ${createdWorkspace.title}, ID ${NEW_WORKSPACE_ID}`
     });
-    await expect(selectedItem).toHaveClass(/workspace-card-selected/);
+    // The dashboard is a second cold route here; absorb its first-paint compile.
+    await expect(selectedItem).toHaveClass(/workspace-card-selected/, { timeout: COLD_ROUTE_TIMEOUT });
   });
 
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
