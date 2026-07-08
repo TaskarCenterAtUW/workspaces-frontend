@@ -8,10 +8,10 @@ Look at the [Nuxt 3 documentation](https://nuxt.com/docs/getting-started/introdu
 
 ## Branch Index
 
-```develop``` do your work here
-```development``` keep this up to date with the "development" environment / dev tag
-```staging``` keep this up to date with the "staging" environment / stage tag
-```production``` keep this up to date with the "production" environment / prod tag
+* ```develop``` do your work here
+* ```development``` keep this up to date with the "development" environment / dev tag
+* ```staging``` keep this up to date with the "staging" environment / stage tag
+* ```production``` keep this up to date with the "production" environment / prod tag
 
 ## Dev Setup
 
