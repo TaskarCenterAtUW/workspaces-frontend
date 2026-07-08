@@ -5,6 +5,8 @@
       v-model:show-discussion="showDiscussion"
       :item="item"
       @edit="props.onEdit"
+      @resolve="$emit('resolve')"
+      @back="emit('back')"
     />
 
     <div class="review-overlay-panels">
@@ -29,6 +31,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const emit = defineEmits(['back', 'resolve']);
 
 const showDetails = ref(false);
 const showDiscussion = ref(false);
@@ -46,7 +49,7 @@ watch(() => props.item, () => {
   position: absolute;
   top: 1rem;
   left: 1rem;
-  margin-right: 1rem;
+  max-width: calc(100vw - 2rem);
 
   .review-overlay-panels {
     max-height: calc(100vh - $navbar-height - 6rem);

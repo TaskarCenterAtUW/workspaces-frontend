@@ -17,6 +17,7 @@ export interface Workspace {
   createdByName: string;
   externalAppAccess: WorkspaceAppAccess;
   kartaViewToken?: string;
+  autoFlagReview?: boolean;
   role?: WorkspaceRole;
 }
 
@@ -36,6 +37,7 @@ export interface WorkspacePatch {
   title?: string;
   description?: string;
   externalAppAccess?: WorkspaceAppAccess;
+  autoFlagReview?: boolean;
 }
 
 export type QuestSettingsType = 'NONE' | 'JSON' | 'URL';
