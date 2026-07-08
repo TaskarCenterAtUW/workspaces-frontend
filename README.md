@@ -6,9 +6,6 @@ Look at the [Nuxt 3 documentation](https://nuxt.com/docs/getting-started/introdu
 
 ### Note: The new workflow enabled creates the tags once the PR is merged to develop, stage or production
 
-# TODOs
-* Remove "any" typing, currently ignored by linter/tsc
-
 ## Dev Setup
 
 ```zsh
