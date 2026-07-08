@@ -19,6 +19,13 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# GitHub Actions sets CI=true in every step; mirror that so this run behaves
+# like the real pipeline. Several tools key off it: playwright.config.ts
+# (retries, forbidOnly, reuseExistingServer, reporter) and nuxt.config.ts
+# (`sentry.telemetry: !process.env.CI`, which suppresses the Sentry telemetry
+# ping). Respect an explicit override if the caller already set CI.
+export CI="${CI:-true}"
+
 # Track failures without aborting, mirroring CI's `!cancelled()` behavior.
 FAILED=()
 
