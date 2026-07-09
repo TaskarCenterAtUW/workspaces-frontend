@@ -469,6 +469,19 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     });
   }
 
+  async postNoteComment(
+    workspaceId: WorkspaceId,
+    noteId: number,
+    message: string,
+  ): Promise<void> {
+    const body = new FormData();
+    body.append('text', message);
+
+    await this._post(`notes/${noteId}/comment`, body, {
+      headers: { 'X-Workspace': String(workspaceId) },
+    });
+  }
+
   async getNotes(workspaceId: WorkspaceId, includeClosed: boolean): Promise<OsmNote[]> {
     const params = new URLSearchParams();
     // Fetch the maximum number of notes:
