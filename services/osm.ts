@@ -407,7 +407,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async getOsmChange(workspaceId: WorkspaceId, changesetId: number): Promise<OsmChange> {
-    const osmChange = parseOsmChangeXml(await this.downloadOsmChange(workspaceId, changesetId));
+    const osmChange = await parseOsmChangeXml(await this.downloadOsmChange(workspaceId, changesetId));
 
     for (const type of OSMCHANGE_ACTION_TYPES) {
       for (const element of osmChange[type] ?? []) {
