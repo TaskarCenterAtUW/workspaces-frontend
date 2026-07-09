@@ -130,6 +130,7 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
         return undefined;
       }
 
+      // The v1 API returns coordinates already in decimal degrees.
       return await response.json();
     }
     finally {

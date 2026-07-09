@@ -13,7 +13,7 @@ import { aWorkspace, projectGroups } from '../mocks/fixtures';
 //
 // The Download flow goes through workspacesClient.exportWorkspaceArchive(workspace),
 // which branches on workspace.type:
-//   - pathways: osmClient.getWorkspaceData(id) = GET osm/.../workspaces/{id}/bbox.json
+//   - pathways: osmClient.getWorkspaceData(id) = GET new-api/workspaces/{id}/bbox
 //               then GET osm/.../map.json?bbox=... -> {elements:[]} -> buildPathwaysCsvArchive
 //               (pure client-side zip; NO tdei host, NO polling).
 //   - osw:      osm export XML + tdeiClient.convertDataset (4s job polling).
@@ -36,15 +36,15 @@ async function stubGetWorkspace(page: import('@playwright/test').Page, overrides
   });
 }
 
-// Stubs the OSM-host calls the pathways download flow makes:
-//   GET .../workspaces/{id}/bbox.json -> a bbox, then GET .../map.json -> elements.
+// Stubs the calls the pathways download flow makes:
+//   GET new-api/workspaces/{id}/bbox -> a bbox, then GET osm/.../map.json -> elements.
 // `gate` (if provided) holds the map.json response open so the loading state can
 // be observed before the archive is built.
 async function stubPathwaysDownloadOk(
   page: import('@playwright/test').Page,
   gate?: Promise<void>
 ) {
-  await page.route('**/osm/**/workspaces/1/bbox.json', route =>
+  await page.route('**/workspaces/1/bbox', route =>
     route.fulfill({ json: { min_lon: -122.4, min_lat: 47.6, max_lon: -122.3, max_lat: 47.7 } })
   );
   await page.route('**/osm/**/map.json**', async (route) => {
@@ -151,8 +151,9 @@ test.describe('workspace export landing page', () => {
     await seedAuthenticatedSession(page);
     await stubGetWorkspace(page, { type: 'pathways' });
 
-    // Fail the first OSM call in the download flow so exportWorkspaceArchive throws.
-    await page.route('**/osm/**/workspaces/1/bbox.json', route =>
+    // Fail the first call in the download flow so exportWorkspaceArchive throws.
+    // The bbox lookup now hits the new API; the map fetch stays on the OSM base.
+    await page.route('**/workspaces/1/bbox', route =>
       route.fulfill({ status: 500, body: 'boom' })
     );
     await page.route('**/osm/**/map.json**', route =>
