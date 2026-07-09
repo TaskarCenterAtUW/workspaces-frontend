@@ -24,7 +24,7 @@ export function bboxToPolygon(
     }
   }
 }
-export function polygonToBbox(polygonGeometry: any) {
+export function polygonToBbox(polygonGeometry: any): [number, number, number, number] {
   if (
     polygonGeometry.type !== 'Polygon' ||
     !Array.isArray(polygonGeometry.coordinates) ||

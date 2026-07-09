@@ -55,11 +55,14 @@ function normalizeMockResponse(response: LegacyWorkspaceProjectsApiResponse): Wo
   };
 }
 
-const LEGACY_MOCK_WORKSPACE_PROJECT_RESPONSES: LegacyWorkspaceProjectsApiResponse[] = [
+// JSON imports widen string-literal fields (e.g. `status`) to `string`, so the
+// fixtures need an assertion to their declared shape. The mock data is authored
+// to match LegacyWorkspaceProjectsApiResponse.
+const LEGACY_MOCK_WORKSPACE_PROJECT_RESPONSES = [
   page1Response,
   page2Response,
   page3Response,
-];
+] as LegacyWorkspaceProjectsApiResponse[];
 
 const MOCK_WORKSPACE_PROJECT_RESPONSES = LEGACY_MOCK_WORKSPACE_PROJECT_RESPONSES.map(normalizeMockResponse);
 

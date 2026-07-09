@@ -3,6 +3,15 @@ export type WorkspaceType = 'osw' | 'pathways';
 export type WorkspaceAppAccess = 0 | 1 | 2;
 export type WorkspaceRole = 'lead' | 'validator' | 'contributor';
 
+// Map view centered on the workspace's data. Not returned by the API — it is
+// computed client-side from the workspace bbox and attached once the dashboard
+// map emits `center-loaded` (see components/dashboard/Map.vue), so it is optional.
+export interface WorkspaceCenter {
+  zoom: number;
+  latitude: number;
+  longitude: number;
+}
+
 export interface Workspace {
   id: WorkspaceId;
   type: WorkspaceType;
@@ -19,6 +28,7 @@ export interface Workspace {
   kartaViewToken?: string;
   autoFlagReview?: boolean;
   role?: WorkspaceRole;
+  center?: WorkspaceCenter;
 }
 
 export interface WorkspaceCreation {

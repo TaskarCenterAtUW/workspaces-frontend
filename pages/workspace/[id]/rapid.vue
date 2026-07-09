@@ -12,18 +12,18 @@
 import {  rapidManager, rapid3Manager } from '~/services/index';
 /* We are using this only for osw */
 const route = useRoute();
-const workspaceId = route.params.id;
+const workspaceId = Number(route.params.id);
 const editor = route.query.editor;
-const editorContainer = ref(null);
+const editorContainer = ref<HTMLDivElement | null>(null);
 const sideBarText = ref('Loading editor...')
 
 const oswManager = (editor === 'rapid3' && rapid3Manager) ? rapid3Manager : rapidManager
 const manager = oswManager
 
 function onEditorLoaded() {
+  if (!editorContainer.value) return;
   editorContainer.value.appendChild(manager.containerNode);
   manager.init(workspaceId);
-  
 }
 
 onMounted(() => {
@@ -49,7 +49,7 @@ onMounted(() => {
     });
 
     manager.load();
-  } else {
+  } else if (editorContainer.value) {
     editorContainer.value.appendChild(manager.containerNode);
     manager.switchWorkspace(workspaceId);
   }

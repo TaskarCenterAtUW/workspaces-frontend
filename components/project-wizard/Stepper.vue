@@ -43,7 +43,6 @@ defineProps<Props>();
 const stepLabels: Record<ProjectWizardStepId, string> = {
   details: 'Project Details',
   area: 'Area Of Interest',
-  tasks: 'Tasks Generation',
   settings: 'Settings',
   review: 'Review',
 };

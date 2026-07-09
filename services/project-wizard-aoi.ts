@@ -13,6 +13,8 @@ import type { ProjectWizardAreaFeature } from '~/types/project-wizard';
 const EARTH_RADIUS_METERS = 6_371_008.8;
 const MINIMUM_RING_VERTEX_COUNT = 3;
 
+export type Coordinate = [number, number];
+
 export interface ProjectWizardAoiImportResult {
   areaSquareKilometers: number;
   feature: ProjectWizardAreaFeature;
@@ -78,7 +80,7 @@ export function buildProjectWizardAoiFeatureFromVertices(vertices: Position[]): 
   };
 }
 
-export function getProjectWizardAoiVertices(feature: ProjectWizardAreaFeature | null): Position[] {
+export function getProjectWizardAoiVertices(feature: ProjectWizardAreaFeature | null): Coordinate[] {
   if (!feature) {
     return [];
   }
@@ -106,8 +108,9 @@ export function calculateProjectWizardAoiAreaSquareKilometers(feature: ProjectWi
   let shoelaceSum = 0;
 
   for (let index = 0; index < projectedCoordinates.length; index += 1) {
-    const [x1, y1] = projectedCoordinates[index];
-    const [x2, y2] = projectedCoordinates[(index + 1) % projectedCoordinates.length];
+    // index and the modulo of the length always stay within bounds here.
+    const [x1, y1] = projectedCoordinates[index]!;
+    const [x2, y2] = projectedCoordinates[(index + 1) % projectedCoordinates.length]!;
     shoelaceSum += (x1 * y2) - (x2 * y1);
   }
 
@@ -121,7 +124,8 @@ export function getProjectWizardAoiBounds(feature: ProjectWizardAreaFeature | nu
     return null;
   }
 
-  const [firstLongitude, firstLatitude] = vertices[0];
+  // The zero-length case returned above, so the first vertex exists.
+  const [firstLongitude, firstLatitude] = vertices[0]!;
   let minLongitude = firstLongitude;
   let maxLongitude = firstLongitude;
   let minLatitude = firstLatitude;
@@ -162,13 +166,14 @@ function extractPolygonFeatureCandidate(input: unknown, visited = new WeakSet<ob
   visited.add(input);
 
   const geoJsonInput = input as ProjectWizardPolygonInput;
+  const recordInput = input as Record<string, unknown>;
 
   if ('type' in geoJsonInput && geoJsonInput.type === 'FeatureCollection') {
     const candidateFeature = geoJsonInput.features.find(feature =>
-      feature.geometry?.type === 'Polygon' || feature.geometry?.type === 'MultiPolygon',
+      isPolygonGeometry(feature.geometry),
     );
 
-    if (!candidateFeature) {
+    if (!candidateFeature || !isPolygonGeometry(candidateFeature.geometry)) {
       return searchNestedPolygonFeature(geoJsonInput.features, visited);
     }
 
@@ -183,23 +188,27 @@ function extractPolygonFeatureCandidate(input: unknown, visited = new WeakSet<ob
     return polygonFeatureFromGeometry(geoJsonInput, {});
   }
 
-  if ('geometry' in geoJsonInput && geoJsonInput.geometry && typeof geoJsonInput.geometry === 'object') {
-    const geometryFeature = extractPolygonFeatureCandidate(geoJsonInput.geometry, visited);
+  if ('geometry' in recordInput && recordInput.geometry && typeof recordInput.geometry === 'object') {
+    const geometryFeature = extractPolygonFeatureCandidate(recordInput.geometry, visited);
 
     if (geometryFeature) {
       return geometryFeature;
     }
   }
 
-  if ('coordinates' in geoJsonInput) {
-    const coordinatesFeature = extractPolygonFeatureFromCoordinates(geoJsonInput.coordinates);
+  if ('coordinates' in recordInput) {
+    const coordinatesFeature = extractPolygonFeatureFromCoordinates(recordInput.coordinates);
 
     if (coordinatesFeature) {
       return coordinatesFeature;
     }
   }
 
-  return searchNestedPolygonFeature(Object.values(geoJsonInput), visited);
+  return searchNestedPolygonFeature(Object.values(recordInput), visited);
+}
+
+function isPolygonGeometry(geometry: Geometry | null | undefined): geometry is Polygon | MultiPolygon {
+  return geometry?.type === 'Polygon' || geometry?.type === 'MultiPolygon';
 }
 
 function polygonFeatureFromGeometry(
@@ -329,17 +338,18 @@ function normalizePolygonRing(ring: Position[]): Position[] {
   return closePolygonRing(editableVertices);
 }
 
-function normalizeEditableVertices(vertices: Position[]): Position[] {
+function normalizeEditableVertices(vertices: Position[]): Coordinate[] {
   const sanitizedVertices = vertices
     .map(normalizePosition)
-    .filter((vertex): vertex is Position => vertex !== null);
+    .filter((vertex): vertex is Coordinate => vertex !== null);
 
   if (sanitizedVertices.length <= 1) {
     return sanitizedVertices;
   }
 
-  const firstVertex = sanitizedVertices[0];
-  const lastVertex = sanitizedVertices[sanitizedVertices.length - 1];
+  // Length exceeds one here, so both the first and last vertices exist.
+  const firstVertex = sanitizedVertices[0]!;
+  const lastVertex = sanitizedVertices[sanitizedVertices.length - 1]!;
 
   if (positionsEqual(firstVertex, lastVertex)) {
     return sanitizedVertices.slice(0, -1);
@@ -348,13 +358,14 @@ function normalizeEditableVertices(vertices: Position[]): Position[] {
   return sanitizedVertices;
 }
 
-function closePolygonRing(vertices: Position[]): Position[] {
-  const firstVertex = vertices[0];
+function closePolygonRing(vertices: Coordinate[]): Coordinate[] {
+  // Every caller guards a non-empty ring before closing it.
+  const firstVertex = vertices[0]!;
 
   return [...vertices, [firstVertex[0], firstVertex[1]]];
 }
 
-function normalizePosition(position: Position): Position | null {
+function normalizePosition(position: Position): Coordinate | null {
   const [longitude, latitude] = position;
 
   if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
@@ -368,7 +379,7 @@ function positionsEqual(left: Position, right: Position): boolean {
   return left[0] === right[0] && left[1] === right[1];
 }
 
-function averageLatitudeRadians(vertices: Position[]): number {
+function averageLatitudeRadians(vertices: Coordinate[]): number {
   const latitudeSum = vertices.reduce((sum, [, latitude]) => sum + latitude, 0);
 
   return toRadians(latitudeSum / vertices.length);
