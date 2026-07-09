@@ -1,7 +1,10 @@
 <template>
   <section class="project-wizard-assign-users">
     <div class="project-wizard-assign-users-search-shell">
-      <label class="visually-hidden" :for="searchInputId">Search users</label>
+      <label
+        class="visually-hidden"
+        :for="searchInputId"
+      >Search users</label>
       <input
         :id="searchInputId"
         :value="searchQuery"
@@ -10,14 +13,21 @@
         placeholder="Search Users"
         @input="emit('update:search', ($event.target as HTMLInputElement).value)"
       >
-      <app-icon variant="search" size="22" no-margin />
+      <app-icon
+        variant="search"
+        size="22"
+        no-margin
+      />
     </div>
 
     <div
       v-if="loading || shouldShowSearchResults"
       class="project-wizard-assign-users-results"
     >
-      <div v-if="loading" class="project-wizard-assign-users-status">
+      <div
+        v-if="loading"
+        class="project-wizard-assign-users-status"
+      >
         <app-spinner size="sm" />
         <span>Loading users...</span>
       </div>
@@ -31,7 +41,11 @@
           @click="emit('add:user', user)"
         >
           <span class="project-wizard-assign-users-avatar">
-            <app-icon variant="person" size="18" no-margin />
+            <app-icon
+              variant="person"
+              size="18"
+              no-margin
+            />
           </span>
 
           <span class="project-wizard-assign-users-copy">
@@ -44,7 +58,10 @@
           </span>
         </button>
 
-        <p v-if="visibleSearchResults.length === 0" class="project-wizard-assign-users-status">
+        <p
+          v-if="visibleSearchResults.length === 0"
+          class="project-wizard-assign-users-status"
+        >
           No users match your search.
         </p>
       </template>
@@ -57,7 +74,11 @@
         class="project-wizard-assign-users-selected-item"
       >
         <span class="project-wizard-assign-users-avatar">
-          <app-icon variant="person" size="18" no-margin />
+          <app-icon
+            variant="person"
+            size="18"
+            no-margin
+          />
         </span>
 
         <span class="project-wizard-assign-users-copy">
@@ -75,11 +96,18 @@
           :aria-label="`Remove ${user.displayName}`"
           @click="emit('remove:user', user.authUid)"
         >
-          <app-icon variant="delete" size="20" no-margin />
+          <app-icon
+            variant="delete"
+            size="20"
+            no-margin
+          />
         </button>
       </div>
 
-      <p v-if="selectedUsers.length === 0" class="project-wizard-assign-users-status">
+      <p
+        v-if="selectedUsers.length === 0"
+        class="project-wizard-assign-users-status"
+      >
         Search and add users for this project.
       </p>
     </div>

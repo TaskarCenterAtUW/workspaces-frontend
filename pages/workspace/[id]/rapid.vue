@@ -1,15 +1,18 @@
 <template>
-    <div class="pageContainer">
-  <div ref="editorContainer" class="rapidEditorContainer"></div>
-  <div class="sidebar">
-    <p class="text-center mt-3">{{ sideBarText }}</p>
-    <p> Add the action items here based on the selected workspace and editor.</p>
+  <div class="pageContainer">
+    <div
+      ref="editorContainer"
+      class="rapidEditorContainer"
+    />
+    <div class="sidebar">
+      <p class="text-center mt-3">{{ sideBarText }}</p>
+      <p> Add the action items here based on the selected workspace and editor.</p>
+    </div>
   </div>
-  </div>
-   
 </template>
+
 <script setup lang="ts">
-import {  rapidManager, rapid3Manager } from '~/services/index';
+import { rapidManager, rapid3Manager } from '~/services/index';
 /* We are using this only for osw */
 const route = useRoute();
 const workspaceId = Number(route.params.id);
@@ -30,15 +33,15 @@ onMounted(() => {
   // If a different Rapid version is already loaded, hard-reload to swap.
   // Only one version can occupy the global Rapid namespace at a time.
 //   if (datatype === 'osw') {
-    const otherManager = manager === rapidManager ? rapid3Manager : rapidManager
-    if (otherManager?.loaded.value) {
-      window.location.reload()
-      return
-    }
-//   }
+  const otherManager = manager === rapidManager ? rapid3Manager : rapidManager
+  if (otherManager?.loaded.value) {
+    window.location.reload()
+    return
+  }
+  //   }
   rapidManager.onStateChange((changes) => {
-     console.log('Rapid state changed:', changes);
-     sideBarText.value = `Rapid state changed: ${JSON.stringify(changes)}`;
+    console.log('Rapid state changed:', changes);
+    sideBarText.value = `Rapid state changed: ${JSON.stringify(changes)}`;
   });
 
   if (!manager.loaded.value) {

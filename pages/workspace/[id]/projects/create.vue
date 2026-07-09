@@ -1,5 +1,8 @@
 <template>
-  <app-page fluid class="project-create-page">
+  <app-page
+    fluid
+    class="project-create-page"
+  >
     <section
       class="project-create-shell"
       :class="`project-create-shell-step-${currentStep}`"
@@ -20,7 +23,11 @@
           :disabled="creating.active"
           @click="exitWizard()"
         >
-          <app-icon variant="close" size="28" no-margin />
+          <app-icon
+            variant="close"
+            size="28"
+            no-margin
+          />
         </button>
       </header>
 
@@ -34,12 +41,18 @@
               @select="onSelectStep"
             />
 
-            <p class="visually-hidden" aria-live="polite">
+            <p
+              class="visually-hidden"
+              aria-live="polite"
+            >
               {{ liveRegionMessage }}
             </p>
 
             <div class="project-create-step-frame">
-              <div v-if="loading.active && !stepData" class="project-create-loading">
+              <div
+                v-if="loading.active && !stepData"
+                class="project-create-loading"
+              >
                 <app-spinner />
               </div>
 
@@ -110,7 +123,10 @@
                   :disabled="loading.active || creating.active"
                   @click="onSecondaryAction"
                 >
-                  <app-icon variant="chevron_left" no-margin />
+                  <app-icon
+                    variant="chevron_left"
+                    no-margin
+                  />
                   Prev
                 </button>
 
@@ -120,10 +136,17 @@
                   :disabled="!canProceed || loading.active || creating.active"
                   @click="onPrimaryAction"
                 >
-                  <app-spinner v-if="creating.active" size="sm" />
+                  <app-spinner
+                    v-if="creating.active"
+                    size="sm"
+                  />
                   <template v-else>
                     {{ primaryActionLabel }}
-                    <app-icon v-if="!isLastStep" variant="chevron_right" no-margin />
+                    <app-icon
+                      v-if="!isLastStep"
+                      variant="chevron_right"
+                      no-margin
+                    />
                   </template>
                 </button>
               </div>
@@ -639,7 +662,6 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   align-items: center;
   justify-content: center;
 }
-
 
 .project-create-footer {
   display: flex;

@@ -4,13 +4,22 @@
     class="project-wizard-map"
     :class="{
       'project-wizard-map-editable': editable,
-      'project-wizard-map-drawing': drawMode,
+      'project-wizard-map-drawing': drawMode
     }"
   />
 </template>
 
 <script lang="ts">
-import type { StyleSpecification } from 'maplibre-gl';
+import type { StyleSpecification,
+  CircleLayerSpecification,
+  ExpressionSpecification,
+  FillLayerSpecification,
+  GeoJSONSource,
+  LineLayerSpecification,
+  MapLayerMouseEvent,
+  MapMouseEvent,
+  PaddingOptions,
+  SymbolLayerSpecification } from 'maplibre-gl';
 </script>
 
 <script setup lang="ts">
@@ -21,17 +30,6 @@ import type {
   Point,
   Polygon,
 } from 'geojson';
-import type {
-  CircleLayerSpecification,
-  ExpressionSpecification,
-  FillLayerSpecification,
-  GeoJSONSource,
-  LineLayerSpecification,
-  MapLayerMouseEvent,
-  MapMouseEvent,
-  PaddingOptions,
-  SymbolLayerSpecification,
-} from 'maplibre-gl';
 import type {
   ProjectWizardAreaFeature,
   ProjectWizardGeneratedTaskFeatureCollection,
@@ -807,7 +805,6 @@ function syncDraftPolygon() {
   skipNextAoiFit = true;
   emit('update:aoi', draftFeature);
 }
-
 </script>
 
 <style lang="scss" scoped>

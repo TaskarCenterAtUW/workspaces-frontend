@@ -6,15 +6,30 @@
     - Shows lock icons on the map canvas for tasks that are locked by a mapper.
     - Highlights the selected task and emits `select-task` when a task polygon is clicked.
   -->
-  <section class="project-detail-map-shell" aria-label="Project tasks map">
-    <div ref="mapRef" class="project-detail-map" />
+  <section
+    class="project-detail-map-shell"
+    aria-label="Project tasks map"
+  >
+    <div
+      ref="mapRef"
+      class="project-detail-map"
+    />
 
-    <div v-if="showLegend" class="project-detail-map-overlay">
-      <aside class="project-detail-map-legend" aria-label="Task legend">
+    <div
+      v-if="showLegend"
+      class="project-detail-map-overlay"
+    >
+      <aside
+        class="project-detail-map-legend"
+        aria-label="Task legend"
+      >
         <h2>Legend</h2>
 
         <ul>
-          <li v-for="item in legendItems" :key="item.label">
+          <li
+            v-for="item in legendItems"
+            :key="item.label"
+          >
             <span
               class="project-detail-map-legend-swatch"
               :style="{ backgroundColor: item.color }"
@@ -23,7 +38,11 @@
           </li>
           <li>
             <span class="project-detail-map-legend-lock">
-              <app-icon variant="lock" size="18" no-margin />
+              <app-icon
+                variant="lock"
+                size="18"
+                no-margin
+              />
             </span>
             Locked
           </li>
@@ -710,7 +729,7 @@ function createOutlineFeatures(geometry: Polygon | MultiPolygon): Array<Feature<
         },
         properties: {},
       }]
-      : [];
+    : [];
 }
 
 /** Change the cursor to a pointer when hovering over a clickable task polygon. */

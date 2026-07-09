@@ -12,7 +12,11 @@
         type="button"
         @click="emit('draw')"
       >
-        <img :src="drawIcon" class="project-wizard-area-icon" alt="">
+        <img
+          :src="drawIcon"
+          class="project-wizard-area-icon"
+          alt=""
+        >
         {{ step.content.drawLabel }}
       </button>
 
@@ -22,7 +26,11 @@
         :disabled="!hasAoi && !importedFileName && !isDrawing"
         @click="emit('reset')"
       >
-        <img :src="resetIcon" class="project-wizard-area-icon" alt="">
+        <img
+          :src="resetIcon"
+          class="project-wizard-area-icon"
+          alt=""
+        >
         {{ step.content.resetLabel }}
       </button>
     </div>
@@ -33,7 +41,11 @@
       aria-live="polite"
     >
       <div class="project-wizard-area-captured-copy">
-        <app-icon variant="check_circle" size="18" no-margin />
+        <app-icon
+          variant="check_circle"
+          size="18"
+          no-margin
+        />
         <div>
           <strong>Area of interest captured</strong>
           <p>{{ importedFileName ? 'The uploaded GeoJSON is active on the map.' : 'The drawn polygon is active on the map.' }}</p>
@@ -45,12 +57,19 @@
         type="button"
         @click="emit('download')"
       >
-        <app-icon variant="download" size="18" no-margin />
+        <app-icon
+          variant="download"
+          size="18"
+          no-margin
+        />
         Download Area of Interest
       </button>
     </section>
 
-    <div class="project-wizard-area-divider" aria-hidden="true">
+    <div
+      class="project-wizard-area-divider"
+      aria-hidden="true"
+    >
       <span>{{ step.content.dividerLabel }}</span>
     </div>
 
@@ -76,7 +95,11 @@
         @click="openFilePicker"
       >
         <span class="project-wizard-area-dropzone-icon">
-          <img :src="uploadIcon" class="project-wizard-area-upload-icon" alt="">
+          <img
+            :src="uploadIcon"
+            class="project-wizard-area-upload-icon"
+            alt=""
+          >
         </span>
         <span class="project-wizard-area-dropzone-copy">{{ step.content.dropzoneActionLabel }}</span>
         <span class="project-wizard-area-dropzone-meta">{{ step.content.allowedFormatLabel }}</span>
@@ -88,7 +111,11 @@
       class="project-wizard-area-file"
     >
       <div class="project-wizard-area-file-copy">
-        <app-icon variant="description" size="20" no-margin />
+        <app-icon
+          variant="description"
+          size="20"
+          no-margin
+        />
         <span>{{ importedFileName }}</span>
       </div>
 
@@ -98,7 +125,11 @@
         aria-label="Remove imported AOI file"
         @click="emit('reset')"
       >
-        <app-icon variant="close" size="20" no-margin />
+        <app-icon
+          variant="close"
+          size="20"
+          no-margin
+        />
       </button>
     </div>
 
@@ -107,7 +138,11 @@
       class="project-wizard-area-message project-wizard-area-message-warning"
       aria-live="polite"
     >
-      <img :src="warningIcon" class="project-wizard-area-warning-icon" alt="">
+      <img
+        :src="warningIcon"
+        class="project-wizard-area-warning-icon"
+        alt=""
+      >
       <span>{{ warningMessage }}</span>
     </section>
 
@@ -116,7 +151,11 @@
       class="project-wizard-area-message project-wizard-area-message-error"
       role="alert"
     >
-      <img :src="warningIcon" class="project-wizard-area-warning-icon" alt="">
+      <img
+        :src="warningIcon"
+        class="project-wizard-area-warning-icon"
+        alt=""
+      >
       <span>{{ errorMessage }}</span>
     </section>
   </section>

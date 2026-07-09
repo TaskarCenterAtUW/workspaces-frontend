@@ -11,7 +11,11 @@
   <article class="project-card">
     <div class="project-card-top">
       <!-- Decorative project icon — alt="" intentionally empty as it conveys no extra info -->
-      <img class="project-card-icon" :src="projectIcon" :alt="''">
+      <img
+        class="project-card-icon"
+        :src="projectIcon"
+        :alt="''"
+      >
 
       <!--
         Three-dot action button. `position: relative` + `z-index: 1` lets it receive clicks
@@ -24,17 +28,27 @@
         aria-label="Project actions"
         @click.stop
       >
-        <app-icon variant="more_vert" size="22" no-margin />
+        <app-icon
+          variant="more_vert"
+          size="22"
+          no-margin
+        />
       </button>
     </div>
 
     <div class="project-card-body">
-      <h2 class="project-card-title" :title="project.name">
+      <h2
+        class="project-card-title"
+        :title="project.name"
+      >
         {{ project.name }}
       </h2>
 
       <!-- Only render the summary paragraph when a value exists -->
-      <p v-if="project.summary" class="project-card-summary">
+      <p
+        v-if="project.summary"
+        class="project-card-summary"
+      >
         {{ project.summary }}
       </p>
 
@@ -52,7 +66,10 @@
         aria-valuemin="0"
         aria-valuemax="100"
       >
-        <div class="progress-bar" :style="{ width: `${progressPercent}%` }" />
+        <div
+          class="progress-bar"
+          :style="{ width: `${progressPercent}%` }"
+        />
       </div>
     </div>
 
@@ -72,7 +89,11 @@
       Screen readers announce this as the card's navigation target.
       Placed last in the DOM so the action button's z-index stacks above it without any hacks.
     -->
-    <nuxt-link :to="projectRoute" class="project-card-link" :aria-label="`Open project ${project.name}`" />
+    <nuxt-link
+      :to="projectRoute"
+      class="project-card-link"
+      :aria-label="`Open project ${project.name}`"
+    />
   </article>
 </template>
 

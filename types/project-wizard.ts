@@ -25,10 +25,10 @@ export interface ProjectWizardFieldDefinition<FieldId extends string = string> {
   type: ProjectWizardFieldType;
 }
 
-export type ProjectWizardMapGeometry =
-  | Point
-  | LineString
-  | Polygon;
+export type ProjectWizardMapGeometry
+  = | Point
+    | LineString
+    | Polygon;
 
 export interface ProjectWizardMapFeatureProperties {
   label?: string;
@@ -91,11 +91,11 @@ export interface ProjectWizardReviewStepDefinition extends ProjectWizardBaseStep
   content?: Record<string, never>;
 }
 
-export type ProjectWizardStepDefinition =
-  | ProjectWizardDetailsStepDefinition
-  | ProjectWizardAreaStepDefinition
-  | ProjectWizardSettingsStepDefinition
-  | ProjectWizardReviewStepDefinition;
+export type ProjectWizardStepDefinition
+  = | ProjectWizardDetailsStepDefinition
+    | ProjectWizardAreaStepDefinition
+    | ProjectWizardSettingsStepDefinition
+    | ProjectWizardReviewStepDefinition;
 
 export interface ProjectWizardNameAvailabilityResponse {
   available: boolean;
@@ -144,9 +144,9 @@ export interface ProjectWizardTaskPreviewCellProperties {
   taskIndex?: number;
 }
 
-export type ProjectWizardTaskPreviewGeometry =
-  | Polygon
-  | LineString;
+export type ProjectWizardTaskPreviewGeometry
+  = | Polygon
+    | LineString;
 
 export type ProjectWizardTaskPreviewCellFeature = Feature<
   ProjectWizardTaskPreviewGeometry,

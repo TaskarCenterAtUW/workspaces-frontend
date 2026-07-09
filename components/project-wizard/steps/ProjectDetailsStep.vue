@@ -23,7 +23,10 @@
           class="project-wizard-availability"
           :class="`project-wizard-availability-${nameAvailabilityStatus}`"
         >
-          <app-spinner v-if="nameAvailabilityStatus === 'checking'" size="sm" />
+          <app-spinner
+            v-if="nameAvailabilityStatus === 'checking'"
+            size="sm"
+          />
           <img
             v-else-if="availabilityIconSrc"
             :src="availabilityIconSrc"

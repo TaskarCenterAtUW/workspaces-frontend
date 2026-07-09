@@ -1,14 +1,20 @@
 <template>
-  <ol class="project-wizard-stepper" aria-label="Project creation steps">
+  <ol
+    class="project-wizard-stepper"
+    aria-label="Project creation steps"
+  >
     <li
       v-for="(step, index) in steps"
       :key="step"
       class="project-wizard-stepper-item"
       :class="{
-        'project-wizard-stepper-item-complete': index <= currentIndex,
+        'project-wizard-stepper-item-complete': index <= currentIndex
       }"
     >
-      <span class="project-wizard-stepper-line" aria-hidden="true" />
+      <span
+        class="project-wizard-stepper-line"
+        aria-hidden="true"
+      />
       <button
         class="project-wizard-stepper-dot"
         type="button"

@@ -1,10 +1,16 @@
 <template>
-  <app-page fluid class="task-editor-page">
+  <app-page
+    fluid
+    class="task-editor-page"
+  >
     <section
       class="task-editor-shell"
       :class="isSidebarOpen ? 'task-editor-shell-sidebar-open' : 'task-editor-shell-sidebar-closed'"
     >
-      <div ref="editorContainer" class="task-editor-canvas" />
+      <div
+        ref="editorContainer"
+        class="task-editor-canvas"
+      />
 
       <aside
         :id="taskEditorSidebarId"
@@ -20,7 +26,11 @@
           :aria-label="isSidebarOpen ? 'Hide task details panel' : 'Show task details panel'"
           @click="toggleSidebar"
         >
-          <app-icon :variant="isSidebarOpen ? 'chevron_right' : 'chevron_left'" size="20" no-margin />
+          <app-icon
+            :variant="isSidebarOpen ? 'chevron_right' : 'chevron_left'"
+            size="20"
+            no-margin
+          />
         </button>
 
         <div class="task-editor-sidebar-scroll">
@@ -30,8 +40,15 @@
                 Rapid task editor
               </p>
 
-              <nuxt-link class="btn btn-outline-secondary task-editor-back" :to="backToTasksRoute">
-                <app-icon variant="arrow_back" size="18" no-margin />
+              <nuxt-link
+                class="btn btn-outline-secondary task-editor-back"
+                :to="backToTasksRoute"
+              >
+                <app-icon
+                  variant="arrow_back"
+                  size="18"
+                  no-margin
+                />
                 Back to Tasks
               </nuxt-link>
             </div>
@@ -50,12 +67,18 @@
             <div class="task-editor-section-heading">
               <h2>Instructions</h2>
             </div>
-            <workspace-project-details-rich-text-content class="task-editor-rich-copy" :html="project.instructions" />
+            <workspace-project-details-rich-text-content
+              class="task-editor-rich-copy"
+              :html="project.instructions"
+            />
           </section>
 
           <section class="task-editor-sidebar-section task-editor-feedback">
             <div class="task-editor-feedback-fields">
-              <label class="task-editor-field-label" for="task-editor-feedback-notes">
+              <label
+                class="task-editor-field-label"
+                for="task-editor-feedback-notes"
+              >
                 Comments
               </label>
               <textarea
@@ -64,7 +87,7 @@
                 class="form-control task-editor-field task-editor-feedback-notes"
                 rows="4"
                 placeholder="Optional notes for task feedback"
-              ></textarea>
+              />
             </div>
 
             <fieldset class="task-editor-feedback-group">
@@ -88,7 +111,10 @@
 
         <footer class="task-editor-sidebar-footer">
           <section class="task-editor-sidebar-section task-editor-actions">
-            <p v-if="submitErrorMessage" class="task-editor-submit-error">
+            <p
+              v-if="submitErrorMessage"
+              class="task-editor-submit-error"
+            >
               {{ submitErrorMessage }}
             </p>
 
@@ -96,7 +122,7 @@
               v-if="completeTaskStatusMessage"
               class="task-editor-action-status"
               :class="{
-                'task-editor-action-status-blocked': Boolean(completeTaskBlockedReason),
+                'task-editor-action-status-blocked': Boolean(completeTaskBlockedReason)
               }"
             >
               <app-icon
@@ -591,7 +617,6 @@ function mountEditor() {
   editorContainer.value.appendChild(manager.containerNode);
   void manager.init(workspaceId);
 }
-
 </script>
 
 <style lang="scss" scoped>

@@ -1,5 +1,8 @@
 <template>
-  <div ref="rootRef" class="project-detail-task-lock-control">
+  <div
+    ref="rootRef"
+    class="project-detail-task-lock-control"
+  >
     <button
       v-if="canUnlock"
       class="project-detail-task-lock-button"
@@ -9,8 +12,16 @@
       aria-haspopup="menu"
       @click="toggleMenu"
     >
-      <app-icon variant="lock" size="16" no-margin />
-      <app-icon :variant="menuOpen ? 'keyboard_arrow_up' : 'keyboard_arrow_down'" size="16" no-margin />
+      <app-icon
+        variant="lock"
+        size="16"
+        no-margin
+      />
+      <app-icon
+        :variant="menuOpen ? 'keyboard_arrow_up' : 'keyboard_arrow_down'"
+        size="16"
+        no-margin
+      />
     </button>
 
     <span
@@ -18,7 +29,11 @@
       class="project-detail-task-lock-indicator"
       :title="lockedByTitle"
     >
-      <app-icon variant="lock" size="16" no-margin />
+      <app-icon
+        variant="lock"
+        size="16"
+        no-margin
+      />
     </span>
 
     <div

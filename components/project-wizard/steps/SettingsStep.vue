@@ -13,7 +13,10 @@
         </div>
 
         <div class="project-wizard-settings-lock-control">
-          <label class="visually-hidden" :for="lockTimeoutId">Lock timeout in hours</label>
+          <label
+            class="visually-hidden"
+            :for="lockTimeoutId"
+          >Lock timeout in hours</label>
           <select
             :id="lockTimeoutId"
             class="form-select project-wizard-settings-select"
@@ -101,7 +104,7 @@ interface Props {
   workspaceUsersLoading: boolean;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 const emit = defineEmits<{
   'add:validator': [user: ProjectWizardWorkspaceUser];
   'remove:validator': [userId: string];

@@ -20,11 +20,11 @@ export interface ProjectWizardAoiImportResult {
   feature: ProjectWizardAreaFeature;
 }
 
-type ProjectWizardPolygonInput =
-  | Polygon
-  | MultiPolygon
-  | Feature<Polygon | MultiPolygon, GeoJsonProperties>
-  | FeatureCollection<Geometry, GeoJsonProperties>;
+type ProjectWizardPolygonInput
+  = | Polygon
+    | MultiPolygon
+    | Feature<Polygon | MultiPolygon, GeoJsonProperties>
+    | FeatureCollection<Geometry, GeoJsonProperties>;
 
 export function parseProjectWizardAoiFileContent(content: string): ProjectWizardAoiImportResult {
   let parsedValue: unknown;

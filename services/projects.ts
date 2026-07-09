@@ -51,7 +51,7 @@ function normalizeTaskStatus(status: WorkspaceProjectTaskApiItem['status']): Wor
       return 'needs_more_mapping';
     case 'done':
       return 'completed';
-     case 'completed':
+    case 'completed':
       return 'completed';
     case 'to_review':
       return 'ready_for_validation'

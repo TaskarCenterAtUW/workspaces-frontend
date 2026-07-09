@@ -26,9 +26,9 @@ export function bboxToPolygon(
 }
 export function polygonToBbox(polygonGeometry: any): [number, number, number, number] {
   if (
-    polygonGeometry.type !== 'Polygon' ||
-    !Array.isArray(polygonGeometry.coordinates) ||
-    polygonGeometry.coordinates.length === 0
+    polygonGeometry.type !== 'Polygon'
+    || !Array.isArray(polygonGeometry.coordinates)
+    || polygonGeometry.coordinates.length === 0
   ) {
     throw new Error('Invalid GeoJSON Polygon feature')
   }

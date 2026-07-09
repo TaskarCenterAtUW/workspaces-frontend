@@ -29,7 +29,10 @@
         </div>
       </div>
 
-      <div v-if="summary.numberOfTasksLabel" class="project-wizard-review-item">
+      <div
+        v-if="summary.numberOfTasksLabel"
+        class="project-wizard-review-item"
+      >
         <h3>Number of Tasks</h3>
         <p>{{ summary.numberOfTasksLabel }}</p>
       </div>
@@ -44,7 +47,10 @@
         <p>{{ summary.reviewRequiredLabel }}</p>
       </div>
 
-      <div v-if="summary.selectedValidators.length > 0" class="project-wizard-review-item">
+      <div
+        v-if="summary.selectedValidators.length > 0"
+        class="project-wizard-review-item"
+      >
         <h3>Project Validators</h3>
         <div class="project-wizard-review-validator-list">
           <div
@@ -53,7 +59,11 @@
             class="project-wizard-review-validator"
           >
             <span class="project-wizard-review-validator-avatar">
-              <app-icon variant="person" size="16" no-margin />
+              <app-icon
+                variant="person"
+                size="16"
+                no-margin
+              />
             </span>
             <span>{{ validator.displayName }}</span>
             <span class="project-wizard-review-validator-role">
