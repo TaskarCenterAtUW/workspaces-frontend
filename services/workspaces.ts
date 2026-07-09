@@ -119,8 +119,23 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     }
   }
 
-  getWorkspaceBbox(id: WorkspaceId): Promise<BoundingBox> {
-    return this.#osmClient.getWorkspaceBbox(id);
+  async getWorkspaceBbox(id: WorkspaceId): Promise<BoundingBox | undefined> {
+    const originalBaseUrl = this._baseUrl;
+    this._baseUrl = this.#newApiUrl;
+
+    try {
+      const response = await this._send(`workspaces/${id}/bbox`, 'GET');
+
+      if (response.status === 204) {
+        return undefined;
+      }
+
+      // The v1 API returns coordinates already in decimal degrees.
+      return await response.json();
+    }
+    finally {
+      this._baseUrl = originalBaseUrl;
+    }
   }
 
   async createWorkspace(workspace: WorkspaceCreation): Promise<WorkspaceId> {

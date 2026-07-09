@@ -65,8 +65,8 @@ async function stubCreateFlow(
     route.fulfill({ status: 200, body: '' })
   );
 
-  // Dashboard map bbox -> 204 so the map init is skipped in headless.
-  await page.route('**/osm/api/0.6/**/bbox.json', route =>
+  // Dashboard map bbox (new-API) -> 204 so the map init is skipped in headless.
+  await page.route('**/workspaces/*/bbox', route =>
     route.fulfill({ status: 204, body: '' })
   );
 
