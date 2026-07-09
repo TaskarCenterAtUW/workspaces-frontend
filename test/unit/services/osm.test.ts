@@ -116,33 +116,34 @@ describe('OsmApiClient.getChangesetComments', () => {
 });
 
 describe('OsmApiClient comment posting', () => {
-  it('posts a changeset comment with the message text', async () => {
-    const posted: Array<string | null> = [];
+  // Regression: the comment text must be sent in the query string, not a
+  // multipart body — the OSM API only reads params[:text] from the query, and
+  // this backend 401s a write whose text it can't find.
+  it('posts a changeset comment with the message text as a query parameter', async () => {
+    const urls: string[] = [];
     server.use(
-      http.post(`${OSM_API_BASE}changeset/5/comment`, async ({ request }) => {
-        const form = await request.formData();
-        posted.push(form.get('text') as string | null);
+      http.post(`${OSM_API_BASE}changeset/5/comment`, ({ request }) => {
+        urls.push(request.url);
         return new HttpResponse(null, { status: 200 });
       })
     );
 
     await makeClient().postChangesetComment(1, 5, 'nice work');
 
-    expect(posted).toEqual(['nice work']);
+    expect(urls.some(u => u.includes('text=nice%20work'))).toBe(true);
   });
 
-  it('posts a note comment to the notes endpoint with the message text', async () => {
-    const posted: Array<string | null> = [];
+  it('posts a note comment to the notes endpoint with the message text as a query parameter', async () => {
+    const urls: string[] = [];
     server.use(
-      http.post(`${OSM_API_BASE}notes/9/comment`, async ({ request }) => {
-        const form = await request.formData();
-        posted.push(form.get('text') as string | null);
+      http.post(`${OSM_API_BASE}notes/9/comment`, ({ request }) => {
+        urls.push(request.url);
         return new HttpResponse(null, { status: 200 });
       })
     );
 
     await makeClient().postNoteComment(1, 9, 'thanks for flagging');
 
-    expect(posted).toEqual(['thanks for flagging']);
+    expect(urls.some(u => u.includes('text=thanks%20for%20flagging'))).toBe(true);
   });
 });
