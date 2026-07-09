@@ -1,15 +1,21 @@
 <template>
-  <app-page fluid class="project-detail-page">
+  <app-page
+    fluid
+    class="project-detail-page"
+  >
     <div class="project-detail-layout">
       <div
         class="project-detail-shell"
         :class="{
-          'project-detail-shell-with-footer': showSelectedTaskBar,
+          'project-detail-shell-with-footer': showSelectedTaskBar
         }"
       >
         <section class="project-detail-content">
           <header class="project-detail-hero">
-            <nav class="project-detail-breadcrumbs" aria-label="Breadcrumb">
+            <nav
+              class="project-detail-breadcrumbs"
+              aria-label="Breadcrumb"
+            >
               <nuxt-link :to="projectsRoute">Workspaces</nuxt-link>
               <span aria-hidden="true">&gt;</span>
               <nuxt-link :to="projectsRoute">{{ workspace.title }}</nuxt-link>
@@ -29,7 +35,10 @@
                 :disabled="isActivatingProject"
                 @click="handleActivateProject"
               >
-                <app-spinner v-if="isActivatingProject" size="sm" />
+                <app-spinner
+                  v-if="isActivatingProject"
+                  size="sm"
+                />
                 <template v-else>
                   Activate Project
                 </template>
@@ -48,11 +57,17 @@
               aria-valuemin="0"
               aria-valuemax="100"
             >
-              <div class="progress-bar" :style="{ width: `${progressPercent}%` }" />
+              <div
+                class="progress-bar"
+                :style="{ width: `${progressPercent}%` }"
+              />
             </div>
           </header>
 
-          <nav class="project-detail-tabs" aria-label="Project detail sections">
+          <nav
+            class="project-detail-tabs"
+            aria-label="Project detail sections"
+          >
             <nuxt-link
               v-for="tab in tabs"
               :key="tab.id"
@@ -64,7 +79,10 @@
             </nuxt-link>
           </nav>
 
-          <section v-if="activeTab === 'overview'" class="project-detail-tab-panel">
+          <section
+            v-if="activeTab === 'overview'"
+            class="project-detail-tab-panel"
+          >
             <article class="project-detail-card project-detail-summary-card">
               <div class="project-detail-summary-grid">
                 <div class="project-detail-summary-item">
@@ -95,13 +113,19 @@
             </article>
           </section>
 
-          <section v-else-if="activeTab === 'instructions'" class="project-detail-tab-panel">
+          <section
+            v-else-if="activeTab === 'instructions'"
+            class="project-detail-tab-panel"
+          >
             <article class="project-detail-copy-card">
               <workspace-project-details-rich-text-content :html="supplemental.instructionsHtml" />
             </article>
           </section>
 
-          <section v-else-if="activeTab === 'tasks'" class="project-detail-tab-panel">
+          <section
+            v-else-if="activeTab === 'tasks'"
+            class="project-detail-tab-panel"
+          >
             <workspace-project-details-task-setup-panel
               v-if="showTaskSetup"
               :can-generate="canGenerateTasks"
@@ -135,14 +159,20 @@
             />
           </section>
 
-          <section v-else-if="activeTab === 'contributions'" class="project-detail-tab-panel">
+          <section
+            v-else-if="activeTab === 'contributions'"
+            class="project-detail-tab-panel"
+          >
             <workspace-project-details-contributions-tab
               :contributors="supplemental.contributors"
               :metrics="supplemental.contributionMetrics"
             />
           </section>
 
-          <section v-else class="project-detail-tab-panel">
+          <section
+            v-else
+            class="project-detail-tab-panel"
+          >
             <workspace-project-details-contributors-tab
               :can-manage="canManageContributors"
               :adding-contributor="addingContributor"
@@ -1041,7 +1071,6 @@ function escapeHtml(value: string) {
     .replaceAll('"', '&quot;')
     .replaceAll('\'', '&#39;');
 }
-
 </script>
 
 <style lang="scss" scoped>

@@ -1,4 +1,4 @@
-import type { Position } from 'geojson';
+import type { Feature, Polygon, Position } from 'geojson';
 
 import { getProjectWizardAoiVertices } from '~/services/project-wizard-aoi';
 
@@ -7,6 +7,7 @@ import type {
   ProjectWizardGeneratedTaskFeatureCollection,
   ProjectWizardTaskGenerationSummary,
   ProjectWizardTaskPreviewCellFeature,
+  ProjectWizardTaskPreviewCellProperties,
   ProjectWizardTaskPreviewFeatureCollection,
 } from '~/types/project-wizard';
 
@@ -79,7 +80,7 @@ export async function simulateProjectWizardTaskGeneration(
   const taskGrid: ProjectWizardGeneratedTaskFeatureCollection = {
     type: 'FeatureCollection',
     features: model.features.filter(
-      (feature): feature is ProjectWizardGeneratedTaskFeatureCollection['features'][number] =>
+      (feature): feature is Feature<Polygon, ProjectWizardTaskPreviewCellProperties> =>
         feature.geometry.type === 'Polygon',
     ),
   };
@@ -204,7 +205,15 @@ function buildProjectWizardTaskGridModel(
 }
 
 function averageLatitudeRadians(ring: Position[]): number {
-  return ring.reduce((sum, coordinate) => sum + toRadians(coordinate[1]), 0) / ring.length;
+  return ring.reduce((sum, coordinate) => {
+    const latitude = coordinate[1];
+
+    if (latitude === undefined) {
+      throw new Error('A coordinate requires a latitude value.');
+    }
+
+    return sum + toRadians(latitude);
+  }, 0) / ring.length;
 }
 
 function buildRectanglePolygon(
@@ -223,7 +232,8 @@ function buildRectanglePolygon(
 }
 
 function getProjectedBounds(projectedRing: ProjectedCoordinate[]): ProjectWizardProjectedBounds {
-  const [firstX, firstY] = projectedRing[0];
+  // Callers only invoke this with a non-empty projected ring (ring.length >= 3 is checked upstream).
+  const [firstX, firstY] = projectedRing[0]!;
   let minX = firstX;
   let maxX = firstX;
   let minY = firstY;
@@ -244,6 +254,11 @@ function projectCoordinate(
   latitudeReferenceRadians: number,
 ): ProjectedCoordinate {
   const [longitude, latitude] = coordinate;
+
+  if (longitude === undefined || latitude === undefined) {
+    throw new Error('A projected coordinate requires both longitude and latitude.');
+  }
+
   const x = EARTH_RADIUS_METERS * toRadians(longitude) * Math.cos(latitudeReferenceRadians);
   const y = EARTH_RADIUS_METERS * toRadians(latitude);
 

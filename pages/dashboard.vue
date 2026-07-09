@@ -81,7 +81,7 @@
 
 <script setup lang="ts">
 import { tdeiUserClient, workspacesClient } from '~/services/index';
-import type { Workspace } from '~/types/workspaces';
+import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
 import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 
 const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
@@ -136,11 +136,8 @@ const currentWorkspaceTdeiRoles = computed(() =>
     : [],
 );
 
-for (const w of workspaces) {
-  if (w.tdeiMetadata && w.tdeiMetadata.length > 0) {
-    w.tdeiMetadata = JSON.parse(w.tdeiMetadata);
-  }
-}
+// `tdeiMetadata` is already parsed into an object by `normalizeWorkspace`
+// (in `getMyWorkspaces`), so no per-workspace re-parse is needed here.
 
 onMounted(() => {
   watch(currentWorkspace, (val) => {
@@ -189,8 +186,10 @@ async function onCurrentWorkspacesChange(val: any) {
   }
 }
 
-function onCenterLoaded(center: any) {
-  (currentWorkspace.value! as any).center = center;
+function onCenterLoaded(center: WorkspaceCenter) {
+  if (currentWorkspace.value) {
+    currentWorkspace.value.center = center;
+  }
 }
 
 async function selectWorkspace(workspace: Workspace) {

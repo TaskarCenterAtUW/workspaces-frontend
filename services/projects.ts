@@ -1,4 +1,4 @@
-import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
+import { BaseHttpClient, BaseHttpClientError, type FetchConfig, type HttpBody } from '~/services/http';
 import { getMockWorkspaceProjectsResponse } from '~/services/mock-workspace-projects';
 
 import type { ICancelableClient } from '~/services/loading';
@@ -51,7 +51,7 @@ function normalizeTaskStatus(status: WorkspaceProjectTaskApiItem['status']): Wor
       return 'needs_more_mapping';
     case 'done':
       return 'completed';
-     case 'completed':
+    case 'completed':
       return 'completed';
     case 'to_review':
       return 'ready_for_validation'
@@ -473,8 +473,8 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
   override async _send(
     url: string,
     method: string,
-    body?: unknown,
-    config?: RequestInit,
+    body?: HttpBody,
+    config?: FetchConfig,
   ): Promise<Response> {
     try {
       await this.#tdeiClient.tryRefreshAuth();

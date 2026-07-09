@@ -39,7 +39,10 @@
         aria-valuemin="0"
         aria-valuemax="100"
       >
-        <div class="progress-bar" :style="{ width: `${progressPercent}%` }" />
+        <div
+          class="progress-bar"
+          :style="{ width: `${progressPercent}%` }"
+        />
       </div>
     </div>
 
@@ -51,12 +54,20 @@
         aria-label="Project actions"
         @click.stop
       >
-        <app-icon variant="more_vert" size="22" no-margin />
+        <app-icon
+          variant="more_vert"
+          size="22"
+          no-margin
+        />
       </button>
     </div>
 
     <!-- Stretched-link overlay: makes the full row surface navigate to the project detail page. -->
-    <nuxt-link :to="projectRoute" class="project-list-link" :aria-label="`Open project ${project.name}`" />
+    <nuxt-link
+      :to="projectRoute"
+      class="project-list-link"
+      :aria-label="`Open project ${project.name}`"
+    />
   </article>
 </template>
 

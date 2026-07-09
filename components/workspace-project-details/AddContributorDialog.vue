@@ -11,7 +11,10 @@
       </p>
 
       <div class="project-detail-add-contributor-field">
-        <label :for="searchInputId" class="form-label">Search users</label>
+        <label
+          :for="searchInputId"
+          class="form-label"
+        >Search users</label>
         <div class="project-detail-add-contributor-search-shell">
           <input
             :id="searchInputId"
@@ -21,35 +24,56 @@
             placeholder="Search by name or email"
             @input="onSearchInput"
           >
-          <app-icon variant="search" size="20" no-margin />
+          <app-icon
+            variant="search"
+            size="20"
+            no-margin
+          />
         </div>
       </div>
 
-      <div class="project-detail-add-contributor-results" aria-live="polite">
-        <div v-if="loading" class="project-detail-add-contributor-status">
+      <div
+        class="project-detail-add-contributor-results"
+        aria-live="polite"
+      >
+        <div
+          v-if="loading"
+          class="project-detail-add-contributor-status"
+        >
           <app-spinner size="sm" />
           <span>Loading users...</span>
         </div>
 
-        <p v-else-if="filteredUsers.length === 0" class="project-detail-add-contributor-status">
+        <p
+          v-else-if="filteredUsers.length === 0"
+          class="project-detail-add-contributor-status"
+        >
           No users match your search.
         </p>
 
-        <div v-else class="project-detail-add-contributor-list" role="listbox" aria-label="Available users">
+        <div
+          v-else
+          class="project-detail-add-contributor-list"
+          role="listbox"
+          aria-label="Available users"
+        >
           <button
             v-for="user in filteredUsers"
             :key="user.authUid"
             class="project-detail-add-contributor-user"
             :class="{
               'project-detail-add-contributor-user-disabled': isExistingUser(user.authUid),
-              'project-detail-add-contributor-user-selected': selectedUserId === user.authUid,
+              'project-detail-add-contributor-user-selected': selectedUserId === user.authUid
             }"
             type="button"
             :disabled="isExistingUser(user.authUid)"
             :aria-pressed="selectedUserId === user.authUid"
             @click="selectUser(user.authUid)"
           >
-            <span class="project-detail-add-contributor-avatar" aria-hidden="true">
+            <span
+              class="project-detail-add-contributor-avatar"
+              aria-hidden="true"
+            >
               {{ getInitial(user.displayName) }}
             </span>
 
@@ -69,7 +93,10 @@
       </div>
 
       <div class="project-detail-add-contributor-field">
-        <label :for="roleSelectId" class="form-label">Role</label>
+        <label
+          :for="roleSelectId"
+          class="form-label"
+        >Role</label>
         <app-select
           :id="roleSelectId"
           v-model="selectedRole"
@@ -94,7 +121,10 @@
           :disabled="!canSubmit || saving"
           @click="submit"
         >
-          <app-spinner v-if="saving" size="sm" />
+          <app-spinner
+            v-if="saving"
+            size="sm"
+          />
           <template v-else>
             Add Contributor
           </template>
@@ -125,7 +155,7 @@ interface Props {
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
-  submit: [payload: { role: WorkspaceProjectContributorRole; userId: string }];
+  'submit': [payload: { role: WorkspaceProjectContributorRole; userId: string }];
   'update:search': [value: string];
 }>();
 

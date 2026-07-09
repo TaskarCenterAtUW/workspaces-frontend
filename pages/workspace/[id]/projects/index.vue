@@ -12,7 +12,10 @@
     <section class="workspace-projects-toolbar">
       <div class="workspace-projects-filters">
         <div class="workspace-projects-search">
-          <label class="visually-hidden" for="workspace-project-search">Search Projects</label>
+          <label
+            class="visually-hidden"
+            for="workspace-project-search"
+          >Search Projects</label>
           <input
             id="workspace-project-search"
             v-model.trim="searchQuery"
@@ -20,8 +23,15 @@
             type="search"
             placeholder="Search Projects"
           >
-          <span class="workspace-projects-search-icon" aria-hidden="true">
-            <app-icon variant="search" size="22" no-margin />
+          <span
+            class="workspace-projects-search-icon"
+            aria-hidden="true"
+          >
+            <app-icon
+              variant="search"
+              size="22"
+              no-margin
+            />
           </span>
         </div>
 
@@ -47,7 +57,11 @@
       </div>
 
       <div class="workspace-projects-toolbar-actions">
-        <div class="workspace-projects-view-toggle" role="group" aria-label="Project layout">
+        <div
+          class="workspace-projects-view-toggle"
+          role="group"
+          aria-label="Project layout"
+        >
           <button
             v-for="option in viewOptions"
             :key="option.value"
@@ -57,30 +71,49 @@
             :aria-pressed="option.value === viewMode"
             @click="viewMode = option.value"
           >
-            <app-icon :variant="option.icon" size="20" no-margin />
+            <app-icon
+              :variant="option.icon"
+              size="20"
+              no-margin
+            />
             <span class="visually-hidden">{{ option.label }}</span>
           </button>
         </div>
 
-        <span class="workspace-projects-toolbar-divider" aria-hidden="true" />
+        <span
+          class="workspace-projects-toolbar-divider"
+          aria-hidden="true"
+        />
 
         <nuxt-link
           v-if="isWorkspaceLead"
           :to="createProjectRoute"
           class="btn btn-primary workspace-projects-create-button"
         >
-          <app-icon variant="add" size="22" />
+          <app-icon
+            variant="add"
+            size="22"
+          />
           New Project
         </nuxt-link>
       </div>
     </section>
 
-    <p class="visually-hidden" aria-live="polite">
+    <p
+      class="visually-hidden"
+      aria-live="polite"
+    >
       {{ liveRegionSummary }}
     </p>
 
-    <section v-if="projects.length > 0" class="workspace-projects-results">
-      <div v-if="viewMode === 'grid'" class="workspace-projects-grid">
+    <section
+      v-if="projects.length > 0"
+      class="workspace-projects-results"
+    >
+      <div
+        v-if="viewMode === 'grid'"
+        class="workspace-projects-grid"
+      >
         <workspace-projects-project-card
           v-for="project in projects"
           :key="project.id"
@@ -88,7 +121,10 @@
         />
       </div>
 
-      <div v-else class="workspace-projects-list">
+      <div
+        v-else
+        class="workspace-projects-list"
+      >
         <workspace-projects-project-list-row
           v-for="project in projects"
           :key="project.id"
@@ -97,21 +133,34 @@
       </div>
     </section>
 
-    <section v-else class="workspace-projects-empty-state">
+    <section
+      v-else
+      class="workspace-projects-empty-state"
+    >
       <p class="workspace-projects-empty-title">
         No projects match these filters.
       </p>
-      <button class="btn btn-outline-secondary" type="button" @click="resetFilters">
+      <button
+        class="btn btn-outline-secondary"
+        type="button"
+        @click="resetFilters"
+      >
         Reset Filters
       </button>
     </section>
 
-    <section v-if="pagination.total > 0" class="workspace-projects-footer">
+    <section
+      v-if="pagination.total > 0"
+      class="workspace-projects-footer"
+    >
       <p class="workspace-projects-footer-copy">
         {{ paginationSummary }}
       </p>
 
-      <nav class="workspace-projects-pagination" aria-label="Projects pagination">
+      <nav
+        class="workspace-projects-pagination"
+        aria-label="Projects pagination"
+      >
         <button
           class="workspace-projects-pagination-arrow"
           type="button"
@@ -119,7 +168,11 @@
           aria-label="Previous page"
           @click="goToPage(currentPage - 1)"
         >
-          <app-icon variant="chevron_left" size="24" no-margin />
+          <app-icon
+            variant="chevron_left"
+            size="24"
+            no-margin
+          />
         </button>
 
         <button
@@ -141,7 +194,11 @@
           aria-label="Next page"
           @click="goToPage(currentPage + 1)"
         >
-          <app-icon variant="chevron_right" size="24" no-margin />
+          <app-icon
+            variant="chevron_right"
+            size="24"
+            no-margin
+          />
         </button>
       </nav>
     </section>

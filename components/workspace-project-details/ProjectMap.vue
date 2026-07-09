@@ -6,15 +6,30 @@
     - Shows lock icons on the map canvas for tasks that are locked by a mapper.
     - Highlights the selected task and emits `select-task` when a task polygon is clicked.
   -->
-  <section class="project-detail-map-shell" aria-label="Project tasks map">
-    <div ref="mapRef" class="project-detail-map" />
+  <section
+    class="project-detail-map-shell"
+    aria-label="Project tasks map"
+  >
+    <div
+      ref="mapRef"
+      class="project-detail-map"
+    />
 
-    <div v-if="showLegend" class="project-detail-map-overlay">
-      <aside class="project-detail-map-legend" aria-label="Task legend">
+    <div
+      v-if="showLegend"
+      class="project-detail-map-overlay"
+    >
+      <aside
+        class="project-detail-map-legend"
+        aria-label="Task legend"
+      >
         <h2>Legend</h2>
 
         <ul>
-          <li v-for="item in legendItems" :key="item.label">
+          <li
+            v-for="item in legendItems"
+            :key="item.label"
+          >
             <span
               class="project-detail-map-legend-swatch"
               :style="{ backgroundColor: item.color }"
@@ -23,7 +38,11 @@
           </li>
           <li>
             <span class="project-detail-map-legend-lock">
-              <app-icon variant="lock" size="18" no-margin />
+              <app-icon
+                variant="lock"
+                size="18"
+                no-margin
+              />
             </span>
             Locked
           </li>
@@ -64,7 +83,6 @@ import type {
   FillLayerSpecification,
   GeoJSONSource,
   LineLayerSpecification,
-  LngLatBoundsLike,
   MapLayerMouseEvent,
   Marker,
   PaddingOptions,
@@ -105,6 +123,14 @@ const TASK_LINE_ID = 'project-detail-task-line';
 const TASK_GRID_FILL_ID = 'project-detail-task-grid-fill';
 const TASK_GRID_LINE_ID = 'project-detail-task-grid-line';
 const DEFAULT_CENTER: [number, number] = [-122.3321, 47.6062];
+
+/**
+ * Concrete `[[minLng, minLat], [maxLng, maxLat]]` bounding-box tuple returned by the
+ * local bounds helpers. Kept distinct from maplibre's broad `LngLatBoundsLike` union so
+ * the corners can be safely indexed/destructured; it is still assignable to `LngLatBoundsLike`
+ * (each corner is a valid `LngLatLike`) when handed to `fitBounds`.
+ */
+type BoundsTuple = [[number, number], [number, number]];
 
 const baseMapStyle: StyleSpecification = {
   version: 8,
@@ -516,18 +542,25 @@ function resolvePadding(): PaddingOptions {
  * Used for the task-grid where geometry types are mixed (Polygon + LineString).
  * Returns null if the collection has no valid geometries.
  */
-function getGenericFeatureCollectionBounds(featureCollection: FeatureCollection): LngLatBoundsLike | null {
+function getGenericFeatureCollectionBounds(featureCollection: FeatureCollection): BoundsTuple | null {
   let minLongitude = Infinity;
   let minLatitude = Infinity;
   let maxLongitude = -Infinity;
   let maxLatitude = -Infinity;
 
   for (const feature of featureCollection.features) {
-    if (!feature.geometry) {
+    const geometry = feature.geometry;
+    if (
+      !geometry
+      || (geometry.type !== 'Polygon'
+        && geometry.type !== 'MultiPolygon'
+        && geometry.type !== 'LineString'
+        && geometry.type !== 'MultiLineString')
+    ) {
       continue;
     }
 
-    const bounds = getAnyGeometryBounds(feature.geometry);
+    const bounds = getAnyGeometryBounds(geometry);
 
     if (!bounds) {
       continue;
@@ -550,7 +583,7 @@ function getGenericFeatureCollectionBounds(featureCollection: FeatureCollection)
 }
 
 /** Same as getGenericFeatureCollectionBounds but typed specifically for Polygon collections. */
-function getFeatureCollectionBounds(featureCollection: FeatureCollection<Polygon>): LngLatBoundsLike | null {
+function getFeatureCollectionBounds(featureCollection: FeatureCollection<Polygon>): BoundsTuple | null {
   let minLongitude = Infinity;
   let minLatitude = Infinity;
   let maxLongitude = -Infinity;
@@ -580,7 +613,7 @@ function getFeatureCollectionBounds(featureCollection: FeatureCollection<Polygon
 }
 
 /** Dispatch bounds calculation to the correct handler based on geometry type. */
-function getAnyGeometryBounds(geometry: Polygon | MultiPolygon | LineString | MultiLineString): LngLatBoundsLike | null {
+function getAnyGeometryBounds(geometry: Polygon | MultiPolygon | LineString | MultiLineString): BoundsTuple | null {
   if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
     return getFeatureBounds(geometry);
   }
@@ -597,7 +630,7 @@ function getAnyGeometryBounds(geometry: Polygon | MultiPolygon | LineString | Mu
  * For Polygon: `coordinates[0]` is the outer ring, `coordinates[1+]` are holes (ignored for bounds).
  * For MultiPolygon: `coordinates.flat(2)` flattens all rings from all polygons.
  */
-function getFeatureBounds(geometry: Polygon | MultiPolygon): LngLatBoundsLike | null {
+function getFeatureBounds(geometry: Polygon | MultiPolygon): BoundsTuple | null {
   const coordinates = geometry.type === 'Polygon'
     ? geometry.coordinates.flat()
     : geometry.coordinates.flat(2);
@@ -626,7 +659,7 @@ function getPolygonCenter(geometry: Polygon): [number, number] | null {
 }
 
 /** Iterate a flat array of [lng, lat] positions and return their bounding box. */
-function getBoundsFromPositions(positions: Position[]): LngLatBoundsLike | null {
+function getBoundsFromPositions(positions: Position[]): BoundsTuple | null {
   if (positions.length === 0) {
     return null;
   }
@@ -696,7 +729,7 @@ function createOutlineFeatures(geometry: Polygon | MultiPolygon): Array<Feature<
         },
         properties: {},
       }]
-      : [];
+    : [];
 }
 
 /** Change the cursor to a pointer when hovering over a clickable task polygon. */

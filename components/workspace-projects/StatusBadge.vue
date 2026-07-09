@@ -1,7 +1,13 @@
 <template>
   <span :class="badgeClasses">
-    <span class="project-status-badge-icon" aria-hidden="true">
-      <img :src="iconSrc" :alt="''">
+    <span
+      class="project-status-badge-icon"
+      aria-hidden="true"
+    >
+      <img
+        :src="iconSrc"
+        :alt="''"
+      >
     </span>
     {{ statusLabel }}
   </span>

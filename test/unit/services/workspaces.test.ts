@@ -33,6 +33,29 @@ describe('WorkspacesClient.getMyWorkspaces', () => {
     expect(workspaces[0]!.createdAt.toISOString()).toBe('2026-01-15T12:00:00.000Z');
   });
 
+  // Regression: the API sends `tdeiMetadata` inconsistently — sometimes a
+  // JSON-encoded string, sometimes an already-parsed object. Blindly calling
+  // JSON.parse() on the object form coerces it to "[object Object]" and throws
+  // `SyntaxError: "[object Object]" is not valid JSON`, which used to blow up
+  // the dashboard's <script setup>. Normalize must tolerate every form.
+  it.each([
+    ['a JSON-encoded string', '{"metadata":{"foo":"bar"}}', { metadata: { foo: 'bar' } }],
+    ['an already-parsed object', { metadata: { foo: 'bar' } }, { metadata: { foo: 'bar' } }],
+    ['null', null, {}],
+    ['an empty string', '', {}],
+    ['a malformed JSON string', '{not json', {}]
+  ])('parses tdeiMetadata when the API returns %s', async (_label, raw, expected) => {
+    server.use(
+      http.get(`${TEST_API_BASE}workspaces/mine`, () => {
+        return HttpResponse.json([{ id: 1, title: 'W', createdAt: '2026-01-15T12:00:00.000Z', tdeiMetadata: raw }]);
+      })
+    );
+
+    const [workspace] = await makeClient().getMyWorkspaces();
+
+    expect(workspace!.tdeiMetadata).toEqual(expected);
+  });
+
   it('throws a WorkspacesClientError on a non-2xx response', async () => {
     // Per-test override: make the endpoint fail. Reset automatically afterEach.
     server.use(
