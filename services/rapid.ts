@@ -114,8 +114,8 @@ export class RapidManager {
 
     console.log('Rapid editor ', this.rapidContext);
     const editSystem = this.rapidContext.systems.editor;
-    editSystem.on('stablechange', (state: any) => {
-      // this.#notifyStateChange(state);
+    editSystem.on('stablechange', (_state: any) => {
+      // this.#notifyStateChange(_state);
       const changes = editSystem.changes();
       console.log('Rapid editor changes', changes);
       const changesLength = changes.modified.length || changes.created.length || changes.deleted.length;
