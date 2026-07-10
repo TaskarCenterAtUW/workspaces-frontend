@@ -28,24 +28,32 @@ export default defineNuxtConfig({
   ],
   sourcemap: { client: 'hidden' },
   compatibilityDate: '2024-10-24',
-
+  devServer: {
+    host: '0.0.0.0',
+  },
   nitro: {
-    // deal with CORS issues during development
+    // Route every backend the SPA calls through the dev server so requests are
+    // same-origin — this avoids CORS when browsing under any hostname. Each
+    // client's base URL (VITE_* in .env) must be the matching relative prefix,
+    // e.g. VITE_API_URL=/api/v1/, VITE_OSM_URL=/osm/, VITE_TDEI_API_URL=/tdei/v1/.
+    // `changeOrigin` makes the upstream see its own Host (needed for TLS/vhosts).
     devProxy: {
-      // use these values when you want to use the existing dev backend
-      '/api': 'https://api.workspaces-dev.sidewalks.washington.edu/api/',
-      '/workspaces': 'https://osm.workspaces-dev.sidewalks.washington.edu/workspaces/',
+      '/api': { target: 'https://api.workspaces-dev.sidewalks.washington.edu/api/', changeOrigin: true },
+      '/new-api': { target: 'https://new-api.workspaces-dev.sidewalks.washington.edu/api/', changeOrigin: true },
+      '/osm': { target: 'https://osm.workspaces-dev.sidewalks.washington.edu/', changeOrigin: true },
+      '/tdei': { target: 'https://api-dev.tdei.us/api/', changeOrigin: true },
+      '/tdei-user': { target: 'https://portal-api-dev.tdei.us/api/', changeOrigin: true },
 
-      // use these values when running the backend locally, e.g. the repo workspaces-backend
-      // '/api': 'http://localhost:8000/api/',
-      // '/workspaces': 'http://localhost:8000/workspaces/',
+      // Local backend (repo workspaces-backend) instead of the shared dev API:
+      // '/api': { target: 'http://localhost:8000/api/', changeOrigin: true },
+      // '/osm': { target: 'http://localhost:8000/workspaces/', changeOrigin: true },
     },
   },
   vite: {
     server: {
-      allowedHosts: [
-        'workspaces.local',
-      ],
+      // `true` disables Vite's Host-header check, so the dev server accepts
+      // requests for any hostname (e.g. tunnels, custom local domains).
+      allowedHosts: true,
     },
     optimizeDeps: {
       // Pre-bundle these dependencies to avoid reloads during development:

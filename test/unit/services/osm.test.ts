@@ -71,40 +71,79 @@ describe('OsmApiClient.getOsmChange', () => {
   });
 });
 
-describe('OsmApiClient.postNoteComment', () => {
-  // Regression: the review Discussion panel fired NO request when commenting on
-  // a note — there was no client method and send() ignored notes entirely. This
-  // posts the text to the OSM note-comment endpoint and returns the updated note.
-  it('posts the comment text and parses the returned note', async () => {
-    let requestUrl: string | undefined;
-
+describe('OsmApiClient.getChangesetComments', () => {
+  it('requests the changeset with the discussion and returns its comments', async () => {
+    const urls: string[] = [];
     server.use(
-      http.post(`${OSM_API_BASE}notes/:id/comment.json`, ({ request }) => {
-        requestUrl = request.url;
+      http.get(`${OSM_API_BASE}changeset/5.json`, ({ request }) => {
+        urls.push(request.url);
         return HttpResponse.json({
-          type: 'Feature',
-          geometry: { type: 'Point', coordinates: [-122.3, 47.6] },
-          properties: {
-            id: 555,
-            status: 'open',
-            date_created: '2026-07-01T00:00:00Z',
+          changeset: {
+            id: 5,
+            created_at: '2026-07-01T00:00:00Z',
+            closed_at: '2026-07-01T01:00:00Z',
             comments: [
-              { date: '2026-07-01T00:00:00Z', user: 'tester', text: 'the note', action: 'opened', html: '' },
-              { date: '2026-07-02T00:00:00Z', user: 'tester', text: 'a reply', action: 'commented', html: '' }
+              { id: 1, text: 'looks good', user: 'alice', date: '2026-07-01T00:30:00Z' }
             ]
           }
         });
       })
     );
 
-    const note = await makeClient().postNoteComment(1, 555, 'a reply');
+    const comments = await makeClient().getChangesetComments(1, 5);
 
-    expect(requestUrl).toContain('notes/555/comment.json');
-    expect(new URL(requestUrl!).searchParams.get('text')).toBe('a reply');
-    expect(note?.id).toBe(555);
-    expect(note?.comments).toHaveLength(2);
-    // Comment dates are coerced from strings to Date objects.
-    expect(note?.comments[1]?.date).toBeInstanceOf(Date);
-    expect(note?.comments[1]?.text).toBe('a reply');
+    // The comments only come back when the changeset is fetched with the flag.
+    expect(urls.some(u => u.includes('include_discussion=true'))).toBe(true);
+    expect(comments).toHaveLength(1);
+    expect(comments[0]!.text).toBe('looks good');
+    expect(comments[0]!.date).toBeInstanceOf(Date);
+  });
+
+  // Regression: the review discussion used to gate the fetch on the list
+  // payload's comments_count; getChangesetComments itself must simply return []
+  // when the changeset carries no comments.
+  it('returns an empty array when the changeset has no comments', async () => {
+    server.use(
+      http.get(`${OSM_API_BASE}changeset/5.json`, () =>
+        HttpResponse.json({
+          changeset: { id: 5, created_at: '2026-07-01T00:00:00Z', closed_at: '2026-07-01T01:00:00Z' }
+        })
+      )
+    );
+
+    await expect(makeClient().getChangesetComments(1, 5)).resolves.toEqual([]);
+  });
+});
+
+describe('OsmApiClient comment posting', () => {
+  // Regression: the comment text must be sent in the query string, not a
+  // multipart body — the OSM API only reads params[:text] from the query, and
+  // this backend 401s a write whose text it can't find.
+  it('posts a changeset comment with the message text as a query parameter', async () => {
+    const urls: string[] = [];
+    server.use(
+      http.post(`${OSM_API_BASE}changeset/5/comment`, ({ request }) => {
+        urls.push(request.url);
+        return new HttpResponse(null, { status: 200 });
+      })
+    );
+
+    await makeClient().postChangesetComment(1, 5, 'nice work');
+
+    expect(urls.some(u => u.includes('text=nice%20work'))).toBe(true);
+  });
+
+  it('posts a note comment to the notes endpoint with the message text as a query parameter', async () => {
+    const urls: string[] = [];
+    server.use(
+      http.post(`${OSM_API_BASE}notes/9/comment`, ({ request }) => {
+        urls.push(request.url);
+        return new HttpResponse(null, { status: 200 });
+      })
+    );
+
+    await makeClient().postNoteComment(1, 9, 'thanks for flagging');
+
+    expect(urls.some(u => u.includes('text=thanks%20for%20flagging'))).toBe(true);
   });
 });

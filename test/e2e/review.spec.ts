@@ -404,6 +404,81 @@ test.describe('workspace review', () => {
     // unreliable headless. The selection -> overlay wiring is asserted above.
   });
 
+  // @test e2e: the discussion panel lists an item's comments and a newly posted
+  //            comment appears immediately
+  test('a note discussion lists comments and shows a newly posted one', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubReviewApis(page);
+
+    // Accept the note comment POST (osmClient.postNoteComment) so the component's
+    // optimistic append runs.
+    await page.route('**/osm/api/0.6/notes/99/comment**', route =>
+      route.fulfill({ status: 200, body: '' })
+    );
+
+    await page.goto('/workspace/1/review');
+
+    // Select the note (deterministic like feedback: the overlay does not depend
+    // on the adiff/WebGL map).
+    const noteItem = sidebar(page)
+      .locator('.review-item', { hasText: 'Curb ramp is missing here' });
+    await noteItem.click();
+
+    const overlay = page.locator('.review-overlay');
+    await expect(overlay).toBeVisible();
+
+    // Open the discussion panel via the toolbar's chat toggle. app-icon renders
+    // an empty <i> whose variant is a `md-<variant>` class, so match on that.
+    await overlay.locator('.review-toolbar button:has(.md-chat_bubble_outline)').click();
+
+    const discussion = page.locator('.review-discussion');
+    await expect(discussion).toBeVisible();
+    // The note's existing comment is listed.
+    await expect(discussion).toContainText('Curb ramp is missing here');
+
+    // Posting a comment reflects it immediately (regression: send used to clear
+    // the input without ever surfacing the new comment).
+    await discussion.locator('textarea').fill('Confirmed, still missing.');
+    await discussion.locator('button[title="Send"]').click();
+
+    await expect(discussion).toContainText('Confirmed, still missing.');
+  });
+
+  // @test e2e: if posting a comment fails, an error toast is shown and the draft
+  //            is kept so the user can retry
+  test('a failed comment post shows an error toast and keeps the draft', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubReviewApis(page);
+
+    // Fail the note comment POST.
+    await page.route('**/osm/api/0.6/notes/99/comment**', route =>
+      route.fulfill({ status: 500, body: 'boom' })
+    );
+
+    await page.goto('/workspace/1/review');
+
+    await sidebar(page).locator('.review-item', { hasText: 'Curb ramp is missing here' }).click();
+
+    const overlay = page.locator('.review-overlay');
+    await expect(overlay).toBeVisible();
+    await overlay.locator('.review-toolbar button:has(.md-chat_bubble_outline)').click();
+
+    const discussion = page.locator('.review-discussion');
+    await expect(discussion).toBeVisible();
+
+    await discussion.locator('textarea').fill('This should fail to post.');
+    await discussion.locator('button[title="Send"]').click();
+
+    // An error toast appears (transient/animated, so assert its text, not a snapshot).
+    const errorToast = page.locator('.Toastify__toast--error');
+    await expect(errorToast).toBeVisible();
+    await expect(errorToast).toContainText(/failed to post/i);
+
+    // The draft is retained (not cleared) and no comment was added to the list.
+    await expect(discussion.locator('textarea')).toHaveValue('This should fail to post.');
+    await expect(discussion.locator('.message-list')).not.toContainText('This should fail to post.');
+  });
+
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
   test('new-API calls conform to the OpenAPI spec', async ({ page }) => {
     await seedAuthenticatedSession(page);

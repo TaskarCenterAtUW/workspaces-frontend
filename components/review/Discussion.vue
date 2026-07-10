@@ -17,6 +17,7 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from 'vue3-toastify';
 import type { ReviewListItem } from '~/services/review';
 import { osmClient } from '~/services/index';
 
@@ -53,11 +54,10 @@ async function refresh() {
 }
 
 async function refreshChangeset() {
-  if (!props.item.hasComments) {
-    messages.value = [];
-    return;
-  }
-
+  // getChangesetComments already returns [] when there are none, so don't gate
+  // on props.item.hasComments — that reads the changeset-list payload's
+  // comments_count, which is never updated after posting, so a freshly added
+  // comment would otherwise never appear.
   messages.value = await osmClient.getChangesetComments(workspaceId, props.item.id);
 }
 
@@ -75,41 +75,38 @@ function noteComments(note: OsmNote): ChatMessage[] {
 }
 
 async function send(message: string) {
-  if (props.item.isChangeset) {
-    await sendChangeset(message);
-  }
-  else if (props.item.isNote) {
-    await sendNote(message);
-  }
+  try {
+    if (props.item.isChangeset) {
+      await osmClient.postChangesetComment(workspaceId, props.item.id, message);
+      // Re-fetch so the newly posted comment (and its server timestamp) appears.
+      await refreshChangeset();
+    }
+    else if (props.item.isNote) {
+      await osmClient.postNoteComment(workspaceId, props.item.id, message);
+      // Notes have no single-note fetch endpoint, so reflect the just-posted
+      // comment optimistically rather than re-listing every note.
+      appendLocalMessage(message);
+    }
 
-  chat.value?.clear();
+    // Only clear the input once the comment posted, so a failed send keeps the
+    // user's text.
+    chat.value?.clear();
+  }
+  catch {
+    toast.error('Failed to post your comment. Please try again.');
+  }
 }
 
-async function sendChangeset(message: string) {
-  await osmClient.postChangesetComment(workspaceId, props.item.id, message);
-
-  // Re-fetch the discussion so the newly posted comment appears. Fetch directly
-  // rather than via refreshChangeset(): its hasComments guard reads the
-  // changeset's cached comments_count, which is stale right after posting and
-  // would short-circuit to an empty list on a first comment.
-  messages.value = await osmClient.getChangesetComments(workspaceId, props.item.id);
-
-  // Sync the shared item's cached count so the sidebar/toolbar badges update
-  // too — commentCount reads comments_count for changesets. props.item is the
-  // reactive review-list entry, so this mutation propagates to those badges.
-  (props.item.data as OsmChangeset).comments_count = messages.value.length;
-}
-
-async function sendNote(message: string) {
-  // The comment endpoint returns the updated note, so refresh straight from it.
-  const note = await osmClient.postNoteComment(workspaceId, props.item.id, message);
-
-  if (note) {
-    // Sync the shared item's comments so the count badges update too —
-    // commentCount reads comments.length for notes.
-    (props.item.data as OsmNote).comments = note.comments;
-    messages.value = noteComments(note);
-  }
+function appendLocalMessage(text: string) {
+  messages.value = [
+    ...messages.value,
+    {
+      id: Symbol(),
+      user: osmClient.auth.displayName || undefined,
+      date: new Date(),
+      text
+    }
+  ];
 }
 </script>
 
