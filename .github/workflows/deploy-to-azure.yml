@@ -5,7 +5,7 @@ on:
             environment:
                 description: 'Environment to deploy to'
                 required: true
-                default: 'development'
+                default: 'develop'
                 type: choice
                 options:
                     - production
@@ -24,7 +24,7 @@ jobs:
               run: |
                 case "${{ inputs.environment }}" in
                     testing)     echo "target_env=Testing" >> $GITHUB_OUTPUT ;;
-                    development) echo "target_env=dev" >> $GITHUB_OUTPUT ;;
+                    develop) echo "target_env=dev" >> $GITHUB_OUTPUT ;;
                     staging)     echo "target_env=stage" >> $GITHUB_OUTPUT ;;
                     production)  echo "target_env=prod" >> $GITHUB_OUTPUT ;;
                 esac
@@ -64,3 +64,4 @@ jobs:
                     api_location: "" # Api source code path - optional
                     output_location: "" # Built app content directory - optional
                     skip_app_build: true
+                    production_branch: ${{ inputs.environment }}
