@@ -10,7 +10,7 @@ on:
                 options:
                     - production
                     - staging
-                    - development
+                    - develop
                     - testing
 jobs:
 
