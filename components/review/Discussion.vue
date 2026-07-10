@@ -23,7 +23,7 @@ import { osmClient } from '~/services/index';
 
 import type ChatBox from '~/components/ChatBox.vue';
 import type { ChatMessage } from '~/components/ChatBox.vue';
-import type { OsmChangeset, OsmNote } from '~/types/osm';
+import type { OsmNote } from '~/types/osm';
 
 interface Props {
   item: ReviewListItem;
