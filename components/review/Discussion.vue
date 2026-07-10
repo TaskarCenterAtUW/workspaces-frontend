@@ -22,7 +22,7 @@ import { osmClient } from '~/services/index';
 
 import type ChatBox from '~/components/ChatBox.vue';
 import type { ChatMessage } from '~/components/ChatBox.vue';
-import type { OsmNote } from '~/types/osm';
+import type { OsmChangeset, OsmNote } from '~/types/osm';
 
 interface Props {
   item: ReviewListItem;
@@ -62,7 +62,11 @@ async function refreshChangeset() {
 }
 
 function refreshNote() {
-  messages.value = (props.item.data as OsmNote).comments.map(comment => ({
+  messages.value = noteComments(props.item.data as OsmNote);
+}
+
+function noteComments(note: OsmNote): ChatMessage[] {
+  return note.comments.map(comment => ({
     id: Symbol(),
     user: comment.user,
     date: comment.date,
@@ -74,12 +78,38 @@ async function send(message: string) {
   if (props.item.isChangeset) {
     await sendChangeset(message);
   }
+  else if (props.item.isNote) {
+    await sendNote(message);
+  }
 
   chat.value?.clear();
 }
 
 async function sendChangeset(message: string) {
   await osmClient.postChangesetComment(workspaceId, props.item.id, message);
+
+  // Re-fetch the discussion so the newly posted comment appears. Fetch directly
+  // rather than via refreshChangeset(): its hasComments guard reads the
+  // changeset's cached comments_count, which is stale right after posting and
+  // would short-circuit to an empty list on a first comment.
+  messages.value = await osmClient.getChangesetComments(workspaceId, props.item.id);
+
+  // Sync the shared item's cached count so the sidebar/toolbar badges update
+  // too — commentCount reads comments_count for changesets. props.item is the
+  // reactive review-list entry, so this mutation propagates to those badges.
+  (props.item.data as OsmChangeset).comments_count = messages.value.length;
+}
+
+async function sendNote(message: string) {
+  // The comment endpoint returns the updated note, so refresh straight from it.
+  const note = await osmClient.postNoteComment(workspaceId, props.item.id, message);
+
+  if (note) {
+    // Sync the shared item's comments so the count badges update too —
+    // commentCount reads comments.length for notes.
+    (props.item.data as OsmNote).comments = note.comments;
+    messages.value = noteComments(note);
+  }
 }
 </script>
 

@@ -70,3 +70,41 @@ describe('OsmApiClient.getOsmChange', () => {
     expect(element.timestamp.toISOString()).toBe('2026-07-01T00:00:00.000Z');
   });
 });
+
+describe('OsmApiClient.postNoteComment', () => {
+  // Regression: the review Discussion panel fired NO request when commenting on
+  // a note — there was no client method and send() ignored notes entirely. This
+  // posts the text to the OSM note-comment endpoint and returns the updated note.
+  it('posts the comment text and parses the returned note', async () => {
+    let requestUrl: string | undefined;
+
+    server.use(
+      http.post(`${OSM_API_BASE}notes/:id/comment.json`, ({ request }) => {
+        requestUrl = request.url;
+        return HttpResponse.json({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [-122.3, 47.6] },
+          properties: {
+            id: 555,
+            status: 'open',
+            date_created: '2026-07-01T00:00:00Z',
+            comments: [
+              { date: '2026-07-01T00:00:00Z', user: 'tester', text: 'the note', action: 'opened', html: '' },
+              { date: '2026-07-02T00:00:00Z', user: 'tester', text: 'a reply', action: 'commented', html: '' }
+            ]
+          }
+        });
+      })
+    );
+
+    const note = await makeClient().postNoteComment(1, 555, 'a reply');
+
+    expect(requestUrl).toContain('notes/555/comment.json');
+    expect(new URL(requestUrl!).searchParams.get('text')).toBe('a reply');
+    expect(note?.id).toBe(555);
+    expect(note?.comments).toHaveLength(2);
+    // Comment dates are coerced from strings to Date objects.
+    expect(note?.comments[1]?.date).toBeInstanceOf(Date);
+    expect(note?.comments[1]?.text).toBe('a reply');
+  });
+});
