@@ -411,9 +411,25 @@ test.describe('workspace review', () => {
     await stubReviewApis(page);
 
     // Accept the note comment POST (osmClient.postNoteComment) so the component's
-    // optimistic append runs.
+    // optimistic append runs. The endpoint returns the updated note as a GeoJSON
+    // Feature, which postNoteComment parses — an empty body would throw and skip
+    // the optimistic append.
     await page.route('**/osm/api/0.6/notes/99/comment**', route =>
-      route.fulfill({ status: 200, body: '' })
+      route.fulfill({
+        json: {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [-122.335, 47.605] },
+          properties: {
+            id: 99,
+            status: 'open',
+            date_created: '2026-06-12T08:00:00.000Z',
+            comments: [
+              { action: 'opened', date: '2026-06-12T08:00:00.000Z', user: 'note_author', uid: 11, text: 'Curb ramp is missing here' },
+              { action: 'commented', date: '2026-07-10T00:00:00.000Z', user: 'Tester', uid: 42, text: 'Confirmed, still missing.' }
+            ]
+          }
+        }
+      })
     );
 
     await page.goto('/workspace/1/review');
