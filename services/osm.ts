@@ -470,18 +470,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     workspaceId: WorkspaceId,
     noteId: number,
     message: string,
-  ): Promise<void> {
-    // As with changeset comments, the note comment `text` goes in the query
-    // string (matches the working `POST /api/0.6/notes?...&text=` shape).
-    await this._post(`notes/${noteId}/comment?text=${encodeURIComponent(message)}`, undefined, {
-      headers: { 'X-Workspace': String(workspaceId) },
-    });
-  }
-
-  async postNoteComment(
-    workspaceId: WorkspaceId,
-    noteId: number,
-    message: string,
   ): Promise<OsmNote | undefined> {
     // OSM takes the note comment text as a query parameter and returns the
     // updated note (including the new comment) as a single GeoJSON Feature.

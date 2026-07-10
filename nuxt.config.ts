@@ -27,10 +27,10 @@ export default defineNuxtConfig({
     '~/assets/scss/main.scss',
   ],
   sourcemap: { client: 'hidden' },
-  compatibilityDate: '2024-10-24',
   devServer: {
     host: '0.0.0.0',
   },
+  compatibilityDate: '2024-10-24',
   nitro: {
     // Route every backend the SPA calls through the dev server so requests are
     // same-origin — this avoids CORS when browsing under any hostname. Each
@@ -51,9 +51,11 @@ export default defineNuxtConfig({
   },
   vite: {
     server: {
-      // `true` disables Vite's Host-header check, so the dev server accepts
-      // requests for any hostname (e.g. tunnels, custom local domains).
-      allowedHosts: true,
+      allowedHosts: [
+        '.local',
+        '.internal',
+        '.sidewalks.washington.edu',
+      ],
     },
     optimizeDeps: {
       // Pre-bundle these dependencies to avoid reloads during development:
