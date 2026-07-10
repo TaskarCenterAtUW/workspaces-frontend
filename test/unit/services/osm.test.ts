@@ -136,14 +136,28 @@ describe('OsmApiClient comment posting', () => {
   it('posts a note comment to the notes endpoint with the message text as a query parameter', async () => {
     const urls: string[] = [];
     server.use(
-      http.post(`${OSM_API_BASE}notes/9/comment`, ({ request }) => {
+      // postNoteComment hits the `.json` endpoint and parses the returned
+      // GeoJSON Feature, so the stub must respond with a valid note feature.
+      http.post(`${OSM_API_BASE}notes/9/comment.json`, ({ request }) => {
         urls.push(request.url);
-        return new HttpResponse(null, { status: 200 });
+        return HttpResponse.json({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [-122.3, 47.6] },
+          properties: {
+            id: 9,
+            status: 'open',
+            date_created: '2026-07-01T00:00:00Z',
+            comments: [
+              { text: 'thanks for flagging', user: 'tester', date: '2026-07-01T00:30:00Z' }
+            ]
+          }
+        });
       })
     );
 
     await makeClient().postNoteComment(1, 9, 'thanks for flagging');
 
-    expect(urls.some(u => u.includes('text=thanks%20for%20flagging'))).toBe(true);
+    // URLSearchParams encodes the space as `+`, not `%20`.
+    expect(urls.some(u => u.includes('text=thanks+for+flagging'))).toBe(true);
   });
 });
