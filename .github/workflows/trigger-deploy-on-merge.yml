@@ -1,0 +1,21 @@
+name: Trigger Deployment on Pull Request Merge
+on:
+    pull_request:
+        types: [closed]
+        branches: [develop, staging, production, testing]
+permissions:
+    contents: read
+    actions: write
+
+jobs:
+    deploy-frontend:
+        runs-on: ubuntu-latest
+        env:
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        steps:
+            - name: Trigger Frontend Deployment Workflow
+              run: |
+                gh workflow run deploy-to-azure.yml \
+                    --repo ${{ github.repository }} \
+                    --ref ${{ github.base_ref }} \
+                    --field environment=${{ github.event.pull_request.base.ref }}
