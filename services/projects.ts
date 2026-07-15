@@ -374,9 +374,15 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
       const body = await response.json() as WorkspaceProjectRoleApiItem;
       return body.role as WorkspaceProjectContributorRole;
     }
-    catch {
-      // 404 or network error → user has no explicit project role; treat as null.
-      return null;
+    catch (error) {
+      if (
+        error instanceof WorkspaceProjectsClientError
+        && error.response.status === 404
+      ) {
+        return null;
+      }
+
+      throw error;
     }
   }
 

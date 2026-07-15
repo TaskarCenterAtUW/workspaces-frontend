@@ -66,11 +66,14 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
     });
   });
 
+  const workspaceUsersError = ref<string | null>(null);
+
   async function ensureWorkspaceUsersLoaded() {
     if (workspaceUsersLoaded.value || workspaceUsersLoading.value) {
       return;
     }
 
+    workspaceUsersError.value = null;
     workspaceUsersLoading.value = true;
 
     try {
@@ -92,9 +95,16 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
       });
       workspaceUsersLoaded.value = true;
     }
+    catch {
+      workspaceUsersError.value = 'Failed to load workspace users. Please try again.';
+    }
     finally {
       workspaceUsersLoading.value = false;
     }
+  }
+
+  function retryLoadWorkspaceUsers() {
+    void ensureWorkspaceUsersLoaded();
   }
 
   function addValidator(user: ProjectWizardWorkspaceUser) {
@@ -155,12 +165,14 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
     filteredWorkspaceUsers,
     isSettingsStepActive,
     removeValidator,
+    retryLoadWorkspaceUsers,
     selectedValidators,
     updateInstructions,
     updateLockTimeoutHours,
     updateReviewRequired,
     updateValidatorSearchQuery,
     validatorSearchQuery,
+    workspaceUsersError,
     workspaceUsersLoading,
   };
 }

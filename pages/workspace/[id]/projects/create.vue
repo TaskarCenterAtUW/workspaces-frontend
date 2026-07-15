@@ -77,8 +77,10 @@
                   :selected-validators="selectedValidators"
                   :validator-search-query="validatorSearchQuery"
                   :workspace-users="filteredWorkspaceUsers"
+                  :workspace-users-error="workspaceUsersError"
                   :workspace-users-loading="workspaceUsersLoading"
                   @add:validator="addValidator"
+                  @retry:workspace-users="retryLoadWorkspaceUsers"
                   @remove:validator="removeValidator"
                   @update:instructions="updateInstructions"
                   @update:lock-timeout-hours="updateLockTimeoutHours"
@@ -181,7 +183,14 @@ import type {
 
 const route = useRoute();
 const workspaceId = Number(route.params.id);
-const workspace = await workspacesClient.getWorkspace(workspaceId);
+
+if (!Number.isInteger(workspaceId) || workspaceId <= 0) {
+  throw createError({ statusCode: 404, statusMessage: 'Workspace not found.' });
+}
+
+const workspace = await workspacesClient.getWorkspace(workspaceId).catch((error) => {
+  throw createError({ statusCode: 500, statusMessage: 'Failed to load workspace.', data: error });
+});
 const projectsRoute = `/workspace/${workspaceId}/projects`;
 const PROJECT_NAME_CHECK_DEBOUNCE_MS = 300;
 const IMAGERY_VALIDATION_DEBOUNCE_MS = 300;
@@ -258,7 +267,9 @@ const {
   updateReviewRequired,
   updateValidatorSearchQuery,
   validatorSearchQuery,
+  workspaceUsersError,
   workspaceUsersLoading,
+  retryLoadWorkspaceUsers,
 } = useProjectWizardSettings({
   currentStep,
   draft,
@@ -271,6 +282,15 @@ const reviewSummary = computed(() =>
   ),
 );
 
+const detailsStepComplete = computed(() =>
+  draft.details.name.trim().length > 0
+  && nameAvailabilityStatus.value === 'available'
+  && !imageryValidating.value
+  && !imageryError.value,
+);
+
+const areaStepComplete = computed(() => Boolean(draft.area.aoi));
+
 const canProceed = computed(() => {
   switch (currentStep.value) {
     case 'details':
@@ -281,7 +301,7 @@ const canProceed = computed(() => {
     case 'area':
       return Boolean(draft.area.aoi);
     case 'review':
-      return !createdProject.value;
+      return !createdProject.value && detailsStepComplete.value && areaStepComplete.value;
     default:
       return true;
   }
@@ -496,6 +516,10 @@ async function onSecondaryAction() {
 
 async function onSelectStep(step: ProjectWizardStepId) {
   if (createdProject.value) {
+    return;
+  }
+
+  if (step === 'review' && (!detailsStepComplete.value || !areaStepComplete.value)) {
     return;
   }
 

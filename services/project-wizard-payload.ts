@@ -20,6 +20,8 @@ export function parseProjectWizardCustomImagery(value: string): ProjectWizardCus
   return parsedValue as ProjectWizardCustomImagery;
 }
 
+import { sanitizeReviewHtml } from '~/services/project-wizard-review';
+
 export function buildProjectWizardCreatePayload(draft: ProjectWizardDraft): ProjectWizardCreatePayload {
   if (!draft.area.aoi) {
     throw new Error('Area of interest is required before creating a project.');
@@ -29,7 +31,7 @@ export function buildProjectWizardCreatePayload(draft: ProjectWizardDraft): Proj
     name: draft.details.name.trim(),
     description: draft.details.description.trim() || null,
     custom_imagery: parseProjectWizardCustomImagery(draft.details.imageryUrl),
-    instructions: draft.settings.instructions.trim(),
+    instructions: sanitizeReviewHtml(draft.settings.instructions).trim(),
     review_required: draft.settings.reviewRequired,
     lock_timeout_hours: draft.settings.lockTimeoutHours,
     aoi: draft.area.aoi.geometry,

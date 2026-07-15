@@ -30,10 +30,10 @@
                 Rapid task editor
               </p>
 
-              <nuxt-link class="btn btn-outline-secondary task-editor-back" :to="backToTasksRoute">
+              <button class="btn btn-outline-secondary task-editor-back" type="button" @click="handleBackNavigation">
                 <app-icon variant="arrow_back" size="18" no-margin />
                 Back to Tasks
-              </nuxt-link>
+              </button>
             </div>
 
             <h1 class="task-editor-title">
@@ -68,6 +68,7 @@
             </div>
 
             <fieldset class="task-editor-feedback-group">
+              <legend class="task-editor-feedback-legend">Feedback reason</legend>
               <label
                 v-for="option in feedbackReasonOptions"
                 :key="option.value"
@@ -124,6 +125,18 @@
         </footer>
       </aside>
     </section>
+
+    <app-confirmation-dialog
+      :visible="showUnsavedEditsDialog"
+      title="You have unsaved edits"
+      :message="`You have ${pendingEditCount} active ${pendingEditCount === 1 ? 'edit' : 'edits'} that will be discarded if you leave. Are you sure?`"
+      primary-action-label="Leave anyway"
+      primary-variant="danger"
+      secondary-action-label="Stay on page"
+      @primary-action="confirmLeaveWithUnsavedEdits"
+      @secondary-action="cancelLeaveWithUnsavedEdits"
+      @close="cancelLeaveWithUnsavedEdits"
+    />
   </app-page>
 </template>
 
@@ -155,6 +168,8 @@ const isSubmittingTask = ref(false);
 const isSubmittingChangeset = ref(false);
 const activeTaskAction = ref<'complete' | 'skip' | null>(null);
 const submitErrorMessage = ref('');
+const showUnsavedEditsDialog = ref(false);
+const pendingUnsavedAction = ref<'back' | 'skip' | null>(null);
 const pendingChangesetId = ref<number | null>(null);
 const uploadedChangesetId = ref(-1);
 const newApiUrl = import.meta.env.VITE_NEW_API_URL;
@@ -341,6 +356,34 @@ async function loadTaskDetailByTaskNumber(
     matchedTask.id,
   );
 }
+function handleBackNavigation() {
+  if (hasActiveEdits.value) {
+    pendingUnsavedAction.value = 'back';
+    showUnsavedEditsDialog.value = true;
+    return;
+  }
+
+  void navigateTo(backToTasksRoute.value);
+}
+
+function confirmLeaveWithUnsavedEdits() {
+  const action = pendingUnsavedAction.value;
+  showUnsavedEditsDialog.value = false;
+  pendingUnsavedAction.value = null;
+
+  if (action === 'skip') {
+    void skipTask();
+  }
+  else if (action === 'back') {
+    void navigateTo(backToTasksRoute.value);
+  }
+}
+
+function cancelLeaveWithUnsavedEdits() {
+  showUnsavedEditsDialog.value = false;
+  pendingUnsavedAction.value = null;
+}
+
 function handleTaskAction(actionId: 'complete' | 'skip') {
   if (actionId === 'complete') {
     if (hasActiveEdits.value) {
@@ -348,6 +391,12 @@ function handleTaskAction(actionId: 'complete' | 'skip') {
     }
 
     void submitCompletedMapping();
+    return;
+  }
+
+  if (hasActiveEdits.value) {
+    pendingUnsavedAction.value = 'skip';
+    showUnsavedEditsDialog.value = true;
     return;
   }
 

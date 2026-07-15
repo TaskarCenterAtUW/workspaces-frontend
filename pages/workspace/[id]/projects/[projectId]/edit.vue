@@ -35,7 +35,7 @@
             <button
               class="btn btn-link project-edit-cancel"
               type="button"
-              :disabled="saving"
+              :disabled="saving || mutatingMemberId !== null"
               @click="handleCancel"
             >
               Cancel
@@ -955,6 +955,10 @@ function isMemberRemovalLocked(member: EditableProjectMember) {
 }
 
 async function handleCancel() {
+  if (mutatingMemberId.value !== null) {
+    return;
+  }
+
   if (!isDirty.value) {
     await navigateTo(projectDetailRoute);
     return;
@@ -1040,8 +1044,12 @@ async function loadProjectContributors(): Promise<WorkspaceProjectContributor[]>
   try {
     return await workspaceProjectsClient.getWorkspaceProjectRoles(workspaceId, projectId);
   }
-  catch {
-    return [];
+  catch (error) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Failed to load project team members',
+      data: error,
+    });
   }
 }
 

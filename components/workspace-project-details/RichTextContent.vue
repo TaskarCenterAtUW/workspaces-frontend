@@ -20,11 +20,7 @@ interface Props {
 const props = defineProps<Props>();
 
 const safeHtml = computed(() =>
-  // DOMPurify.sanitize is a no-op on the server (returns the string unchanged),
-  // but on the client it strips any dangerous markup.
-  typeof window !== 'undefined'
-    ? DOMPurify.sanitize(props.html, { USE_PROFILES: { html: true } })
-    : props.html,
+  DOMPurify.sanitize(props.html, { USE_PROFILES: { html: true } }),
 );
 </script>
 

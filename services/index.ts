@@ -19,9 +19,11 @@ import { WorkspacesClient } from '~/services/workspaces';
 const tdeiApiUrl = import.meta.env.VITE_TDEI_API_URL;
 const tdeiUserApiUrl = import.meta.env.VITE_TDEI_USER_API_URL;
 const apiUrl = import.meta.env.VITE_API_URL;
-const newApiUrl = import.meta.env.VITE_NEW_API_URL||'https://new-api.workspaces-dev.sidewalks.washington.edu/api/v1/'
-// import.meta.env.VITE_NEW_API_URL
-//   || 'https://new-api.workspaces-dev.sidewalks.washington.edu/api/v1/';
+const newApiUrl = import.meta.env.VITE_NEW_API_URL;
+
+if (!newApiUrl) {
+  throw new Error('VITE_NEW_API_URL is required');
+}
 const osmWebUrl = import.meta.env.VITE_OSM_URL;
 const osmApiUrl = osmWebUrl + 'api/0.6/';
 const rapidUrl = import.meta.env.VITE_RAPID_URL;

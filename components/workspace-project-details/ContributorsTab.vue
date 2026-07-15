@@ -168,14 +168,14 @@
 <script setup lang="ts">
 import type { ComponentExposed } from 'vue-component-type-helpers';
 
+import { usePagination } from '~/composables/usePagination';
+import type { PaginationItem } from '~/composables/usePagination';
+
 import WorkspaceProjectDetailsAddContributorDialog from '~/components/workspace-project-details/AddContributorDialog.vue';
 import type { ProjectWizardWorkspaceUser } from '~/types/project-wizard';
 import type { WorkspaceProjectContributor, WorkspaceProjectContributorRole } from '~/types/projects';
 
 type RoleFilter = WorkspaceProjectContributorRole | 'all';
-type PaginationItem =
-  | { type: 'page'; key: string; page: number }
-  | { type: 'ellipsis'; key: string };
 
 interface SelectOption {
   label: string;
@@ -202,11 +202,9 @@ const emit = defineEmits<{
 }>();
 const addContributorDialog = useTemplateRef<ComponentExposed<typeof WorkspaceProjectDetailsAddContributorDialog>>('addContributorDialog');
 
-const maxVisiblePaginationButtons = 7;
 const searchQuery = ref('');
 const selectedRole = ref<RoleFilter>('all');
 const pageSize = ref('10');
-const currentPage = ref(1);
 const localRoles = ref<Record<string, WorkspaceProjectContributorRole>>({});
 const contributors = computed(() => props.contributors ?? []);
 
@@ -267,14 +265,10 @@ const sortedContributors = computed(() =>
   }),
 );
 
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(sortedContributors.value.length / normalizedPageSize.value)),
+const { currentPage, totalPages, paginatedItems: paginatedContributors, visiblePaginationItems } = usePagination(
+  () => sortedContributors.value,
+  () => normalizedPageSize.value,
 );
-
-const paginatedContributors = computed(() => {
-  const start = (currentPage.value - 1) * normalizedPageSize.value;
-  return sortedContributors.value.slice(start, start + normalizedPageSize.value);
-});
 
 const paginationSummary = computed(() => {
   if (sortedContributors.value.length === 0) {
@@ -287,58 +281,8 @@ const paginationSummary = computed(() => {
   return `${start}-${end} of ${sortedContributors.value.length}`;
 });
 
-const visiblePaginationItems = computed<PaginationItem[]>(() => {
-  const pages = totalPages.value;
-
-  if (pages <= maxVisiblePaginationButtons) {
-    return Array.from({ length: pages }, (_, index) => ({
-      type: 'page' as const,
-      key: `page-${index + 1}`,
-      page: index + 1,
-    }));
-  }
-
-  const firstPage = 1;
-  const lastPage = pages;
-  const current = currentPage.value;
-  const interiorSlots = maxVisiblePaginationButtons - 2;
-  let windowStart = Math.max(firstPage + 1, current - Math.floor(interiorSlots / 2));
-  let windowEnd = windowStart + interiorSlots - 1;
-
-  if (windowEnd >= lastPage) {
-    windowEnd = lastPage - 1;
-    windowStart = windowEnd - interiorSlots + 1;
-  }
-
-  const items: PaginationItem[] = [
-    { type: 'page', key: `page-${firstPage}`, page: firstPage },
-  ];
-
-  if (windowStart > firstPage + 1) {
-    items.push({ type: 'ellipsis', key: 'ellipsis-start' });
-  }
-
-  for (let page = windowStart; page <= windowEnd; page += 1) {
-    items.push({ type: 'page', key: `page-${page}`, page });
-  }
-
-  if (windowEnd < lastPage - 1) {
-    items.push({ type: 'ellipsis', key: 'ellipsis-end' });
-  }
-
-  items.push({ type: 'page', key: `page-${lastPage}`, page: lastPage });
-
-  return items;
-});
-
 watch([searchQuery, selectedRole, pageSize], () => {
   currentPage.value = 1;
-});
-
-watch(totalPages, (pageCount) => {
-  if (currentPage.value > pageCount) {
-    currentPage.value = pageCount;
-  }
 });
 
 function formatRole(role: WorkspaceProjectContributorRole) {

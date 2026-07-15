@@ -7,7 +7,7 @@
     <section
       ref="dialogRef"
       class="app-confirmation-dialog"
-      :class="`app-confirmation-dialog-${primaryVariant}`"
+      :class="`app-confirmation-dialog-theme-${primaryVariant}`"
       role="dialog"
       aria-modal="true"
       :aria-labelledby="titleId"
@@ -131,7 +131,7 @@ onBeforeUnmount(() => {
 });
 
 function handleWindowKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') {
+  if (event.key === 'Escape' && !props.busy) {
     emit('close');
   }
 }
@@ -183,12 +183,12 @@ function handleWindowKeydown(event: KeyboardEvent) {
   border-radius: 999px;
 }
 
-.app-confirmation-dialog-primary .app-confirmation-dialog-icon {
+.app-confirmation-dialog-theme-primary .app-confirmation-dialog-icon {
   color: #4b5f95;
   background: rgba(111, 133, 196, 0.1);
 }
 
-.app-confirmation-dialog-danger .app-confirmation-dialog-icon {
+.app-confirmation-dialog-theme-danger .app-confirmation-dialog-icon {
   color: $danger-red;
   background: rgba(199, 57, 58, 0.08);
 }
