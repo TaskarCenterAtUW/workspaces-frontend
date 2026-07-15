@@ -39,6 +39,7 @@ export class RapidManager {
       this.#stateCallback(state);
     }
   }
+
   onUploadResult(callback: (result: any) => void) {
     this.#uploadCallback = callback;
   }
@@ -48,7 +49,6 @@ export class RapidManager {
       this.#uploadCallback(result);
     }
   }
-
 
   load() {
     if (this.loaded.value) {
@@ -97,9 +97,7 @@ export class RapidManager {
     this.rapidContext.containerNode = this.containerNode;
     this.rapidContext.assetPath = this.#baseUrl;
 
-
     console.log('Rapid loaded', this.rapidContext);
-
   }
 
   #patchRapid() {
@@ -110,22 +108,23 @@ export class RapidManager {
     rapidOsmClient.authenticated = () => this.#tdeiAuth.ok;
 
     // Don't bother to fetch user details when uploading changesets:
-    rapidOsmService.userDetails = (callback) => { callback('dummy error') };
-    // const editor = this.rapidContext.editor;
-    // console.info('Rapid editor', editor);
+    rapidOsmService.userDetails = (callback: (error: string) => void) => {
+      callback('dummy error')
+    };
+
     console.log('Rapid editor ', this.rapidContext);
     const editSystem = this.rapidContext.systems.editor;
-    editSystem.on('stablechange', (state) => {
-      // this.#notifyStateChange(state);
+    editSystem.on('stablechange', (_state: any) => {
+      // this.#notifyStateChange(_state);
       const changes = editSystem.changes();
       console.log('Rapid editor changes', changes);
       const changesLength = changes.modified.length || changes.created.length || changes.deleted.length;
 
       this.#notifyStateChange(changesLength);
-
     });
+
     const uploader = this.rapidContext.systems.uploader;
-    uploader.on('resultSuccess', (result) => {
+    uploader.on('resultSuccess', (result: any) => {
       console.log('Rapid uploader resultSuccess', result);
       this.#notifyUploadResult(result);
     });

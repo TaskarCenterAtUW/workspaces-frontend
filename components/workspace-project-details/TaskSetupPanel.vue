@@ -9,7 +9,11 @@
       v-if="hasAoi"
       class="project-task-setup-callout project-task-setup-callout-info"
     >
-      <app-icon variant="info" size="18" no-margin />
+      <app-icon
+        variant="info"
+        size="18"
+        no-margin
+      />
       <div>
         <p>Set the task area between <strong>{{ formattedMinimumTaskArea }} km2</strong> to <strong>{{ formattedMaximumTaskArea }} km2</strong> and click generate tasks.</p>
       </div>
@@ -19,7 +23,11 @@
       v-if="!hasAoi"
       class="project-task-setup-callout project-task-setup-callout-warning"
     >
-      <app-icon variant="error" size="18" no-margin />
+      <app-icon
+        variant="error"
+        size="18"
+        no-margin
+      />
       <div>
         <strong>Area of interest unavailable</strong>
         <p>Tasks cannot be generated for this project until the project boundary is available.</p>
@@ -28,7 +36,10 @@
 
     <div class="project-task-setup-range-block">
       <div class="project-task-setup-range-header">
-        <label class="project-task-setup-label" :for="rangeInputId">Set task area</label>
+        <label
+          class="project-task-setup-label"
+          :for="rangeInputId"
+        >Set task area</label>
         <strong>{{ formattedTaskArea }} km2</strong>
       </div>
 
@@ -57,9 +68,16 @@
         :disabled="!canGenerate"
         @click="emit('generate')"
       >
-        <app-spinner v-if="generating" size="sm" />
+        <app-spinner
+          v-if="generating"
+          size="sm"
+        />
         <template v-else>
-          <app-icon variant="grid_view" size="18" no-margin />
+          <app-icon
+            variant="grid_view"
+            size="18"
+            no-margin
+          />
           {{ generatedSummary ? 'Generate Again' : 'Generate Tasks' }}
         </template>
       </button>
@@ -70,7 +88,11 @@
         :disabled="generating || saving"
         @click="emit('reset')"
       >
-        <app-icon variant="refresh" size="18" no-margin />
+        <app-icon
+          variant="refresh"
+          size="18"
+          no-margin
+        />
         Reset
       </button>
     </div>
@@ -79,7 +101,11 @@
       v-if="generatedSummary && !savedSummary"
       class="project-task-setup-callout project-task-setup-callout-success"
     >
-      <app-icon variant="check_circle" size="18" no-margin />
+      <app-icon
+        variant="check_circle"
+        size="18"
+        no-margin
+      />
       <div>
         <strong>Tasks created</strong>
         <p>This project will be created with <strong>{{ generatedSummary.totalTasks }} tasks</strong>.</p>
@@ -103,9 +129,16 @@
         :disabled="!canSave"
         @click="emit('save')"
       >
-        <app-spinner v-if="saving" size="sm" />
+        <app-spinner
+          v-if="saving"
+          size="sm"
+        />
         <template v-else>
-          <app-icon variant="task_alt" size="18" no-margin />
+          <app-icon
+            variant="task_alt"
+            size="18"
+            no-margin
+          />
           Save Tasks
         </template>
       </button>
@@ -115,7 +148,11 @@
       v-if="savedSummary"
       class="project-task-setup-callout project-task-setup-callout-success"
     >
-      <app-icon variant="check_circle" size="18" no-margin />
+      <app-icon
+        variant="check_circle"
+        size="18"
+        no-margin
+      />
       <div>
         <strong>Tasks saved</strong>
         <p>This project now has <strong>{{ savedSummary.taskCount }} tasks</strong>.</p>
@@ -182,9 +219,9 @@ interface Props {
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
-  generate: [];
-  reset: [];
-  save: [];
+  'generate': [];
+  'reset': [];
+  'save': [];
   'update:task-area': [value: number];
 }>();
 

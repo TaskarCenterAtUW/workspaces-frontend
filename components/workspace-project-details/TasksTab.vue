@@ -2,7 +2,10 @@
   <section class="project-detail-card project-detail-task-card">
     <div class="project-detail-task-toolbar">
       <div class="project-detail-task-search">
-        <label class="visually-hidden" for="project-detail-task-search">Search tasks by id</label>
+        <label
+          class="visually-hidden"
+          for="project-detail-task-search"
+        >Search tasks by id</label>
         <input
           id="project-detail-task-search"
           v-model.trim="searchQuery"
@@ -10,8 +13,15 @@
           type="search"
           placeholder="Search tasks by id"
         >
-        <span class="project-detail-task-search-icon" aria-hidden="true">
-          <app-icon variant="search" size="20" no-margin />
+        <span
+          class="project-detail-task-search-icon"
+          aria-hidden="true"
+        >
+          <app-icon
+            variant="search"
+            size="20"
+            no-margin
+          />
         </span>
       </div>
 
@@ -37,14 +47,21 @@
     </div>
 
     <div class="project-detail-task-list-wrap">
-      <div v-if="paginatedTasks.length > 0" class="project-detail-task-list-header" aria-hidden="true">
+      <div
+        v-if="paginatedTasks.length > 0"
+        class="project-detail-task-list-header"
+        aria-hidden="true"
+      >
         <span>Task ID</span>
         <span>Status</span>
         <span>Locked By</span>
         <span>Last Updated</span>
       </div>
 
-      <ul v-if="paginatedTasks.length > 0" class="project-detail-task-list">
+      <ul
+        v-if="paginatedTasks.length > 0"
+        class="project-detail-task-list"
+      >
         <li
           v-for="task in paginatedTasks"
           :key="task.id"
@@ -75,7 +92,10 @@
           <div class="project-detail-task-cell">
             <span class="project-detail-task-mobile-label">Status</span>
             <span class="project-detail-task-status">
-              <span class="project-detail-task-status-swatch" :class="`project-detail-task-status-${task.status}`" />
+              <span
+                class="project-detail-task-status-swatch"
+                :class="`project-detail-task-status-${task.status}`"
+              />
               {{ formatTaskStatus(task) }}
             </span>
           </div>
@@ -92,7 +112,10 @@
         </li>
       </ul>
 
-      <p v-else class="project-detail-task-empty">
+      <p
+        v-else
+        class="project-detail-task-empty"
+      >
         No tasks match these filters.
       </p>
     </div>
@@ -100,17 +123,27 @@
     <footer class="project-detail-task-footer">
       <p>{{ paginationSummary }}</p>
 
-      <nav class="project-detail-task-pagination" aria-label="Tasks pagination">
+      <nav
+        class="project-detail-task-pagination"
+        aria-label="Tasks pagination"
+      >
         <button
           type="button"
           :disabled="currentPage === 1"
           aria-label="Previous page"
           @click="currentPage -= 1"
         >
-          <app-icon variant="chevron_left" size="22" no-margin />
+          <app-icon
+            variant="chevron_left"
+            size="22"
+            no-margin
+          />
         </button>
 
-        <template v-for="item in visiblePaginationItems" :key="item.key">
+        <template
+          v-for="item in visiblePaginationItems"
+          :key="item.key"
+        >
           <span
             v-if="item.type === 'ellipsis'"
             class="project-detail-task-pagination-ellipsis"
@@ -136,7 +169,11 @@
           aria-label="Next page"
           @click="currentPage += 1"
         >
-          <app-icon variant="chevron_right" size="22" no-margin />
+          <app-icon
+            variant="chevron_right"
+            size="22"
+            no-margin
+          />
         </button>
       </nav>
     </footer>

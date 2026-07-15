@@ -14,19 +14,19 @@ export type WorkspaceProjectsQueryStatus = WorkspaceProjectsApiStatus;
 export type WorkspaceProjectsOrderBy = 'created_at' | 'name';
 export type WorkspaceProjectsOrderByType = 'ASC' | 'DESC';
 export type WorkspaceProjectDetailTab = 'overview' | 'instructions' | 'tasks' | 'contributions' | 'contributors';
-export type WorkspaceProjectTaskStatus =
-  | 'ready_for_mapping'
-  | 'ready_for_validation'
-  | 'needs_more_mapping'
-  | 'completed';
+export type WorkspaceProjectTaskStatus
+  = | 'ready_for_mapping'
+    | 'ready_for_validation'
+    | 'needs_more_mapping'
+    | 'completed';
 export type WorkspaceProjectContributorRole = WorkspaceRole;
 export type WorkspaceProjectContributorApiRole = WorkspaceRole;
-export type WorkspaceProjectTaskApiStatus = 'to_map' | 'to_validate' | 'more_mapping_needed' | 'done'|'completed'| 'to_review';
-export type WorkspaceProjectTaskFeedbackReasonCategory =
-  | 'incomplete_mapping'
-  | 'data_quality_issue'
-  | 'wrong_area'
-  | 'other';
+export type WorkspaceProjectTaskApiStatus = 'to_map' | 'to_validate' | 'more_mapping_needed' | 'done' | 'completed' | 'to_review';
+export type WorkspaceProjectTaskFeedbackReasonCategory
+  = | 'incomplete_mapping'
+    | 'data_quality_issue'
+    | 'wrong_area'
+    | 'other';
 export type WorkspaceProjectAoiFeature = Feature<Polygon | MultiPolygon>;
 
 export interface WorkspaceProjectApiItem {

@@ -18,7 +18,11 @@
       <span class="tdei-select-value">
         {{ selectedLabel }}
       </span>
-      <app-icon :variant="isOpen ? 'expand_less' : 'expand_more'" size="20" no-margin />
+      <app-icon
+        :variant="isOpen ? 'expand_less' : 'expand_more'"
+        size="20"
+        no-margin
+      />
     </button>
 
     <div
@@ -33,7 +37,7 @@
         class="tdei-select-option"
         :class="{
           'tdei-select-option-active': index === activeIndex,
-          'tdei-select-option-selected': option.value === model,
+          'tdei-select-option-selected': option.value === model
         }"
         type="button"
         @click="selectOption(option.value)"

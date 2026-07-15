@@ -18,7 +18,11 @@
         aria-label="Close dialog"
         @click="emit('close')"
       >
-        <app-icon variant="close" size="24" no-margin />
+        <app-icon
+          variant="close"
+          size="24"
+          no-margin
+        />
       </button>
 
       <div class="project-wizard-status-dialog-icon-shell">
@@ -31,7 +35,10 @@
         </span>
       </div>
 
-      <h2 :id="titleId" class="project-wizard-status-dialog-title">
+      <h2
+        :id="titleId"
+        class="project-wizard-status-dialog-title"
+      >
         {{ title }}
       </h2>
 
@@ -75,7 +82,7 @@ interface Props {
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
-  close: [];
+  'close': [];
   'primary-action': [];
   'secondary-action': [];
 }>();

@@ -13,14 +13,21 @@
         :disabled="props.addingContributor"
         @click="openAddContributorDialog"
       >
-        <app-icon variant="add" size="20" no-margin />
+        <app-icon
+          variant="add"
+          size="20"
+          no-margin
+        />
         <span>Add Contributor</span>
       </button>
     </header>
 
     <div class="project-detail-contributors-toolbar">
       <div class="project-detail-contributors-search">
-        <label class="visually-hidden" for="project-detail-contributors-search">Search contributors</label>
+        <label
+          class="visually-hidden"
+          for="project-detail-contributors-search"
+        >Search contributors</label>
         <input
           id="project-detail-contributors-search"
           v-model.trim="searchQuery"
@@ -28,13 +35,23 @@
           type="search"
           placeholder="Search contributors..."
         >
-        <span class="project-detail-contributors-search-icon" aria-hidden="true">
-          <app-icon variant="search" size="20" no-margin />
+        <span
+          class="project-detail-contributors-search-icon"
+          aria-hidden="true"
+        >
+          <app-icon
+            variant="search"
+            size="20"
+            no-margin
+          />
         </span>
       </div>
 
       <div class="project-detail-contributors-filter">
-        <label class="visually-hidden" for="project-detail-contributors-role">Role</label>
+        <label
+          class="visually-hidden"
+          for="project-detail-contributors-role"
+        >Role</label>
         <app-select
           id="project-detail-contributors-role"
           v-model="selectedRole"
@@ -46,7 +63,10 @@
     </div>
 
     <div class="project-detail-contributors-list-wrap">
-      <ul v-if="paginatedContributors.length > 0" class="project-detail-contributors-list">
+      <ul
+        v-if="paginatedContributors.length > 0"
+        class="project-detail-contributors-list"
+      >
         <li
           v-for="contributor in paginatedContributors"
           :key="contributor.id"
@@ -54,7 +74,10 @@
           :class="{ 'project-detail-contributors-item-updating': props.updatingContributorId === contributor.id }"
         >
           <div class="project-detail-contributors-person-wrap">
-            <div class="project-detail-contributors-avatar" aria-hidden="true">
+            <div
+              class="project-detail-contributors-avatar"
+              aria-hidden="true"
+            >
               {{ getContributorInitial(contributor.name) }}
             </div>
 
@@ -67,10 +90,10 @@
           <div class="project-detail-contributors-role-cell">
             <div class="project-detail-contributors-role-actions">
               <app-select
+                :id="`project-detail-contributor-role-${contributor.id}`"
                 :model-value="localRoles[contributor.id] ?? contributor.role"
                 :aria-label="`Change role for ${contributor.name}`"
                 :disabled="!props.canManage || props.updatingContributorId === contributor.id"
-                :id="`project-detail-contributor-role-${contributor.id}`"
                 :options="rowRoleOptions"
                 @update:model-value="handleRoleSelectUpdate(contributor, $event)"
               />
@@ -83,14 +106,21 @@
                 :aria-label="`Remove ${contributor.name}`"
                 @click="emit('remove-contributor', contributor)"
               >
-                <app-icon variant="delete" size="18" no-margin />
+                <app-icon
+                  variant="delete"
+                  size="18"
+                  no-margin
+                />
               </button>
             </div>
           </div>
         </li>
       </ul>
 
-      <p v-else class="project-detail-contributors-empty">
+      <p
+        v-else
+        class="project-detail-contributors-empty"
+      >
         No contributors match these filters.
       </p>
     </div>
@@ -111,17 +141,27 @@
           />
         </div>
 
-        <nav class="project-detail-contributors-pagination" aria-label="Contributors pagination">
+        <nav
+          class="project-detail-contributors-pagination"
+          aria-label="Contributors pagination"
+        >
           <button
             type="button"
             :disabled="currentPage === 1"
             aria-label="Previous page"
             @click="currentPage -= 1"
           >
-            <app-icon variant="chevron_left" size="22" no-margin />
+            <app-icon
+              variant="chevron_left"
+              size="22"
+              no-margin
+            />
           </button>
 
-          <template v-for="item in visiblePaginationItems" :key="item.key">
+          <template
+            v-for="item in visiblePaginationItems"
+            :key="item.key"
+          >
             <span
               v-if="item.type === 'ellipsis'"
               class="project-detail-contributors-pagination-ellipsis"
@@ -147,7 +187,11 @@
             aria-label="Next page"
             @click="currentPage += 1"
           >
-            <app-icon variant="chevron_right" size="22" no-margin />
+            <app-icon
+              variant="chevron_right"
+              size="22"
+              no-margin
+            />
           </button>
         </nav>
       </div>

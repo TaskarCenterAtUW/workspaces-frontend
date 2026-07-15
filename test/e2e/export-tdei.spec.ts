@@ -21,7 +21,7 @@ import { aWorkspace, PROJECT_GROUP_ID } from '../mocks/fixtures';
 // so the service `<option>`s shown must match that simulated response.
 //
 // The upload flow (services/export/tdei.ts, osw branch) runs:
-//   OSM  GET workspaces/{id}/bbox.json   (dataset_area not in metadata)
+//   API  GET workspaces/{id}/bbox         (dataset_area not in metadata)
 //   OSM  GET map?bbox=...                 (export workspace xml)
 //   TDEI POST osw/convert -> jobId; poll TDEI GET jobs?job_id=... until COMPLETED;
 //        TDEI GET job/download/{jobId}
@@ -155,9 +155,10 @@ test('submitting with valid values shows a loading state', async ({ page }) => {
   await stubPageLoad(page, [eligibleProjectGroup]);
   await stubServices(page);
 
-  // OSM bbox + xml export so the flow reaches the convert step. The OSM API base
-  // is http://api.test/osm/api/0.6/, so the globs must include api/0.6/.
-  await page.route('**/osm/api/0.6/workspaces/1/bbox.json', route =>
+  // Workspace bbox (new-API, decimal degrees) + OSM xml export so the flow reaches
+  // the convert step. The OSM map base is http://api.test/osm/api/0.6/, so those
+  // globs must include api/0.6/; the bbox now lives on the new API.
+  await page.route('**/workspaces/1/bbox', route =>
     route.fulfill({ json: { min_lat: 47.6, min_lon: -122.34, max_lat: 47.62, max_lon: -122.32 } })
   );
   await page.route('**/osm/api/0.6/map?**', route =>
@@ -184,7 +185,7 @@ test('a duplicate dataset version shows an error and lets the user change the ve
   await stubPageLoad(page, [eligibleProjectGroup]);
   await stubServices(page);
 
-  await page.route('**/osm/api/0.6/workspaces/1/bbox.json', route =>
+  await page.route('**/workspaces/1/bbox', route =>
     route.fulfill({ json: { min_lat: 47.6, min_lon: -122.34, max_lat: 47.62, max_lon: -122.32 } })
   );
   await page.route('**/osm/api/0.6/map?**', route =>
@@ -245,7 +246,7 @@ test('an API error shows an error message and a Try again button that resets the
   await stubPageLoad(page, [eligibleProjectGroup]);
   await stubServices(page);
 
-  await page.route('**/osm/api/0.6/workspaces/1/bbox.json', route =>
+  await page.route('**/workspaces/1/bbox', route =>
     route.fulfill({ json: { min_lat: 47.6, min_lon: -122.34, max_lat: 47.62, max_lon: -122.32 } })
   );
   await page.route('**/osm/api/0.6/map?**', route =>

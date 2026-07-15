@@ -8,7 +8,6 @@ import {
 
 import type {
   ProjectWizardCreatedProjectCheckpoint,
-  ProjectWizardCreateResult,
   ProjectWizardDraft,
   ProjectWizardStepDefinition,
   ProjectWizardStepId,
@@ -163,11 +162,9 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
   }
 
   async function createProject() {
-    let result: ProjectWizardCreateResult | null = null;
-
-    await creating.wrap(projectWizardClient, async (client) => {
-      result = await client.createProject(workspaceId, structuredClone(toRaw(draft)));
-    });
+    const result = await creating.wrap(projectWizardClient, client =>
+      client.createProject(workspaceId, structuredClone(toRaw(draft)))
+    );
 
     if (!result) {
       throw new Error('Project creation did not return a result.');

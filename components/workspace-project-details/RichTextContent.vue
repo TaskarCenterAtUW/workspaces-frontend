@@ -6,7 +6,10 @@
 
     Never remove or bypass the DOMPurify call — the `html` prop can contain raw API data.
   -->
-  <div class="project-detail-rich-text" v-html="safeHtml" />
+  <div
+    class="project-detail-rich-text"
+    v-html="safeHtml"
+  />
 </template>
 
 <script setup lang="ts">

@@ -253,13 +253,11 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async getWorkspaceBbox(workspaceId: WorkspaceId) {
-    const response = await this._get(`workspaces/${workspaceId}/bbox.json`);
-
-    if (response.status === 204) {
-      return undefined
-    }
-
-    return await response.json();
+    // The workspace bbox lives on the v1 tasking API, owned by WorkspacesClient.
+    // OsmApiClient is constructed before workspacesClient (which depends on it),
+    // so we resolve the singleton lazily at call time to avoid the import cycle.
+    const { workspacesClient } = await import('~/services/index');
+    return workspacesClient.getWorkspaceBbox(workspaceId);
   }
 
   async getExportBbox(id: number) {
@@ -407,7 +405,7 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async getOsmChange(workspaceId: WorkspaceId, changesetId: number): Promise<OsmChange> {
-    const osmChange = parseOsmChangeXml(await this.downloadOsmChange(workspaceId, changesetId));
+    const osmChange = await parseOsmChangeXml(await this.downloadOsmChange(workspaceId, changesetId));
 
     for (const type of OSMCHANGE_ACTION_TYPES) {
       for (const element of osmChange[type] ?? []) {

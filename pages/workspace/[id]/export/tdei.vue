@@ -266,7 +266,8 @@ if (canExport && !eligibleProjectGroups.some(pg => pg.tdei_project_group_id === 
   workspace.tdeiProjectGroupId = eligibleProjectGroups[0]!.tdei_project_group_id;
 }
 
-const oldMetadata = workspace.tdeiMetadata ? JSON.parse(workspace.tdeiMetadata) : {};
+// Already parsed into an object by `normalizeWorkspace` in `getWorkspace`.
+const oldMetadata = (workspace.tdeiMetadata as any) ?? {};
 
 const datasetName = ref(workspace.title);
 const datasetVersion = ref(oldMetadata.metadata?.dataset_detail?.version);

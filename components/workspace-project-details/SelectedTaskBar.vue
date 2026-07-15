@@ -1,11 +1,18 @@
 <template>
-  <section class="project-detail-task-action-bar" aria-label="Selected task actions">
+  <section
+    class="project-detail-task-action-bar"
+    aria-label="Selected task actions"
+  >
     <button
       class="btn btn-link project-detail-task-action-close"
       type="button"
       @click="$emit('close')"
     >
-      <app-icon variant="close" size="20" no-margin />
+      <app-icon
+        variant="close"
+        size="20"
+        no-margin
+      />
       Close
     </button>
 
@@ -34,7 +41,10 @@
       :disabled="actionDisabled"
       @click="$emit('action')"
     >
-      <app-spinner v-if="busy" size="sm" />
+      <app-spinner
+        v-if="busy"
+        size="sm"
+      />
       <template v-else>
         {{ actionLabel }}
       </template>

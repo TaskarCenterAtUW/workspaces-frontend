@@ -33,6 +33,29 @@ describe('WorkspacesClient.getMyWorkspaces', () => {
     expect(workspaces[0]!.createdAt.toISOString()).toBe('2026-01-15T12:00:00.000Z');
   });
 
+  // Regression: the API sends `tdeiMetadata` inconsistently — sometimes a
+  // JSON-encoded string, sometimes an already-parsed object. Blindly calling
+  // JSON.parse() on the object form coerces it to "[object Object]" and throws
+  // `SyntaxError: "[object Object]" is not valid JSON`, which used to blow up
+  // the dashboard's <script setup>. Normalize must tolerate every form.
+  it.each([
+    ['a JSON-encoded string', '{"metadata":{"foo":"bar"}}', { metadata: { foo: 'bar' } }],
+    ['an already-parsed object', { metadata: { foo: 'bar' } }, { metadata: { foo: 'bar' } }],
+    ['null', null, {}],
+    ['an empty string', '', {}],
+    ['a malformed JSON string', '{not json', {}]
+  ])('parses tdeiMetadata when the API returns %s', async (_label, raw, expected) => {
+    server.use(
+      http.get(`${TEST_API_BASE}workspaces/mine`, () => {
+        return HttpResponse.json([{ id: 1, title: 'W', createdAt: '2026-01-15T12:00:00.000Z', tdeiMetadata: raw }]);
+      })
+    );
+
+    const [workspace] = await makeClient().getMyWorkspaces();
+
+    expect(workspace!.tdeiMetadata).toEqual(expected);
+  });
+
   it('throws a WorkspacesClientError on a non-2xx response', async () => {
     // Per-test override: make the endpoint fail. Reset automatically afterEach.
     server.use(
@@ -42,5 +65,35 @@ describe('WorkspacesClient.getMyWorkspaces', () => {
     );
 
     await expect(makeClient().getMyWorkspaces()).rejects.toBeInstanceOf(WorkspacesClientError);
+  });
+});
+
+describe('WorkspacesClient.getWorkspaceBbox', () => {
+  // Use a DISTINCT new-API base so the test proves the call base-swaps onto the
+  // v1 (tasking) API — if it used the legacy base, the new-API stub wouldn't
+  // match and the fetch would fail.
+  const NEW_API_BASE = 'http://new-api.test/';
+
+  function makeBboxClient() {
+    return new WorkspacesClient(TEST_API_BASE, NEW_API_BASE, tdeiClient, osmClient);
+  }
+
+  it('fetches the bbox from the v1 endpoint and returns it unchanged (backend sends decimal degrees)', async () => {
+    // Regression: coordinates come pre-scaled from the backend, so the client
+    // must NOT re-scale them — bbox in === bbox out.
+    const bbox = { min_lat: 47.6, min_lon: -122.34, max_lat: 47.62, max_lon: -122.32 };
+    server.use(
+      http.get(`${NEW_API_BASE}workspaces/1/bbox`, () => HttpResponse.json(bbox))
+    );
+
+    await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toEqual(bbox);
+  });
+
+  it('returns undefined when the workspace has no extent (204)', async () => {
+    server.use(
+      http.get(`${NEW_API_BASE}workspaces/1/bbox`, () => new HttpResponse(null, { status: 204 }))
+    );
+
+    await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toBeUndefined();
   });
 });

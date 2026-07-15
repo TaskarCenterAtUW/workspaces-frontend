@@ -30,11 +30,29 @@ export function compareWorkspaceCreatedAtDesc(a: Workspace, b: Workspace) {
   return b.createdAt.getTime() - a.createdAt.getTime();
 }
 
+/**
+ * The API is inconsistent about `tdeiMetadata`: some responses send it as a
+ * JSON-encoded string, others as an already-parsed object. Tolerate both (and
+ * malformed values) so we never call `JSON.parse` on a non-string — doing so
+ * coerces the object to "[object Object]" and throws a SyntaxError.
+ */
+function parseTdeiMetadata(value: Workspace['tdeiMetadata']): unknown {
+  if (value == null || value === '') return {};
+  if (typeof value !== 'string') return value;
+
+  try {
+    return JSON.parse(value);
+  }
+  catch {
+    return {};
+  }
+}
+
 function normalizeWorkspace(workspace: Workspace): Workspace {
   return {
     ...workspace,
     createdAt: new Date(workspace.createdAt),
-    tdeiMetadata: JSON.parse(workspace.tdeiMetadata || '{}'),
+    tdeiMetadata: parseTdeiMetadata(workspace.tdeiMetadata) as Workspace['tdeiMetadata'],
   };
 }
 
@@ -101,8 +119,23 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     }
   }
 
-  getWorkspaceBbox(id: WorkspaceId): Promise<BoundingBox> {
-    return this.#osmClient.getWorkspaceBbox(id);
+  async getWorkspaceBbox(id: WorkspaceId): Promise<BoundingBox | undefined> {
+    const originalBaseUrl = this._baseUrl;
+    this._baseUrl = this.#newApiUrl;
+
+    try {
+      const response = await this._send(`workspaces/${id}/bbox`, 'GET');
+
+      if (response.status === 204) {
+        return undefined;
+      }
+
+      // The v1 API returns coordinates already in decimal degrees.
+      return await response.json();
+    }
+    finally {
+      this._baseUrl = originalBaseUrl;
+    }
   }
 
   async createWorkspace(workspace: WorkspaceCreation): Promise<WorkspaceId> {

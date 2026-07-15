@@ -1,6 +1,10 @@
 <template>
   <div class="project-wizard-rich-text-editor">
-    <div class="project-wizard-rich-text-editor-toolbar" role="toolbar" aria-label="Instruction formatting">
+    <div
+      class="project-wizard-rich-text-editor-toolbar"
+      role="toolbar"
+      aria-label="Instruction formatting"
+    >
       <button
         v-for="tool in tools"
         :key="tool.id"
@@ -10,11 +14,18 @@
         :aria-label="tool.label"
         @click="applyTool(tool.id)"
       >
-        <app-icon :variant="tool.icon" size="18" no-margin />
+        <app-icon
+          :variant="tool.icon"
+          size="18"
+          no-margin
+        />
       </button>
     </div>
 
-    <editor-content :editor="editor" class="project-wizard-rich-text-editor-content" />
+    <editor-content
+      :editor="editor"
+      class="project-wizard-rich-text-editor-content"
+    />
   </div>
 </template>
 
@@ -25,15 +36,15 @@ import { Link } from '@tiptap/extension-link';
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
 import { StarterKit } from '@tiptap/starter-kit';
 
-type RichTextToolId =
-  | 'bold'
-  | 'italic'
-  | 'link'
-  | 'bullet-list'
-  | 'numbered-list'
-  | 'image'
-  | 'table'
-  | 'quote';
+type RichTextToolId
+  = | 'bold'
+    | 'italic'
+    | 'link'
+    | 'bullet-list'
+    | 'numbered-list'
+    | 'image'
+    | 'table'
+    | 'quote';
 
 interface Props {
   modelValue: string;

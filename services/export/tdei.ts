@@ -289,7 +289,7 @@ export class TdeiExporter {
     //
     await Promise.all(changesets.map(async (cs) => {
       const osc = await this._osmClient.downloadOsmChange(workspace.id, cs.id);
-      const osmChange = parseOsmChangeXml(osc);
+      const osmChange = await parseOsmChangeXml(osc);
 
       files.set(`changesets/${cs.id}.json`, JSON.stringify(osmChange));
 

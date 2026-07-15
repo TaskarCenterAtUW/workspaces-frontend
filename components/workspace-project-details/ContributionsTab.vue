@@ -1,7 +1,14 @@
 <template>
   <section class="project-detail-contributions">
-    <div v-if="metrics.length > 0" class="project-detail-contribution-metrics">
-      <article v-for="metric in metrics" :key="metric.key" class="project-detail-contribution-metric">
+    <div
+      v-if="metrics.length > 0"
+      class="project-detail-contribution-metrics"
+    >
+      <article
+        v-for="metric in metrics"
+        :key="metric.key"
+        class="project-detail-contribution-metric"
+      >
         <div
           class="project-detail-contribution-ring"
           :style="{ '--metric-color': metric.color, '--metric-value': `${metric.percent}%` }"
@@ -15,7 +22,11 @@
     </div>
 
     <div class="project-detail-contribution-counts">
-      <article v-for="item in countCards" :key="item.label" class="project-detail-contribution-count-card">
+      <article
+        v-for="item in countCards"
+        :key="item.label"
+        class="project-detail-contribution-count-card"
+      >
         <h3>{{ item.label }}</h3>
         <p>{{ item.value }}</p>
       </article>
