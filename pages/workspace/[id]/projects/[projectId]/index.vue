@@ -218,6 +218,7 @@ import {
   PROJECT_WIZARD_TASK_AREA_STEP,
 } from '~/services/project-wizard-tasks';
 import { workspaceProjectsClient, workspacesClient } from '~/services/index';
+import { resolveHttpErrorMessage } from '~/services/http';
 import { resolveWorkspaceProjectTaskStatusLabel } from '~/util/task-status';
 
 import type {
@@ -560,7 +561,7 @@ async function handleGenerateTasks() {
     await generateTasks();
   }
   catch (error) {
-    openTaskGenerationErrorDialog(error);
+    await openTaskGenerationErrorDialog(error);
   }
 }
 
@@ -576,7 +577,7 @@ async function handleSaveTasks() {
     openTaskSaveSuccessDialog(result);
   }
   catch (error) {
-    openTaskSaveErrorDialog(error);
+    await openTaskSaveErrorDialog(error);
   }
 }
 
@@ -726,7 +727,7 @@ async function loadProjectGroupUsers(searchText: string = '') {
   }
   catch (error) {
     if (requestId === projectGroupUserSearchRequestId) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load workspace users');
+      toast.error(await resolveHttpErrorMessage(error, 'Failed to load workspace users'));
     }
   }
   finally {
@@ -771,7 +772,7 @@ async function handleAddContributor(payload: {
     projectContributors.value = await workspaceProjectsClient.getWorkspaceProjectRoles(workspaceId, projectId);
   }
   catch (error) {
-    toast.error(error instanceof Error ? error.message : 'Failed to add contributor');
+    toast.error(await resolveHttpErrorMessage(error, 'Failed to add contributor'));
   }
   finally {
     addingContributor.value = false;
@@ -802,7 +803,7 @@ async function confirmRemoveContributor(contributor: WorkspaceProjectContributor
     );
   }
   catch (error) {
-    toast.error(error instanceof Error ? error.message : 'Failed to remove contributor');
+    toast.error(await resolveHttpErrorMessage(error, 'Failed to remove contributor'));
   }
   finally {
     mutatingContributorId.value = null;
@@ -860,7 +861,7 @@ async function handleUpdateContributorRole(payload: {
       };
     });
 
-    toast.error(error instanceof Error ? error.message : 'Failed to update contributor role');
+    toast.error(await resolveHttpErrorMessage(error, 'Failed to update contributor role'));
   }
   finally {
     mutatingContributorId.value = null;
@@ -965,25 +966,27 @@ function openTaskSaveSuccessDialog(result: ProjectWizardTaskSaveSummary) {
   };
 }
 
-function openTaskGenerationErrorDialog(error: unknown) {
+async function openTaskGenerationErrorDialog(error: unknown) {
   statusDialog.value = {
     variant: 'error',
     title: 'Generate failed',
-    message: error instanceof Error
-      ? error.message
-      : 'Tasks could not be generated. Please try again.',
+    message: await resolveHttpErrorMessage(
+      error,
+      'Tasks could not be generated. Please try again.',
+    ),
     primaryActionLabel: 'Try Again',
     primaryActionType: 'retry-generate',
   };
 }
 
-function openTaskSaveErrorDialog(error: unknown) {
+async function openTaskSaveErrorDialog(error: unknown) {
   statusDialog.value = {
     variant: 'error',
     title: 'Save failed',
-    message: error instanceof Error
-      ? error.message
-      : 'Tasks could not be saved. Please try again.',
+    message: await resolveHttpErrorMessage(
+      error,
+      'Tasks could not be saved. Please try again.',
+    ),
     primaryActionLabel: 'Try Again',
     primaryActionType: 'retry-save',
   };
@@ -1004,41 +1007,12 @@ function formatTaskStatus(task: Pick<WorkspaceProjectTaskListItem, 'locked' | 's
 }
 
 async function resolveTaskMutationErrorMessage(error: unknown, fallbackMessage: string) {
-  if (!(error instanceof Error) || !('response' in error)) {
-    return fallbackMessage;
-  }
-
-  const response = (error as { response?: Response }).response;
-
-  if (!response) {
-    return fallbackMessage;
-  }
-
-  try {
-    // FastAPI-style validation errors come back in `detail[]`, so prefer that over the generic
-    // HTTP status text when present.
-    const body = await response.clone().json() as {
-      detail?: Array<{ msg?: string }> | string;
-    };
-
-    if (typeof body.detail === 'string' && body.detail.trim()) {
-      return body.detail;
-    }
-
-    if (Array.isArray(body.detail) && body.detail[0]?.msg) {
-      return body.detail[0].msg;
-    }
-  }
-  catch {
-    // Fall back to the generic message when the API does not return a parseable JSON body.
-  }
-
-  return error.message || fallbackMessage;
+  return await resolveHttpErrorMessage(error, fallbackMessage);
 }
 
 function resolveProjectDescriptionHtml() {
-  if (project.value.summary?.trim()) {
-    return `<p>${escapeHtml(project.value.summary)}</p>`;
+  if (project.value.description?.trim()) {
+    return `<p>${escapeHtml(project.value.description)}</p>`;
   }
 
   return '<p>Project description is not available.</p>';

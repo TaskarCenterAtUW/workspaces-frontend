@@ -39,13 +39,14 @@ export interface WorkspaceProjectApiItem {
   created_by_name: string | null;
   created_at: string;
   updated_at: string;
+  description?: string | null;
 }
 
 export interface WorkspaceProjectDetailApiItem {
   id: number;
   workspace_id: number;
   name: string;
-  instructions: string;
+  instructions: string | null;
   status: WorkspaceProjectsApiStatus;
   review_required: boolean;
   lock_timeout_hours: number;
@@ -57,6 +58,8 @@ export interface WorkspaceProjectDetailApiItem {
   created_by_name: string | null;
   created_at: string;
   updated_at: string;
+  description?: string | null;
+  custom_imagery?: Record<string, unknown> | null;
 }
 
 export interface WorkspaceProjectTaskApiLock {
@@ -117,9 +120,11 @@ export interface WorkspaceProject {
   createdAt: Date;
   updatedAt: Date;
   createdByName: string | null;
+  description: string | undefined;
 }
 
 export interface WorkspaceProjectDetail extends WorkspaceProject {
+  customImagery: Record<string, unknown> | null;
   instructions: string;
   reviewRequired: boolean;
   lockTimeoutHours: number;
@@ -128,6 +133,8 @@ export interface WorkspaceProjectDetail extends WorkspaceProject {
 }
 
 export interface WorkspaceProjectUpdatePayload {
+  customImagery: Record<string, unknown> | null;
+  description: string;
   instructions: string;
   lockTimeoutHours: number;
   name: string;

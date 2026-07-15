@@ -129,6 +129,7 @@
 
 <script setup lang="ts">
 import { rapid3Manager, rapidManager, workspaceProjectsClient } from '~/services/index';
+import { resolveHttpErrorMessage } from '~/services/http';
 import { WorkspaceProjectsClientError } from '~/services/projects';
 import type {
   WorkspaceProjectDetail,
@@ -563,24 +564,7 @@ async function skipTask() {
 }
 
 async function getTaskSubmitErrorMessage(error: unknown) {
-  if (error instanceof WorkspaceProjectsClientError) {
-    try {
-      const message = await error.response.text();
-
-      if (message) {
-        return message;
-      }
-    }
-    catch {
-      return 'Task submission failed.';
-    }
-
-    return 'Task submission failed.';
-  }
-
-  return error instanceof Error
-    ? error.message
-    : 'Task submission failed.';
+  return await resolveHttpErrorMessage(error, 'Task submission failed.');
 }
 
 function mountEditor() {

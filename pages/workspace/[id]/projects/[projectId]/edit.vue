@@ -100,6 +100,40 @@
               </client-only>
             </section>
 
+            <section v-else-if="activeSection === 'imagery'" class="project-edit-panel">
+              <header class="project-edit-panel-header">
+                <h2>Custom Imagery</h2>
+                <p>Provide one custom imagery JSON object for this project.</p>
+              </header>
+
+              <div class="project-edit-field">
+                <label class="project-edit-label" for="project-edit-custom-imagery">
+                  Imagery configuration
+                </label>
+                <textarea
+                  id="project-edit-custom-imagery"
+                  v-model="form.customImagery"
+                  class="form-control project-edit-textarea project-edit-json-textarea"
+                  :class="{ 'is-invalid': imageryError }"
+                  rows="18"
+                  placeholder="Paste one custom imagery JSON object."
+                  :aria-describedby="imageryError ? 'project-edit-custom-imagery-error' : undefined"
+                  :aria-invalid="Boolean(imageryError)"
+                />
+                <p
+                  v-if="imageryError"
+                  id="project-edit-custom-imagery-error"
+                  class="project-edit-field-error"
+                  role="alert"
+                >
+                  {{ imageryError }}
+                </p>
+                <p v-else-if="imageryValidating" class="project-edit-field-help" aria-live="polite">
+                  Validating custom imagery...
+                </p>
+              </div>
+            </section>
+
             <section v-else-if="activeSection === 'team'" class="project-edit-panel">
               <header class="project-edit-panel-header">
                 <h2>Team Members &amp; Assign Roles</h2>
@@ -336,6 +370,8 @@ import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 import { listProjectGroupUsers } from '~/services/project-wizard-users';
 import { workspaceProjectsClient, workspacesClient } from '~/services/index';
+import { resolveHttpErrorMessage } from '~/services/http';
+import { validateProjectCustomImagery } from '~/services/project-custom-imagery';
 
 import type { ProjectWizardWorkspaceUser } from '~/types/project-wizard';
 import type {
@@ -347,6 +383,7 @@ import type {
 type ProjectEditSectionId =
   | 'details'
   | 'instructions'
+  | 'imagery'
   | 'team'
   | 'configuration'
   | 'actions';
@@ -393,10 +430,13 @@ const projectsRoute = `/workspace/${workspaceId}/projects`;
 const projectDetailRoute = `/workspace/${workspaceId}/projects/${projectId}`;
 const editRoute = `${projectDetailRoute}/edit`;
 const MEMBER_SEARCH_DEBOUNCE_MS = 250;
+const IMAGERY_VALIDATION_DEBOUNCE_MS = 300;
+const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA;
 
 const sections: ProjectEditSection[] = [
   { id: 'details', label: 'Project details' },
   { id: 'instructions', label: 'Instructions' },
+  { id: 'imagery', label: 'Custom Imagery' },
   { id: 'team', label: 'Team Members' },
   { id: 'configuration', label: 'Configuration' },
   { id: 'actions', label: 'Actions' },
@@ -451,6 +491,7 @@ const actionCards: ActionCard[] = [
 const hourOptions = Array.from({ length: 24 }, (_, index) => index + 1);
 const workspace = await workspacesClient.getWorkspace(workspaceId);
 const project = ref(await loadProjectDetail());
+const initialCustomImageryJson = formatCustomImagery(project.value.customImagery);
 const projectContributors = ref<WorkspaceProjectContributor[]>(await loadProjectContributors());
 const knownUsers = ref<ProjectWizardWorkspaceUser[]>([]);
 const memberSearchDebounce = ref<ReturnType<typeof setTimeout> | null>(null);
@@ -464,8 +505,14 @@ const actionDialog = ref<ActionDialogState | null>(null);
 const actionDialogBusy = ref(false);
 const saving = ref(false);
 const pageErrorMessage = ref('');
+const imageryError = ref<string | null>(null);
+const imagerySchema = ref<object>();
+const imageryValidating = ref(false);
+const imageryValidationDebounce = ref<ReturnType<typeof setTimeout> | null>(null);
+const imageryValidationRequestId = ref(0);
 const editableMembers = ref<EditableProjectMember[]>([]);
 const form = reactive({
+  customImagery: initialCustomImageryJson,
   description: resolveInitialProjectDescription(),
   instructions: project.value.instructions,
   lockTimeoutHours: project.value.lockTimeoutHours,
@@ -525,17 +572,18 @@ const leadMemberCount = computed(() =>
 
 const canSave = computed(() =>
   !saving.value
+  && !imageryValidating.value
+  && !imageryError.value
   && saveableDirty.value
   && leadMemberCount.value > 0,
 );
 
-const isDirty = computed(() =>
-  saveableDirty.value
-  || descriptionDirty.value,
-);
+const isDirty = computed(() => saveableDirty.value);
 
 const saveableDirty = computed(() =>
-  instructionsDirty.value
+  descriptionDirty.value
+  || imageryDirty.value
+  || instructionsDirty.value
   || configurationDirty.value,
 );
 
@@ -545,6 +593,10 @@ const instructionsDirty = computed(() =>
 
 const descriptionDirty = computed(() =>
   form.description.trim() !== resolveInitialProjectDescription(),
+);
+
+const imageryDirty = computed(() =>
+  form.customImagery.trim() !== initialCustomImageryJson.trim(),
 );
 
 const configurationDirty = computed(() =>
@@ -574,6 +626,32 @@ watch(memberSearchQuery, (query) => {
   }, MEMBER_SEARCH_DEBOUNCE_MS);
 });
 
+watch(
+  () => form.customImagery,
+  (customImagery) => {
+    if (imageryValidationDebounce.value) {
+      clearTimeout(imageryValidationDebounce.value);
+    }
+
+    imageryValidationRequestId.value += 1;
+    imageryError.value = null;
+    imageryValidating.value = true;
+    const requestId = imageryValidationRequestId.value;
+
+    imageryValidationDebounce.value = setTimeout(async () => {
+      const result = await validateEditCustomImagery(customImagery);
+
+      if (requestId !== imageryValidationRequestId.value) {
+        return;
+      }
+
+      imageryError.value = result.error;
+      imageryValidating.value = false;
+    }, IMAGERY_VALIDATION_DEBOUNCE_MS);
+  },
+  { immediate: true },
+);
+
 onMounted(() => {
   void preloadKnownUsers();
 });
@@ -582,6 +660,10 @@ onBeforeUnmount(() => {
   if (memberSearchDebounce.value) {
     clearTimeout(memberSearchDebounce.value);
   }
+  if (imageryValidationDebounce.value) {
+    clearTimeout(imageryValidationDebounce.value);
+  }
+  imageryValidationRequestId.value += 1;
 });
 
 async function preloadKnownUsers() {
@@ -757,7 +839,7 @@ async function addMember(user: ProjectWizardWorkspaceUser) {
     memberSearchResults.value = [];
   }
   catch (error) {
-    toast.error(error instanceof Error ? error.message : 'Failed to add contributor');
+    toast.error(await resolveHttpErrorMessage(error, 'Failed to add contributor'));
   }
   finally {
     mutatingMemberId.value = null;
@@ -819,7 +901,7 @@ async function updateMemberRole(member: EditableProjectMember, nextRole: string 
   }
   catch (error) {
     editableMembers.value = previousMembers;
-    toast.error(error instanceof Error ? error.message : 'Failed to update contributor role');
+    toast.error(await resolveHttpErrorMessage(error, 'Failed to update contributor role'));
   }
   finally {
     mutatingMemberId.value = null;
@@ -857,7 +939,7 @@ async function removeMember(member: EditableProjectMember) {
     await refreshProjectContributors();
   }
   catch (error) {
-    toast.error(error instanceof Error ? error.message : 'Failed to remove contributor');
+    toast.error(await resolveHttpErrorMessage(error, 'Failed to remove contributor'));
   }
   finally {
     mutatingMemberId.value = null;
@@ -898,15 +980,27 @@ async function handleSave() {
     return;
   }
 
+  imageryValidating.value = true;
+  const imageryResult = await validateEditCustomImagery();
+  imageryError.value = imageryResult.error;
+  imageryValidating.value = false;
+
+  if (imageryResult.error) {
+    await openSection('imagery');
+    return;
+  }
+
   saving.value = true;
   pageErrorMessage.value = '';
 
   try {
-    if (instructionsDirty.value || configurationDirty.value) {
+    if (descriptionDirty.value || imageryDirty.value || instructionsDirty.value || configurationDirty.value) {
       project.value = await workspaceProjectsClient.updateWorkspaceProject(
         workspaceId,
         projectId,
         {
+          customImagery: imageryResult.data,
+          description: form.description,
           instructions: form.instructions,
           lockTimeoutHours: form.lockTimeoutHours,
           name: project.value.name,
@@ -919,9 +1013,10 @@ async function handleSave() {
     await navigateTo(projectDetailRoute);
   }
   catch (error) {
-    pageErrorMessage.value = error instanceof Error
-      ? error.message
-      : 'Project changes could not be saved.';
+    pageErrorMessage.value = await resolveHttpErrorMessage(
+      error,
+      'Project changes could not be saved.',
+    );
   }
   finally {
     saving.value = false;
@@ -956,38 +1051,23 @@ async function refreshProjectContributors() {
 }
 
 async function resolveProjectActionErrorMessage(error: unknown, fallbackMessage: string) {
-  if (!(error instanceof Error) || !('response' in error)) {
-    return fallbackMessage;
-  }
-
-  const response = (error as { response?: Response }).response;
-
-  if (!response) {
-    return fallbackMessage;
-  }
-
-  try {
-    const body = await response.clone().json() as {
-      detail?: Array<{ msg?: string }> | string;
-    };
-
-    if (typeof body.detail === 'string' && body.detail.trim()) {
-      return body.detail;
-    }
-
-    if (Array.isArray(body.detail) && body.detail[0]?.msg) {
-      return body.detail[0].msg;
-    }
-  }
-  catch {
-    // Fall back to the generic message when the API does not return a parseable JSON body.
-  }
-
-  return error.message || fallbackMessage;
+  return await resolveHttpErrorMessage(error, fallbackMessage);
 }
 
 function resolveInitialProjectDescription() {
-  return project.value.summary?.trim() || '';
+  return project.value.description?.trim() || '';
+}
+
+function formatCustomImagery(customImagery: Record<string, unknown> | null) {
+  return customImagery ? JSON.stringify(customImagery, null, 2) : '';
+}
+
+async function validateEditCustomImagery(customImagery = form.customImagery) {
+  return await validateProjectCustomImagery(
+    customImagery,
+    imagerySchemaUrl,
+    imagerySchema,
+  );
 }
 
 function normalizeRichText(value: string) {
@@ -1190,6 +1270,27 @@ function getInitial(value: string) {
 .project-edit-textarea {
   min-height: 13rem;
   resize: vertical;
+}
+
+.project-edit-json-textarea {
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, monospace;
+  font-size: 0.92rem;
+}
+
+.project-edit-field-error,
+.project-edit-field-help {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.project-edit-field-error {
+  color: #c7393a;
+}
+
+.project-edit-field-help {
+  color: #657091;
 }
 
 .project-edit-help {
@@ -1577,6 +1678,7 @@ function getInitial(value: string) {
   color: #c7393a;
   font-size: 0.96rem;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .project-edit-content :deep(.project-wizard-rich-text-editor) {

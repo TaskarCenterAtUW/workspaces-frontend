@@ -114,6 +114,8 @@ export interface ProjectWizardCreateRoleAssignmentPayload {
   user_id: string;
 }
 
+export type ProjectWizardCustomImagery = Record<string, unknown>;
+
 export interface ProjectWizardWorkspaceUser {
   authUid: string;
   displayName: string;
@@ -256,6 +258,8 @@ export interface ProjectWizardStoredState {
 
 export interface ProjectWizardCreatePayload {
   aoi: Polygon;
+  custom_imagery: ProjectWizardCustomImagery | null;
+  description: string | null;
   instructions: string;
   lock_timeout_hours: number;
   name: string;

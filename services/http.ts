@@ -13,6 +13,46 @@ export class BaseHttpClientError extends Error {
   }
 }
 
+export async function resolveHttpErrorMessage(
+  error: unknown,
+  fallbackMessage: string,
+): Promise<string> {
+  const response = error instanceof Error && 'response' in error
+    ? (error as { response?: Response }).response
+    : undefined;
+
+  if (response) {
+    try {
+      const body = await response.clone().json() as {
+        detail?: Array<{ msg?: string }> | string;
+      };
+
+      if (typeof body.detail === 'string' && body.detail.trim()) {
+        return body.detail;
+      }
+
+      if (Array.isArray(body.detail)) {
+        const messages = body.detail
+          .map(item => item.msg?.trim())
+          .filter((message): message is string => Boolean(message));
+
+        if (messages.length > 0) {
+          return messages.join(' ');
+        }
+      }
+    }
+    catch {
+      // Use the caller's concise fallback when the response is not JSON.
+    }
+
+    return fallbackMessage;
+  }
+
+  return error instanceof Error && error.message.trim()
+    ? error.message
+    : fallbackMessage;
+}
+
 export abstract class BaseHttpClient {
   _baseUrl: string;
   _requestHeaders = {

@@ -48,6 +48,8 @@
                   v-if="detailsStep"
                   :step="detailsStep"
                   :details="draft.details"
+                  :imagery-error="imageryError"
+                  :imagery-validating="imageryValidating"
                   :name-availability-status="nameAvailabilityStatus"
                   :name-availability-message="nameAvailabilityMessage"
                   @update:field="updateDetailsField"
@@ -162,6 +164,8 @@
 
 <script setup lang="ts">
 import { projectWizardClient, workspacesClient } from '~/services/index';
+import { resolveHttpErrorMessage } from '~/services/http';
+import { validateProjectCustomImagery } from '~/services/project-custom-imagery';
 import { buildProjectWizardReviewSummary } from '~/services/project-wizard-review';
 
 import type {
@@ -180,6 +184,8 @@ const workspaceId = Number(route.params.id);
 const workspace = await workspacesClient.getWorkspace(workspaceId);
 const projectsRoute = `/workspace/${workspaceId}/projects`;
 const PROJECT_NAME_CHECK_DEBOUNCE_MS = 300;
+const IMAGERY_VALIDATION_DEBOUNCE_MS = 300;
+const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA;
 
 const {
   creating,
@@ -222,6 +228,9 @@ const reviewStep = computed(() =>
 
 const nameAvailabilityStatus = ref<ProjectWizardNameAvailabilityStatus>('idle');
 const nameAvailabilityMessage = ref('');
+const imageryError = ref<string | null>(null);
+const imagerySchema = ref<object>();
+const imageryValidating = ref(false);
 const {
   areaImportError,
   areaWarningMessage,
@@ -265,7 +274,10 @@ const reviewSummary = computed(() =>
 const canProceed = computed(() => {
   switch (currentStep.value) {
     case 'details':
-      return draft.details.name.trim().length > 0 && nameAvailabilityStatus.value === 'available';
+      return draft.details.name.trim().length > 0
+        && nameAvailabilityStatus.value === 'available'
+        && !imageryValidating.value
+        && !imageryError.value;
     case 'area':
       return Boolean(draft.area.aoi);
     case 'review':
@@ -315,6 +327,8 @@ const mapPadding = ref({
 
 let nameCheckDebounce: ReturnType<typeof setTimeout> | undefined;
 let nameCheckRequestId = 0;
+let imageryValidationDebounce: ReturnType<typeof setTimeout> | undefined;
+let imageryValidationRequestId = 0;
 
 function syncMapPadding() {
   if (!import.meta.client) {
@@ -345,8 +359,12 @@ onBeforeUnmount(() => {
   if (nameCheckDebounce) {
     clearTimeout(nameCheckDebounce);
   }
+  if (imageryValidationDebounce) {
+    clearTimeout(imageryValidationDebounce);
+  }
 
   nameCheckRequestId += 1;
+  imageryValidationRequestId += 1;
   window.removeEventListener('resize', syncMapPadding);
 });
 
@@ -395,6 +413,45 @@ watch(
   { immediate: true },
 );
 
+watch(
+  () => draft.details.imageryUrl,
+  (customImagery) => {
+    if (imageryValidationDebounce) {
+      clearTimeout(imageryValidationDebounce);
+    }
+
+    imageryValidationRequestId += 1;
+    imageryError.value = null;
+
+    if (!customImagery.trim()) {
+      imageryValidating.value = false;
+      return;
+    }
+
+    imageryValidating.value = true;
+    const requestId = imageryValidationRequestId;
+    imageryValidationDebounce = setTimeout(async () => {
+      const result = await validateCustomImagery(customImagery);
+
+      if (requestId !== imageryValidationRequestId) {
+        return;
+      }
+
+      imageryError.value = result.error;
+      imageryValidating.value = false;
+    }, IMAGERY_VALIDATION_DEBOUNCE_MS);
+  },
+  { immediate: true },
+);
+
+async function validateCustomImagery(customImagery = draft.details.imageryUrl) {
+  return await validateProjectCustomImagery(
+    customImagery,
+    imagerySchemaUrl,
+    imagerySchema,
+  );
+}
+
 function updateDetailsField(fieldId: ProjectWizardDetailsFieldId, value: string) {
   draft.details[fieldId] = value;
 }
@@ -409,6 +466,17 @@ async function exitWizard() {
 }
 
 async function onPrimaryAction() {
+  if (currentStep.value === 'details' && draft.details.imageryUrl.trim()) {
+    imageryValidating.value = true;
+    const result = await validateCustomImagery();
+    imageryError.value = result.error;
+    imageryValidating.value = false;
+
+    if (result.error) {
+      return;
+    }
+  }
+
   if (currentStep.value === 'review') {
     await submitProject();
     return;
@@ -467,12 +535,17 @@ async function handleStatusDialogSecondaryAction() {
 
 async function submitProject() {
   try {
+    const imageryResult = await validateCustomImagery();
+    if (imageryResult.error) {
+      throw new Error(imageryResult.error);
+    }
+
     const result = await createProject();
 
     openProjectCreationSuccessDialog(result);
   }
   catch (error) {
-    openProjectCreationErrorDialog(error);
+    await openProjectCreationErrorDialog(error);
   }
 }
 
@@ -493,13 +566,14 @@ function openProjectCreationSuccessDialog(result: ProjectWizardCreateResult) {
   };
 }
 
-function openProjectCreationErrorDialog(error: unknown) {
+async function openProjectCreationErrorDialog(error: unknown) {
   statusDialog.value = {
     variant: 'error',
     title: 'Something went wrong',
-    message: error instanceof Error
-      ? error.message
-      : 'Project could not be created. Please try again.',
+    message: await resolveHttpErrorMessage(
+      error,
+      'Project could not be created. Please try again.',
+    ),
     primaryActionLabel: 'Try Again',
     primaryActionType: 'retry-create',
     primaryRoute: '',
