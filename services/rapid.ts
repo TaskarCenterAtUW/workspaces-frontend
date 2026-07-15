@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import type { TdeiAuthStore } from '~/services/tdei';
+import { convertToRapidImagerySource } from '~/util/rapid-imagery';
 
 /** Global `Rapid` namespace injected by the Rapid script at runtime. */
 declare const Rapid: any;
@@ -78,23 +79,28 @@ export class RapidManager {
   }
 
   #addCustomImagerySource(customImagerySource: Record<string, unknown> | null){
-    const customSourceData = {
-    id: 'wa-tech',
-    name: 'WA-Tech Imagery',
-    type: 'wms', // or 'wms', 'bing', etc.
-    template: 'https://waprovisoimg.centralindia.cloudapp.azure.com/arcgis/services/ImageServices/Statewide_2023_1ft_4band_wsps_83h_img/ImageServer/WMSServer?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX={bbox}&CRS={proj}&WIDTH={width}&HEIGHT={height}&LAYERS=Statewide_2023_1ft_4band_wsps_83h_img&STYLES=&FORMAT=image%2fpng&DPI=144&MAP_RESOLUTION=144&FORMAT_OPTIONS=dpi%3A144&TRANSPARENT=TRUE',
-    projection: 'EPSG:3857',
-    description: 'WA-Tech Imagery Source',
-    zoomExtent: [12, 22], // Minimum and maximum available zoom levels
-    overlay: false        // Set to true if it is a transparent layer (like street names)
-};
-    const myNewSource = new Rapid.ImagerySource(this.rapidContext,customSourceData);
+//     const customSourceData = {
+//     id: 'wa-tech',
+//     name: 'WA-Tech Imagery',
+//     type: 'wms', // or 'wms', 'bing', etc.
+//     template: 'https://waprovisoimg.centralindia.cloudapp.azure.com/arcgis/services/ImageServices/Statewide_2023_1ft_4band_wsps_83h_img/ImageServer/WMSServer?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX={bbox}&CRS={proj}&WIDTH={width}&HEIGHT={height}&LAYERS=Statewide_2023_1ft_4band_wsps_83h_img&STYLES=&FORMAT=image%2fpng&DPI=144&MAP_RESOLUTION=144&FORMAT_OPTIONS=dpi%3A144&TRANSPARENT=TRUE',
+//     projection: 'EPSG:3857',
+//     description: 'WA-Tech Imagery Source',
+//     zoomExtent: [12, 22], // Minimum and maximum available zoom levels
+//     overlay: false        // Set to true if it is a transparent layer (like street names)
+// };
+    // const myNewSource = new Rapid.ImagerySource(this.rapidContext,customSourceData);
     const imagerySystem = this.rapidContext.systems.imagery;
     
+    const newCustomSourceData = convertToRapidImagerySource(customImagerySource);
+    console.log('Custom Imagery Source Converted', newCustomSourceData);
+    const newCustomSource = new Rapid.ImagerySource(this.rapidContext,newCustomSourceData);
     // project linking changes to the imagery source, so we need to set it in the context
     // this.rapidContext.customImagerySource = customImagerySource;
 
-    // imagerySystem._imageryIndex.sources.set(myNewSource.id, myNewSource);
+    imagerySystem._imageryIndex.sources.set(newCustomSourceData.id, newCustomSource);
+    imagerySystem.setSourceByID(newCustomSourceData.id);
+    
   }
 
   switchWorkspace(workspaceId: number,  customImagerySource: Record<string, unknown> | null,) {
