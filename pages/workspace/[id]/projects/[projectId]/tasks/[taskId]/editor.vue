@@ -305,7 +305,7 @@ onMounted(() => {
   }
 
   editorContainer.value.appendChild(manager.containerNode);
-  void manager.switchWorkspace(workspaceId);
+  void manager.switchWorkspace(workspaceId, project.customImagery);
 });
 
 onBeforeUnmount(() => {
@@ -635,13 +635,18 @@ async function getTaskSubmitErrorMessage(error: unknown) {
   return await resolveHttpErrorMessage(error, 'Task submission failed.');
 }
 
-function mountEditor() {
+async function mountEditor() {
   if (!editorContainer.value) {
     return;
   }
 
   editorContainer.value.appendChild(manager.containerNode);
-  void manager.init(workspaceId);
+  try {
+    await manager.init(workspaceId, project.customImagery);
+  }
+  catch (error) {
+    console.error('Failed to initialize Rapid', error);
+  }
 }
 </script>
 

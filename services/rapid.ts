@@ -68,16 +68,16 @@ export class RapidManager {
     document.body.appendChild(script);
   }
 
-  async init(workspaceId: number) {
+  async init(workspaceId: number,customImagerySource: Record<string, unknown> | null,) {
     this.rapidContext.workspaceId = workspaceId;
     this.rapidContext.tdeiAuth = this.#tdeiAuth;
     this.rapidContext.preauth = { url: this.#osmUrl, apiUrl: this.#osmUrl };
     await this.rapidContext.initAsync();
-    this.#addCustomImagerySource();
+    this.#addCustomImagerySource(customImagerySource);
     this.#patchRapid();
   }
 
-  #addCustomImagerySource(){
+  #addCustomImagerySource(customImagerySource: Record<string, unknown> | null){
     const customSourceData = {
     id: 'wa-tech',
     name: 'WA-Tech Imagery',
@@ -90,12 +90,16 @@ export class RapidManager {
 };
     const myNewSource = new Rapid.ImagerySource(this.rapidContext,customSourceData);
     const imagerySystem = this.rapidContext.systems.imagery;
+    
+    // project linking changes to the imagery source, so we need to set it in the context
+    // this.rapidContext.customImagerySource = customImagerySource;
+
     // imagerySystem._imageryIndex.sources.set(myNewSource.id, myNewSource);
   }
 
-  switchWorkspace(workspaceId: number) {
+  switchWorkspace(workspaceId: number,  customImagerySource: Record<string, unknown> | null,) {
     this.rapidContext.workspaceId = workspaceId;
-
+    // this.rapidContext.customImagerySource = customImagerySource;
     // Induce the editor to re-read the configuration from the URL hash:
     window.dispatchEvent(new HashChangeEvent('hashchange', {
       newURL: window.location.href,
