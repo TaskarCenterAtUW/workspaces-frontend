@@ -104,21 +104,13 @@ export function useProjectEditActions(options: {
     try {
       if (dialog.actionId === 'close') {
         await workspaceProjectsClient.closeWorkspaceProject(options.workspaceId, options.projectId);
-        toast.success('Project closed');
-        await navigateTo(options.projectDetailRoute);
       }
       else if (dialog.actionId === 'reset') {
         await workspaceProjectsClient.resetWorkspaceProject(options.workspaceId, options.projectId);
-        toast.success('Project tasks reset');
-        await navigateTo({ path: options.projectDetailRoute, query: { tab: 'tasks' } });
       }
       else {
         await workspaceProjectsClient.deleteWorkspaceProject(options.workspaceId, options.projectId);
-        toast.success('Project deleted');
-        await navigateTo(options.projectsRoute);
       }
-
-      actionDialog.value = null;
     }
     catch (error) {
       const fallback = dialog.actionId === 'close'
@@ -127,10 +119,33 @@ export function useProjectEditActions(options: {
           ? 'Failed to reset project tasks'
           : 'Failed to delete project';
       toast.error(await resolveHttpErrorMessage(error, fallback));
-    }
-    finally {
       actionDialogBusy.value = false;
+      return;
     }
+
+    actionDialog.value = null;
+    toast.success(dialog.actionId === 'close'
+      ? 'Project closed'
+      : dialog.actionId === 'reset'
+        ? 'Project tasks reset'
+        : 'Project deleted');
+
+    try {
+      if (dialog.actionId === 'close') {
+        await navigateTo(options.projectDetailRoute);
+      }
+      else if (dialog.actionId === 'reset') {
+        await navigateTo({ path: options.projectDetailRoute, query: { tab: 'tasks' } });
+      }
+      else {
+        await navigateTo(options.projectsRoute);
+      }
+    }
+    catch {
+      toast.warning('The project was updated, but the next page could not be opened. Please reload.');
+    }
+
+    actionDialogBusy.value = false;
   }
 
   return {

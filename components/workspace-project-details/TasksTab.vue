@@ -290,7 +290,7 @@ const sortedTasks = computed(() => {
 
 const { currentPage, totalPages, paginatedItems: paginatedTasks, visiblePaginationItems } = usePagination(
   () => sortedTasks.value,
-  () => pageSize,
+  () => pageSize
 );
 
 const paginationSummary = computed(() => {

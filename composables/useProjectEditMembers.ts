@@ -138,6 +138,15 @@ export function useProjectEditMembers(options: {
     initializeEditableMembers();
   }
 
+  async function refreshAfterPersistedMutation(message: string) {
+    try {
+      await refreshProjectContributors();
+    }
+    catch {
+      toast.warning(message);
+    }
+  }
+
   function getSearchResultRole(userId: string): WorkspaceProjectContributorRole {
     return searchResultRoles.value[userId] ?? 'contributor';
   }
@@ -149,21 +158,50 @@ export function useProjectEditMembers(options: {
 
   async function addMember(user: ProjectWizardWorkspaceUser) {
     if (selectedMemberIds.value.has(user.authUid)) return;
+    const role = getSearchResultRole(user.authUid);
     mutatingMemberId.value = user.authUid;
     try {
       await workspaceProjectsClient.addWorkspaceProjectRole(options.workspaceId, options.projectId, {
-        role: getSearchResultRole(user.authUid),
+        role,
         userId: user.authUid,
       });
-      await refreshProjectContributors();
-      memberSearchQuery.value = '';
-      memberSearchResults.value = [];
     }
     catch (error) {
       toast.error(await resolveHttpErrorMessage(error, 'Failed to add contributor'));
-    }
-    finally {
       mutatingMemberId.value = null;
+      return;
+    }
+
+    editableMembers.value = [
+      ...editableMembers.value,
+      {
+        email: user.email,
+        id: user.authUid,
+        name: user.displayName,
+        role,
+      },
+    ];
+    memberSearchQuery.value = '';
+    memberSearchResults.value = [];
+    await refreshAfterPersistedMutation(
+      'Contributor added, but the team list could not be refreshed.',
+    );
+    mutatingMemberId.value = null;
+  }
+
+  async function persistMemberRole(member: EditableProjectMember, nextRole: WorkspaceProjectContributorRole) {
+    try {
+      await workspaceProjectsClient.updateWorkspaceProjectRole(
+        options.workspaceId,
+        options.projectId,
+        member.id,
+        nextRole,
+      );
+      return true;
+    }
+    catch (error) {
+      toast.error(await resolveHttpErrorMessage(error, 'Failed to update contributor role'));
+      return false;
     }
   }
 
@@ -179,22 +217,18 @@ export function useProjectEditMembers(options: {
       candidate.id === member.id ? { ...candidate, role: nextRole } : candidate,
     );
     mutatingMemberId.value = member.id;
-    try {
-      await workspaceProjectsClient.updateWorkspaceProjectRole(
-        options.workspaceId,
-        options.projectId,
-        member.id,
-        nextRole,
-      );
-      await refreshProjectContributors();
-    }
-    catch (error) {
+    const persisted = await persistMemberRole(member, nextRole);
+
+    if (!persisted) {
       editableMembers.value = previousMembers;
-      toast.error(await resolveHttpErrorMessage(error, 'Failed to update contributor role'));
-    }
-    finally {
       mutatingMemberId.value = null;
+      return;
     }
+
+    await refreshAfterPersistedMutation(
+      'Contributor role updated, but the team list could not be refreshed.',
+    );
+    mutatingMemberId.value = null;
   }
 
   async function removeMember(member: EditableProjectMember) {
@@ -221,14 +255,18 @@ export function useProjectEditMembers(options: {
         options.projectId,
         member.id,
       );
-      await refreshProjectContributors();
     }
     catch (error) {
       toast.error(await resolveHttpErrorMessage(error, 'Failed to remove contributor'));
-    }
-    finally {
       mutatingMemberId.value = null;
+      return;
     }
+
+    editableMembers.value = editableMembers.value.filter(candidate => candidate.id !== member.id);
+    await refreshAfterPersistedMutation(
+      'Contributor removed, but the team list could not be refreshed.',
+    );
+    mutatingMemberId.value = null;
   }
 
   function isRoleChangeLocked(member: EditableProjectMember) {

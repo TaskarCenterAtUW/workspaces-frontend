@@ -12,6 +12,7 @@
         :class="{ 'project-wizard-rich-text-editor-tool-active': isToolActive(tool.id) }"
         type="button"
         :aria-label="tool.label"
+        @mousedown.prevent
         @click="applyTool(tool.id)"
       >
         <app-icon
@@ -54,7 +55,6 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
   'update:modelValue': [value: string];
 }>();
-const lastEmittedValue = ref(props.modelValue || '');
 
 const tools: Array<{ icon: string; id: RichTextToolId; label: string }> = [
   { id: 'bold', icon: 'format_bold', label: 'Bold' },
@@ -91,7 +91,6 @@ const editor = useEditor({
   },
   onUpdate({ editor: currentEditor }) {
     const nextValue = currentEditor.isEmpty ? '' : currentEditor.getHTML();
-    lastEmittedValue.value = nextValue;
     emit('update:modelValue', nextValue);
   },
 });
@@ -105,13 +104,9 @@ watch(
       return;
     }
 
-    if (value === lastEmittedValue.value) {
-      return;
-    }
-
     const nextValue = value || '<p></p>';
 
-    if (currentEditor.getHTML() === nextValue) {
+    if (currentEditor.isFocused || currentEditor.getHTML() === nextValue) {
       return;
     }
 

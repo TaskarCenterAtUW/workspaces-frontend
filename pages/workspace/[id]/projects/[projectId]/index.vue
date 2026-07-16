@@ -447,8 +447,7 @@ const selectedTaskLockedByCurrentUser = computed(() =>
   && selectedTask.value?.lock?.user_id === currentUserId.value,
 );
 const showSelectedTaskBar = computed(() =>
-  activeTab.value === 'tasks'
-  && !showTaskSetup.value
+  !showTaskSetup.value
   && Boolean(selectedTask.value),
 );
 const selectedTaskWorkActionLabel = computed(() => {

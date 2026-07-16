@@ -12,12 +12,12 @@ export type PaginationItem
 export function usePagination<T>(
   getItems: () => T[],
   getPageSize: () => number,
-  maxVisibleButtons = 7,
+  maxVisibleButtons = 7
 ) {
   const currentPage = ref(1);
 
   const totalPages = computed(() =>
-    Math.max(1, Math.ceil(getItems().length / getPageSize())),
+    Math.max(1, Math.ceil(getItems().length / getPageSize()))
   );
 
   const paginatedItems = computed(() => {
@@ -33,7 +33,7 @@ export function usePagination<T>(
       return Array.from({ length: pages }, (_, index) => ({
         type: 'page' as const,
         key: `page-${index + 1}`,
-        page: index + 1,
+        page: index + 1
       }));
     }
 
@@ -50,7 +50,7 @@ export function usePagination<T>(
     }
 
     const items: PaginationItem[] = [
-      { type: 'page', key: `page-${firstPage}`, page: firstPage },
+      { type: 'page', key: `page-${firstPage}`, page: firstPage }
     ];
 
     if (windowStart > firstPage + 1) {

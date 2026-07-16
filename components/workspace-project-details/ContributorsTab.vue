@@ -310,7 +310,7 @@ const sortedContributors = computed(() =>
 
 const { currentPage, totalPages, paginatedItems: paginatedContributors, visiblePaginationItems } = usePagination(
   () => sortedContributors.value,
-  () => normalizedPageSize.value,
+  () => normalizedPageSize.value
 );
 
 const paginationSummary = computed(() => {

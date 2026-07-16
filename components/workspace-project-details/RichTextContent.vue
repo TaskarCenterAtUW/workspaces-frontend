@@ -25,7 +25,7 @@ interface Props {
 const props = defineProps<Props>();
 
 const safeHtml = computed(() =>
-  DOMPurify.sanitize(props.html, { USE_PROFILES: { html: true } }),
+  DOMPurify.sanitize(props.html, { USE_PROFILES: { html: true } })
 );
 </script>
 

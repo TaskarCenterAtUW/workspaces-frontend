@@ -5,6 +5,7 @@ import {
   createDefaultProjectWizardDraft,
   getProjectWizardStepDefinition,
 } from '~/services/project-wizard-definitions';
+import { isValidProjectWizardStoredState } from '~/util/project-wizard-storage';
 
 import type {
   ProjectWizardCreatedProjectCheckpoint,
@@ -19,18 +20,6 @@ function createStorageKey(workspaceId: WorkspaceId) {
   return `project-wizard:${workspaceId}`;
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function isValidStoredState(value: unknown): value is ProjectWizardStoredState {
-  if (!isObject(value)) return false;
-  if (!PROJECT_WIZARD_STEPS.includes(value.currentStep as ProjectWizardStepId)) return false;
-  if (!isObject(value.draft)) return false;
-  const { area, details, review, settings } = value.draft as Record<string, unknown>;
-  return isObject(area) && isObject(details) && isObject(review) && isObject(settings);
-}
-
 function readStoredState(workspaceId: WorkspaceId): ProjectWizardStoredState | null {
   if (!import.meta.client) {
     return null;
@@ -43,7 +32,7 @@ function readStoredState(workspaceId: WorkspaceId): ProjectWizardStoredState | n
 
   try {
     const parsed: unknown = JSON.parse(serializedState);
-    if (!isValidStoredState(parsed)) {
+    if (!isValidProjectWizardStoredState(parsed)) {
       localStorage.removeItem(createStorageKey(workspaceId));
       return null;
     }

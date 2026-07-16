@@ -73,7 +73,7 @@ function resolveJsonErrorMessage(body: unknown): string | null {
 
 export async function resolveHttpErrorMessage(
   error: unknown,
-  fallbackMessage: string,
+  fallbackMessage: string
 ): Promise<string> {
   const response = error instanceof Error && 'response' in error
     ? (error as { response?: Response }).response

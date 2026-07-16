@@ -58,6 +58,14 @@
               {{ project.name }}
               <span>#{{ project.id }}</span>
             </h1>
+
+            <p
+              v-if="editorLoadErrorMessage"
+              class="task-editor-load-error"
+              role="alert"
+            >
+              {{ editorLoadErrorMessage }}
+            </p>
           </header>
 
           <section class="task-editor-sidebar-section task-editor-instructions">
@@ -195,11 +203,14 @@ const isSubmittingTask = ref(false);
 const isSubmittingChangeset = ref(false);
 const activeTaskAction = ref<'complete' | 'skip' | null>(null);
 const submitErrorMessage = ref('');
+const editorLoadErrorMessage = ref('');
 const showUnsavedEditsDialog = ref(false);
-const pendingUnsavedAction = ref<'back' | 'skip' | null>(null);
+const pendingUnsavedAction = ref<'route' | 'skip' | null>(null);
 const pendingChangesetId = ref<number | null>(null);
 const uploadedChangesetId = ref(-1);
 const newApiUrl = import.meta.env.VITE_NEW_API_URL;
+let allowNextRouteLeave = false;
+let resolvePendingRouteLeave: ((shouldLeave: boolean) => void) | null = null;
 
 const taskActions = [
   { id: 'complete', label: 'Completed Mapping', variant: 'primary' },
@@ -261,9 +272,39 @@ useHead({
   title: `${project.name} | ${task.label} Editor`,
 });
 
+onBeforeRouteLeave(() => {
+  if (allowNextRouteLeave) {
+    allowNextRouteLeave = false;
+    return true;
+  }
+
+  if (!hasActiveEdits.value) {
+    return true;
+  }
+
+  resolvePendingRouteLeave?.(false);
+  pendingUnsavedAction.value = 'route';
+  showUnsavedEditsDialog.value = true;
+
+  return new Promise<boolean>((resolve) => {
+    resolvePendingRouteLeave = resolve;
+  });
+});
+
+function handleBeforeUnload(event: BeforeUnloadEvent) {
+  if (!hasActiveEdits.value) {
+    return;
+  }
+
+  event.preventDefault();
+  event.returnValue = '';
+}
+
 let stopLoadedWatch: (() => void) | null = null;
 
 onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
+
   if (window.matchMedia('(max-width: 991.98px)').matches) {
     isSidebarOpen.value = false;
   }
@@ -299,7 +340,8 @@ onMounted(() => {
         return;
       }
 
-      mountEditor();
+      editorLoadErrorMessage.value = '';
+      void mountEditor().catch(error => handleEditorLoadFailure('initialize', error));
       stopLoadedWatch?.();
       stopLoadedWatch = null;
     });
@@ -313,10 +355,13 @@ onMounted(() => {
   }
 
   editorContainer.value.appendChild(manager.containerNode);
-  void manager.switchWorkspace(workspaceId, project.customImagery);
+  editorLoadErrorMessage.value = '';
+  void manager.switchWorkspace(workspaceId, project.customImagery)
+    .catch(error => handleEditorLoadFailure('switch', error));
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload);
   stopLoadedWatch?.();
 });
 
@@ -384,12 +429,6 @@ async function loadTaskDetailByTaskNumber(
   );
 }
 function handleBackNavigation() {
-  if (hasActiveEdits.value) {
-    pendingUnsavedAction.value = 'back';
-    showUnsavedEditsDialog.value = true;
-    return;
-  }
-
   void navigateTo(backToTasksRoute.value);
 }
 
@@ -398,17 +437,20 @@ function confirmLeaveWithUnsavedEdits() {
   showUnsavedEditsDialog.value = false;
   pendingUnsavedAction.value = null;
 
-  if (action === 'skip') {
-    void skipTask();
+  if (action === 'route') {
+    resolvePendingRouteLeave?.(true);
+    resolvePendingRouteLeave = null;
   }
-  else if (action === 'back') {
-    void navigateTo(backToTasksRoute.value);
+  else if (action === 'skip') {
+    void skipTask();
   }
 }
 
 function cancelLeaveWithUnsavedEdits() {
   showUnsavedEditsDialog.value = false;
   pendingUnsavedAction.value = null;
+  resolvePendingRouteLeave?.(false);
+  resolvePendingRouteLeave = null;
 }
 
 function handleTaskAction(actionId: 'complete' | 'skip') {
@@ -633,7 +675,14 @@ async function skipTask() {
       task.taskNumber,
     );
 
-    await navigateTo(backToTasksRoute.value);
+    allowNextRouteLeave = true;
+
+    try {
+      await navigateTo(backToTasksRoute.value);
+    }
+    finally {
+      allowNextRouteLeave = false;
+    }
   }
   catch (error) {
     submitErrorMessage.value = await getTaskSubmitErrorMessage(error);
@@ -649,16 +698,18 @@ async function getTaskSubmitErrorMessage(error: unknown) {
 
 async function mountEditor() {
   if (!editorContainer.value) {
-    return;
+    throw new Error('Rapid editor container is unavailable.');
   }
 
   editorContainer.value.appendChild(manager.containerNode);
-  try {
-    await manager.init(workspaceId, project.customImagery);
-  }
-  catch (error) {
-    console.error('Failed to initialize Rapid', error);
-  }
+  await manager.init(workspaceId, project.customImagery);
+}
+
+function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown) {
+  console.error(`Failed to ${action} Rapid`, error);
+  editorLoadErrorMessage.value = action === 'initialize'
+    ? 'Rapid could not start. Refresh the page to try again, or return to Tasks.'
+    : 'Rapid could not load this workspace. Refresh the page to try again, or return to Tasks.';
 }
 </script>
 
@@ -721,6 +772,17 @@ async function mountEditor() {
 
 .task-editor-sidebar:not(.task-editor-sidebar-open) {
   box-shadow: -0.2rem 0 1rem rgba($text-navy, 0.04);
+}
+
+.task-editor-load-error {
+  margin: 0.85rem 0 0;
+  padding: 0.75rem;
+  color: $danger-red;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  background: rgba($white, 0.92);
+  border: 1px solid rgba($danger-red, 0.28);
+  border-radius: 0.75rem;
 }
 
 .task-editor-sidebar-scroll {

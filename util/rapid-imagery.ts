@@ -68,7 +68,7 @@ export function convertToRapidImagerySource(customImagerySource: ImagerySource |
   // this is the bare minimum required configuration.
   // Has to be done better.
   const extent: unknown = customImagerySource.extent;
-  const minZoom = isExtentWithZoom(extent) ? (extent.min_zoom ?? 12) : 12;
+  const minZoom = isExtentWithZoom(extent) ? (extent.min_zoom ?? 0) : 0;
   const maxZoom = isExtentWithZoom(extent) ? (extent.max_zoom ?? 22) : 22;
   return {
     id: customImagerySource.id,

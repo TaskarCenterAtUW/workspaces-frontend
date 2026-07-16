@@ -473,26 +473,60 @@ watch(
 
     imageryValidating.value = true;
     const requestId = imageryValidationRequestId;
-    imageryValidationDebounce = setTimeout(async () => {
-      const result = await validateCustomImagery(customImagery);
+    imageryValidationDebounce = setTimeout(() => {
+      imageryValidationDebounce = undefined;
+      void validateCustomImagery(customImagery, requestId).then((result) => {
+        if (!isCurrentImageryValidation(customImagery, requestId)) {
+          return;
+        }
 
-      if (requestId !== imageryValidationRequestId) {
-        return;
-      }
-
-      imageryError.value = result.error;
-      imageryValidating.value = false;
+        imageryError.value = result.error;
+      });
     }, IMAGERY_VALIDATION_DEBOUNCE_MS);
   },
   { immediate: true },
 );
 
-async function validateCustomImagery(customImagery = draft.details.imageryUrl) {
-  return await validateProjectCustomImagery(
-    customImagery,
-    imagerySchemaUrl,
-    imagerySchema,
-  );
+async function validateCustomImagery(customImagery: string, requestId: number) {
+  try {
+    return await validateProjectCustomImagery(
+      customImagery,
+      imagerySchemaUrl,
+      imagerySchema,
+    );
+  }
+  catch (error) {
+    console.error('Custom imagery validation failed', error);
+    return {
+      data: null,
+      error: 'Custom imagery could not be validated. Please try again.',
+    };
+  }
+  finally {
+    if (requestId === imageryValidationRequestId) {
+      imageryValidating.value = false;
+    }
+  }
+}
+
+function isCurrentImageryValidation(customImagery: string, requestId: number) {
+  return requestId === imageryValidationRequestId
+    && customImagery === draft.details.imageryUrl;
+}
+
+async function validateCurrentCustomImagery() {
+  if (imageryValidationDebounce) {
+    clearTimeout(imageryValidationDebounce);
+    imageryValidationDebounce = undefined;
+  }
+
+  const customImagery = draft.details.imageryUrl;
+  const requestId = ++imageryValidationRequestId;
+  imageryValidating.value = true;
+  imageryError.value = null;
+  const result = await validateCustomImagery(customImagery, requestId);
+
+  return { customImagery, requestId, result };
 }
 
 function updateDetailsField(fieldId: ProjectWizardDetailsFieldId, value: string) {
@@ -510,12 +544,16 @@ async function exitWizard() {
 
 async function onPrimaryAction() {
   if (currentStep.value === 'details' && draft.details.imageryUrl.trim()) {
-    imageryValidating.value = true;
-    const result = await validateCustomImagery();
-    imageryError.value = result.error;
-    imageryValidating.value = false;
+    const validation = await validateCurrentCustomImagery();
 
-    if (result.error) {
+    if (!isCurrentImageryValidation(validation.customImagery, validation.requestId)
+      || currentStep.value !== 'details') {
+      return;
+    }
+
+    imageryError.value = validation.result.error;
+
+    if (validation.result.error) {
       return;
     }
   }
@@ -582,9 +620,15 @@ async function handleStatusDialogSecondaryAction() {
 
 async function submitProject() {
   try {
-    const imageryResult = await validateCustomImagery();
-    if (imageryResult.error) {
-      throw new Error(imageryResult.error);
+    const validation = await validateCurrentCustomImagery();
+
+    if (!isCurrentImageryValidation(validation.customImagery, validation.requestId)) {
+      return;
+    }
+
+    imageryError.value = validation.result.error;
+    if (validation.result.error) {
+      throw new Error(validation.result.error);
     }
 
     const result = await createProject();

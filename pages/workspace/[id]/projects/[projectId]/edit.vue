@@ -546,6 +546,7 @@ const imagerySchema = ref<object>();
 const imageryValidating = ref(false);
 const imageryValidationDebounce = ref<ReturnType<typeof setTimeout> | null>(null);
 const imageryValidationRequestId = ref(0);
+let allowNextRouteLeave = false;
 const {
   addMember,
   editableMembers,
@@ -654,6 +655,32 @@ const configurationDirty = computed(() =>
   ),
 );
 
+onBeforeRouteLeave(async () => {
+  if (allowNextRouteLeave) {
+    allowNextRouteLeave = false;
+    return true;
+  }
+
+  if (!isDirty.value) {
+    return true;
+  }
+
+  return await confirmDiscardProjectEdits();
+});
+
+function handleBeforeUnload(event: BeforeUnloadEvent) {
+  if (!isDirty.value) {
+    return;
+  }
+
+  event.preventDefault();
+  event.returnValue = '';
+}
+
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
+});
+
 watch(
   () => form.customImagery,
   (customImagery) => {
@@ -681,6 +708,8 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+
   if (imageryValidationDebounce.value) {
     clearTimeout(imageryValidationDebounce.value);
   }
@@ -699,11 +728,10 @@ async function handleCancel() {
     return;
   }
 
-  if (!isDirty.value) {
-    await navigateTo(projectDetailRoute);
-    return;
-  }
+  await navigateTo(projectDetailRoute);
+}
 
+async function confirmDiscardProjectEdits() {
   const value = await create({
     title: 'Discard changes',
     body: 'Leave this page and discard unsaved project edits?',
@@ -714,8 +742,17 @@ async function handleCancel() {
     cancelVariant: null,
   }).show();
 
-  if (value?.ok) {
+  return Boolean(value?.ok);
+}
+
+async function navigateAfterSave() {
+  allowNextRouteLeave = true;
+
+  try {
     await navigateTo(projectDetailRoute);
+  }
+  finally {
+    allowNextRouteLeave = false;
   }
 }
 
@@ -754,7 +791,7 @@ async function handleSave() {
     }
 
     toast.success('Project updated');
-    await navigateTo(projectDetailRoute);
+    await navigateAfterSave();
   }
   catch (error) {
     pageErrorMessage.value = await resolveHttpErrorMessage(
@@ -883,11 +920,13 @@ function getInitial(value: string) {
 }
 
 .project-edit-nav {
+  min-height: 0;
   flex: 1;
   padding: 2rem 1.35rem 1.25rem;
   display: grid;
   align-content: start;
   gap: 0.8rem;
+  overflow-y: auto;
 }
 
 .project-edit-nav-item {
@@ -908,6 +947,7 @@ function getInitial(value: string) {
 }
 
 .project-edit-sidebar-footer {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;

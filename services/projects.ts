@@ -288,12 +288,10 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
   async closeWorkspaceProject(
     workspaceId: WorkspaceId,
     projectId: number | string,
-  ): Promise<WorkspaceProjectDetail> {
+  ): Promise<void> {
     await this._post(
       `workspaces/${workspaceId}/tasking/projects/${projectId}/close`,
     );
-
-    return await this.getWorkspaceProjectDetail(workspaceId, projectId);
   }
 
   async resetWorkspaceProject(
