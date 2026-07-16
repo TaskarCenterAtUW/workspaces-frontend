@@ -25,6 +25,8 @@ export async function resolveHttpErrorMessage(
     try {
       const body = await response.clone().json() as {
         detail?: Array<{ msg?: string }> | string;
+        message?: string;
+        error?: string;
       };
 
       if (typeof body.detail === 'string' && body.detail.trim()) {
@@ -40,9 +42,27 @@ export async function resolveHttpErrorMessage(
           return messages.join(' ');
         }
       }
+
+      for (const message of [body.message, body.error]) {
+        if (typeof message === 'string' && message.trim()) {
+          return message.trim();
+        }
+      }
     }
     catch {
-      // Use the caller's concise fallback when the response is not JSON.
+      try {
+        const contentType = response.headers.get('Content-Type') ?? '';
+        const message = contentType.includes('application/json')
+          ? ''
+          : (await response.clone().text()).trim();
+
+        if (message) {
+          return message;
+        }
+      }
+      catch {
+        // Use the caller's concise fallback when the response body cannot be read.
+      }
     }
 
     return fallbackMessage;

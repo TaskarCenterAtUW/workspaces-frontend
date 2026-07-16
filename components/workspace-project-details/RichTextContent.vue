@@ -31,6 +31,7 @@ const safeHtml = computed(() =>
 @import "~/assets/scss/theme.scss";
 
 .project-detail-rich-text {
+  overflow-x: auto;
   color: #5a607b;
   font-family: var(--primary-font-family);
   font-size: 1.1rem;
@@ -59,6 +60,44 @@ const safeHtml = computed(() =>
 
 .project-detail-rich-text:deep(li + li) {
   margin-top: 0.35rem;
+}
+
+.project-detail-rich-text:deep(blockquote) {
+  margin: 0 0 1.4rem;
+  padding: 0.75rem 1rem;
+  color: #5a607b;
+  background-color: rgba($primary, 0.04);
+  border-left: 3px solid rgba($primary, 0.22);
+}
+
+.project-detail-rich-text:deep(blockquote p:last-child) {
+  margin-bottom: 0;
+}
+
+.project-detail-rich-text:deep(table) {
+  width: 100%;
+  margin: 0 0 1.4rem;
+  border-collapse: collapse;
+}
+
+.project-detail-rich-text:deep(th),
+.project-detail-rich-text:deep(td) {
+  min-width: 4rem;
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+  border: 1px solid rgba($text-navy, 0.16);
+}
+
+.project-detail-rich-text:deep(th) {
+  color: #1a1e3d;
+  font-weight: 700;
+  background-color: rgba($primary, 0.06);
+}
+
+.project-detail-rich-text:deep(th p:last-child),
+.project-detail-rich-text:deep(td p:last-child) {
+  margin-bottom: 0;
 }
 
 .project-detail-rich-text:deep(a) {

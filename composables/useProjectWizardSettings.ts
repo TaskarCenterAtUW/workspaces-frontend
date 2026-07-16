@@ -7,6 +7,7 @@ import type {
   ProjectWizardStepId,
 } from '~/types/project-wizard';
 import type { WorkspaceRole } from '~/types/workspaces';
+import { resolveHttpErrorMessage } from '~/services/http';
 
 interface UseProjectWizardSettingsOptions {
   currentStep: Ref<ProjectWizardStepId>;
@@ -95,8 +96,8 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
       });
       workspaceUsersLoaded.value = true;
     }
-    catch {
-      workspaceUsersError.value = 'Failed to load workspace users. Please try again.';
+    catch(error){
+      workspaceUsersError.value = await resolveHttpErrorMessage(error,'Failed to load workspace users.');
     }
     finally {
       workspaceUsersLoading.value = false;

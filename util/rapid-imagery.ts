@@ -44,16 +44,6 @@
     "description": "OpenStreetMap standard"
 }
  * @returns Rapid Custom Imagery level json object
-{
-    id: 'wa-tech',
-    name: 'WA-Tech Imagery',
-    type: 'wms', // or 'wms', 'bing', etc.
-    template: 'https://waprovisoimg.centralindia.cloudapp.azure.com/arcgis/services/ImageServices/Statewide_2023_1ft_4band_wsps_83h_img/ImageServer/WMSServer?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX={bbox}&CRS={proj}&WIDTH={width}&HEIGHT={height}&LAYERS=Statewide_2023_1ft_4band_wsps_83h_img&STYLES=&FORMAT=image%2fpng&DPI=144&MAP_RESOLUTION=144&FORMAT_OPTIONS=dpi%3A144&TRANSPARENT=TRUE',
-    projection: 'EPSG:3857',
-    description: 'WA-Tech Imagery Source',
-    zoomExtent: [12, 22], // Minimum and maximum available zoom levels
-    overlay: false        // Set to true if it is a transparent layer (like street names)
-}
  */
 
 
