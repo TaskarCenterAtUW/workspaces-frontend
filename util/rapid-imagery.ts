@@ -1,4 +1,3 @@
-
 import type { ImagerySource } from '../types/imagery';
 
 export interface RapidImagerySource {
@@ -16,8 +15,8 @@ function isExtentWithZoom(value: unknown): value is { min_zoom?: number; max_zoo
 }
 
 /**
- * 
- * @param customImagerySource 
+ *
+ * @param customImagerySource
  * Input
  * {
     "id": "osm-standard",
@@ -61,7 +60,6 @@ function isExtentWithZoom(value: unknown): value is { min_zoom?: number; max_zoo
 }
  * @returns Rapid Custom Imagery level json object
  */
-
 
 export function convertToRapidImagerySource(customImagerySource: ImagerySource | null): RapidImagerySource | null {
   if (!customImagerySource) {

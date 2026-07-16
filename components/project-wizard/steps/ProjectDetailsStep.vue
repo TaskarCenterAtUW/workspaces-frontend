@@ -69,7 +69,11 @@
       >
         {{ imageryError }}
       </p>
-      <p v-else-if="imageryValidating" class="project-wizard-field-help" aria-live="polite">
+      <p
+        v-else-if="imageryValidating"
+        class="project-wizard-field-help"
+        aria-live="polite"
+      >
         Validating custom imagery...
       </p>
     </label>

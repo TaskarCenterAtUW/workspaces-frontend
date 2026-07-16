@@ -213,7 +213,6 @@
 import type { ComponentExposed } from 'vue-component-type-helpers';
 
 import { usePagination } from '~/composables/usePagination';
-import type { PaginationItem } from '~/composables/usePagination';
 
 import WorkspaceProjectDetailsAddContributorDialog from '~/components/workspace-project-details/AddContributorDialog.vue';
 import type { ProjectWizardWorkspaceUser } from '~/types/project-wizard';

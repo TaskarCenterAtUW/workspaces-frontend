@@ -1,6 +1,6 @@
-export type PaginationItem =
-  | { type: 'page'; key: string; page: number }
-  | { type: 'ellipsis'; key: string };
+export type PaginationItem
+  = | { type: 'page'; key: string; page: number }
+    | { type: 'ellipsis'; key: string };
 
 /**
  * Shared pagination composable used by ContributorsTab and TasksTab.

@@ -85,22 +85,21 @@ export class RapidManager {
     this.#bindRapidEvents();
   }
 
-  #addCustomImagerySource(customImagerySource: ImagerySource | null){
+  #addCustomImagerySource(customImagerySource: ImagerySource | null) {
     if (!customImagerySource) {
       return;
     }
 
     const imagerySystem = this.rapidContext.systems.imagery;
-    
+
     const newCustomSourceData = convertToRapidImagerySource(customImagerySource as unknown as ImagerySource | null);
     console.log('Custom Imagery Source Converted', newCustomSourceData);
     if (!newCustomSourceData) {
       return;
     }
-    const newCustomSource = new Rapid.ImagerySource(this.rapidContext,newCustomSourceData);
+    const newCustomSource = new Rapid.ImagerySource(this.rapidContext, newCustomSourceData);
     imagerySystem._imageryIndex.sources.set(newCustomSourceData.id, newCustomSource);
     imagerySystem.setSourceByID(newCustomSourceData.id);
-    
   }
 
   async switchWorkspace(
@@ -128,7 +127,6 @@ export class RapidManager {
     this.rapidContext.assetPath = this.#baseUrl;
 
     console.log('Rapid loaded', this.rapidContext);
-    
   }
 
   #patchRapidAuth() {

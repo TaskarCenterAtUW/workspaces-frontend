@@ -40,8 +40,16 @@
                 Rapid task editor
               </p>
 
-              <button class="btn btn-outline-secondary task-editor-back" type="button" @click="handleBackNavigation">
-                <app-icon variant="arrow_back" size="18" no-margin />
+              <button
+                class="btn btn-outline-secondary task-editor-back"
+                type="button"
+                @click="handleBackNavigation"
+              >
+                <app-icon
+                  variant="arrow_back"
+                  size="18"
+                  no-margin
+                />
                 Back to Tasks
               </button>
             </div>

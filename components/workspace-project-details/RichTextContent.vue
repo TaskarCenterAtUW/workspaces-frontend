@@ -1,3 +1,5 @@
+<!-- All HTML rendered by this component is sanitized with DOMPurify below. -->
+<!-- eslint-disable vue/no-v-html -->
 <template>
   <!--
     Renders sanitized rich-text HTML from the API (e.g. project descriptions/instructions).

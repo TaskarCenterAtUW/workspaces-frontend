@@ -36,7 +36,11 @@
                   aria-label="Edit project"
                   @click="openProjectEditPage"
                 >
-                  <app-icon variant="edit" size="20" no-margin />
+                  <app-icon
+                    variant="edit"
+                    size="20"
+                    no-margin
+                  />
                 </button>
 
                 <button
@@ -46,7 +50,10 @@
                   :disabled="isActivatingProject"
                   @click="handleActivateProject"
                 >
-                  <app-spinner v-if="isActivatingProject" size="sm" />
+                  <app-spinner
+                    v-if="isActivatingProject"
+                    size="sm"
+                  />
                   <template v-else>
                     Activate Project
                   </template>

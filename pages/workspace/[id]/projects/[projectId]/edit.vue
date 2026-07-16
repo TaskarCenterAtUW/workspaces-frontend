@@ -1,8 +1,14 @@
 <template>
-  <app-page fluid class="project-edit-page">
+  <app-page
+    fluid
+    class="project-edit-page"
+  >
     <section class="project-edit-shell">
       <header class="project-edit-header">
-        <nav class="project-edit-breadcrumbs" aria-label="Breadcrumb">
+        <nav
+          class="project-edit-breadcrumbs"
+          aria-label="Breadcrumb"
+        >
           <nuxt-link :to="projectsRoute">Workspaces</nuxt-link>
           <span aria-hidden="true">&gt;</span>
           <nuxt-link :to="projectsRoute">{{ workspace.title }}</nuxt-link>
@@ -17,7 +23,10 @@
 
       <div class="project-edit-body">
         <aside class="project-edit-sidebar">
-          <nav class="project-edit-nav" aria-label="Edit project sections">
+          <nav
+            class="project-edit-nav"
+            aria-label="Edit project sections"
+          >
             <button
               v-for="section in sections"
               :key="section.id"
@@ -47,7 +56,10 @@
               :disabled="!canSave"
               @click="handleSave"
             >
-              <app-spinner v-if="saving" size="sm" />
+              <app-spinner
+                v-if="saving"
+                size="sm"
+              />
               <template v-else>
                 Save
               </template>
@@ -55,11 +67,20 @@
           </footer>
         </aside>
 
-        <section class="project-edit-content" aria-live="polite">
+        <section
+          class="project-edit-content"
+          aria-live="polite"
+        >
           <div class="project-edit-content-inner">
-            <section v-if="activeSection === 'details'" class="project-edit-panel">
+            <section
+              v-if="activeSection === 'details'"
+              class="project-edit-panel"
+            >
               <div class="project-edit-field">
-                <label class="project-edit-label" for="project-edit-name">Project Name</label>
+                <label
+                  class="project-edit-label"
+                  for="project-edit-name"
+                >Project Name</label>
                 <input
                   id="project-edit-name"
                   :value="form.name"
@@ -68,15 +89,25 @@
                   readonly
                 >
                 <p class="project-edit-help">
-                  <app-icon variant="info" size="18" no-margin />
+                  <app-icon
+                    variant="info"
+                    size="18"
+                    no-margin
+                  />
                   <span>Project name is preserved on save and cannot be edited here.</span>
                 </p>
               </div>
 
-              <div class="project-edit-divider" aria-hidden="true" />
+              <div
+                class="project-edit-divider"
+                aria-hidden="true"
+              />
 
               <div class="project-edit-field">
-                <label class="project-edit-label" for="project-edit-description">Project Description</label>
+                <label
+                  class="project-edit-label"
+                  for="project-edit-description"
+                >Project Description</label>
                 <textarea
                   id="project-edit-description"
                   v-model="form.description"
@@ -86,7 +117,10 @@
               </div>
             </section>
 
-            <section v-else-if="activeSection === 'instructions'" class="project-edit-panel">
+            <section
+              v-else-if="activeSection === 'instructions'"
+              class="project-edit-panel"
+            >
               <header class="project-edit-panel-header">
                 <h2>Detailed Task Instructions</h2>
                 <p>These instructions are shown to mappers and validators inside the task editor.</p>
@@ -100,14 +134,20 @@
               </client-only>
             </section>
 
-            <section v-else-if="activeSection === 'imagery'" class="project-edit-panel">
+            <section
+              v-else-if="activeSection === 'imagery'"
+              class="project-edit-panel"
+            >
               <header class="project-edit-panel-header">
                 <h2>Custom Imagery</h2>
                 <p>Provide one custom imagery JSON object for this project.</p>
               </header>
 
               <div class="project-edit-field">
-                <label class="project-edit-label" for="project-edit-custom-imagery">
+                <label
+                  class="project-edit-label"
+                  for="project-edit-custom-imagery"
+                >
                   Imagery configuration
                 </label>
                 <textarea
@@ -128,20 +168,30 @@
                 >
                   {{ imageryError }}
                 </p>
-                <p v-else-if="imageryValidating" class="project-edit-field-help" aria-live="polite">
+                <p
+                  v-else-if="imageryValidating"
+                  class="project-edit-field-help"
+                  aria-live="polite"
+                >
                   Validating custom imagery...
                 </p>
               </div>
             </section>
 
-            <section v-else-if="activeSection === 'team'" class="project-edit-panel">
+            <section
+              v-else-if="activeSection === 'team'"
+              class="project-edit-panel"
+            >
               <header class="project-edit-panel-header">
                 <h2>Team Members &amp; Assign Roles</h2>
                 <p>Search workspace users, add them to this project, and change their role.</p>
               </header>
 
               <div class="project-edit-search-shell">
-                <label class="visually-hidden" for="project-edit-member-search">Search users</label>
+                <label
+                  class="visually-hidden"
+                  for="project-edit-member-search"
+                >Search users</label>
                 <input
                   id="project-edit-member-search"
                   v-model.trim="memberSearchQuery"
@@ -149,14 +199,21 @@
                   type="search"
                   placeholder="Search Users"
                 >
-                <app-icon variant="search" size="24" no-margin />
+                <app-icon
+                  variant="search"
+                  size="24"
+                  no-margin
+                />
               </div>
 
               <div
                 v-if="memberSearchLoading || memberSearchQuery.length > 0"
                 class="project-edit-search-results"
               >
-                <div v-if="memberSearchLoading" class="project-edit-search-status">
+                <div
+                  v-if="memberSearchLoading"
+                  class="project-edit-search-status"
+                >
                   <app-spinner size="sm" />
                   <span>Searching users...</span>
                 </div>
@@ -194,7 +251,10 @@
                         :disabled="mutatingMemberId === user.authUid"
                         @click="addMember(user)"
                       >
-                        <app-spinner v-if="mutatingMemberId === user.authUid" size="sm" />
+                        <app-spinner
+                          v-if="mutatingMemberId === user.authUid"
+                          size="sm"
+                        />
                         <template v-else>
                           Add
                         </template>
@@ -202,7 +262,10 @@
                     </div>
                   </article>
 
-                  <p v-if="memberSearchResults.length === 0" class="project-edit-search-status">
+                  <p
+                    v-if="memberSearchResults.length === 0"
+                    class="project-edit-search-status"
+                  >
                     No users match your search.
                   </p>
                 </template>
@@ -242,19 +305,33 @@
                       :aria-label="`Remove ${member.name}`"
                       @click="removeMember(member)"
                     >
-                      <app-spinner v-if="mutatingMemberId === member.id" size="sm" />
-                      <app-icon v-else variant="delete" size="18" no-margin />
+                      <app-spinner
+                        v-if="mutatingMemberId === member.id"
+                        size="sm"
+                      />
+                      <app-icon
+                        v-else
+                        variant="delete"
+                        size="18"
+                        no-margin
+                      />
                     </button>
                   </div>
                 </article>
 
-                <p v-if="editableMembers.length === 0" class="project-edit-empty">
+                <p
+                  v-if="editableMembers.length === 0"
+                  class="project-edit-empty"
+                >
                   No members are assigned to this project yet.
                 </p>
               </div>
             </section>
 
-            <section v-else-if="activeSection === 'configuration'" class="project-edit-panel">
+            <section
+              v-else-if="activeSection === 'configuration'"
+              class="project-edit-panel"
+            >
               <div class="project-edit-settings-row">
                 <div class="project-edit-settings-copy">
                   <h2>Lock Timeout</h2>
@@ -262,14 +339,21 @@
                 </div>
 
                 <div class="project-edit-timeout-control">
-                  <label class="visually-hidden" for="project-edit-lock-timeout">Lock timeout in hours</label>
+                  <label
+                    class="visually-hidden"
+                    for="project-edit-lock-timeout"
+                  >Lock timeout in hours</label>
                   <select
                     id="project-edit-lock-timeout"
                     v-model.number="form.lockTimeoutHours"
                     class="form-select"
                     :disabled="configurationLocked"
                   >
-                    <option v-for="hourOption in hourOptions" :key="hourOption" :value="hourOption">
+                    <option
+                      v-for="hourOption in hourOptions"
+                      :key="hourOption"
+                      :value="hourOption"
+                    >
                       {{ String(hourOption).padStart(2, '0') }}
                     </option>
                   </select>
@@ -277,7 +361,10 @@
                 </div>
               </div>
 
-              <div class="project-edit-divider" aria-hidden="true" />
+              <div
+                class="project-edit-divider"
+                aria-hidden="true"
+              />
 
               <div class="project-edit-settings-row">
                 <div class="project-edit-settings-copy">
@@ -297,9 +384,16 @@
                 </label>
               </div>
 
-              <article v-if="configurationLocked" class="project-edit-message-card project-edit-message-card-warning">
+              <article
+                v-if="configurationLocked"
+                class="project-edit-message-card project-edit-message-card-warning"
+              >
                 <div class="project-edit-message-icon">
-                  <app-icon variant="gpp_bad" size="20" no-margin />
+                  <app-icon
+                    variant="gpp_bad"
+                    size="20"
+                    no-margin
+                  />
                 </div>
 
                 <div class="project-edit-message-copy">
@@ -309,7 +403,10 @@
               </article>
             </section>
 
-            <section v-else class="project-edit-panel">
+            <section
+              v-else
+              class="project-edit-panel"
+            >
               <article
                 v-for="action in actionCards"
                 :key="action.id"
@@ -326,13 +423,22 @@
                   type="button"
                   @click="openActionDialog(action)"
                 >
-                  <app-icon v-if="action.icon" :variant="action.icon" size="18" no-margin />
+                  <app-icon
+                    v-if="action.icon"
+                    :variant="action.icon"
+                    size="18"
+                    no-margin
+                  />
                   {{ action.label }}
                 </button>
 
                 <article class="project-edit-message-card project-edit-message-card-muted">
                   <div class="project-edit-message-icon">
-                    <app-icon variant="info" size="20" no-margin />
+                    <app-icon
+                      variant="info"
+                      size="20"
+                      no-margin
+                    />
                   </div>
 
                   <div class="project-edit-message-copy">
@@ -343,7 +449,11 @@
               </article>
             </section>
 
-            <p v-if="pageErrorMessage" class="project-edit-page-error" role="alert">
+            <p
+              v-if="pageErrorMessage"
+              class="project-edit-page-error"
+              role="alert"
+            >
               {{ pageErrorMessage }}
             </p>
           </div>
@@ -379,13 +489,13 @@ import type {
   WorkspaceProjectDetail,
 } from '~/types/projects';
 
-type ProjectEditSectionId =
-  | 'details'
-  | 'instructions'
-  | 'imagery'
-  | 'team'
-  | 'configuration'
-  | 'actions';
+type ProjectEditSectionId
+  = | 'details'
+    | 'instructions'
+    | 'imagery'
+    | 'team'
+    | 'configuration'
+    | 'actions';
 
 interface ProjectEditSection {
   id: ProjectEditSectionId;

@@ -20,16 +20,27 @@
         aria-label="Close dialog"
         @click="emit('close')"
       >
-        <app-icon variant="close" size="24" no-margin />
+        <app-icon
+          variant="close"
+          size="24"
+          no-margin
+        />
       </button>
 
       <div class="app-confirmation-dialog-icon-shell">
         <span class="app-confirmation-dialog-icon">
-          <app-icon variant="info" size="22" no-margin />
+          <app-icon
+            variant="info"
+            size="22"
+            no-margin
+          />
         </span>
       </div>
 
-      <h2 :id="titleId" class="app-confirmation-dialog-title">
+      <h2
+        :id="titleId"
+        class="app-confirmation-dialog-title"
+      >
         {{ title }}
       </h2>
 
@@ -53,13 +64,16 @@
           class="btn app-confirmation-dialog-primary"
           :class="{
             'app-confirmation-dialog-primary-danger': primaryVariant === 'danger',
-            'app-confirmation-dialog-primary-default': primaryVariant === 'primary',
+            'app-confirmation-dialog-primary-default': primaryVariant === 'primary'
           }"
           type="button"
           :disabled="busy"
           @click="emit('primary-action')"
         >
-          <app-spinner v-if="busy" size="sm" />
+          <app-spinner
+            v-if="busy"
+            size="sm"
+          />
           <template v-else>
             {{ primaryActionLabel }}
           </template>
@@ -87,7 +101,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  close: [];
+  'close': [];
   'primary-action': [];
   'secondary-action': [];
 }>();

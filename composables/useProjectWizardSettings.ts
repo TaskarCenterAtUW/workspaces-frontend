@@ -96,8 +96,8 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
       });
       workspaceUsersLoaded.value = true;
     }
-    catch(error){
-      workspaceUsersError.value = await resolveHttpErrorMessage(error,'Failed to load workspace users.');
+    catch (error) {
+      workspaceUsersError.value = await resolveHttpErrorMessage(error, 'Failed to load workspace users.');
     }
     finally {
       workspaceUsersLoading.value = false;

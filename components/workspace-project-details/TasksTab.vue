@@ -194,7 +194,6 @@
  * Emits `select-task` when a task row is clicked, so the parent page can highlight it on the map.
  */
 import { usePagination } from '~/composables/usePagination';
-import type { PaginationItem } from '~/composables/usePagination';
 import type { WorkspaceProjectTaskListItem, WorkspaceProjectTaskStatus } from '~/types/projects';
 import type { WorkspaceRole } from '~/types/workspaces';
 import { resolveWorkspaceProjectTaskStatusLabel } from '~/util/task-status';

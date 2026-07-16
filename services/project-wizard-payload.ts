@@ -1,3 +1,5 @@
+import { sanitizeReviewHtml } from '~/services/project-wizard-review';
+
 import type {
   ProjectWizardCreatePayload,
   ProjectWizardCustomImagery,
@@ -19,8 +21,6 @@ export function parseProjectWizardCustomImagery(value: string): ProjectWizardCus
 
   return parsedValue as ProjectWizardCustomImagery;
 }
-
-import { sanitizeReviewHtml } from '~/services/project-wizard-review';
 
 export function buildProjectWizardCreatePayload(draft: ProjectWizardDraft): ProjectWizardCreatePayload {
   if (!draft.area.aoi) {

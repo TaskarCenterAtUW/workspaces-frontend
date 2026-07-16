@@ -32,9 +32,16 @@
         <span>Loading users...</span>
       </div>
 
-      <div v-else-if="error" class="project-wizard-assign-users-status">
+      <div
+        v-else-if="error"
+        class="project-wizard-assign-users-status"
+      >
         <span>{{ error }}</span>
-        <button class="btn btn-link" type="button" @click="emit('retry')">
+        <button
+          class="btn btn-link"
+          type="button"
+          @click="emit('retry')"
+        >
           Retry
         </button>
       </div>
