@@ -1,4 +1,20 @@
 
+import type { ImagerySource } from '../types/imagery';
+
+export interface RapidImagerySource {
+  id: string;
+  name: string;
+  template: string;
+  projection: string;
+  description: string;
+  zoomExtent: [number, number];
+  overlay: boolean;
+}
+
+function isExtentWithZoom(value: unknown): value is { min_zoom?: number; max_zoom?: number } {
+  return typeof value === 'object' && value !== null;
+}
+
 /**
  * 
  * @param customImagerySource 
@@ -47,12 +63,15 @@
  */
 
 
-export function convertToRapidImagerySource(customImagerySource: Record<string, unknown> | null): any {
+export function convertToRapidImagerySource(customImagerySource: ImagerySource | null): RapidImagerySource | null {
   if (!customImagerySource) {
     return null;
   }
   // this is the bare minimum required configuration.
   // Has to be done better.
+  const extent: unknown = customImagerySource.extent;
+  const minZoom = isExtentWithZoom(extent) ? (extent.min_zoom ?? 12) : 12;
+  const maxZoom = isExtentWithZoom(extent) ? (extent.max_zoom ?? 22) : 22;
   return {
     id: customImagerySource.id,
     name: customImagerySource.name,
@@ -60,7 +79,7 @@ export function convertToRapidImagerySource(customImagerySource: Record<string, 
     template: customImagerySource.url,
     projection: 'EPSG:3857', // Assuming EPSG:3857 for WMS sources; adjust if necessary
     description: customImagerySource.description,
-    zoomExtent: [customImagerySource.extent?.min_zoom || 12, customImagerySource.extent?.max_zoom || 22], // Default zoom levels if not provided
+    zoomExtent: [minZoom, maxZoom], // Default zoom levels if not provided
     overlay: false, // Set to true if it is a transparent layer (like street names); adjust based on your needs
   };
 }

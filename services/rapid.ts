@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import type { TdeiAuthStore } from '~/services/tdei';
+import type { ImagerySource } from '~/types/imagery';
 import { convertToRapidImagerySource } from '~/util/rapid-imagery';
 
 /** Global `Rapid` namespace injected by the Rapid script at runtime. */
@@ -91,8 +92,11 @@ export class RapidManager {
 
     const imagerySystem = this.rapidContext.systems.imagery;
     
-    const newCustomSourceData = convertToRapidImagerySource(customImagerySource);
+    const newCustomSourceData = convertToRapidImagerySource(customImagerySource as unknown as ImagerySource | null);
     console.log('Custom Imagery Source Converted', newCustomSourceData);
+    if (!newCustomSourceData) {
+      return;
+    }
     const newCustomSource = new Rapid.ImagerySource(this.rapidContext,newCustomSourceData);
     imagerySystem._imageryIndex.sources.set(newCustomSourceData.id, newCustomSource);
     imagerySystem.setSourceByID(newCustomSourceData.id);
