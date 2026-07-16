@@ -8,6 +8,7 @@ import type {
 } from 'geojson';
 
 import type { WorkspaceId, WorkspaceRole } from '~/types/workspaces';
+import type { ImagerySource } from '~/types/imagery';
 
 export type ProjectWizardStepId = 'details' | 'area' | 'settings' | 'review';
 export type ProjectWizardMapTone = 'primary' | 'accent' | 'muted';
@@ -114,7 +115,7 @@ export interface ProjectWizardCreateRoleAssignmentPayload {
   user_id: string;
 }
 
-export type ProjectWizardCustomImagery = Record<string, unknown>;
+export type ProjectWizardCustomImagery = ImagerySource;
 
 export interface ProjectWizardWorkspaceUser {
   authUid: string;

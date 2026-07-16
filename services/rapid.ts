@@ -72,7 +72,7 @@ export class RapidManager {
 
   async init(
     workspaceId: number,
-    customImagerySource: Record<string, unknown> | null = null,
+    customImagerySource: ImagerySource | null = null,
   ) {
     this.rapidContext.workspaceId = workspaceId;
     this.rapidContext.tdeiAuth = this.#tdeiAuth;
@@ -85,7 +85,7 @@ export class RapidManager {
     this.#bindRapidEvents();
   }
 
-  #addCustomImagerySource(customImagerySource: Record<string, unknown> | null){
+  #addCustomImagerySource(customImagerySource: ImagerySource | null){
     if (!customImagerySource) {
       return;
     }
@@ -105,7 +105,7 @@ export class RapidManager {
 
   async switchWorkspace(
     workspaceId: number,
-    customImagerySource: Record<string, unknown> | null = null,
+    customImagerySource: ImagerySource | null = null
   ) {
     this.rapidContext.workspaceId = workspaceId;
 

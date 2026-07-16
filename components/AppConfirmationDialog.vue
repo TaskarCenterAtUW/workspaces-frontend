@@ -11,6 +11,7 @@
       role="dialog"
       aria-modal="true"
       :aria-labelledby="titleId"
+      tabindex="-1"
     >
       <button
         class="btn btn-link app-confirmation-dialog-close"
@@ -94,15 +95,21 @@ const emit = defineEmits<{
 const dialogRef = useTemplateRef<HTMLElement>('dialogRef');
 const primaryActionRef = useTemplateRef<HTMLButtonElement>('primaryActionRef');
 const secondaryActionRef = useTemplateRef<HTMLButtonElement>('secondaryActionRef');
-const titleId = 'app-confirmation-dialog-title';
+const titleId = useId();
+let previouslyFocusedElement: HTMLElement | null = null;
 
 watch(
   () => props.visible,
   async (isVisible) => {
     if (!isVisible) {
+      previouslyFocusedElement?.focus();
+      previouslyFocusedElement = null;
       return;
     }
 
+    previouslyFocusedElement = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
     await nextTick();
     (secondaryActionRef.value ?? primaryActionRef.value ?? dialogRef.value)?.focus();
   },
@@ -127,12 +134,40 @@ watch(
 onBeforeUnmount(() => {
   if (import.meta.client) {
     window.removeEventListener('keydown', handleWindowKeydown);
+    previouslyFocusedElement?.focus();
   }
 });
 
 function handleWindowKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape' && !props.busy) {
     emit('close');
+    return;
+  }
+
+  if (event.key !== 'Tab' || !dialogRef.value) {
+    return;
+  }
+
+  const focusableElements = Array.from(dialogRef.value.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  ));
+
+  if (focusableElements.length === 0) {
+    event.preventDefault();
+    dialogRef.value.focus();
+    return;
+  }
+
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements.at(-1);
+
+  if (event.shiftKey && document.activeElement === firstElement) {
+    event.preventDefault();
+    lastElement?.focus();
+  }
+  else if (!event.shiftKey && document.activeElement === lastElement) {
+    event.preventDefault();
+    firstElement?.focus();
   }
 }
 </script>

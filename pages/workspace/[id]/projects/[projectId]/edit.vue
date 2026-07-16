@@ -368,15 +368,14 @@
 <script setup lang="ts">
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
-import { listProjectGroupUsers } from '~/services/project-wizard-users';
+import { useProjectEditActions } from '~/composables/useProjectEditActions';
+import { useProjectEditMembers } from '~/composables/useProjectEditMembers';
 import { workspaceProjectsClient, workspacesClient } from '~/services/index';
 import { resolveHttpErrorMessage } from '~/services/http';
 import { validateProjectCustomImagery } from '~/services/project-custom-imagery';
 
-import type { ProjectWizardWorkspaceUser } from '~/types/project-wizard';
 import type {
   WorkspaceProjectContributor,
-  WorkspaceProjectContributorRole,
   WorkspaceProjectDetail,
 } from '~/types/projects';
 
@@ -393,35 +392,6 @@ interface ProjectEditSection {
   label: string;
 }
 
-interface EditableProjectMember {
-  email: string;
-  id: string;
-  name: string;
-  role: WorkspaceProjectContributorRole;
-}
-
-interface ActionCard {
-  buttonClass: string;
-  confirmationMessage: string;
-  confirmationPrimaryLabel: string;
-  confirmationTitle: string;
-  confirmationVariant: 'danger' | 'primary';
-  description: string;
-  helpText: string;
-  icon?: string;
-  id: string;
-  label: string;
-  title: string;
-}
-
-interface ActionDialogState {
-  actionId: ActionCard['id'];
-  message: string;
-  primaryActionLabel: string;
-  primaryVariant: 'danger' | 'primary';
-  title: string;
-}
-
 const { create } = useModal();
 const route = useRoute();
 const workspaceId = Number(route.params.id);
@@ -429,7 +399,19 @@ const projectId = String(route.params.projectId);
 const projectsRoute = `/workspace/${workspaceId}/projects`;
 const projectDetailRoute = `/workspace/${workspaceId}/projects/${projectId}`;
 const editRoute = `${projectDetailRoute}/edit`;
-const MEMBER_SEARCH_DEBOUNCE_MS = 250;
+const {
+  actionCards,
+  actionDialog,
+  actionDialogBusy,
+  closeActionDialog,
+  handleActionDialogPrimaryAction,
+  openActionDialog,
+} = useProjectEditActions({
+  projectDetailRoute,
+  projectId,
+  projectsRoute,
+  workspaceId,
+});
 const IMAGERY_VALIDATION_DEBOUNCE_MS = 300;
 const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA;
 
@@ -442,67 +424,11 @@ const sections: ProjectEditSection[] = [
   { id: 'actions', label: 'Actions' },
 ];
 
-const memberRoleOptions: Array<{ label: string; value: WorkspaceProjectContributorRole }> = [
-  { label: 'Lead', value: 'lead' },
-  { label: 'Validator', value: 'validator' },
-  { label: 'Contributor', value: 'contributor' },
-];
-
-const actionCards: ActionCard[] = [
-  {
-    id: 'reset',
-    title: 'Reset All Tasks',
-    description: 'Restore all mapping tasks to their original unassigned state.',
-    label: 'Reset All Tasks',
-    buttonClass: 'btn-outline-danger',
-    confirmationTitle: 'Are you sure you want to reset?',
-    confirmationMessage: 'All mapping tasks will be restored to their original unassigned state. This action is permanent and cannot be undone.',
-    confirmationPrimaryLabel: 'Yes, Reset',
-    confirmationVariant: 'danger',
-    helpText: 'Removes all task assignments, resets task progress, and keeps project-level settings and team members.',
-  },
-  {
-    id: 'close',
-    title: 'Close Project',
-    description: 'Closing this project will change its status to Completed.',
-    label: 'Close Project',
-    buttonClass: 'btn-primary',
-    confirmationTitle: 'Close this project?',
-    confirmationMessage: 'Closing this project will change its status to Completed. Make sure all tasks are completed before proceeding.',
-    confirmationPrimaryLabel: 'Yes, Close',
-    confirmationVariant: 'primary',
-    helpText: 'This will mark the project as completed. Verify that all tasks have been completed before continuing.',
-  },
-  {
-    id: 'delete',
-    title: 'Delete Project',
-    description: 'Permanently delete this project and all associated tasks and team members.',
-    label: 'Delete Project',
-    buttonClass: 'btn-danger',
-    confirmationTitle: 'Are you sure you want to delete this project?',
-    confirmationMessage: 'This will permanently delete the project, along with all associated tasks and team member assignments.',
-    confirmationPrimaryLabel: 'Yes, Delete',
-    confirmationVariant: 'danger',
-    icon: 'delete',
-    helpText: 'This would permanently delete the project and associated tasking data. This action cannot be undone.',
-  },
-];
-
 const hourOptions = Array.from({ length: 24 }, (_, index) => index + 1);
 const workspace = await workspacesClient.getWorkspace(workspaceId);
 const project = ref(await loadProjectDetail());
 const initialCustomImageryJson = formatCustomImagery(project.value.customImagery);
-const projectContributors = ref<WorkspaceProjectContributor[]>(await loadProjectContributors());
-const knownUsers = ref<ProjectWizardWorkspaceUser[]>([]);
-const memberSearchDebounce = ref<ReturnType<typeof setTimeout> | null>(null);
-const memberSearchLoading = ref(false);
-const memberSearchQuery = ref('');
-const memberSearchRequestId = ref(0);
-const memberSearchResults = ref<ProjectWizardWorkspaceUser[]>([]);
-const searchResultRoles = ref<Record<string, WorkspaceProjectContributorRole>>({});
-const mutatingMemberId = ref<string | null>(null);
-const actionDialog = ref<ActionDialogState | null>(null);
-const actionDialogBusy = ref(false);
+const initialProjectContributors = await loadProjectContributors();
 const saving = ref(false);
 const pageErrorMessage = ref('');
 const imageryError = ref<string | null>(null);
@@ -510,7 +436,27 @@ const imagerySchema = ref<object>();
 const imageryValidating = ref(false);
 const imageryValidationDebounce = ref<ReturnType<typeof setTimeout> | null>(null);
 const imageryValidationRequestId = ref(0);
-const editableMembers = ref<EditableProjectMember[]>([]);
+const {
+  addMember,
+  editableMembers,
+  getSearchResultRole,
+  isMemberRemovalLocked,
+  isRoleChangeLocked,
+  leadMemberCount,
+  memberRoleOptions,
+  memberSearchLoading,
+  memberSearchQuery,
+  memberSearchResults,
+  mutatingMemberId,
+  removeMember,
+  updateMemberRole,
+  updateSearchResultRole,
+} = useProjectEditMembers({
+  initialContributors: initialProjectContributors,
+  projectGroupId: workspace.tdeiProjectGroupId,
+  projectId,
+  workspaceId,
+});
 const form = reactive({
   customImagery: initialCustomImageryJson,
   description: resolveInitialProjectDescription(),
@@ -539,7 +485,6 @@ if (!isProjectLead.value) {
   });
 }
 
-initializeEditableMembers();
 useHead({
   title: computed(() => `Edit ${project.value.name} | Projects`),
 });
@@ -560,14 +505,6 @@ const breadcrumbProjectName = computed(() =>
 
 const configurationLocked = computed(() =>
   project.value.taskCount > 0 || project.value.status !== 'draft',
-);
-
-const selectedMemberIds = computed(() =>
-  new Set(editableMembers.value.map(member => member.id)),
-);
-
-const leadMemberCount = computed(() =>
-  editableMembers.value.filter(member => member.role === 'lead').length,
 );
 
 const canSave = computed(() =>
@@ -607,25 +544,6 @@ const configurationDirty = computed(() =>
   ),
 );
 
-watch(memberSearchQuery, (query) => {
-  if (memberSearchDebounce.value) {
-    clearTimeout(memberSearchDebounce.value);
-  }
-
-  if (!query.trim()) {
-    memberSearchRequestId.value += 1;
-    memberSearchResults.value = [];
-    memberSearchLoading.value = false;
-    return;
-  }
-
-  memberSearchLoading.value = true;
-  const requestId = ++memberSearchRequestId.value;
-  memberSearchDebounce.value = setTimeout(() => {
-    void searchUsers(query, requestId);
-  }, MEMBER_SEARCH_DEBOUNCE_MS);
-});
-
 watch(
   () => form.customImagery,
   (customImagery) => {
@@ -652,306 +570,18 @@ watch(
   { immediate: true },
 );
 
-onMounted(() => {
-  void preloadKnownUsers();
-});
-
 onBeforeUnmount(() => {
-  if (memberSearchDebounce.value) {
-    clearTimeout(memberSearchDebounce.value);
-  }
   if (imageryValidationDebounce.value) {
     clearTimeout(imageryValidationDebounce.value);
   }
   imageryValidationRequestId.value += 1;
 });
 
-async function preloadKnownUsers() {
-  try {
-    const users = await listProjectGroupUsers(
-      workspace.tdeiProjectGroupId,
-      'contributor',
-    );
-    mergeKnownUsers(users);
-  }
-  catch {
-    // Existing contributor names are still sufficient for this screen.
-  }
-}
-
-function initializeEditableMembers() {
-  editableMembers.value = projectContributors.value.map((contributor) => {
-    const matchedUser = knownUsers.value.find(user => user.authUid === contributor.id);
-
-    return {
-      email: matchedUser?.email ?? '',
-      id: contributor.id,
-      name: matchedUser?.displayName ?? contributor.name,
-      role: contributor.role,
-    };
-  });
-}
-
-function mergeKnownUsers(users: ProjectWizardWorkspaceUser[]) {
-  const mergedUsers = new Map(knownUsers.value.map(user => [user.authUid, user]));
-
-  for (const user of users) {
-    mergedUsers.set(user.authUid, user);
-  }
-
-  knownUsers.value = [...mergedUsers.values()];
-  editableMembers.value = editableMembers.value.map((member) => {
-    const matchedUser = mergedUsers.get(member.id);
-
-    return matchedUser
-      ? {
-          ...member,
-          email: matchedUser.email,
-          name: matchedUser.displayName,
-        }
-      : member;
-  });
-}
-
-async function searchUsers(query: string, requestId: number) {
-  try {
-    const users = await listProjectGroupUsers(
-      workspace.tdeiProjectGroupId,
-      'contributor',
-      query.trim(),
-    );
-
-    if (requestId !== memberSearchRequestId.value) {
-      return;
-    }
-
-    mergeKnownUsers(users);
-    memberSearchResults.value = users.filter(user => !selectedMemberIds.value.has(user.authUid));
-  }
-  catch {
-    if (requestId !== memberSearchRequestId.value) {
-      return;
-    }
-
-    memberSearchResults.value = [];
-  }
-  finally {
-    if (requestId === memberSearchRequestId.value) {
-      memberSearchLoading.value = false;
-    }
-  }
-}
-
 async function openSection(sectionId: ProjectEditSectionId) {
   await navigateTo({
     path: editRoute,
     query: { section: sectionId },
   });
-}
-
-function openActionDialog(action: ActionCard) {
-  actionDialog.value = {
-    actionId: action.id,
-    message: action.confirmationMessage,
-    primaryActionLabel: action.confirmationPrimaryLabel,
-    primaryVariant: action.confirmationVariant,
-    title: action.confirmationTitle,
-  };
-}
-
-function closeActionDialog() {
-  if (actionDialogBusy.value) {
-    return;
-  }
-
-  actionDialog.value = null;
-}
-
-async function handleActionDialogPrimaryAction() {
-  const dialog = actionDialog.value;
-
-  if (!dialog) {
-    return;
-  }
-
-  actionDialogBusy.value = true;
-
-  try {
-    if (dialog.actionId === 'close') {
-      project.value = await workspaceProjectsClient.closeWorkspaceProject(workspaceId, projectId);
-      actionDialog.value = null;
-      toast.success('Project closed');
-      await navigateTo(projectDetailRoute);
-      return;
-    }
-
-    if (dialog.actionId === 'reset') {
-      await workspaceProjectsClient.resetWorkspaceProject(workspaceId, projectId);
-      actionDialog.value = null;
-      toast.success('Project tasks reset');
-      await navigateTo({
-        path: projectDetailRoute,
-        query: { tab: 'tasks' },
-      });
-      return;
-    }
-
-    await workspaceProjectsClient.deleteWorkspaceProject(workspaceId, projectId);
-    actionDialog.value = null;
-    toast.success('Project deleted');
-    await navigateTo(projectsRoute);
-  }
-  catch (error) {
-    toast.error(await resolveProjectActionErrorMessage(
-      error,
-      dialog.actionId === 'close'
-        ? 'Failed to close project'
-        : dialog.actionId === 'reset'
-          ? 'Failed to reset project tasks'
-          : 'Failed to delete project',
-    ));
-  }
-  finally {
-    actionDialogBusy.value = false;
-  }
-}
-
-async function addMember(user: ProjectWizardWorkspaceUser) {
-  if (selectedMemberIds.value.has(user.authUid)) {
-    return;
-  }
-
-  const role = getSearchResultRole(user.authUid);
-
-  mutatingMemberId.value = user.authUid;
-
-  try {
-    await workspaceProjectsClient.addWorkspaceProjectRole(
-      workspaceId,
-      projectId,
-      {
-        role,
-        userId: user.authUid,
-      },
-    );
-    await refreshProjectContributors();
-    memberSearchQuery.value = '';
-    memberSearchResults.value = [];
-  }
-  catch (error) {
-    toast.error(await resolveHttpErrorMessage(error, 'Failed to add contributor'));
-  }
-  finally {
-    mutatingMemberId.value = null;
-  }
-}
-
-function getSearchResultRole(userId: string): WorkspaceProjectContributorRole {
-  return searchResultRoles.value[userId] ?? 'contributor';
-}
-
-function updateSearchResultRole(userId: string, nextRole: string | number | null) {
-  if (!isWorkspaceProjectContributorRole(nextRole)) {
-    return;
-  }
-
-  searchResultRoles.value = {
-    ...searchResultRoles.value,
-    [userId]: nextRole,
-  };
-}
-
-async function updateMemberRole(member: EditableProjectMember, nextRole: string | number | null) {
-  if (!isWorkspaceProjectContributorRole(nextRole)) {
-    return;
-  }
-
-  if (member.role === nextRole) {
-    return;
-  }
-
-  if (member.role === 'lead' && nextRole !== 'lead' && leadMemberCount.value <= 1) {
-    toast.error('At least one lead must remain on the project.');
-    return;
-  }
-
-  const previousMembers = editableMembers.value;
-
-  editableMembers.value = editableMembers.value.map((candidate) => {
-    if (candidate.id !== member.id) {
-      return candidate;
-    }
-
-    return {
-      ...candidate,
-      role: nextRole,
-    };
-  });
-
-  mutatingMemberId.value = member.id;
-
-  try {
-    await workspaceProjectsClient.updateWorkspaceProjectRole(
-      workspaceId,
-      projectId,
-      member.id,
-      nextRole,
-    );
-    await refreshProjectContributors();
-  }
-  catch (error) {
-    editableMembers.value = previousMembers;
-    toast.error(await resolveHttpErrorMessage(error, 'Failed to update contributor role'));
-  }
-  finally {
-    mutatingMemberId.value = null;
-  }
-}
-
-async function removeMember(member: EditableProjectMember) {
-  if (member.role === 'lead' && leadMemberCount.value <= 1) {
-    toast.error('At least one lead must remain on the project.');
-    return;
-  }
-
-  const value = await create({
-    title: 'Remove Contributor',
-    body: `Remove ${member.name} from this project?`,
-    okTitle: 'Remove',
-    okVariant: 'danger',
-    cancelTitle: 'Cancel',
-    cancelClass: 'btn-link p-0',
-    cancelVariant: null,
-  }).show();
-
-  if (!value?.ok) {
-    return;
-  }
-
-  mutatingMemberId.value = member.id;
-
-  try {
-    await workspaceProjectsClient.deleteWorkspaceProjectRole(
-      workspaceId,
-      projectId,
-      member.id,
-    );
-    await refreshProjectContributors();
-  }
-  catch (error) {
-    toast.error(await resolveHttpErrorMessage(error, 'Failed to remove contributor'));
-  }
-  finally {
-    mutatingMemberId.value = null;
-  }
-}
-
-function isRoleChangeLocked(member: EditableProjectMember) {
-  return member.role === 'lead' && leadMemberCount.value <= 1;
-}
-
-function isMemberRemovalLocked(member: EditableProjectMember) {
-  return member.role === 'lead' && leadMemberCount.value <= 1;
 }
 
 async function handleCancel() {
@@ -1053,20 +683,11 @@ async function loadProjectContributors(): Promise<WorkspaceProjectContributor[]>
   }
 }
 
-async function refreshProjectContributors() {
-  projectContributors.value = await workspaceProjectsClient.getWorkspaceProjectRoles(workspaceId, projectId);
-  initializeEditableMembers();
-}
-
-async function resolveProjectActionErrorMessage(error: unknown, fallbackMessage: string) {
-  return await resolveHttpErrorMessage(error, fallbackMessage);
-}
-
 function resolveInitialProjectDescription() {
   return project.value.description?.trim() || '';
 }
 
-function formatCustomImagery(customImagery: Record<string, unknown> | null) {
+function formatCustomImagery(customImagery: WorkspaceProjectDetail['customImagery']) {
   return customImagery ? JSON.stringify(customImagery, null, 2) : '';
 }
 
@@ -1080,10 +701,6 @@ async function validateEditCustomImagery(customImagery = form.customImagery) {
 
 function normalizeRichText(value: string) {
   return value.trim();
-}
-
-function isWorkspaceProjectContributorRole(value: unknown): value is WorkspaceProjectContributorRole {
-  return ['lead', 'validator', 'contributor'].includes(String(value));
 }
 
 function getInitial(value: string) {

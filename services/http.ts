@@ -13,6 +13,64 @@ export class BaseHttpClientError extends Error {
   }
 }
 
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function resolveJsonErrorMessage(body: unknown): string | null {
+  if (!body || typeof body !== 'object') {
+    return nonEmptyString(body);
+  }
+
+  const record = body as Record<string, unknown>;
+  const detail = record.detail;
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (!item || typeof item !== 'object') {
+          return nonEmptyString(item);
+        }
+        const itemRecord = item as Record<string, unknown>;
+        return nonEmptyString(itemRecord.msg) ?? nonEmptyString(itemRecord.message);
+      })
+      .filter((message): message is string => Boolean(message));
+
+    if (messages.length > 0) {
+      return messages.join(' ');
+    }
+  }
+
+  const detailMessage = nonEmptyString(detail)
+    ?? resolveJsonErrorMessage(detail);
+  const message = detailMessage
+    ?? nonEmptyString(record.message)
+    ?? nonEmptyString(record.error);
+
+  if (!message) {
+    return null;
+  }
+
+  const detailRecord = detail && typeof detail === 'object' && !Array.isArray(detail)
+    ? detail as Record<string, unknown>
+    : null;
+  const existingLock = detailRecord?.existing_lock;
+  const lockRecord = existingLock && typeof existingLock === 'object' && !Array.isArray(existingLock)
+    ? existingLock as Record<string, unknown>
+    : null;
+  const taskNumber = lockRecord?.task_number;
+
+  if (
+    typeof taskNumber === 'number'
+    || (typeof taskNumber === 'string' && taskNumber.trim())
+  ) {
+    const normalizedMessage = /[.!?]$/.test(message) ? message : `${message}.`;
+    return `${normalizedMessage} Existing lock: Task #${String(taskNumber).trim()}.`;
+  }
+
+  return message;
+}
+
 export async function resolveHttpErrorMessage(
   error: unknown,
   fallbackMessage: string,
@@ -23,30 +81,10 @@ export async function resolveHttpErrorMessage(
 
   if (response) {
     try {
-      const body = await response.clone().json() as {
-        detail?: Array<{ msg?: string }> | string;
-        message?: string;
-        error?: string;
-      };
+      const message = resolveJsonErrorMessage(await response.clone().json());
 
-      if (typeof body.detail === 'string' && body.detail.trim()) {
-        return body.detail;
-      }
-
-      if (Array.isArray(body.detail)) {
-        const messages = body.detail
-          .map(item => item.msg?.trim())
-          .filter((message): message is string => Boolean(message));
-
-        if (messages.length > 0) {
-          return messages.join(' ');
-        }
-      }
-
-      for (const message of [body.message, body.error]) {
-        if (typeof message === 'string' && message.trim()) {
-          return message.trim();
-        }
+      if (message) {
+        return message;
       }
     }
     catch {
