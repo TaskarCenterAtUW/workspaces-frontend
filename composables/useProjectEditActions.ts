@@ -38,7 +38,7 @@ export const PROJECT_EDIT_ACTIONS: ProjectEditActionCard[] = [
     confirmationMessage: 'All mapping tasks will be restored to their original unassigned state. This action is permanent and cannot be undone.',
     confirmationPrimaryLabel: 'Yes, Reset',
     confirmationVariant: 'danger',
-    helpText: 'Removes all task assignments, resets task progress, and keeps project-level settings and team members.',
+    helpText: 'Removes all task assignments, Resets task progress to “Not Started”, Keeps uploaded imagery, project settings, and team members',
   },
   {
     id: 'close',
@@ -50,7 +50,7 @@ export const PROJECT_EDIT_ACTIONS: ProjectEditActionCard[] = [
     confirmationMessage: 'Closing this project will change its status to Completed. Make sure all tasks are completed before proceeding.',
     confirmationPrimaryLabel: 'Yes, Close',
     confirmationVariant: 'primary',
-    helpText: 'This will mark the project as completed. Verify that all tasks have been completed before continuing.',
+    helpText: 'This will mark the project as Completed. Verify that all tasks have been completed, as the project will be closed once you continue.',
   },
   {
     id: 'delete',

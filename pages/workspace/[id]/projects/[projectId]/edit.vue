@@ -94,7 +94,7 @@
                     size="18"
                     no-margin
                   />
-                  <span>Project name is preserved on save and cannot be edited here.</span>
+                  <span>Project name cannot be edited</span>
                 </p>
               </div>
 
@@ -123,7 +123,6 @@
             >
               <header class="project-edit-panel-header">
                 <h2>Detailed Task Instructions</h2>
-                <p>These instructions are shown to mappers and validators inside the task editor.</p>
               </header>
 
               <client-only fallback-tag="div">
@@ -139,23 +138,16 @@
               class="project-edit-panel"
             >
               <header class="project-edit-panel-header">
-                <h2>Custom Imagery</h2>
-                <p>Provide one custom imagery JSON object for this project.</p>
+                <h2>Imagery JSON Definition</h2>
               </header>
 
               <div class="project-edit-field">
-                <label
-                  class="project-edit-label"
-                  for="project-edit-custom-imagery"
-                >
-                  Imagery configuration
-                </label>
                 <textarea
                   id="project-edit-custom-imagery"
                   v-model="form.customImagery"
                   class="form-control project-edit-textarea project-edit-json-textarea"
                   :class="{ 'is-invalid': imageryError }"
-                  rows="18"
+                  rows="26"
                   placeholder="Paste one custom imagery JSON object."
                   :aria-describedby="imageryError ? 'project-edit-custom-imagery-error' : undefined"
                   :aria-invalid="Boolean(imageryError)"
@@ -184,7 +176,6 @@
             >
               <header class="project-edit-panel-header">
                 <h2>Team Members &amp; Assign Roles</h2>
-                <p>Search workspace users, add them to this project, and change their role.</p>
               </header>
 
               <div class="project-edit-search-shell">
@@ -398,7 +389,7 @@
 
                 <div class="project-edit-message-copy">
                   <strong>Settings cannot be changed</strong>
-                  <p>These settings are locked once tasks have been generated for the project.</p>
+                  <p>These settings are currently locked and cannot be modified.</p>
                 </div>
               </article>
             </section>
@@ -442,7 +433,7 @@
                   </div>
 
                   <div class="project-edit-message-copy">
-                    <strong>What this action does</strong>
+                    <strong>What this action will do?</strong>
                     <p>{{ action.helpText }}</p>
                   </div>
                 </article>
@@ -528,7 +519,7 @@ const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA;
 const sections: ProjectEditSection[] = [
   { id: 'details', label: 'Project details' },
   { id: 'instructions', label: 'Instructions' },
-  { id: 'imagery', label: 'Custom Imagery' },
+  { id: 'imagery', label: 'Imagery' },
   { id: 'team', label: 'Team Members' },
   { id: 'configuration', label: 'Configuration' },
   { id: 'actions', label: 'Actions' },
