@@ -313,3 +313,8 @@ label > .form-select:first-child {
 .tdei-select-option-selected {
   font-weight: 600;
 }
+
+.Toastify__toast-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

@@ -54,10 +54,28 @@
       <textarea
         :value="details.imageryUrl"
         class="form-control project-wizard-textarea project-wizard-textarea-code"
+        :class="{ 'is-invalid': imageryError }"
         :rows="imageryUrlField?.rows ?? 8"
         :placeholder="imageryUrlField?.placeholder ?? ''"
+        :aria-describedby="imageryError ? 'project-wizard-imagery-error' : undefined"
+        :aria-invalid="Boolean(imageryError)"
         @input="emit('update:field', 'imageryUrl', ($event.target as HTMLTextAreaElement).value)"
       />
+      <p
+        v-if="imageryError"
+        id="project-wizard-imagery-error"
+        class="project-wizard-field-error"
+        role="alert"
+      >
+        {{ imageryError }}
+      </p>
+      <p
+        v-else-if="imageryValidating"
+        class="project-wizard-field-help"
+        aria-live="polite"
+      >
+        Validating custom imagery...
+      </p>
     </label>
   </section>
 </template>
@@ -76,6 +94,8 @@ import type {
 
 interface Props {
   details: ProjectWizardDetailsDraft;
+  imageryError: string | null;
+  imageryValidating: boolean;
   nameAvailabilityMessage: string;
   nameAvailabilityStatus: ProjectWizardNameAvailabilityStatus;
   step: ProjectWizardDetailsStepDefinition;
@@ -201,5 +221,19 @@ function findField(fieldId: ProjectWizardDetailsFieldId): ProjectWizardDetailsFi
 .project-wizard-textarea-code {
   font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, monospace;
   font-size: 0.92rem;
+}
+
+.project-wizard-field-error,
+.project-wizard-field-help {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.project-wizard-field-error {
+  color: #c7393a;
+}
+
+.project-wizard-field-help {
+  color: $secondary;
 }
 </style>

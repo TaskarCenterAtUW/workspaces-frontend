@@ -8,6 +8,7 @@ import type {
 } from 'geojson';
 
 import type { WorkspaceId, WorkspaceRole } from '~/types/workspaces';
+import type { ImagerySource } from '~/types/imagery';
 
 export type ProjectWizardStepId = 'details' | 'area' | 'settings' | 'review';
 export type ProjectWizardMapTone = 'primary' | 'accent' | 'muted';
@@ -113,6 +114,8 @@ export interface ProjectWizardCreateRoleAssignmentPayload {
   role: WorkspaceRole;
   user_id: string;
 }
+
+export type ProjectWizardCustomImagery = ImagerySource;
 
 export interface ProjectWizardWorkspaceUser {
   authUid: string;
@@ -256,6 +259,8 @@ export interface ProjectWizardStoredState {
 
 export interface ProjectWizardCreatePayload {
   aoi: Polygon;
+  custom_imagery: ProjectWizardCustomImagery | null;
+  description: string | null;
   instructions: string;
   lock_timeout_hours: number;
   name: string;

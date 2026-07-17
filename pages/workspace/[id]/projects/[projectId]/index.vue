@@ -28,21 +28,37 @@
                 {{ project.name }}
               </h2>
 
-              <button
-                v-if="showActivateProjectButton"
-                class="btn project-detail-activate-button"
-                type="button"
-                :disabled="isActivatingProject"
-                @click="handleActivateProject"
-              >
-                <app-spinner
-                  v-if="isActivatingProject"
-                  size="sm"
-                />
-                <template v-else>
-                  Activate Project
-                </template>
-              </button>
+              <div class="project-detail-hero-actions">
+                <button
+                  v-if="showProjectEditButton"
+                  class="btn project-detail-edit-button"
+                  type="button"
+                  aria-label="Edit project"
+                  @click="openProjectEditPage"
+                >
+                  <app-icon
+                    variant="edit"
+                    size="20"
+                    no-margin
+                  />
+                </button>
+
+                <button
+                  v-if="showActivateProjectButton"
+                  class="btn project-detail-activate-button"
+                  type="button"
+                  :disabled="isActivatingProject"
+                  @click="handleActivateProject"
+                >
+                  <app-spinner
+                    v-if="isActivatingProject"
+                    size="sm"
+                  />
+                  <template v-else>
+                    Activate Project
+                  </template>
+                </button>
+              </div>
             </div>
 
             <div class="project-detail-progress-copy">
@@ -236,6 +252,7 @@ import {
   PROJECT_WIZARD_TASK_AREA_STEP,
 } from '~/services/project-wizard-tasks';
 import { workspaceProjectsClient, workspacesClient } from '~/services/index';
+import { resolveHttpErrorMessage } from '~/services/http';
 import { resolveWorkspaceProjectTaskStatusLabel } from '~/util/task-status';
 
 import type {
@@ -430,8 +447,7 @@ const selectedTaskLockedByCurrentUser = computed(() =>
   && selectedTask.value?.lock?.user_id === currentUserId.value,
 );
 const showSelectedTaskBar = computed(() =>
-  activeTab.value === 'tasks'
-  && !showTaskSetup.value
+  !showTaskSetup.value
   && Boolean(selectedTask.value),
 );
 const selectedTaskWorkActionLabel = computed(() => {
@@ -492,6 +508,7 @@ const selectedTaskActionBusy = computed(() =>
 const showActivateProjectButton = computed(() =>
   projectRequiresActivation.value && isProjectLead.value,
 );
+const showProjectEditButton = computed(() => isProjectLead.value);
 
 let projectGroupUserSearchDebounce: ReturnType<typeof setTimeout> | undefined;
 let projectGroupUserSearchRequestId = 0;
@@ -577,7 +594,7 @@ async function handleGenerateTasks() {
     await generateTasks();
   }
   catch (error) {
-    openTaskGenerationErrorDialog(error);
+    await openTaskGenerationErrorDialog(error);
   }
 }
 
@@ -593,7 +610,7 @@ async function handleSaveTasks() {
     openTaskSaveSuccessDialog(result);
   }
   catch (error) {
-    openTaskSaveErrorDialog(error);
+    await openTaskSaveErrorDialog(error);
   }
 }
 
@@ -607,6 +624,12 @@ function selectTask(taskId: string) {
 
 function clearSelectedTask() {
   selectedTaskId.value = null;
+}
+
+async function openProjectEditPage() {
+  await navigateTo({
+    path: `/workspace/${workspaceId}/projects/${projectId}/edit`,
+  });
 }
 
 async function handleStatusDialogPrimaryAction() {
@@ -737,7 +760,7 @@ async function loadProjectGroupUsers(searchText: string = '') {
   }
   catch (error) {
     if (requestId === projectGroupUserSearchRequestId) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load workspace users');
+      toast.error(await resolveHttpErrorMessage(error, 'Failed to load workspace users'));
     }
   }
   finally {
@@ -782,7 +805,7 @@ async function handleAddContributor(payload: {
     projectContributors.value = await workspaceProjectsClient.getWorkspaceProjectRoles(workspaceId, projectId);
   }
   catch (error) {
-    toast.error(error instanceof Error ? error.message : 'Failed to add contributor');
+    toast.error(await resolveHttpErrorMessage(error, 'Failed to add contributor'));
   }
   finally {
     addingContributor.value = false;
@@ -813,7 +836,7 @@ async function confirmRemoveContributor(contributor: WorkspaceProjectContributor
     );
   }
   catch (error) {
-    toast.error(error instanceof Error ? error.message : 'Failed to remove contributor');
+    toast.error(await resolveHttpErrorMessage(error, 'Failed to remove contributor'));
   }
   finally {
     mutatingContributorId.value = null;
@@ -871,7 +894,7 @@ async function handleUpdateContributorRole(payload: {
       };
     });
 
-    toast.error(error instanceof Error ? error.message : 'Failed to update contributor role');
+    toast.error(await resolveHttpErrorMessage(error, 'Failed to update contributor role'));
   }
   finally {
     mutatingContributorId.value = null;
@@ -976,25 +999,27 @@ function openTaskSaveSuccessDialog(result: ProjectWizardTaskSaveSummary) {
   };
 }
 
-function openTaskGenerationErrorDialog(error: unknown) {
+async function openTaskGenerationErrorDialog(error: unknown) {
   statusDialog.value = {
     variant: 'error',
     title: 'Generate failed',
-    message: error instanceof Error
-      ? error.message
-      : 'Tasks could not be generated. Please try again.',
+    message: await resolveHttpErrorMessage(
+      error,
+      'Tasks could not be generated. Please try again.',
+    ),
     primaryActionLabel: 'Try Again',
     primaryActionType: 'retry-generate',
   };
 }
 
-function openTaskSaveErrorDialog(error: unknown) {
+async function openTaskSaveErrorDialog(error: unknown) {
   statusDialog.value = {
     variant: 'error',
     title: 'Save failed',
-    message: error instanceof Error
-      ? error.message
-      : 'Tasks could not be saved. Please try again.',
+    message: await resolveHttpErrorMessage(
+      error,
+      'Tasks could not be saved. Please try again.',
+    ),
     primaryActionLabel: 'Try Again',
     primaryActionType: 'retry-save',
   };
@@ -1015,41 +1040,12 @@ function formatTaskStatus(task: Pick<WorkspaceProjectTaskListItem, 'locked' | 's
 }
 
 async function resolveTaskMutationErrorMessage(error: unknown, fallbackMessage: string) {
-  if (!(error instanceof Error) || !('response' in error)) {
-    return fallbackMessage;
-  }
-
-  const response = (error as { response?: Response }).response;
-
-  if (!response) {
-    return fallbackMessage;
-  }
-
-  try {
-    // FastAPI-style validation errors come back in `detail[]`, so prefer that over the generic
-    // HTTP status text when present.
-    const body = await response.clone().json() as {
-      detail?: Array<{ msg?: string }> | string;
-    };
-
-    if (typeof body.detail === 'string' && body.detail.trim()) {
-      return body.detail;
-    }
-
-    if (Array.isArray(body.detail) && body.detail[0]?.msg) {
-      return body.detail[0].msg;
-    }
-  }
-  catch {
-    // Fall back to the generic message when the API does not return a parseable JSON body.
-  }
-
-  return error.message || fallbackMessage;
+  return await resolveHttpErrorMessage(error, fallbackMessage);
 }
 
 function resolveProjectDescriptionHtml() {
-  if (project.value.summary?.trim()) {
-    return `<p>${escapeHtml(project.value.summary)}</p>`;
+  if (project.value.description?.trim()) {
+    return `<p>${escapeHtml(project.value.description)}</p>`;
   }
 
   return '<p>Project description is not available.</p>';
@@ -1160,6 +1156,37 @@ function escapeHtml(value: string) {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.project-detail-hero-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.project-detail-edit-button {
+  width: 3rem;
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #4d158d;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(77, 21, 141, 0.28);
+  border-radius: 0.75rem;
+  box-shadow: 0 0.4rem 1rem rgba(77, 21, 141, 0.08);
+}
+
+.project-detail-edit-button:hover:not(:disabled),
+.project-detail-edit-button:focus-visible:not(:disabled) {
+  color: #421178;
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(77, 21, 141, 0.42);
+}
+
+.project-detail-edit-button:disabled {
+  opacity: 0.6;
 }
 
 .project-detail-activate-button {
@@ -1340,6 +1367,10 @@ function escapeHtml(value: string) {
   .project-detail-title-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .project-detail-hero-actions {
+    width: 100%;
   }
 
   .project-detail-title {

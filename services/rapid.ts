@@ -1,5 +1,7 @@
 import { ref } from 'vue'
 import type { TdeiAuthStore } from '~/services/tdei';
+import type { ImagerySource } from '~/types/imagery';
+import { convertToRapidImagerySource } from '~/util/rapid-imagery';
 
 /** Global `Rapid` namespace injected by the Rapid script at runtime. */
 declare const Rapid: any;
@@ -68,16 +70,42 @@ export class RapidManager {
     document.body.appendChild(script);
   }
 
-  async init(workspaceId: number) {
+  async init(
+    workspaceId: number,
+    customImagerySource: ImagerySource | null = null,
+  ) {
     this.rapidContext.workspaceId = workspaceId;
     this.rapidContext.tdeiAuth = this.#tdeiAuth;
     this.rapidContext.preauth = { url: this.#osmUrl, apiUrl: this.#osmUrl };
+    const initPromise = this.rapidContext.initAsync();
+    this.#patchRapidAuth();
+    await initPromise;
 
-    await this.rapidContext.initAsync();
-    this.#patchRapid();
+    this.#addCustomImagerySource(customImagerySource);
+    this.#bindRapidEvents();
   }
 
-  switchWorkspace(workspaceId: number) {
+  #addCustomImagerySource(customImagerySource: ImagerySource | null) {
+    if (!customImagerySource) {
+      return;
+    }
+
+    const imagerySystem = this.rapidContext.systems.imagery;
+
+    const newCustomSourceData = convertToRapidImagerySource(customImagerySource as unknown as ImagerySource | null);
+    console.log('Custom Imagery Source Converted', newCustomSourceData);
+    if (!newCustomSourceData) {
+      return;
+    }
+    const newCustomSource = new Rapid.ImagerySource(this.rapidContext, newCustomSourceData);
+    imagerySystem._imageryIndex.sources.set(newCustomSourceData.id, newCustomSource);
+    imagerySystem.setSourceByID(newCustomSourceData.id);
+  }
+
+  async switchWorkspace(
+    workspaceId: number,
+    customImagerySource: ImagerySource | null = null
+  ) {
     this.rapidContext.workspaceId = workspaceId;
 
     // Induce the editor to re-read the configuration from the URL hash:
@@ -86,7 +114,8 @@ export class RapidManager {
       oldURL: window.location.href
     }));
 
-    return this.rapidContext.resetAsync();
+    await this.rapidContext.resetAsync();
+    this.#addCustomImagerySource(customImagerySource);
   }
 
   #onLoaded() {
@@ -100,7 +129,7 @@ export class RapidManager {
     console.log('Rapid loaded', this.rapidContext);
   }
 
-  #patchRapid() {
+  #patchRapidAuth() {
     const rapidOsmService = this.rapidContext.services.osm;
     const rapidOsmClient = rapidOsmService._oauth;
 
@@ -111,7 +140,9 @@ export class RapidManager {
     rapidOsmService.userDetails = (callback: (error: string) => void) => {
       callback('dummy error')
     };
+  }
 
+  #bindRapidEvents() {
     console.log('Rapid editor ', this.rapidContext);
     const editSystem = this.rapidContext.systems.editor;
     editSystem.on('stablechange', (_state: any) => {

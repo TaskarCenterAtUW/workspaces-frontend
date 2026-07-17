@@ -7,6 +7,7 @@ import type {
   ProjectWizardStepId,
 } from '~/types/project-wizard';
 import type { WorkspaceRole } from '~/types/workspaces';
+import { resolveHttpErrorMessage } from '~/services/http';
 
 interface UseProjectWizardSettingsOptions {
   currentStep: Ref<ProjectWizardStepId>;
@@ -66,11 +67,14 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
     });
   });
 
+  const workspaceUsersError = ref<string | null>(null);
+
   async function ensureWorkspaceUsersLoaded() {
     if (workspaceUsersLoaded.value || workspaceUsersLoading.value) {
       return;
     }
 
+    workspaceUsersError.value = null;
     workspaceUsersLoading.value = true;
 
     try {
@@ -92,9 +96,16 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
       });
       workspaceUsersLoaded.value = true;
     }
+    catch (error) {
+      workspaceUsersError.value = await resolveHttpErrorMessage(error, 'Failed to load workspace users.');
+    }
     finally {
       workspaceUsersLoading.value = false;
     }
+  }
+
+  function retryLoadWorkspaceUsers() {
+    void ensureWorkspaceUsersLoaded();
   }
 
   function addValidator(user: ProjectWizardWorkspaceUser) {
@@ -155,12 +166,14 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
     filteredWorkspaceUsers,
     isSettingsStepActive,
     removeValidator,
+    retryLoadWorkspaceUsers,
     selectedValidators,
     updateInstructions,
     updateLockTimeoutHours,
     updateReviewRequired,
     updateValidatorSearchQuery,
     validatorSearchQuery,
+    workspaceUsersError,
     workspaceUsersLoading,
   };
 }

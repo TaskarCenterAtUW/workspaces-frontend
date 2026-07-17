@@ -193,15 +193,13 @@
  *
  * Emits `select-task` when a task row is clicked, so the parent page can highlight it on the map.
  */
+import { usePagination } from '~/composables/usePagination';
 import type { WorkspaceProjectTaskListItem, WorkspaceProjectTaskStatus } from '~/types/projects';
 import type { WorkspaceRole } from '~/types/workspaces';
 import { resolveWorkspaceProjectTaskStatusLabel } from '~/util/task-status';
 
 type TaskSortOption = 'latest' | 'oldest' | 'task_asc' | 'task_desc';
 type TaskStatusFilter = WorkspaceProjectTaskStatus | 'all';
-type PaginationItem
-  = | { type: 'page'; key: string; page: number }
-    | { type: 'ellipsis'; key: string };
 
 interface SelectOption {
   label: string;
@@ -229,12 +227,9 @@ const emit = defineEmits<{
 
 /** Keep the page short enough to fit the panel while matching the requested 6-row layout. */
 const pageSize = 6;
-/** Limit how many numbered pagination buttons we render before collapsing with ellipses. */
-const maxVisiblePaginationButtons = 7;
 const searchQuery = ref('');
 const selectedStatus = ref<TaskStatusFilter>('all');
 const sortBy = ref<TaskSortOption>('latest');
-const currentPage = ref(1);
 
 const statusOptions: SelectOption[] = [
   { label: 'All', value: 'all' },
@@ -293,16 +288,11 @@ const sortedTasks = computed(() => {
   }
 });
 
-/** `Math.max(1, ...)` ensures totalPages is always at least 1, so the pagination never shows "0 pages". */
-const totalPages = computed(() => Math.max(1, Math.ceil(sortedTasks.value.length / pageSize)));
+const { currentPage, totalPages, paginatedItems: paginatedTasks, visiblePaginationItems } = usePagination(
+  () => sortedTasks.value,
+  () => pageSize
+);
 
-/** Step 3 — Paginate: slice the sorted list down to the current page window. */
-const paginatedTasks = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  return sortedTasks.value.slice(start, start + pageSize);
-});
-
-/** Human-readable "Showing X to Y of Z entries" summary shown in the footer. */
 const paginationSummary = computed(() => {
   if (sortedTasks.value.length === 0) {
     return 'Showing 0 entries';
@@ -314,78 +304,10 @@ const paginationSummary = computed(() => {
   return `Showing ${start} to ${end} of ${sortedTasks.value.length} entries`;
 });
 
-/**
- * Compress long pagination runs so the footer stays readable:
- *   1 ... 7 8 9 ... 17
- * instead of rendering every page button in a single line.
- */
-const visiblePaginationItems = computed<PaginationItem[]>(() => {
-  const pages = totalPages.value;
-
-  if (pages <= maxVisiblePaginationButtons) {
-    return Array.from({ length: pages }, (_, index) => ({
-      type: 'page' as const,
-      key: `page-${index + 1}`,
-      page: index + 1,
-    }));
-  }
-
-  const firstPage = 1;
-  const lastPage = pages;
-  const current = currentPage.value;
-  const interiorSlots = maxVisiblePaginationButtons - 2;
-  let windowStart = Math.max(firstPage + 1, current - Math.floor(interiorSlots / 2));
-  let windowEnd = windowStart + interiorSlots - 1;
-
-  if (windowEnd >= lastPage) {
-    windowEnd = lastPage - 1;
-    windowStart = windowEnd - interiorSlots + 1;
-  }
-
-  const items: PaginationItem[] = [
-    { type: 'page', key: `page-${firstPage}`, page: firstPage },
-  ];
-
-  if (windowStart > firstPage + 1) {
-    items.push({ type: 'ellipsis', key: 'ellipsis-start' });
-  }
-
-  for (let page = windowStart; page <= windowEnd; page += 1) {
-    items.push({ type: 'page', key: `page-${page}`, page });
-  }
-
-  if (windowEnd < lastPage - 1) {
-    items.push({ type: 'ellipsis', key: 'ellipsis-end' });
-  }
-
-  items.push({ type: 'page', key: `page-${lastPage}`, page: lastPage });
-
-  return items;
-});
-
-/**
- * Reset to page 1 whenever the user changes the search, status filter, or sort.
- * Without this, the user could be on page 3 and change the filter to show only 2 tasks,
- * resulting in an empty list with no navigation back.
- */
 watch([searchQuery, selectedStatus, sortBy], () => {
   currentPage.value = 1;
 });
 
-/**
- * If the total number of pages shrinks (e.g. user deletes tasks), snap back to the last
- * valid page so we don't show an empty list with no indication of why.
- */
-watch(totalPages, (pageCount) => {
-  if (currentPage.value > pageCount) {
-    currentPage.value = pageCount;
-  }
-});
-
-/**
- * Convert the internal API status string to a display-friendly label.
- * If you add a new status value to `WorkspaceProjectTaskStatus`, add a case here too.
- */
 function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   return resolveWorkspaceProjectTaskStatusLabel(task, props.viewerProjectRole);
 }

@@ -33,19 +33,15 @@ interface ProjectWizardWorkspaceUserApiItem {
   role: ProjectWizardWorkspaceUser['role'];
 }
 
-interface ProjectWizardProjectsListApiItem {
-  name: string;
-}
-
-interface ProjectWizardProjectsListApiResponse {
-  results: ProjectWizardProjectsListApiItem[];
-}
-
 interface ProjectWizardCreateProjectApiResponse {
   id?: number | string;
   projectId?: number | string;
   project_id?: number | string;
   status?: string;
+}
+
+interface ProjectWizardNameValidationApiResponse {
+  exists: boolean;
 }
 
 const PROJECT_WIZARD_TASK_SOURCE_GRID: ProjectWizardTaskBoundarySource = 'grid';
@@ -128,7 +124,7 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
     workspaceId: WorkspaceId,
     projectName: string,
   ): Promise<ProjectWizardNameAvailabilityResponse> {
-    const normalizedName = projectName.trim().toLowerCase();
+    const normalizedName = projectName.trim();
 
     if (normalizedName.length < 3) {
       return {
@@ -138,17 +134,14 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
     }
 
     const params = new URLSearchParams({
-      text_search: projectName.trim(),
-      page: '1',
-      page_size: '20',
-      order_by: 'created_at',
-      order_by_type: 'DESC',
+      name: normalizedName,
     });
-    const response = await this._get(`workspaces/${workspaceId}/tasking/projects?${params.toString()}`);
-    const body = await response.json() as ProjectWizardProjectsListApiResponse;
-    const existingProject = body.results.some(project => project.name.trim().toLowerCase() === normalizedName);
+    const response = await this._get(
+      `workspaces/${workspaceId}/tasking/projects/validate-name?${params.toString()}`,
+    );
+    const body = await response.json() as ProjectWizardNameValidationApiResponse;
 
-    return existingProject
+    return body.exists
       ? {
           available: false,
           message: 'Project name already exists',

@@ -19,6 +19,7 @@ import type {
   WorkspaceProjectTaskListItem,
   WorkspaceProjectTaskSubmitPayload,
   WorkspaceProjectTasksApiResponse,
+  WorkspaceProjectUpdatePayload,
   WorkspaceProjectsApiResponse,
   WorkspaceProjectsQuery,
   WorkspaceProjectsResult,
@@ -69,7 +70,8 @@ function normalizeProject(
     id: project.id,
     workspaceId,
     name: project.name,
-    summary: undefined,
+    summary: project.description ?? undefined,
+    description: project.description ?? undefined,
     status: normalizeStatus(project.status),
     taskCount: project.task_count,
     percentCompleted: project.percent_completed,
@@ -88,7 +90,8 @@ function normalizeProjectDetail(
     id: project.id,
     workspaceId,
     name: project.name,
-    summary: undefined,
+    summary: project.description ?? undefined,
+    description: project.description ?? undefined,
     status: normalizeStatus(project.status),
     taskCount: project.task_count,
     percentCompleted: project.percent_completed ?? 0,
@@ -96,7 +99,8 @@ function normalizeProjectDetail(
     createdByName: project.created_by_name ?? '',
     createdAt: new Date(project.created_at),
     updatedAt: new Date(project.updated_at),
-    instructions: project.instructions,
+    instructions: project.instructions ?? '',
+    customImagery: project.custom_imagery ?? null,
     reviewRequired: project.review_required,
     lockTimeoutHours: project.lock_timeout_hours,
     taskBoundaryType: project.task_boundary_type,
@@ -261,6 +265,53 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     return normalizeProjectDetail(workspaceId, body);
   }
 
+  async updateWorkspaceProject(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+    payload: WorkspaceProjectUpdatePayload,
+  ): Promise<WorkspaceProjectDetail> {
+    await this._patch(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}`,
+      {
+        custom_imagery: payload.customImagery,
+        description: payload.description,
+        instructions: payload.instructions,
+        lock_timeout_hours: payload.lockTimeoutHours,
+        name: payload.name,
+        review_required: payload.reviewRequired,
+      },
+    );
+
+    return await this.getWorkspaceProjectDetail(workspaceId, projectId);
+  }
+
+  async closeWorkspaceProject(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+  ): Promise<void> {
+    await this._post(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/close`,
+    );
+  }
+
+  async resetWorkspaceProject(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+  ): Promise<void> {
+    await this._post(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/reset`,
+    );
+  }
+
+  async deleteWorkspaceProject(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+  ): Promise<void> {
+    await this._delete(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}`,
+    );
+  }
+
   async getWorkspaceProjectAoi(
     workspaceId: WorkspaceId,
     projectId: number | string,
@@ -321,9 +372,15 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
       const body = await response.json() as WorkspaceProjectRoleApiItem;
       return body.role as WorkspaceProjectContributorRole;
     }
-    catch {
-      // 404 or network error → user has no explicit project role; treat as null.
-      return null;
+    catch (error) {
+      if (
+        error instanceof WorkspaceProjectsClientError
+        && error.response.status === 404
+      ) {
+        return null;
+      }
+
+      throw error;
     }
   }
 

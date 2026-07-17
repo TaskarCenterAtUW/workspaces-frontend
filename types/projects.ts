@@ -5,6 +5,7 @@ import type {
 } from 'geojson';
 
 import type { WorkspaceId, WorkspaceRole } from '~/types/workspaces';
+import type { ImagerySource } from '~/types/imagery';
 
 export type WorkspaceProjectStatus = 'draft' | 'in_progress' | 'completed';
 export type WorkspaceProjectView = 'grid' | 'list';
@@ -39,13 +40,14 @@ export interface WorkspaceProjectApiItem {
   created_by_name: string | null;
   created_at: string;
   updated_at: string;
+  description?: string | null;
 }
 
 export interface WorkspaceProjectDetailApiItem {
   id: number;
   workspace_id: number;
   name: string;
-  instructions: string;
+  instructions: string | null;
   status: WorkspaceProjectsApiStatus;
   review_required: boolean;
   lock_timeout_hours: number;
@@ -57,6 +59,8 @@ export interface WorkspaceProjectDetailApiItem {
   created_by_name: string | null;
   created_at: string;
   updated_at: string;
+  description?: string | null;
+  custom_imagery?: ImagerySource | null;
 }
 
 export interface WorkspaceProjectTaskApiLock {
@@ -117,14 +121,25 @@ export interface WorkspaceProject {
   createdAt: Date;
   updatedAt: Date;
   createdByName: string | null;
+  description: string | undefined;
 }
 
 export interface WorkspaceProjectDetail extends WorkspaceProject {
+  customImagery: ImagerySource | null;
   instructions: string;
   reviewRequired: boolean;
   lockTimeoutHours: number;
   taskBoundaryType: string;
   hasAoi: boolean;
+}
+
+export interface WorkspaceProjectUpdatePayload {
+  customImagery: ImagerySource | null;
+  description: string;
+  instructions: string;
+  lockTimeoutHours: number;
+  name: string;
+  reviewRequired: boolean;
 }
 
 export interface WorkspaceProjectTaskListItem {

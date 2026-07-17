@@ -62,12 +62,14 @@
       </div>
 
       <project-wizard-assign-users-field
+        :error="workspaceUsersError"
         :loading="workspaceUsersLoading"
         :search-query="validatorSearchQuery"
         :search-results="workspaceUsers"
         :selected-users="selectedValidators"
         @add:user="emit('add:validator', $event)"
         @remove:user="emit('remove:validator', $event)"
+        @retry="emit('retry:workspace-users')"
         @update:search="emit('update:validator-search', $event)"
       />
     </section>
@@ -101,6 +103,7 @@ interface Props {
   step: ProjectWizardSettingsStepDefinition;
   validatorSearchQuery: string;
   workspaceUsers: ProjectWizardWorkspaceUser[];
+  workspaceUsersError?: string | null;
   workspaceUsersLoading: boolean;
 }
 
@@ -108,6 +111,7 @@ defineProps<Props>();
 const emit = defineEmits<{
   'add:validator': [user: ProjectWizardWorkspaceUser];
   'remove:validator': [userId: string];
+  'retry:workspace-users': [];
   'update:instructions': [value: string];
   'update:lock-timeout-hours': [value: number];
   'update:review-required': [value: boolean];

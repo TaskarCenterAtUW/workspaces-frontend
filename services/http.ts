@@ -13,6 +13,104 @@ export class BaseHttpClientError extends Error {
   }
 }
 
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function resolveJsonErrorMessage(body: unknown): string | null {
+  if (!body || typeof body !== 'object') {
+    return nonEmptyString(body);
+  }
+
+  const record = body as Record<string, unknown>;
+  const detail = record.detail;
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (!item || typeof item !== 'object') {
+          return nonEmptyString(item);
+        }
+        const itemRecord = item as Record<string, unknown>;
+        return nonEmptyString(itemRecord.msg) ?? nonEmptyString(itemRecord.message);
+      })
+      .filter((message): message is string => Boolean(message));
+
+    if (messages.length > 0) {
+      return messages.join(' ');
+    }
+  }
+
+  const detailMessage = nonEmptyString(detail)
+    ?? resolveJsonErrorMessage(detail);
+  const message = detailMessage
+    ?? nonEmptyString(record.message)
+    ?? nonEmptyString(record.error);
+
+  if (!message) {
+    return null;
+  }
+
+  const detailRecord = detail && typeof detail === 'object' && !Array.isArray(detail)
+    ? detail as Record<string, unknown>
+    : null;
+  const existingLock = detailRecord?.existing_lock;
+  const lockRecord = existingLock && typeof existingLock === 'object' && !Array.isArray(existingLock)
+    ? existingLock as Record<string, unknown>
+    : null;
+  const taskNumber = lockRecord?.task_number;
+
+  if (
+    typeof taskNumber === 'number'
+    || (typeof taskNumber === 'string' && taskNumber.trim())
+  ) {
+    const normalizedMessage = /[.!?]$/.test(message) ? message : `${message}.`;
+    return `${normalizedMessage} Existing lock: Task #${String(taskNumber).trim()}.`;
+  }
+
+  return message;
+}
+
+export async function resolveHttpErrorMessage(
+  error: unknown,
+  fallbackMessage: string
+): Promise<string> {
+  const response = error instanceof Error && 'response' in error
+    ? (error as { response?: Response }).response
+    : undefined;
+
+  if (response) {
+    try {
+      const message = resolveJsonErrorMessage(await response.clone().json());
+
+      if (message) {
+        return message;
+      }
+    }
+    catch {
+      try {
+        const contentType = response.headers.get('Content-Type') ?? '';
+        const message = contentType.includes('application/json')
+          ? ''
+          : (await response.clone().text()).trim();
+
+        if (message) {
+          return message;
+        }
+      }
+      catch {
+        // Use the caller's concise fallback when the response body cannot be read.
+      }
+    }
+
+    return fallbackMessage;
+  }
+
+  return error instanceof Error && error.message.trim()
+    ? error.message
+    : fallbackMessage;
+}
+
 export abstract class BaseHttpClient {
   _baseUrl: string;
   _requestHeaders = {

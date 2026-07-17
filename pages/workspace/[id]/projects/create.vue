@@ -61,6 +61,8 @@
                   v-if="detailsStep"
                   :step="detailsStep"
                   :details="draft.details"
+                  :imagery-error="imageryError"
+                  :imagery-validating="imageryValidating"
                   :name-availability-status="nameAvailabilityStatus"
                   :name-availability-message="nameAvailabilityMessage"
                   @update:field="updateDetailsField"
@@ -88,8 +90,10 @@
                   :selected-validators="selectedValidators"
                   :validator-search-query="validatorSearchQuery"
                   :workspace-users="filteredWorkspaceUsers"
+                  :workspace-users-error="workspaceUsersError"
                   :workspace-users-loading="workspaceUsersLoading"
                   @add:validator="addValidator"
+                  @retry:workspace-users="retryLoadWorkspaceUsers"
                   @remove:validator="removeValidator"
                   @update:instructions="updateInstructions"
                   @update:lock-timeout-hours="updateLockTimeoutHours"
@@ -185,6 +189,8 @@
 
 <script setup lang="ts">
 import { projectWizardClient, workspacesClient } from '~/services/index';
+import { resolveHttpErrorMessage } from '~/services/http';
+import { validateProjectCustomImagery } from '~/services/project-custom-imagery';
 import { buildProjectWizardReviewSummary } from '~/services/project-wizard-review';
 
 import type {
@@ -200,9 +206,18 @@ import type {
 
 const route = useRoute();
 const workspaceId = Number(route.params.id);
-const workspace = await workspacesClient.getWorkspace(workspaceId);
+
+if (!Number.isInteger(workspaceId) || workspaceId <= 0) {
+  throw createError({ statusCode: 404, statusMessage: 'Workspace not found.' });
+}
+
+const workspace = await workspacesClient.getWorkspace(workspaceId).catch((error) => {
+  throw createError({ statusCode: 500, statusMessage: 'Failed to load workspace.', data: error });
+});
 const projectsRoute = `/workspace/${workspaceId}/projects`;
 const PROJECT_NAME_CHECK_DEBOUNCE_MS = 300;
+const IMAGERY_VALIDATION_DEBOUNCE_MS = 300;
+const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA;
 
 const {
   creating,
@@ -245,6 +260,9 @@ const reviewStep = computed(() =>
 
 const nameAvailabilityStatus = ref<ProjectWizardNameAvailabilityStatus>('idle');
 const nameAvailabilityMessage = ref('');
+const imageryError = ref<string | null>(null);
+const imagerySchema = ref<object>();
+const imageryValidating = ref(false);
 const {
   areaImportError,
   areaWarningMessage,
@@ -272,7 +290,9 @@ const {
   updateReviewRequired,
   updateValidatorSearchQuery,
   validatorSearchQuery,
+  workspaceUsersError,
   workspaceUsersLoading,
+  retryLoadWorkspaceUsers,
 } = useProjectWizardSettings({
   currentStep,
   draft,
@@ -285,14 +305,26 @@ const reviewSummary = computed(() =>
   ),
 );
 
+const detailsStepComplete = computed(() =>
+  draft.details.name.trim().length > 0
+  && nameAvailabilityStatus.value === 'available'
+  && !imageryValidating.value
+  && !imageryError.value,
+);
+
+const areaStepComplete = computed(() => Boolean(draft.area.aoi));
+
 const canProceed = computed(() => {
   switch (currentStep.value) {
     case 'details':
-      return draft.details.name.trim().length > 0 && nameAvailabilityStatus.value === 'available';
+      return draft.details.name.trim().length > 0
+        && nameAvailabilityStatus.value === 'available'
+        && !imageryValidating.value
+        && !imageryError.value;
     case 'area':
       return Boolean(draft.area.aoi);
     case 'review':
-      return !createdProject.value;
+      return !createdProject.value && detailsStepComplete.value && areaStepComplete.value;
     default:
       return true;
   }
@@ -338,6 +370,8 @@ const mapPadding = ref({
 
 let nameCheckDebounce: ReturnType<typeof setTimeout> | undefined;
 let nameCheckRequestId = 0;
+let imageryValidationDebounce: ReturnType<typeof setTimeout> | undefined;
+let imageryValidationRequestId = 0;
 
 function syncMapPadding() {
   if (!import.meta.client) {
@@ -368,8 +402,12 @@ onBeforeUnmount(() => {
   if (nameCheckDebounce) {
     clearTimeout(nameCheckDebounce);
   }
+  if (imageryValidationDebounce) {
+    clearTimeout(imageryValidationDebounce);
+  }
 
   nameCheckRequestId += 1;
+  imageryValidationRequestId += 1;
   window.removeEventListener('resize', syncMapPadding);
 });
 
@@ -418,6 +456,79 @@ watch(
   { immediate: true },
 );
 
+watch(
+  () => draft.details.imageryUrl,
+  (customImagery) => {
+    if (imageryValidationDebounce) {
+      clearTimeout(imageryValidationDebounce);
+    }
+
+    imageryValidationRequestId += 1;
+    imageryError.value = null;
+
+    if (!customImagery.trim()) {
+      imageryValidating.value = false;
+      return;
+    }
+
+    imageryValidating.value = true;
+    const requestId = imageryValidationRequestId;
+    imageryValidationDebounce = setTimeout(() => {
+      imageryValidationDebounce = undefined;
+      void validateCustomImagery(customImagery, requestId).then((result) => {
+        if (!isCurrentImageryValidation(customImagery, requestId)) {
+          return;
+        }
+
+        imageryError.value = result.error;
+      });
+    }, IMAGERY_VALIDATION_DEBOUNCE_MS);
+  },
+  { immediate: true },
+);
+
+async function validateCustomImagery(customImagery: string, requestId: number) {
+  try {
+    return await validateProjectCustomImagery(
+      customImagery,
+      imagerySchemaUrl,
+      imagerySchema,
+    );
+  }
+  catch (error) {
+    console.error('Custom imagery validation failed', error);
+    return {
+      data: null,
+      error: 'Custom imagery could not be validated. Please try again.',
+    };
+  }
+  finally {
+    if (requestId === imageryValidationRequestId) {
+      imageryValidating.value = false;
+    }
+  }
+}
+
+function isCurrentImageryValidation(customImagery: string, requestId: number) {
+  return requestId === imageryValidationRequestId
+    && customImagery === draft.details.imageryUrl;
+}
+
+async function validateCurrentCustomImagery() {
+  if (imageryValidationDebounce) {
+    clearTimeout(imageryValidationDebounce);
+    imageryValidationDebounce = undefined;
+  }
+
+  const customImagery = draft.details.imageryUrl;
+  const requestId = ++imageryValidationRequestId;
+  imageryValidating.value = true;
+  imageryError.value = null;
+  const result = await validateCustomImagery(customImagery, requestId);
+
+  return { customImagery, requestId, result };
+}
+
 function updateDetailsField(fieldId: ProjectWizardDetailsFieldId, value: string) {
   draft.details[fieldId] = value;
 }
@@ -432,6 +543,21 @@ async function exitWizard() {
 }
 
 async function onPrimaryAction() {
+  if (currentStep.value === 'details' && draft.details.imageryUrl.trim()) {
+    const validation = await validateCurrentCustomImagery();
+
+    if (!isCurrentImageryValidation(validation.customImagery, validation.requestId)
+      || currentStep.value !== 'details') {
+      return;
+    }
+
+    imageryError.value = validation.result.error;
+
+    if (validation.result.error) {
+      return;
+    }
+  }
+
   if (currentStep.value === 'review') {
     await submitProject();
     return;
@@ -451,6 +577,10 @@ async function onSecondaryAction() {
 
 async function onSelectStep(step: ProjectWizardStepId) {
   if (createdProject.value) {
+    return;
+  }
+
+  if (step === 'review' && (!detailsStepComplete.value || !areaStepComplete.value)) {
     return;
   }
 
@@ -490,12 +620,23 @@ async function handleStatusDialogSecondaryAction() {
 
 async function submitProject() {
   try {
+    const validation = await validateCurrentCustomImagery();
+
+    if (!isCurrentImageryValidation(validation.customImagery, validation.requestId)) {
+      return;
+    }
+
+    imageryError.value = validation.result.error;
+    if (validation.result.error) {
+      throw new Error(validation.result.error);
+    }
+
     const result = await createProject();
 
     openProjectCreationSuccessDialog(result);
   }
   catch (error) {
-    openProjectCreationErrorDialog(error);
+    await openProjectCreationErrorDialog(error);
   }
 }
 
@@ -516,13 +657,14 @@ function openProjectCreationSuccessDialog(result: ProjectWizardCreateResult) {
   };
 }
 
-function openProjectCreationErrorDialog(error: unknown) {
+async function openProjectCreationErrorDialog(error: unknown) {
   statusDialog.value = {
     variant: 'error',
     title: 'Something went wrong',
-    message: error instanceof Error
-      ? error.message
-      : 'Project could not be created. Please try again.',
+    message: await resolveHttpErrorMessage(
+      error,
+      'Project could not be created. Please try again.',
+    ),
     primaryActionLabel: 'Try Again',
     primaryActionType: 'retry-create',
     primaryRoute: '',

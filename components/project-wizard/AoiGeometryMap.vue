@@ -141,6 +141,9 @@ onMounted(async () => {
     ensureLayers();
     bindInteractionHandlers();
     isMapStyleLoaded.value = true;
+    syncSources();
+    syncInteractionState();
+    applyViewport();
   });
 });
 
@@ -196,7 +199,7 @@ function ensureLayers() {
 
   wizardMap.addSource(AOI_SOURCE_ID, {
     type: 'geojson',
-    data: emptyCollection,
+    data: createAoiFeatureCollection(),
   });
 
   wizardMap.addSource(DRAFT_SOURCE_ID, {

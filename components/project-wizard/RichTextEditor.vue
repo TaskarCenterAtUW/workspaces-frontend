@@ -12,6 +12,7 @@
         :class="{ 'project-wizard-rich-text-editor-tool-active': isToolActive(tool.id) }"
         type="button"
         :aria-label="tool.label"
+        @mousedown.prevent
         @click="applyTool(tool.id)"
       >
         <app-icon
@@ -89,7 +90,8 @@ const editor = useEditor({
     },
   },
   onUpdate({ editor: currentEditor }) {
-    emit('update:modelValue', currentEditor.isEmpty ? '' : currentEditor.getHTML());
+    const nextValue = currentEditor.isEmpty ? '' : currentEditor.getHTML();
+    emit('update:modelValue', nextValue);
   },
 });
 
@@ -104,7 +106,7 @@ watch(
 
     const nextValue = value || '<p></p>';
 
-    if (currentEditor.getHTML() === nextValue) {
+    if (currentEditor.isFocused || currentEditor.getHTML() === nextValue) {
       return;
     }
 

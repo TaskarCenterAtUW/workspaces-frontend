@@ -1,3 +1,5 @@
+<!-- Instructions HTML is sanitized by buildProjectWizardReviewSummary before rendering. -->
+<!-- eslint-disable vue/no-v-html -->
 <template>
   <section class="project-wizard-step project-wizard-step-review">
     <header class="project-wizard-step-header">

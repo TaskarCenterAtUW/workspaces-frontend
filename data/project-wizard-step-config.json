@@ -23,8 +23,8 @@
           },
           {
             "id": "imageryUrl",
-            "label": "Imagery URL",
-            "placeholder": "Paste imagery JSON or a URL reference for later validation.",
+            "label": "Custom Imagery",
+            "placeholder": "Paste one custom imagery JSON object.",
             "rows": 8,
             "type": "textarea"
           }

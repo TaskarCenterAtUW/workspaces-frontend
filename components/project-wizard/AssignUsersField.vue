@@ -21,7 +21,7 @@
     </div>
 
     <div
-      v-if="loading || shouldShowSearchResults"
+      v-if="loading || shouldShowSearchResults || error"
       class="project-wizard-assign-users-results"
     >
       <div
@@ -30,6 +30,20 @@
       >
         <app-spinner size="sm" />
         <span>Loading users...</span>
+      </div>
+
+      <div
+        v-else-if="error"
+        class="project-wizard-assign-users-status"
+      >
+        <span>{{ error }}</span>
+        <button
+          class="btn btn-link"
+          type="button"
+          @click="emit('retry')"
+        >
+          Retry
+        </button>
       </div>
 
       <template v-else>
@@ -119,6 +133,7 @@ import type { ProjectWizardWorkspaceUser } from '~/types/project-wizard';
 import type { WorkspaceRole } from '~/types/workspaces';
 
 interface Props {
+  error?: string | null;
   loading: boolean;
   searchQuery: string;
   searchResults: ProjectWizardWorkspaceUser[];
@@ -129,6 +144,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
   'add:user': [user: ProjectWizardWorkspaceUser];
   'remove:user': [userId: string];
+  'retry': [];
   'update:search': [value: string];
 }>();
 
