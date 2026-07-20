@@ -849,6 +849,39 @@ function getInitial(value: string) {
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
+$project-edit-header-padding: 1.25rem 1.75rem 1.2rem;
+$project-edit-header-padding-mobile: 1.25rem 1rem;
+$project-edit-breadcrumb-gap: 0.45rem;
+$project-edit-breadcrumb-spacing: 0.75rem;
+$project-edit-nav-gap: 0.3rem;
+$project-edit-nav-padding: 1.25rem 1rem 1rem;
+$project-edit-nav-item-padding: 0.65rem 1rem;
+$project-edit-footer-padding: 1rem 1.25rem;
+$project-edit-content-padding: 1.5rem 2rem 2.25rem;
+$project-edit-card-padding: 1rem 1.1rem;
+$project-edit-row-padding: 0.9rem 1rem;
+$project-edit-sidebar-min-width: 14rem;
+$project-edit-sidebar-max-width: 19rem;
+$project-edit-content-max-width: 60rem;
+$project-edit-nav-item-min-height: 3rem;
+$project-edit-control-min-height: 2.75rem;
+$project-edit-save-min-width: 5rem;
+$project-edit-avatar-size: 2.5rem;
+$project-edit-avatar-font-size: 1.25rem;
+$project-edit-title-font-size: clamp(1.45rem, 1.8vw, 1.85rem);
+$project-edit-title-font-size-mobile: 1.5rem;
+$project-edit-heading-font-size: 1.05rem;
+$project-edit-body-font-size: 0.92rem;
+$project-edit-control-font-size: 0.95rem;
+$project-edit-small-font-size: 0.9rem;
+$project-edit-nav-radius: 0.7rem;
+$project-edit-card-radius: 0.75rem;
+$project-edit-panel-gap: 1.25rem;
+$project-edit-field-gap: 0.55rem;
+$project-edit-row-gap: 0.75rem;
+$project-edit-action-gap: 0.9rem;
+$project-edit-action-spacing: 1.5rem;
+
 .project-edit-page {
   height: calc(100vh - #{$navbar-height});
   padding-top: 1rem !important;
@@ -867,17 +900,17 @@ function getInitial(value: string) {
 }
 
 .project-edit-header {
-  padding: 2rem 2.25rem 1.9rem;
+  padding: $project-edit-header-padding;
   border-bottom: 1px solid rgba($text-navy, 0.08);
 }
 
 .project-edit-breadcrumbs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
-  margin-bottom: 1.2rem;
+  gap: $project-edit-breadcrumb-gap;
+  margin-bottom: $project-edit-breadcrumb-spacing;
   color: #757d98;
-  font-size: 1rem;
+  font-size: $project-edit-small-font-size;
 }
 
 .project-edit-breadcrumbs a {
@@ -889,7 +922,7 @@ function getInitial(value: string) {
   margin: 0;
   color: #1a1e3d;
   font-family: var(--secondary-font-family);
-  font-size: clamp(1.8rem, 2.4vw, 2.35rem);
+  font-size: $project-edit-title-font-size;
   font-weight: 600;
   line-height: 1.15;
   letter-spacing: -0.03em;
@@ -899,7 +932,9 @@ function getInitial(value: string) {
   min-height: 0;
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(15rem, 25%) minmax(0, 1fr);
+  grid-template-columns:
+    minmax($project-edit-sidebar-min-width, $project-edit-sidebar-max-width)
+    minmax(0, 1fr);
 }
 
 .project-edit-sidebar {
@@ -913,23 +948,23 @@ function getInitial(value: string) {
 .project-edit-nav {
   min-height: 0;
   flex: 1;
-  padding: 2rem 1.35rem 1.25rem;
+  padding: $project-edit-nav-padding;
   display: grid;
   align-content: start;
-  gap: 0.8rem;
+  gap: $project-edit-nav-gap;
   overflow-y: auto;
 }
 
 .project-edit-nav-item {
-  min-height: 4.5rem;
-  padding: 0.85rem 1.55rem;
+  min-height: $project-edit-nav-item-min-height;
+  padding: $project-edit-nav-item-padding;
   color: #29314f;
-  font-size: 1.05rem;
+  font-size: $project-edit-control-font-size;
   font-weight: 500;
   text-align: left;
   background: transparent;
   border: 0;
-  border-radius: 1rem;
+  border-radius: $project-edit-nav-radius;
 }
 
 .project-edit-nav-item-active {
@@ -943,23 +978,23 @@ function getInitial(value: string) {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.5rem 2rem 1.6rem;
+  padding: $project-edit-footer-padding;
   border-top: 1px solid rgba($text-navy, 0.08);
 }
 
 .project-edit-cancel {
   padding: 0;
   color: #505977;
-  font-size: 1rem;
+  font-size: $project-edit-control-font-size;
   font-weight: 600;
   text-decoration: none;
 }
 
 .project-edit-save {
-  min-width: 5.75rem;
-  min-height: 3.2rem;
+  min-width: $project-edit-save-min-width;
+  min-height: $project-edit-control-min-height;
   color: #ffffff;
-  font-size: 1.05rem;
+  font-size: $project-edit-control-font-size;
   font-weight: 700;
   background: #4d158d;
   border: 1px solid #4d158d;
@@ -984,13 +1019,13 @@ function getInitial(value: string) {
 }
 
 .project-edit-content-inner {
-  max-width: 55rem;
-  padding: 2.2rem 3rem 3rem;
+  max-width: $project-edit-content-max-width;
+  padding: $project-edit-content-padding;
 }
 
 .project-edit-panel {
   display: grid;
-  gap: 1.75rem;
+  gap: $project-edit-panel-gap;
 }
 
 .project-edit-panel-header {
@@ -1003,7 +1038,7 @@ function getInitial(value: string) {
 .project-edit-action-copy h2 {
   margin: 0;
   color: #273156;
-  font-size: 1.2rem;
+  font-size: $project-edit-heading-font-size;
   font-weight: 700;
 }
 
@@ -1012,18 +1047,18 @@ function getInitial(value: string) {
 .project-edit-action-copy p {
   margin: 0;
   color: #6d7494;
-  font-size: 0.98rem;
+  font-size: $project-edit-body-font-size;
   line-height: 1.55;
 }
 
 .project-edit-field {
   display: grid;
-  gap: 0.75rem;
+  gap: $project-edit-field-gap;
 }
 
 .project-edit-label {
   color: #273156;
-  font-size: 1.1rem;
+  font-size: $font-size-base;
   font-weight: 700;
 }
 
@@ -1141,8 +1176,8 @@ function getInitial(value: string) {
   width: 100%;
   display: grid;
   align-items: center;
-  gap: 0.9rem;
-  padding: 1.15rem 1.35rem;
+  gap: $project-edit-row-gap;
+  padding: $project-edit-row-padding;
   background: #ffffff;
 }
 
@@ -1222,13 +1257,13 @@ function getInitial(value: string) {
 }
 
 .project-edit-avatar {
-  width: 3rem;
-  height: 3rem;
+  width: $project-edit-avatar-size;
+  height: $project-edit-avatar-size;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #5a5574;
-  font-size: 1.5rem;
+  font-size: $project-edit-avatar-font-size;
   background: linear-gradient(180deg, #f3dbfe, #e3d9ff);
   border: 1px solid #dbc8f1;
   border-radius: 999px;
@@ -1357,10 +1392,10 @@ function getInitial(value: string) {
 .project-edit-message-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.9rem;
-  padding: 1.35rem 1.45rem;
+  gap: $project-edit-row-gap;
+  padding: $project-edit-card-padding;
   border: 1px solid rgba($text-navy, 0.08);
-  border-radius: 1rem;
+  border-radius: $project-edit-card-radius;
 }
 
 .project-edit-message-card-muted {
@@ -1372,8 +1407,8 @@ function getInitial(value: string) {
 }
 
 .project-edit-message-icon {
-  width: 3rem;
-  height: 3rem;
+  width: $project-edit-avatar-size;
+  height: $project-edit-avatar-size;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1394,14 +1429,14 @@ function getInitial(value: string) {
 
 .project-edit-message-copy strong {
   color: #273156;
-  font-size: 1rem;
+  font-size: $project-edit-control-font-size;
   font-weight: 700;
 }
 
 .project-edit-message-copy p {
   margin: 0;
   color: #657091;
-  font-size: 0.98rem;
+  font-size: $project-edit-small-font-size;
   line-height: 1.5;
 }
 
@@ -1411,8 +1446,8 @@ function getInitial(value: string) {
 
 .project-edit-action-block {
   display: grid;
-  gap: 1.2rem;
-  padding-bottom: 2rem;
+  gap: $project-edit-action-gap;
+  padding-bottom: $project-edit-action-spacing;
   border-bottom: 1px dashed rgba($text-navy, 0.18);
 }
 
@@ -1423,13 +1458,13 @@ function getInitial(value: string) {
 
 .project-edit-action-button {
   width: fit-content;
-  min-height: 3.3rem;
+  min-height: $project-edit-control-min-height;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  padding-inline: 1.3rem;
-  font-size: 1rem;
+  padding-inline: $spacer;
+  font-size: $project-edit-control-font-size;
   font-weight: 700;
   opacity: 1;
 }
@@ -1496,7 +1531,7 @@ function getInitial(value: string) {
   }
 
   .project-edit-nav-item {
-    min-height: 3.65rem;
+    min-height: $project-edit-nav-item-min-height;
   }
 
   .project-edit-sidebar-footer {
@@ -1551,11 +1586,11 @@ function getInitial(value: string) {
 
 @include media-breakpoint-down(sm) {
   .project-edit-header {
-    padding: 1.5rem 1rem;
+    padding: $project-edit-header-padding-mobile;
   }
 
   .project-edit-title {
-    font-size: 1.8rem;
+    font-size: $project-edit-title-font-size-mobile;
   }
 
   .project-edit-nav,
