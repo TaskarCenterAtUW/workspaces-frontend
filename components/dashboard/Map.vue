@@ -2,7 +2,8 @@
   <div class="map-container">
     <div
       v-show="workspaceAreaPolygon"
-      id="map"
+      ref="mapElement"
+      class="workspace-map-surface"
     />
     <div
       v-show="!workspaceAreaPolygon"
@@ -24,18 +25,39 @@
 import { LoadingContext } from '~/services/loading';
 import { workspacesClient } from '~/services/index';
 
-const props = defineProps({
-  workspace: {
-    type: Object,
-    default: null
-  }
-});
+import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
 
-const emit = defineEmits(['centerLoaded']);
+interface Props {
+  workspace: Workspace;
+}
+
+interface LeafletBounds {
+  getCenter: () => { lat: number; lng: number };
+  isValid: () => boolean;
+}
+
+interface LeafletMap {
+  fitBounds: (bounds: LeafletBounds) => void;
+  getBoundsZoom: (bounds: LeafletBounds) => number;
+  remove: () => void;
+}
+
+interface LeafletPolygon {
+  addTo: (map: LeafletMap) => void;
+  getBounds: () => LeafletBounds;
+  remove: () => void;
+}
+
+const props = defineProps<Props>();
+
+const emit = defineEmits<{
+  centerLoaded: [center: WorkspaceCenter];
+}>();
 
 const loadingBbox = reactive(new LoadingContext());
-const map = ref<any>(null);
-const workspaceAreaPolygon = ref<any>(null);
+const mapElement = ref<HTMLElement | null>(null);
+const map = ref<LeafletMap | null>(null);
+const workspaceAreaPolygon = ref<LeafletPolygon | null>(null);
 
 onMounted(() => {
   watch(
@@ -51,9 +73,18 @@ onMounted(() => {
   );
 });
 
+onBeforeUnmount(() => {
+  loadingBbox.abort();
+  workspaceAreaPolygon.value?.remove();
+  map.value?.remove();
+});
+
 function initMap() {
-  // TODO: use Mapbox
-  map.value = L.map('map');
+  if (!mapElement.value) {
+    return;
+  }
+
+  map.value = L.map(mapElement.value) as LeafletMap;
 
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -61,19 +92,20 @@ function initMap() {
   }).addTo(map.value);
 }
 
-async function updateMapPreview(workspace: any) {
+async function updateMapPreview(workspace: Workspace) {
   if (workspaceAreaPolygon.value) {
     workspaceAreaPolygon.value.remove();
     workspaceAreaPolygon.value = null
   }
 
-  if (!props.workspace.id) {
+  if (!workspace.id) {
     return;
   }
 
   await setCurrentWorkspacePolygon(workspace);
 
-  if (!workspaceAreaPolygon.value) {
+  const polygon = workspaceAreaPolygon.value as LeafletPolygon | null;
+  if (!polygon) {
     return;
   }
 
@@ -81,9 +113,13 @@ async function updateMapPreview(workspace: any) {
     initMap();
   }
 
-  const bounds = workspaceAreaPolygon.value.getBounds();
+  const bounds = polygon.getBounds();
 
-  workspaceAreaPolygon.value.addTo(map.value);
+  if (!map.value) {
+    return;
+  }
+
+  polygon.addTo(map.value);
   map.value.fitBounds(bounds);
 
   const zoom = map.value.getBoundsZoom(bounds);
@@ -92,11 +128,11 @@ async function updateMapPreview(workspace: any) {
   emit('centerLoaded', { zoom, latitude: center.lat, longitude: center.lng });
 }
 
-async function setCurrentWorkspacePolygon(workspace: any) {
-  const metadataArea = workspace.tdeiMetadata?.metadata?.dataset_detail?.dataset_area;
+async function setCurrentWorkspacePolygon(workspace: Workspace) {
+  const metadataArea = getMetadataArea(workspace.tdeiMetadata);
 
   if (metadataArea) {
-    const polygon = L.geoJSON(metadataArea);
+    const polygon = L.geoJSON(metadataArea) as LeafletPolygon;
 
     if (polygon.getBounds().isValid()) {
       workspaceAreaPolygon.value = polygon;
@@ -111,35 +147,56 @@ async function setCurrentWorkspacePolygon(workspace: any) {
       workspaceAreaPolygon.value = L.rectangle([
         [bbox.min_lat, bbox.min_lon],
         [bbox.max_lat, bbox.max_lon]
-      ])
+      ]) as LeafletPolygon;
     }
   });
 }
+
+function getMetadataArea(metadata: unknown): unknown {
+  if (!isRecord(metadata) || !isRecord(metadata.metadata)) {
+    return undefined;
+  }
+
+  const datasetDetail = metadata.metadata.dataset_detail;
+  return isRecord(datasetDetail) ? datasetDetail.dataset_area : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 </script>
 
-<style lang="scss">
-@import "assets/scss/theme.scss";
+<style lang="scss" scoped>
+@import "~/assets/scss/theme.scss";
 
-.dashboard-page {
+$dashboard-map-min-height: 10rem;
+$dashboard-map-height-mobile: 18rem;
+
+.map-container {
+  height: 100%;
+  min-height: $dashboard-map-min-height;
+  background-color: $gray-200;
+}
+
+.workspace-map-surface,
+.missing-workspace-area-notice {
+  width: 100%;
+  height: 100%;
+}
+
+.missing-workspace-area-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: $gray-600;
+  text-align: center;
+}
+
+@include media-breakpoint-down(md) {
   .map-container {
-    height: 350px;
-    background-color: $gray-200;
-  }
-
-  #map {
-    width: 100%;
-    height: 100%;
-  }
-
-  .missing-workspace-area-notice {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: $gray-600;
-    text-align: center;
+    height: $dashboard-map-height-mobile;
+    min-height: 0;
   }
 }
 </style>

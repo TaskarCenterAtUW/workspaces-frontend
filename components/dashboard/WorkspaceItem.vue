@@ -1,203 +1,203 @@
 <template>
   <button
-    :class="getClasses()"
+    class="workspace-card"
+    :class="{ 'workspace-card-selected': selected }"
+    type="button"
     :aria-label="`Select workspace ${workspace.title}, ID ${workspace.id}`"
+    :aria-pressed="selected"
   >
-    <div class="workspace-card-main">
-      <div class="workspace-names">
+    <span class="workspace-card-heading">
+      <span
+        class="workspace-card-icon"
+        aria-hidden="true"
+      >
         <img
-          class="workspace-type-icon"
-          :src="typeIconSrc"
+          :src="workspaceIcon"
           alt=""
         >
+      </span>
 
-        <div class="workspace-copy">
-          <div class="workspace-meta-row">
-            <span class="workspace-type">{{ formatTypeLabel(workspace.type) }}</span>
+      <span class="workspace-card-copy">
+        <strong :title="workspace.title">{{ workspace.title }}</strong>
+        <span>Created {{ createdTime }}</span>
+      </span>
 
-            <span
-              v-if="workspace.externalAppAccess > 0"
-              class="workspace-status workspace-status-success"
-            >
-              <app-icon variant="lock" /> App Access
-            </span>
+      <img
+        v-if="selected"
+        class="workspace-card-selected-icon"
+        :src="selectedIcon"
+        alt=""
+      >
+    </span>
 
-            <span
-              v-if="workspace.role === 'lead'"
-              class="workspace-status"
-            >
-              <app-icon variant="star" /> {{ ROLE_LABELS.lead }}
-            </span>
-            <span
-              v-else-if="workspace.role === 'validator'"
-              class="workspace-status"
-            >
-              <app-icon variant="task_alt" /> {{ ROLE_LABELS.validator }}
-            </span>
-          </div>
-
-          <div
-            class="workspace-title"
-            :title="workspace.title"
-          >
-            <span>{{ workspace.title }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <span class="workspace-card-meta">
+      <span>
+        <img
+          :src="dataTypeIcon"
+          alt=""
+        >
+        {{ typeLabel }}
+      </span>
+      <span>
+        <img
+          :src="listProjectsIcon"
+          alt=""
+        >
+        {{ projectLabel }}
+      </span>
+      <app-icon
+        class="workspace-card-chevron"
+        variant="chevron_right"
+        size="22"
+        no-margin
+      />
+    </span>
   </button>
 </template>
 
 <script setup lang="ts">
-import flexTypeIcon from '~/assets/img/flex-type.svg'
-import oswTypeIcon from '~/assets/img/osw-type.svg'
-import pathwaysTypeIcon from '~/assets/img/pathways-type.svg'
-import { ROLE_LABELS } from '~/util/roles';
+import dataTypeIcon from '~/assets/img/data-type.svg';
+import listProjectsIcon from '~/assets/img/list-projects.svg';
+import workspaceIcon from '~/assets/img/project.svg';
+import selectedIcon from '~/assets/img/check-circle.svg';
+import { formatElapsed } from '~/util/time';
 
-const props = defineProps({
-  workspace: {
-    type: Object,
-    required: true
-  },
-  selected: {
-    type: Boolean,
-    default: false
-  }
+import type { Workspace } from '~/types/workspaces';
+
+interface Props {
+  projectCount?: number | null;
+  selected?: boolean;
+  workspace: Workspace;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  projectCount: null,
+  selected: false,
 });
 
-const typeIconSrc = computed(() => {
-  const iconMap: Record<string, string> = {
-    osw: oswTypeIcon,
-    pathways: pathwaysTypeIcon,
-    flex: flexTypeIcon,
+const createdTime = computed(() => formatElapsed(props.workspace.createdAt));
+const typeLabel = computed(() => props.workspace.type.toUpperCase());
+const projectLabel = computed(() => {
+  if (props.projectCount === null) {
+    return 'Projects';
   }
 
-  return iconMap[props.workspace.type] ?? oswTypeIcon
-})
-
-function getClasses() {
-  return {
-    'workspace-card': true,
-    'workspace-card-selected': props.selected,
-  };
-}
-
-function formatTypeLabel(type: string) {
-  return type.toUpperCase();
-}
+  return `${props.projectCount} ${props.projectCount === 1 ? 'Project' : 'Projects'}`;
+});
 </script>
 
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
+
+$workspace-card-padding: 1rem;
+$workspace-card-gap: 0.85rem;
+$workspace-card-icon-size: 2.6rem;
+$workspace-card-radius: 0.7rem;
+$workspace-card-title-size: 0.98rem;
+$workspace-card-copy-size: 0.86rem;
+$workspace-card-meta-size: 0.88rem;
+$workspace-card-selected-icon-size: 1.25rem;
+$workspace-card-meta-icon-height: 1rem;
+
 .workspace-card {
   width: 100%;
-  display: block;
-  padding: 0;
+  display: grid;
+  gap: $workspace-card-gap;
+  padding: $workspace-card-padding;
+  color: $text-navy;
   text-align: left;
-  background: #ffffff;
-  border: 1px solid #ddd;
-  box-shadow: 0 1px 6px #33333314;
-  border-radius: 5px;
-  margin-bottom: 20px;
-  border-left: 8px solid var(--tdei-blue);
-  overflow: hidden;
+  background: $white;
+  border: $border-width solid $border-color;
+  border-radius: $workspace-card-radius;
+  box-shadow: $box-shadow-sm;
   cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.workspace-card:hover,
+.workspace-card:focus-visible {
+  border-color: rgba($primary, 0.35);
+  box-shadow: 0 0.5rem 1.25rem rgba($primary, 0.1);
 }
 
 .workspace-card-selected {
-  border-left-color: var(--bs-primary);
-  box-shadow: 0 8px 24px rgba(50, 0, 110, 0.14);
   position: sticky;
-  top: 1rem;
-  bottom: 1rem;
+  top: 0;
+  z-index: 1;
+  background: $purple-background-subtle;
+  border-color: rgba($primary, 0.24);
 }
 
-.workspace-card-main {
-  padding: 20px 25px;
-}
-
-.workspace-names {
-  display: flex;
-  align-items: center;
-}
-
-.workspace-type-icon {
-  height: 55px;
-  margin-right: 15px;
-}
-
-.workspace-copy {
+.workspace-card-heading {
   min-width: 0;
-}
-
-.workspace-meta-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 6px;
+  gap: $workspace-card-gap;
 }
 
-.workspace-type,
-.workspace-status {
-  font-size: 14px;
-  font-weight: 400;
-  background-color: #f2f2f2;
-  display: inline-block;
-  padding: 0 8px;
-  border-radius: 4px;
-  color: #333;
-}
-
-.workspace-status {
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.workspace-status-success {
-  background-color: #e8f4e0;
-  color: #2d6a39;
-}
-
-.workspace-title {
-  display: flex;
+.workspace-card-icon {
+  width: $workspace-card-icon-size;
+  height: $workspace-card-icon-size;
+  display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
-  flex-wrap: wrap;
-  font-size: 16px;
-  font-weight: 700;
-  color: #21335b;
+  justify-content: center;
+  border-radius: $workspace-card-radius;
 }
 
-.workspace-title > span:first-child {
+.workspace-card-icon img {
+  width: 100%;
+  height: 100%;
+}
+
+.workspace-card-copy {
   min-width: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.workspace-card-copy strong {
   overflow: hidden;
+  color: $text-navy;
+  font-family: var(--secondary-font-family);
+  font-size: $workspace-card-title-size;
+  font-weight: $font-weight-semibold;
   text-overflow: ellipsis;
-}
-
-.workspace-id-inline {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--secondary-color);
   white-space: nowrap;
 }
 
-@include media-breakpoint-down(md) {
-  .workspace-card {
-    border-top: 5px solid var(--tdei-blue);
-    border-left: 1px solid #ddd;
-  }
+.workspace-card-copy span,
+.workspace-card-meta {
+  color: $secondary;
+  font-size: $workspace-card-copy-size;
+}
 
-  .workspace-card-selected {
-    border-top-color: var(--bs-primary);
-  }
+.workspace-card-selected-icon {
+  width: $workspace-card-selected-icon-size;
+  height: $workspace-card-selected-icon-size;
+}
 
-  .workspace-card-main {
-    padding: 15px;
-  }
+.workspace-card-meta {
+  display: flex;
+  align-items: center;
+  gap: $spacer;
+  padding-top: 0.75rem;
+  font-size: $workspace-card-meta-size;
+  border-top: $border-width dashed rgba($secondary, 0.2);
+}
 
-  .workspace-names {
-    align-items: flex-start;
-  }
+.workspace-card-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.workspace-card-meta img {
+  width: auto;
+  height: $workspace-card-meta-icon-height;
+}
+
+.workspace-card-chevron {
+  margin-left: auto;
 }
 </style>

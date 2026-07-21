@@ -171,7 +171,9 @@ const emit = defineEmits(['open-photo']);
 
 const elementId = computed(() => props.diff.new?.id ?? props.diff.old?.id);
 const elementType = computed(() => {
-  const map = displayTypeMap[props.datasetType] ?? displayTypeMap.osw;
+  const map = props.datasetType === 'pathways'
+    ? displayTypeMap.pathways
+    : displayTypeMap.osw;
   const featureType = props.diff.new?.type ?? props.diff.old?.type;
 
   return map[featureType];
