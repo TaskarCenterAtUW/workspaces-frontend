@@ -459,8 +459,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     changesetId: number,
     message: string,
   ): Promise<void> {
-    // The OSM API reads the comment `text` from the query string, not a request
-    // body — a multipart body is ignored (the backend then 401s the write).
     await this._post(`changeset/${changesetId}/comment?text=${encodeURIComponent(message)}`, undefined, {
       headers: { 'X-Workspace': String(workspaceId) },
     });
