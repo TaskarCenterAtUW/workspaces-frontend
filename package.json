@@ -39,7 +39,7 @@
     "dayjs": "^1.11.19",
     "dompurify": "^3.4.11",
     "maplibre-gl": "^5.10.0",
-    "nuxt": "^4.4.8",
+    "nuxt": "^4.5.0",
     "papaparse": "^5.5.1",
     "qrcode": "^1.5.4",
     "v-viewer": "^3.0.23",
