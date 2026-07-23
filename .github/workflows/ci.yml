@@ -28,7 +28,7 @@ jobs:
       # Runs `nuxt prepare` via the postinstall hook, which generates the .nuxt
       # types + eslint typegen that both `lint` and `typecheck` rely on.
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       # The quality steps below use `if: ${{ !cancelled() }}` so every check runs
       # and reports its own result even when an earlier one fails.

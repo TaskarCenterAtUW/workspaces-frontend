@@ -70,3 +70,94 @@ describe('OsmApiClient.getOsmChange', () => {
     expect(element.timestamp.toISOString()).toBe('2026-07-01T00:00:00.000Z');
   });
 });
+
+describe('OsmApiClient.getChangesetComments', () => {
+  it('requests the changeset with the discussion and returns its comments', async () => {
+    const urls: string[] = [];
+    server.use(
+      http.get(`${OSM_API_BASE}changeset/5.json`, ({ request }) => {
+        urls.push(request.url);
+        return HttpResponse.json({
+          changeset: {
+            id: 5,
+            created_at: '2026-07-01T00:00:00Z',
+            closed_at: '2026-07-01T01:00:00Z',
+            comments: [
+              { id: 1, text: 'looks good', user: 'alice', date: '2026-07-01T00:30:00Z' }
+            ]
+          }
+        });
+      })
+    );
+
+    const comments = await makeClient().getChangesetComments(1, 5);
+
+    // The comments only come back when the changeset is fetched with the flag.
+    expect(urls.some(u => u.includes('include_discussion=true'))).toBe(true);
+    expect(comments).toHaveLength(1);
+    expect(comments[0]!.text).toBe('looks good');
+    expect(comments[0]!.date).toBeInstanceOf(Date);
+  });
+
+  // Regression: the review discussion used to gate the fetch on the list
+  // payload's comments_count; getChangesetComments itself must simply return []
+  // when the changeset carries no comments.
+  it('returns an empty array when the changeset has no comments', async () => {
+    server.use(
+      http.get(`${OSM_API_BASE}changeset/5.json`, () =>
+        HttpResponse.json({
+          changeset: { id: 5, created_at: '2026-07-01T00:00:00Z', closed_at: '2026-07-01T01:00:00Z' }
+        })
+      )
+    );
+
+    await expect(makeClient().getChangesetComments(1, 5)).resolves.toEqual([]);
+  });
+});
+
+describe('OsmApiClient comment posting', () => {
+  // Regression: the comment text must be sent in the query string, not a
+  // multipart body — the OSM API only reads params[:text] from the query, and
+  // this backend 401s a write whose text it can't find.
+  it('posts a changeset comment with the message text as a query parameter', async () => {
+    const urls: string[] = [];
+    server.use(
+      http.post(`${OSM_API_BASE}changeset/5/comment`, ({ request }) => {
+        urls.push(request.url);
+        return new HttpResponse(null, { status: 200 });
+      })
+    );
+
+    await makeClient().postChangesetComment(1, 5, 'nice work');
+
+    expect(urls.some(u => u.includes('text=nice%20work'))).toBe(true);
+  });
+
+  it('posts a note comment to the notes endpoint with the message text as a query parameter', async () => {
+    const urls: string[] = [];
+    server.use(
+      // postNoteComment hits the `.json` endpoint and parses the returned
+      // GeoJSON Feature, so the stub must respond with a valid note feature.
+      http.post(`${OSM_API_BASE}notes/9/comment.json`, ({ request }) => {
+        urls.push(request.url);
+        return HttpResponse.json({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [-122.3, 47.6] },
+          properties: {
+            id: 9,
+            status: 'open',
+            date_created: '2026-07-01T00:00:00Z',
+            comments: [
+              { text: 'thanks for flagging', user: 'tester', date: '2026-07-01T00:30:00Z' }
+            ]
+          }
+        });
+      })
+    );
+
+    await makeClient().postNoteComment(1, 9, 'thanks for flagging');
+
+    // URLSearchParams encodes the space as `+`, not `%20`.
+    expect(urls.some(u => u.includes('text=thanks+for+flagging'))).toBe(true);
+  });
+});
