@@ -65,24 +65,23 @@ import { formatElapsed } from '~/util/time';
 import type { Workspace } from '~/types/workspaces';
 
 interface Props {
-  projectCount?: number | null;
   selected?: boolean;
   workspace: Workspace;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  projectCount: null,
   selected: false,
 });
 
 const createdTime = computed(() => formatElapsed(props.workspace.createdAt));
 const typeLabel = computed(() => props.workspace.type.toUpperCase());
 const projectLabel = computed(() => {
-  if (props.projectCount === null) {
+  if (props.workspace.projectCount == null) {
     return 'Projects';
   }
 
-  return `${props.projectCount} ${props.projectCount === 1 ? 'Project' : 'Projects'}`;
+  const count = props.workspace.projectCount;
+  return `${count} ${count === 1 ? 'Project' : 'Projects'}`;
 });
 </script>
 

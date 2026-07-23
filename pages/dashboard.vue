@@ -99,12 +99,11 @@
           class="dashboard-workspace-list"
         >
           <dashboard-workspace-item
-            v-for="item in workspaceListItems"
-            :key="item.workspace.id"
-            :workspace="item.workspace"
-            :selected="item.workspace.id === currentWorkspace?.id"
-            :project-count="item.projectCount"
-            @click="selectWorkspace(item.workspace)"
+            v-for="workspace in workspaceListItems"
+            :key="workspace.id"
+            :workspace="workspace"
+            :selected="workspace.id === currentWorkspace?.id"
+            @click="selectWorkspace(workspace)"
           />
         </div>
 
@@ -124,13 +123,14 @@
         </div>
       </aside>
 
-      <main
+      <section
         v-if="currentWorkspace"
         class="dashboard-workspace-details"
+        aria-labelledby="dashboard-workspace-title"
       >
         <header class="dashboard-workspace-header">
           <div class="dashboard-workspace-heading">
-            <h2>{{ currentWorkspace.title }}</h2>
+            <h2 id="dashboard-workspace-title">{{ currentWorkspace.title }}</h2>
             <div class="dashboard-workspace-heading-meta">
               <span class="dashboard-workspace-badge">{{ workspaceTypeLabel }}</span>
               <span class="dashboard-workspace-badge">{{ workspaceRoleLabel }}</span>
@@ -155,19 +155,6 @@
               @center-loaded="onCenterLoaded"
             />
           </div>
-
-          <p
-            v-if="summaryError"
-            class="dashboard-summary-error"
-            role="status"
-          >
-            <app-icon
-              variant="info"
-              size="18"
-              no-margin
-            />
-            {{ summaryError }}
-          </p>
 
           <section
             class="dashboard-summary-grid"
@@ -211,7 +198,7 @@
             :my-tdei-roles="currentWorkspaceTdeiRoles"
           />
         </div>
-      </main>
+      </section>
     </section>
   </app-page>
 </template>
@@ -224,13 +211,7 @@ import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 import { formatElapsed } from '~/util/time';
 import { ROLE_LABELS } from '~/util/roles';
 
-import type { DashboardWorkspaceSummary } from '~/composables/useDashboardWorkspaceSummary';
 import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
-
-interface DashboardWorkspaceListItem {
-  projectCount: number | null;
-  workspace: Workspace;
-}
 
 const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
 const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
@@ -252,19 +233,13 @@ const workspacesByProjectGroup = Map.groupBy(
 const currentProjectGroup = ref<string | null>(getLastProjectGroupId());
 const currentWorkspace = ref<Workspace>();
 const workspaceSearch = ref('');
-const {
-  error: summaryError,
-  getSummary,
-  loadSummary,
-  loadingWorkspaceId,
-} = useDashboardWorkspaceSummary();
 
 const currentWorkspaces = computed<Workspace[]>(() =>
   currentProjectGroup.value
     ? workspacesByProjectGroup.get(currentProjectGroup.value) ?? []
     : [],
 );
-const workspaceListItems = computed<DashboardWorkspaceListItem[]>(() => {
+const workspaceListItems = computed<Workspace[]>(() => {
   const normalizedSearch = workspaceSearch.value.toLocaleLowerCase();
 
   return currentWorkspaces.value
@@ -273,17 +248,8 @@ const workspaceListItems = computed<DashboardWorkspaceListItem[]>(() => {
       const selectedWorkspaceId = currentWorkspace.value?.id;
       return Number(secondWorkspace.id === selectedWorkspaceId)
         - Number(firstWorkspace.id === selectedWorkspaceId);
-    })
-    .map(workspace => ({
-      workspace,
-      projectCount: getSummary(workspace.id).projectCount,
-    }));
+    });
 });
-const currentWorkspaceSummary = computed<DashboardWorkspaceSummary>(() =>
-  currentWorkspace.value
-    ? getSummary(currentWorkspace.value.id)
-    : { memberCount: null, projectCount: null },
-);
 const currentWorkspaceTdeiRoles = computed<string[]>(() =>
   currentWorkspace.value
     ? rolesByProjectGroup.get(currentWorkspace.value.tdeiProjectGroupId) ?? []
@@ -300,14 +266,11 @@ const workspaceRoleLabel = computed(() => {
 const workspaceCreatedTime = computed(() =>
   currentWorkspace.value ? formatElapsed(currentWorkspace.value.createdAt) : '',
 );
-const summaryIsLoading = computed(() =>
-  currentWorkspace.value?.id === loadingWorkspaceId.value,
-);
 const projectCountLabel = computed(() =>
-  formatSummaryCount(currentWorkspaceSummary.value.projectCount),
+  formatSummaryCount(currentWorkspace.value?.projectCount),
 );
 const memberCountLabel = computed(() =>
-  formatSummaryCount(currentWorkspaceSummary.value.memberCount),
+  formatSummaryCount(currentWorkspace.value?.memberCount),
 );
 
 watch(currentWorkspace, (workspace) => {
@@ -326,12 +289,8 @@ onMounted(() => {
   syncSelectedWorkspace(currentWorkspaces.value);
 });
 
-function formatSummaryCount(count: number | null): string {
-  if (summaryIsLoading.value && count === null) {
-    return 'Loading';
-  }
-
-  return count === null ? '—' : count.toLocaleString();
+function formatSummaryCount(count?: number | null): string {
+  return count == null ? '—' : count.toLocaleString();
 }
 
 function syncSelectedWorkspace(availableWorkspaces: Workspace[]): void {
@@ -368,7 +327,6 @@ function autoSelectPreferredWorkspace(): void {
 
 function selectWorkspace(workspace: Workspace): void {
   currentWorkspace.value = workspace;
-  void loadSummary(workspace.id);
 }
 
 function onCenterLoaded(center: WorkspaceCenter): void {
@@ -444,7 +402,6 @@ $dashboard-header-padding: 0.75rem 1rem;
 $dashboard-heading-gap: 0.25rem;
 $dashboard-title-size: 1.15rem;
 $dashboard-copy-size: 0.9rem;
-$dashboard-small-copy-size: 0.82rem;
 $dashboard-badge-padding: 0.2rem 0.55rem;
 $dashboard-map-radius: 0.65rem;
 $dashboard-summary-gap: 0.65rem;
@@ -551,6 +508,7 @@ $dashboard-badge-border: #0011661a;
   min-height: 0;
   display: grid;
   grid-template-columns: $dashboard-sidebar-width minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
   background: $white;
   border: $border-width solid $border-color;
@@ -624,8 +582,8 @@ $dashboard-badge-border: #0011661a;
 .dashboard-workspace-details {
   min-width: 0;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -684,13 +642,13 @@ $dashboard-badge-border: #0011661a;
 
 .dashboard-details-content {
   width: 100%;
+  height: 100%;
   min-height: 0;
   max-width: $dashboard-details-max-width;
   padding: $dashboard-details-padding;
   display: grid;
   grid-template-rows: minmax(10rem, 1fr) auto auto;
   gap: $dashboard-summary-gap;
-  flex: 1 1 0;
 }
 
 .dashboard-map-frame {
@@ -698,15 +656,6 @@ $dashboard-badge-border: #0011661a;
   overflow: hidden;
   border: $border-width solid $border-color;
   border-radius: $dashboard-map-radius;
-}
-
-.dashboard-summary-error {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: $secondary;
-  font-size: $dashboard-small-copy-size;
 }
 
 .dashboard-summary-grid {
@@ -781,6 +730,10 @@ $dashboard-badge-border: #0011661a;
     border-bottom: $border-width solid $border-color;
   }
 
+  .dashboard-workspace-details {
+    display: block;
+  }
+
   .dashboard-workspace-list {
     max-height: 24rem;
   }
@@ -788,7 +741,6 @@ $dashboard-badge-border: #0011661a;
   .dashboard-details-content {
     height: auto;
     grid-template-rows: auto;
-    flex: none;
   }
 }
 
