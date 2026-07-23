@@ -2,7 +2,15 @@
 
 Look at the [Nuxt 3 documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
 
-### ⚠️ Reminder: you must set the tag of the environment you wish to deploy in this repo, then run the deploy workflow in workspaces-stack to deploy to dev, stage or prod.
+### ⚠️ Reminder: you must set the tag of the environment you wish to deploy in this repo, then run the deploy workflow in workspaces-stack to deploy to dev, stage or prod. 
+
+### Note: The new workflow enabled creates the tags once the PR is merged to develop, stage or production
+
+## Branch Index
+
+* ```develop``` merge your work here; keep this up to date with the "development" environment / dev tag
+* ```staging``` keep this up to date with the "staging" environment / stage tag
+* ```production``` keep this up to date with the "production" environment / prod tag
 
 ## Dev Setup
 
@@ -22,3 +30,5 @@ npm run dev
 
 If you run `npm run dev` and nothing happens, double check your `.env` file.
 Undefined environment variables are not handled gracefully right now.
+
+

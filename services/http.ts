@@ -20,6 +20,7 @@ export abstract class BaseHttpClient {
     'Authorization': '',
     'Content-Type': 'application/json'
   };
+
   _abortSignal?: AbortSignal;
 
   constructor(baseUrl: string, signal?: AbortSignal) {
@@ -49,6 +50,23 @@ export abstract class BaseHttpClient {
 
   _delete(url: string, config?: FetchConfig): Promise<Response> {
     return this._send(url, 'DELETE', undefined, config);
+  }
+
+  async _sendTest(url: string, method: string, body?: any): Promise<Response> {
+    const response = await fetch(this.url(url), {
+      method,
+      body,
+      headers: {
+        Accept: 'application/text',
+        Authorization: this._requestHeaders.Authorization
+      }
+    });
+
+    if (!response.ok) {
+      throw new BaseHttpClientError(response);
+    }
+
+    return response;
   }
 
   async _send(

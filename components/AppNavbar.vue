@@ -30,7 +30,11 @@
             aria-label="Close menu"
             @click="mobileMenuOpen = false"
           >
-            <app-icon variant="close" size="24" no-margin />
+            <app-icon
+              variant="close"
+              size="24"
+              no-margin
+            />
           </button>
         </div>
 
@@ -39,16 +43,32 @@
           class="navbar-nav nav-links"
         >
           <li class="nav-item">
-            <nuxt-link class="nav-link nav-link-item" to="/" @click="closeOnMobile">Home</nuxt-link>
+            <nuxt-link
+              class="nav-link nav-link-item"
+              to="/"
+              @click="closeOnMobile"
+            >Home</nuxt-link>
           </li>
           <li class="nav-item">
-            <nuxt-link class="nav-link nav-link-item" to="/dashboard" @click="closeOnMobile">Dashboard</nuxt-link>
+            <nuxt-link
+              class="nav-link nav-link-item"
+              to="/dashboard"
+              @click="closeOnMobile"
+            >Dashboard</nuxt-link>
           </li>
           <li class="nav-item">
-            <nuxt-link class="nav-link nav-link-item" to="/workspace/create" @click="closeOnMobile">Create Workspace</nuxt-link>
+            <nuxt-link
+              class="nav-link nav-link-item"
+              to="/workspace/create"
+              @click="closeOnMobile"
+            >Create Workspace</nuxt-link>
           </li>
           <li class="nav-item">
-            <nuxt-link class="nav-link nav-link-item" to="/help" @click="closeOnMobile">Help</nuxt-link>
+            <nuxt-link
+              class="nav-link nav-link-item"
+              to="/help"
+              @click="closeOnMobile"
+            >Help</nuxt-link>
           </li>
         </ul>
 
@@ -68,10 +88,17 @@
             <template #button-content>
               <button class="user-profile">
                 <div>{{ auth.displayName }}</div>
-                <app-icon variant="account_circle" size="32" no-margin />
+                <app-icon
+                  variant="account_circle"
+                  size="32"
+                  no-margin
+                />
               </button>
             </template>
-            <b-dropdown-item to="/" @click="auth.clear()">
+            <b-dropdown-item
+              to="/"
+              @click="auth.clear()"
+            >
               <app-icon variant="logout" />
               Logout
             </b-dropdown-item>
@@ -80,8 +107,14 @@
           <!-- Mobile: user name + logout -->
           <div class="mobile-user-menu d-md-none">
             <div class="mobile-user-name">{{ auth.displayName }}</div>
-            <button class="side-menu-button" @click="logoutFromMobileMenu">
-              <app-icon variant="logout" no-margin />
+            <button
+              class="side-menu-button"
+              @click="logoutFromMobileMenu"
+            >
+              <app-icon
+                variant="logout"
+                no-margin
+              />
               <span>Logout</span>
             </button>
           </div>

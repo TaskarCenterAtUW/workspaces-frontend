@@ -1,3 +1,9 @@
+// Test outline
+// @test e2e: an already-authenticated visitor is redirected from /signin to /dashboard
+// @test e2e: an unauthenticated user is shown the sign-in form when visiting /signin--with a playwright snapshot of the form
+// @test e2e: that the toolbar doesn't show a username when the user is not logged in, and does when the user is logged in
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json) and that success
+//            and error states are handled properly with toasts (playwright snapshot these)
 <template>
   <section class="signin-page">
     <div class="signin-shell">

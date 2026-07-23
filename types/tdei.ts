@@ -80,7 +80,6 @@ export interface TdeiDatasetMetadata {
   methodology?: TdeiDatasetMetadataMethodology;
 }
 
-
 /** Shape returned by the TDEI project-group-roles API */
 export interface TdeiProjectGroupApiResponse {
   tdei_project_group_id: string;

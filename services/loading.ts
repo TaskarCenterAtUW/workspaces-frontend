@@ -28,10 +28,10 @@ export class LoadingContext {
     }
   }
 
-  async wrap<T extends ICancelableClient>(client: T, tx: (client: T) => Promise<void>) {
+  async wrap<T extends ICancelableClient, R>(client: T, tx: (client: T) => Promise<R>): Promise<R> {
     try {
       this.start();
-      await tx(client);
+      return await tx(client);
     } finally {
       this.finish();
     }

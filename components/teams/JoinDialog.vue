@@ -20,7 +20,10 @@
         <app-icon variant="download" />
         Download QR Code
       </a>
-      <b-button variant="primary" @click="hide()">
+      <b-button
+        variant="primary"
+        @click="hide()"
+      >
         Close
       </b-button>
     </template>

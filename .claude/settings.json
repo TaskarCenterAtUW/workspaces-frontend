@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm ls *)",
+      "Bash(node -e \"const e=require\\('./node_modules/vue-router/package.json'\\).exports; console.log\\(JSON.stringify\\(Object.keys\\(e\\)\\)\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/vue-router/package.json'\\).version\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/@sentry/nuxt/package.json'\\).version\\)\")",
+      "Bash(npx vue-tsc *)",
+      "Bash(git add *)"
+    ]
+  }
+}

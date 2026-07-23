@@ -1,4 +1,5 @@
 import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
+import type { FileEntry } from '@zip.js/zip.js';
 
 import {
   BaseHttpClient,
@@ -267,8 +268,12 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     const isDataset = (filename: string) => !filename.startsWith('changeset')
       && (filename.endsWith('.zip') || filename.endsWith('.xml'));
 
+    const datasetEntry = entries.find(
+      (e): e is FileEntry => !e.directory && isDataset(e.filename)
+    );
+
     const out = {
-      dataset: await entries.find(e => isDataset(e.filename))?.getData?.(blobWriter),
+      dataset: datasetEntry ? await datasetEntry.getData(blobWriter) : undefined,
       metadata: entries.find(e => e.filename.endsWith('.json'))
     };
 
@@ -295,11 +300,13 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
 
     let resource = `osw/upload/${projectGroupId}/${serviceId}`;
 
-    if (tdeiRecordId?.length) {
+    if ((tdeiRecordId?.length ?? 0) > 0) {
       resource += '?derived_from_dataset_id=' + tdeiRecordId;
     }
 
-    const response = await this._post(resource, body);
+    const response = await this._post(resource, body, {
+      headers: { Authorization: this._requestHeaders['Authorization'] }
+    });
 
     return await response.text();
   }
@@ -322,11 +329,13 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
 
     let resource = `gtfs-pathways/upload/${projectGroupId}/${serviceId}`;
 
-    if (tdeiRecordId?.length) {
+    if ((tdeiRecordId?.length ?? 0) > 0) {
       resource += '?derived_from_dataset_id=' + tdeiRecordId;
     }
 
-    const response = await this._post(resource, body);
+    const response = await this._post(resource, body, {
+      headers: { Authorization: this._requestHeaders['Authorization'] }
+    });
 
     return await response.text();
   }
@@ -350,7 +359,12 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
       console.info(`Waiting for dataset conversion job ${jobId}...`);
       await new Promise(resolve => setTimeout(resolve, 4000));
 
-      const statusResponse = await this._get(`jobs?job_id=${jobId}&tdei_project_group_id=${projectGroupId}`);
+      const statusResponse = await this._get(`jobs?job_id=${jobId}&tdei_project_group_id=${projectGroupId}`, {
+        headers: {
+          Accept: 'application/text',
+          Authorization: this._requestHeaders['Authorization']
+        }
+      });
       const statusBody = (await statusResponse.json())[0];
       const statusText = statusBody.status.toLowerCase();
 
@@ -364,7 +378,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     }
 
     const fileResponse = await this._get(`job/download/${jobId}`, {
-      headers: { 'Accept': '*/*' },
+      headers: { Accept: '*/*' },
     });
 
     return await fileResponse.blob();
@@ -479,7 +493,7 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     return new TdeiUserClient(this._baseUrl, this.#tdeiClient, signal ?? this._abortSignal);
   }
 
-  async getMyProjectGroups(pageNo: number = 1, searchText: string = '', pageSize: number = 10, sortBy: 'name' | 'created_at' = 'name'): Promise<{ items: TdeiProjectGroup[], total?: number }> {
+  async getMyProjectGroups(pageNo: number = 1, searchText: string = '', pageSize: number = 10, sortBy: 'name' | 'created_at' = 'name'): Promise<{ items: TdeiProjectGroup[]; total?: number }> {
     let url = `project-group-roles/${this.#auth.subject}?page_size=${pageSize}&page_no=${pageNo}&sort_by=${sortBy}`;
     if (searchText) {
       url += `&searchText=${encodeURIComponent(searchText)}`;
@@ -518,10 +532,16 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
       .map(s => ({ id: s.tdei_service_id, name: s.service_name }));
   }
 
-  async getProjectGroupUsers(projectGroupId: string): Promise<TdeiUserItem[]> {
+  async getProjectGroupUsers(
+    projectGroupId: string,
+    searchText: string = '',
+    pageNo: number = 1,
+    pageSize: number = 10000,
+  ): Promise<TdeiUserItem[]> {
     const params = new URLSearchParams();
-    params.append('page_no', '1');
-    params.append('page_size', '10000');
+    params.append('searchText', searchText);
+    params.append('page_no', String(pageNo));
+    params.append('page_size', String(pageSize));
 
     const response = await this._get(`project-group/${projectGroupId}/users?${params}`);
 

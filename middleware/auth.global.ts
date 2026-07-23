@@ -6,7 +6,7 @@ const ALLOW_ANONYMOUS = new Set([
   '/signin'
 ]);
 
-export default defineNuxtRouteMiddleware((to, from) => {
+export default defineNuxtRouteMiddleware((to, _from) => {
   if (tdeiClient.auth.ok || ALLOW_ANONYMOUS.has(to.path)) {
     return;
   }

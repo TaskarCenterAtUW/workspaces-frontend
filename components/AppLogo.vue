@@ -1,4 +1,7 @@
 <template>
-  <img class="app-logo img-fluid" src="~/assets/img/tdei-logo.png" alt="" />
+  <img
+    class="app-logo img-fluid"
+    src="~/assets/img/tdei-logo.png"
+    alt=""
+  >
 </template>
-

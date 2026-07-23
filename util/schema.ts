@@ -39,7 +39,7 @@ export function handleFileDrop(
 export async function validateJson(
   jsonString: string | undefined,
   schemaUrl: string,
-  cachedSchema: Ref<{ version?: number }>,
+  cachedSchema: Ref<any>,
   definitionName: string,
 ): Promise<{ data: object | null; error: string | null }> {
   if (!jsonString) {

@@ -28,7 +28,6 @@ export class Rapid3Manager {
   /** The Rapid `Context` instance, available after loading completes. */
   rapidContext: any
 
-
   /**
    * @constructor
    * @param baseUrl - Base URL where Rapid static assets are served
@@ -45,7 +44,6 @@ export class Rapid3Manager {
     this.containerNode = document.createElement('div')
     this.rapidContext = null
   }
-
 
   /**
    * Injects the Rapid v3.x JavaScript and CSS into the document.
@@ -76,7 +74,6 @@ export class Rapid3Manager {
     document.body.appendChild(script)
   }
 
-
   /**
    * Script onload handler. Creates the Rapid `Context`, configures it for
    * embedded mode, and runs `prepareAsync()`. Sets {@link loaded} to `true`
@@ -89,10 +86,9 @@ export class Rapid3Manager {
     if (typeof Rapid === 'undefined' || !Rapid.utilDetect().support) {
       container.innerHTML = 'Sorry, your browser is not currently supported.'
       container.style.padding = '20px'
-
     } else {
       const context = new Rapid.Context()
-      context.embed(true);   // hide the account management control
+      context.embed(true); // hide the account management control
       context.containerNode = container
       context.assetPath = this.#baseUrl
 
@@ -103,7 +99,6 @@ export class Rapid3Manager {
         })
     }
   }
-
 
   /**
    * Initializes the Rapid editor for a specific workspace.
@@ -126,7 +121,6 @@ export class Rapid3Manager {
       .then(() => context.startAsync())
   }
 
-
   /**
    * Switches the editor to a different workspace without a full reload.
    *
@@ -148,7 +142,6 @@ export class Rapid3Manager {
     return this.rapidContext.resetAsync()
   }
 
-
   /**
    * Patches Rapid's OSM service layer to use TDEI authentication.
    *
@@ -165,9 +158,10 @@ export class Rapid3Manager {
     rapidOsmClient.fetch = this.#wrapFetch(rapidOsmClient.fetch)
     rapidOsmClient.authenticated = () => this.#tdeiAuth.ok
 
-    rapidOsmService.userDetails = (callback: (err: string) => void) => { callback('dummy error') }
+    rapidOsmService.userDetails = (callback: (err: string) => void) => {
+      callback('dummy error')
+    }
   }
-
 
   /**
    * Wraps a fetch function to inject `X-Workspace` and `Authorization` headers
