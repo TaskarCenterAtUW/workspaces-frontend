@@ -10,10 +10,9 @@ Look at the [Nuxt 3 documentation](https://nuxt.com/docs/getting-started/introdu
 
 ## Dev Setup
 
-By default, the ```.env.example``` and ```nuxt.config.ts``` devServer is setup to *proxy* requests from your local machine
-to the dev server in the cloud. This is to address CORS issues, and not require a local dev server on your machine to run.
+By default, the ```.env.example``` and ```nuxt.config.ts``` ```nitro.devProxy``` is setup to *proxy* requests from your local machine to the dev server in the cloud. This is to address CORS issues, and not require a local dev server on your machine to run.
 
-If you *do* want to setup a local dev server, you must edit the devServer section in ```nuxt.config.ts```. See lines 47-49.
+If you *do* want to setup a local dev server, you must edit the ```nitro.devProxy``` section in ```nuxt.config.ts```. See lines 47-49.
 
 ```zsh
 # Copy `.env.example` to `.env` and adjust values as needed.
