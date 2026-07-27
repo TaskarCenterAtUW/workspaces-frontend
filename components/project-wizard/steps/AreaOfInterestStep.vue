@@ -52,6 +52,27 @@
         </div>
       </div>
 
+      <div class="project-wizard-area-measurement">
+        <span>Area: <strong>{{ formattedArea }}</strong></span>
+        <div
+          class="project-wizard-area-unit-toggle"
+          role="group"
+          aria-label="Area of interest display unit"
+        >
+          <button
+            v-for="option in areaUnitOptions"
+            :key="option.value"
+            class="project-wizard-area-unit-option"
+            :class="{ 'project-wizard-area-unit-option-active': areaDisplayUnit === option.value }"
+            type="button"
+            :aria-pressed="areaDisplayUnit === option.value"
+            @click="emit('update:area-display-unit', option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+      </div>
+
       <button
         class="btn btn-light project-wizard-area-download"
         type="button"
@@ -167,9 +188,16 @@ import resetIcon from '~/assets/img/reset.svg';
 import uploadIcon from '~/assets/img/upload.svg';
 import warningIcon from '~/assets/img/warning.svg';
 
+import {
+  AREA_UNIT_OPTIONS,
+  formatArea,
+  type AreaDisplayUnit,
+} from '~/composables/useAreaDisplayUnit';
 import type { ProjectWizardAreaStepDefinition } from '~/types/project-wizard';
 
 interface Props {
+  areaDisplayUnit: AreaDisplayUnit;
+  areaSquareKilometers: number;
   errorMessage: string;
   hasAoi: boolean;
   importedFileName: string;
@@ -180,14 +208,19 @@ interface Props {
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
-  download: [];
-  draw: [];
-  reset: [];
-  upload: [file: File];
+  'download': [];
+  'draw': [];
+  'reset': [];
+  'upload': [file: File];
+  'update:area-display-unit': [unit: AreaDisplayUnit];
 }>();
 
 const fileInputRef = useTemplateRef<HTMLInputElement>('fileInputRef');
 const isDraggingFile = ref(false);
+const areaUnitOptions = AREA_UNIT_OPTIONS;
+const formattedArea = computed(() =>
+  formatArea(props.areaSquareKilometers, props.areaDisplayUnit),
+);
 
 watch(
   () => props.importedFileName,
@@ -333,11 +366,56 @@ function onFileDrop(event: DragEvent) {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 1rem;
   padding: 0.95rem 1rem;
   background: #f3fcf8;
   border: 1px solid #bcebdd;
   border-radius: 0.55rem;
+}
+
+.project-wizard-area-measurement {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: #195747;
+  font-size: 0.88rem;
+}
+
+.project-wizard-area-unit-toggle {
+  display: inline-flex;
+  padding: 0.15rem;
+  background: rgba($text-navy, 0.06);
+  border: 1px solid rgba($text-navy, 0.12);
+  border-radius: 0.45rem;
+}
+
+.project-wizard-area-unit-option {
+  min-width: 2.8rem;
+  padding: 0.3rem 0.45rem;
+  color: $secondary;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  background: transparent;
+  border: 0;
+  border-radius: 0.32rem;
+}
+
+.project-wizard-area-unit-option:hover,
+.project-wizard-area-unit-option:focus-visible {
+  color: $text-navy;
+}
+
+.project-wizard-area-unit-option:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 0.18rem rgba($primary, 0.16);
+}
+
+.project-wizard-area-unit-option-active {
+  color: $text-navy;
+  background: #ffffff;
+  box-shadow: 0 0.1rem 0.25rem rgba($text-navy, 0.12);
 }
 
 .project-wizard-area-captured-copy {
@@ -501,6 +579,10 @@ function onFileDrop(event: DragEvent) {
 
   .project-wizard-area-download {
     justify-content: center;
+  }
+
+  .project-wizard-area-measurement {
+    justify-content: space-between;
   }
 }
 </style>

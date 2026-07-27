@@ -47,15 +47,15 @@ function normalizeStatus(status: WorkspaceProjectApiItem['status']): WorkspacePr
 function normalizeTaskStatus(status: WorkspaceProjectTaskApiItem['status']): WorkspaceProjectTaskListItem['status'] {
   switch (status) {
     case 'to_validate':
+    case 'to_review':
       return 'ready_for_validation';
     case 'more_mapping_needed':
+    case 'to_remap':
       return 'needs_more_mapping';
     case 'done':
       return 'completed';
     case 'completed':
       return 'completed';
-    case 'to_review':
-      return 'ready_for_validation'
     case 'to_map':
     default:
       return 'ready_for_mapping';
@@ -149,6 +149,8 @@ function normalizeProjectTask(task: WorkspaceProjectTaskApiItem): WorkspaceProje
     updatedAt: formatProjectTaskDate(task.updated_at),
     lock: task.lock,
     locked: task.lock !== null,
+    lastMapperId: task.last_mapper?.user_id ?? null,
+    apiStatus: task.status,
   };
 }
 
@@ -332,16 +334,32 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     workspaceId: WorkspaceId,
     projectId: number | string,
   ): Promise<WorkspaceProjectTaskListItem[]> {
-    const params = new URLSearchParams({
-      page: '1',
-      page_size: '200',
-    });
-    const response = await this._get(
-      `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks?${params.toString()}`,
-    );
-    const body = await response.json() as WorkspaceProjectTasksApiResponse;
+    const pageSize = 1000; // Fetch all tasks in one go, as the API does not support filtering or sorting.
 
-    return body.tasks.map(normalizeProjectTask);
+    const fetchPage = async (page: number): Promise<WorkspaceProjectTasksApiResponse> => {
+      const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(pageSize),
+      });
+      const response = await this._get(
+        `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks?${params.toString()}`,
+      );
+
+      return await response.json() as WorkspaceProjectTasksApiResponse;
+    };
+
+    const firstPage = await fetchPage(1);
+    const totalPages = Math.ceil(firstPage.pagination.total / pageSize);
+    const remainingPages = await Promise.all(
+      Array.from(
+        { length: Math.max(0, totalPages - 1) },
+        (_, index) => fetchPage(index + 2),
+      ),
+    );
+
+    return [firstPage, ...remainingPages]
+      .flatMap(page => page.tasks)
+      .map(normalizeProjectTask);
   }
 
   async getWorkspaceProjectRoles(

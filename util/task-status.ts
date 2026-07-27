@@ -9,7 +9,7 @@ export function formatWorkspaceProjectTaskStatus(status: WorkspaceProjectTaskSta
     case 'ready_for_validation':
       return 'Ready for validation';
     case 'needs_more_mapping':
-      return 'More mapping needed';
+      return 'More mapping required';
     case 'completed':
       return 'Completed';
     case 'ready_for_mapping':
@@ -27,8 +27,9 @@ export function resolveWorkspaceProjectTaskStatusLabel(
       case 'ready_for_validation':
         return 'Validating';
       case 'ready_for_mapping':
-      case 'needs_more_mapping':
         return 'Mapping';
+      case 'needs_more_mapping':
+        return 'More mapping required';
       default:
         return viewerRole === 'lead' || viewerRole === 'validator'
           ? 'Validating'

@@ -81,8 +81,7 @@
 
       <client-only fallback-tag="div">
         <project-wizard-rich-text-editor
-          :model-value="instructions"
-          @update:model-value="emit('update:instructions', $event)"
+          v-model="instructionsModel"
         />
       </client-only>
     </section>
@@ -107,7 +106,7 @@ interface Props {
   workspaceUsersLoading: boolean;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 const emit = defineEmits<{
   'add:validator': [user: ProjectWizardWorkspaceUser];
   'remove:validator': [userId: string];
@@ -120,6 +119,10 @@ const emit = defineEmits<{
 
 const lockTimeoutId = 'project-wizard-settings-lock-timeout';
 const hourOptions = Array.from({ length: 24 }, (_, index) => index + 1);
+const instructionsModel = computed({
+  get: () => props.instructions,
+  set: value => emit('update:instructions', value),
+});
 
 function onLockTimeoutChange(event: Event) {
   emit('update:lock-timeout-hours', Number((event.target as HTMLSelectElement).value));

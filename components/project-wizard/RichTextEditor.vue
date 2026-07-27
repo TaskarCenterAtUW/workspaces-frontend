@@ -47,14 +47,7 @@ type RichTextToolId
     | 'table'
     | 'quote';
 
-interface Props {
-  modelValue: string;
-}
-
-const props = defineProps<Props>();
-const emit = defineEmits<{
-  'update:modelValue': [value: string];
-}>();
+const model = defineModel<string>({ default: '' });
 
 const tools: Array<{ icon: string; id: RichTextToolId; label: string }> = [
   { id: 'bold', icon: 'format_bold', label: 'Bold' },
@@ -68,7 +61,7 @@ const tools: Array<{ icon: string; id: RichTextToolId; label: string }> = [
 ];
 
 const editor = useEditor({
-  content: props.modelValue || '<p></p>',
+  content: model.value || '<p></p>',
   extensions: [
     StarterKit,
     Link.configure({
@@ -90,13 +83,12 @@ const editor = useEditor({
     },
   },
   onUpdate({ editor: currentEditor }) {
-    const nextValue = currentEditor.isEmpty ? '' : currentEditor.getHTML();
-    emit('update:modelValue', nextValue);
+    model.value = currentEditor.isEmpty ? '' : currentEditor.getHTML();
   },
 });
 
 watch(
-  () => props.modelValue,
+  model,
   (value) => {
     const currentEditor = editor.value;
 

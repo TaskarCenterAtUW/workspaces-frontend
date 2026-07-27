@@ -235,15 +235,15 @@ const statusOptions: SelectOption[] = [
   { label: 'All', value: 'all' },
   { label: 'Ready for mapping', value: 'ready_for_mapping' },
   { label: 'Ready for validation', value: 'ready_for_validation' },
-  { label: 'More mapping needed', value: 'needs_more_mapping' },
+  { label: 'More mapping required', value: 'needs_more_mapping' },
   { label: 'Completed', value: 'completed' },
 ];
 
 const sortOptions: SelectOption[] = [
   { label: 'Latest', value: 'latest' },
   { label: 'Oldest', value: 'oldest' },
-  { label: 'Task ID A-Z', value: 'task_asc' },
-  { label: 'Task ID Z-A', value: 'task_desc' },
+  { label: 'Task # Low to High', value: 'task_asc' },
+  { label: 'Task # High to Low', value: 'task_desc' },
 ];
 
 /**

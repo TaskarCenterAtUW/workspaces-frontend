@@ -1,6 +1,32 @@
 import { workspaceProjectsClient } from '~/services/index';
+import type { MaybeRefOrGetter } from 'vue';
 import type { WorkspaceProjectContributorRole } from '~/types/projects';
 import type { WorkspaceRole } from '~/types/workspaces';
+
+/**
+ * Resolves workspace-level project permissions shared by project navigation and management routes.
+ * A TDEI POC is scoped to the owning project group, so callers must supply the roles for that
+ * project group rather than the user's roles from an unrelated group.
+ */
+export function useWorkspaceProjectPermissions(
+  workspaceRole: MaybeRefOrGetter<WorkspaceRole | undefined>,
+  myTdeiRoles: MaybeRefOrGetter<readonly string[]>,
+) {
+  const isWorkspaceLead = computed(() => toValue(workspaceRole) === 'lead');
+  const isPoc = computed(() => toValue(myTdeiRoles).includes('poc'));
+  const hasWorkspaceLeadPrivileges = computed(() =>
+    isWorkspaceLead.value || isPoc.value,
+  );
+
+  return {
+    canCreateProject: hasWorkspaceLeadPrivileges,
+    canDeleteProject: hasWorkspaceLeadPrivileges,
+    canEditProjectMetadata: hasWorkspaceLeadPrivileges,
+    canManageProjectLifecycle: hasWorkspaceLeadPrivileges,
+    isPoc,
+    isWorkspaceLead,
+  };
+}
 
 /**
  * Resolves the current user's effective role for a project.

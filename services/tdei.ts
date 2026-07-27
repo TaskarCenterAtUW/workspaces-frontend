@@ -525,6 +525,15 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     return pgs.find(p => p.tdei_project_group_id === projectGroupId)?.roles ?? [];
   }
 
+  /**
+   * The TDEI API does not expose a current-user role endpoint filtered by project-group ID.
+   * Load the user's complete membership list and select the owning project group locally.
+   */
+  async getMyRolesForProjectGroupById(projectGroupId: string): Promise<string[]> {
+    const { items } = await this.getMyProjectGroups(1, '', 10000);
+    return items.find(p => p.tdei_project_group_id === projectGroupId)?.roles ?? [];
+  }
+
   async getMyServices(projectGroupId: string, type: string = 'all'): Promise<TdeiService[]> {
     const response = await this._get(`service?tdei_project_group_id=${projectGroupId}&service_type=${type}`);
 

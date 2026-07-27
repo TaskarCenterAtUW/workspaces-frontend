@@ -251,7 +251,7 @@ import {
   PROJECT_WIZARD_TASK_AREA_MINIMUM,
   PROJECT_WIZARD_TASK_AREA_STEP,
 } from '~/services/project-wizard-tasks';
-import { workspaceProjectsClient, workspacesClient } from '~/services/index';
+import { tdeiUserClient, workspaceProjectsClient, workspacesClient } from '~/services/index';
 import { resolveHttpErrorMessage } from '~/services/http';
 import { resolveWorkspaceProjectTaskStatusLabel } from '~/util/task-status';
 
@@ -290,6 +290,16 @@ const BASE_TABS: ProjectDetailTabOption[] = [
 ];
 
 const workspace = await workspacesClient.getWorkspace(workspaceId);
+const myTdeiRoles = await tdeiUserClient.getMyRolesForProjectGroupById(
+  workspace.tdeiProjectGroupId,
+).catch(() => []);
+const {
+  canEditProjectMetadata,
+  canManageProjectLifecycle,
+} = useWorkspaceProjectPermissions(
+  () => workspace.role,
+  myTdeiRoles,
+);
 const project = ref(await loadProjectDetail());
 const projectAoi = ref(await loadProjectAoi());
 const projectTasks = ref<WorkspaceProjectTaskListItem[] | null>(await loadProjectTasks());
@@ -301,8 +311,6 @@ const projectGroupUsers = ref<ProjectWizardWorkspaceUser[]>([]);
 const currentUserIdForRole = workspaceProjectsClient.auth.subject || null;
 const {
   effectiveRole,
-  isProjectLead,
-  isExplicitProjectLead,
   canValidate,
   canMap,
   canManageContributors,
@@ -316,12 +324,12 @@ const {
 await rolePromise;
 
 /**
- * The Contributors tab is only visible to project leads.
+ * Project roles can be managed by workspace leads or project leads.
  * All other tabs are always visible.
  */
 const tabs = computed<ProjectDetailTabOption[]>(() => [
   ...BASE_TABS,
-  ...(isExplicitProjectLead.value ? [{ id: 'contributors' as WorkspaceProjectDetailTab, label: 'Contributors' }] : []),
+  ...(canManageContributors.value ? [{ id: 'contributors' as WorkspaceProjectDetailTab, label: 'Contributors' }] : []),
 ]);
 
 // The detail API does not expose separate rich-text fields for overview content yet,
@@ -446,6 +454,11 @@ const selectedTaskLockedByCurrentUser = computed(() =>
   Boolean(selectedTask.value?.lock?.user_id)
   && selectedTask.value?.lock?.user_id === currentUserId.value,
 );
+const selectedTaskWasLastMappedByCurrentUser = computed(() =>
+  selectedTask.value?.status === 'ready_for_validation'
+  && Boolean(selectedTask.value.lastMapperId)
+  && selectedTask.value.lastMapperId === currentUserId.value,
+);
 const showSelectedTaskBar = computed(() =>
   !showTaskSetup.value
   && Boolean(selectedTask.value),
@@ -475,6 +488,10 @@ const selectedTaskPrimaryActionLabel = computed(() => {
     return selectedTaskLockedByCurrentUser.value ? selectedTaskWorkActionLabel.value : 'Task Locked';
   }
 
+  if (selectedTaskWasLastMappedByCurrentUser.value) {
+    return 'Cannot Validate Own Mapping';
+  }
+
   return selectedTaskWorkActionLabel.value;
 });
 
@@ -497,6 +514,7 @@ const showSelectedTaskActionButton = computed(() => {
 const selectedTaskActionDisabled = computed(() =>
   !selectedTask.value
   || mutatingTaskNumber.value === selectedTask.value.taskNumber
+  || selectedTaskWasLastMappedByCurrentUser.value
   || (selectedTask.value.locked && !selectedTaskLockedByCurrentUser.value),
 );
 const selectedTaskActionBusy = computed(() =>
@@ -506,9 +524,9 @@ const selectedTaskActionBusy = computed(() =>
   ),
 );
 const showActivateProjectButton = computed(() =>
-  projectRequiresActivation.value && isProjectLead.value,
+  projectRequiresActivation.value && canManageProjectLifecycle.value,
 );
-const showProjectEditButton = computed(() => isProjectLead.value);
+const showProjectEditButton = computed(() => canEditProjectMetadata.value);
 
 let projectGroupUserSearchDebounce: ReturnType<typeof setTimeout> | undefined;
 let projectGroupUserSearchRequestId = 0;
@@ -606,6 +624,8 @@ async function handleSaveTasks() {
       return;
     }
 
+    // Keep the project summary in sync while the paginated task-list request reloads all tasks.
+    project.value.taskCount = result.taskCount;
     await refreshProjectTaskStateAfterSave();
     openTaskSaveSuccessDialog(result);
   }
@@ -627,6 +647,10 @@ function clearSelectedTask() {
 }
 
 async function openProjectEditPage() {
+  if (!canEditProjectMetadata.value) {
+    return;
+  }
+
   await navigateTo({
     path: `/workspace/${workspaceId}/projects/${projectId}/edit`,
   });
@@ -657,6 +681,13 @@ async function handleSelectedTaskAction() {
     return;
   }
 
+  if (
+    taskToOpen.status === 'ready_for_validation'
+    && taskToOpen.lastMapperId === currentUserId.value
+  ) {
+    return;
+  }
+
   if (taskToOpen.locked) {
     if (!selectedTaskLockedByCurrentUser.value) {
       return;
@@ -675,6 +706,10 @@ async function handleSelectedTaskAction() {
 }
 
 async function handleActivateProject() {
+  if (!canManageProjectLifecycle.value) {
+    return;
+  }
+
   try {
     isActivatingProject.value = true;
 
@@ -771,6 +806,10 @@ async function loadProjectGroupUsers(searchText: string = '') {
 }
 
 function handleOpenAddContributorDialog() {
+  if (!canManageContributors.value) {
+    return;
+  }
+
   if (projectGroupUsersLoaded.value || projectGroupUsersLoading.value) {
     return;
   }
@@ -779,6 +818,10 @@ function handleOpenAddContributorDialog() {
 }
 
 function handleSearchAvailableUsers(value: string) {
+  if (!canManageContributors.value) {
+    return;
+  }
+
   projectGroupUserSearchQuery.value = value;
 
   if (projectGroupUserSearchDebounce) {
@@ -794,6 +837,12 @@ async function handleAddContributor(payload: {
   role: WorkspaceProjectContributor['role'];
   userId: string;
 }) {
+  // A project has one lead, established when the project is created. The add-contributor
+  // workflow may grant tasking roles but must never create another project lead.
+  if (!canManageContributors.value || payload.role === 'lead') {
+    return;
+  }
+
   if (projectContributors.value.some(contributor => contributor.id === payload.userId)) {
     return;
   }
@@ -813,6 +862,10 @@ async function handleAddContributor(payload: {
 }
 
 async function confirmRemoveContributor(contributor: WorkspaceProjectContributor) {
+  if (!canManageContributors.value) {
+    return;
+  }
+
   const value = await create({
     title: 'Remove Contributor',
     body: `Remove ${contributor.name} from this project?`,
@@ -847,6 +900,10 @@ async function handleUpdateContributorRole(payload: {
   contributorId: string;
   role: WorkspaceProjectContributor['role'];
 }) {
+  if (!canManageContributors.value) {
+    return;
+  }
+
   const existingContributor = projectContributors.value.find(
     contributor => contributor.id === payload.contributorId,
   );
@@ -908,8 +965,7 @@ onBeforeUnmount(() => {
 });
 
 async function hydrateProjectDataFromApi() {
-  // Refresh the independent project, AOI, and task resources opportunistically so one
-  // failed request does not wipe out the rest of the page state.
+  // Refresh independent resources concurrently so one failure does not wipe out the rest.
   const [projectResult, aoiResult, tasksResult, contributorsResult] = await Promise.allSettled([
     workspaceProjectsClient.getWorkspaceProjectDetail(workspaceId, projectId),
     workspaceProjectsClient.getWorkspaceProjectAoi(workspaceId, projectId),

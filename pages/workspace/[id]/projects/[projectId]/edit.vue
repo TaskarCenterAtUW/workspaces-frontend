@@ -127,8 +127,7 @@
 
               <client-only fallback-tag="div">
                 <project-wizard-rich-text-editor
-                  :model-value="form.instructions"
-                  @update:model-value="form.instructions = $event"
+                  v-model="form.instructions"
                 />
               </client-only>
             </section>
@@ -326,7 +325,7 @@
               <div class="project-edit-settings-row">
                 <div class="project-edit-settings-copy">
                   <h2>Lock Timeout</h2>
-                  <p>Project will be locked for specific hours.</p>
+                  <p>Unlock tasks after the specified number of hours pass.</p>
                 </div>
 
                 <div class="project-edit-timeout-control">
@@ -471,7 +470,7 @@ import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 import { useProjectEditActions } from '~/composables/useProjectEditActions';
 import { useProjectEditMembers } from '~/composables/useProjectEditMembers';
-import { workspaceProjectsClient, workspacesClient } from '~/services/index';
+import { tdeiUserClient, workspaceProjectsClient, workspacesClient } from '~/services/index';
 import { resolveHttpErrorMessage } from '~/services/http';
 import { validateProjectCustomImagery } from '~/services/project-custom-imagery';
 
@@ -516,7 +515,7 @@ const {
 const IMAGERY_VALIDATION_DEBOUNCE_MS = 300;
 const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA;
 
-const sections: ProjectEditSection[] = [
+const BASE_SECTIONS: ProjectEditSection[] = [
   { id: 'details', label: 'Project details' },
   { id: 'instructions', label: 'Instructions' },
   { id: 'imagery', label: 'Imagery' },
@@ -527,7 +526,40 @@ const sections: ProjectEditSection[] = [
 
 const hourOptions = Array.from({ length: 24 }, (_, index) => index + 1);
 const workspace = await workspacesClient.getWorkspace(workspaceId);
+const myTdeiRoles = await tdeiUserClient.getMyRolesForProjectGroupById(
+  workspace.tdeiProjectGroupId,
+).catch(() => []);
+const { canEditProjectMetadata } = useWorkspaceProjectPermissions(
+  () => workspace.role,
+  myTdeiRoles,
+);
+
+if (!canEditProjectMetadata.value) {
+  throw createError({
+    statusCode: 403,
+    statusMessage: 'Only workspace leads or project group POCs can edit this project.',
+  });
+}
+
 const project = ref(await loadProjectDetail());
+const currentUserIdForRole = workspaceProjectsClient.auth.subject || null;
+const {
+  canManageContributors,
+  promise: rolePromise,
+} = useProjectRole(
+  workspaceId,
+  projectId,
+  currentUserIdForRole,
+  workspace.role,
+);
+await rolePromise;
+
+const sections = computed(() =>
+  BASE_SECTIONS.filter(section =>
+    section.id !== 'team' || canManageContributors.value,
+  ),
+);
+
 const initialCustomImageryJson = formatCustomImagery(project.value.customImagery);
 const initialProjectContributors = await loadProjectContributors();
 const saving = ref(false);
@@ -568,25 +600,6 @@ const form = reactive({
   reviewRequired: project.value.reviewRequired,
 });
 
-const currentUserIdForRole = workspaceProjectsClient.auth.subject || null;
-const {
-  isProjectLead,
-  promise: rolePromise,
-} = useProjectRole(
-  workspaceId,
-  projectId,
-  currentUserIdForRole,
-  workspace.role,
-);
-await rolePromise;
-
-if (!isProjectLead.value) {
-  throw createError({
-    statusCode: 403,
-    statusMessage: 'Only project leads can edit this project.',
-  });
-}
-
 useHead({
   title: computed(() => `Edit ${project.value.name} | Projects`),
 });
@@ -594,7 +607,7 @@ useHead({
 const activeSection = computed<ProjectEditSectionId>(() => {
   const section = route.query.section;
 
-  if (typeof section === 'string' && sections.some(item => item.id === section)) {
+  if (typeof section === 'string' && sections.value.some(item => item.id === section)) {
     return section as ProjectEditSectionId;
   }
 

@@ -71,6 +71,8 @@
                 <project-wizard-steps-area-of-interest-step
                   v-else-if="areaStep"
                   :step="areaStep"
+                  :area-display-unit="areaUnit"
+                  :area-square-kilometers="aoiAreaSquareKilometers"
                   :error-message="areaImportError"
                   :has-aoi="Boolean(draft.area.aoi)"
                   :imported-file-name="draft.area.importedFileName"
@@ -80,6 +82,7 @@
                   @draw="startAreaDrawMode"
                   @reset="resetAreaOfInterest"
                   @upload="importAreaOfInterest"
+                  @update:area-display-unit="selectAreaUnit"
                 />
                 <project-wizard-steps-settings-step
                   v-else-if="settingsStep"
@@ -188,9 +191,10 @@
 </template>
 
 <script setup lang="ts">
-import { projectWizardClient, workspacesClient } from '~/services/index';
+import { projectWizardClient, tdeiUserClient, workspacesClient } from '~/services/index';
 import { resolveHttpErrorMessage } from '~/services/http';
 import { validateProjectCustomImagery } from '~/services/project-custom-imagery';
+import { calculateProjectWizardAoiAreaSquareKilometers } from '~/services/project-wizard-aoi';
 import { buildProjectWizardReviewSummary } from '~/services/project-wizard-review';
 
 import type {
@@ -214,6 +218,23 @@ if (!Number.isInteger(workspaceId) || workspaceId <= 0) {
 const workspace = await workspacesClient.getWorkspace(workspaceId).catch((error) => {
   throw createError({ statusCode: 500, statusMessage: 'Failed to load workspace.', data: error });
 });
+
+const myTdeiRoles = await tdeiUserClient.getMyRolesForProjectGroupById(
+  workspace.tdeiProjectGroupId,
+).catch(() => []);
+
+const { canCreateProject } = useWorkspaceProjectPermissions(
+  () => workspace.role,
+  myTdeiRoles,
+);
+
+if (!canCreateProject.value) {
+  throw createError({
+    statusCode: 403,
+    statusMessage: 'Only workspace leads or project group POCs can create projects.',
+  });
+}
+
 const projectsRoute = `/workspace/${workspaceId}/projects`;
 const PROJECT_NAME_CHECK_DEBOUNCE_MS = 300;
 const IMAGERY_VALIDATION_DEBOUNCE_MS = 300;
@@ -280,6 +301,12 @@ const {
   currentStep,
   draft,
 });
+const { areaUnit, selectAreaUnit } = useAreaDisplayUnit();
+const aoiAreaSquareKilometers = computed(() =>
+  draft.area.aoi
+    ? calculateProjectWizardAoiAreaSquareKilometers(draft.area.aoi)
+    : 0,
+);
 const {
   addValidator,
   filteredWorkspaceUsers,
@@ -302,6 +329,7 @@ const reviewSummary = computed(() =>
   buildProjectWizardReviewSummary(
     draft,
     selectedValidators.value,
+    areaUnit.value,
   ),
 );
 

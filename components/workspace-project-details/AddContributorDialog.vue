@@ -167,7 +167,6 @@ const selectedRole = ref<WorkspaceProjectContributorRole>('contributor');
 const selectedUserId = ref('');
 
 const roleOptions: SelectOption[] = [
-  { label: 'Lead', value: 'lead' },
   { label: 'Validator', value: 'validator' },
   { label: 'Contributor', value: 'contributor' },
 ];

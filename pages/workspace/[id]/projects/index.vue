@@ -86,7 +86,7 @@
         />
 
         <nuxt-link
-          v-if="isWorkspaceLead"
+          v-if="canCreateProject"
           :to="createProjectRoute"
           class="btn btn-primary workspace-projects-create-button"
         >
@@ -234,8 +234,16 @@ const [workspace, { items: projectGroups }] = await Promise.all([
   tdeiUserClient.getMyProjectGroups(1, '', 10000),
 ]);
 
-/** Only workspace leads are allowed to create new projects. */
-const isWorkspaceLead = computed(() => workspace.role === 'lead');
+const myTdeiRoles = computed(() =>
+  projectGroups.find(group =>
+    group.tdei_project_group_id === workspace.tdeiProjectGroupId,
+  )?.roles ?? [],
+);
+
+const { canCreateProject } = useWorkspaceProjectPermissions(
+  () => workspace.role,
+  myTdeiRoles,
+);
 
 const emptyProjectsResponse: WorkspaceProjectsResult = {
   results: [],

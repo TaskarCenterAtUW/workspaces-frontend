@@ -35,29 +35,40 @@
 
         <div class="task-editor-sidebar-scroll">
           <header class="task-editor-sidebar-hero">
-            <div class="task-editor-sidebar-topbar">
-              <p class="task-editor-kicker">
-                Rapid task editor
-              </p>
-
-              <button
-                class="btn btn-outline-secondary task-editor-back"
-                type="button"
-                @click="handleBackNavigation"
-              >
-                <app-icon
-                  variant="arrow_back"
-                  size="18"
-                  no-margin
-                />
-                Back to Tasks
-              </button>
-            </div>
+            <button
+              class="btn btn-link task-editor-back"
+              type="button"
+              @click="handleBackNavigation"
+            >
+              <app-icon
+                variant="chevron_left"
+                size="20"
+                no-margin
+              />
+              Go back
+            </button>
 
             <h1 class="task-editor-title">
               {{ project.name }}
-              <span>#{{ project.id }}</span>
             </h1>
+
+            <div class="task-editor-task-summary">
+              <strong>{{ task.label }}</strong>
+              <div class="task-editor-task-badges">
+                <span class="task-editor-status">{{ taskStatusLabel }}</span>
+                <span
+                  v-if="lockTimeRemaining"
+                  class="task-editor-lock-time"
+                >
+                  <app-icon
+                    variant="schedule"
+                    size="17"
+                    no-margin
+                  />
+                  {{ lockTimeRemaining }}
+                </span>
+              </div>
+            </div>
 
             <p
               v-if="editorLoadErrorMessage"
@@ -68,11 +79,150 @@
             </p>
           </header>
 
-          <section class="task-editor-sidebar-section task-editor-instructions">
-            <div class="task-editor-section-heading">
-              <span class="task-editor-meta-label">Task number</span>
-              <strong class="task-editor-meta-value">{{ task.label }}</strong>
+          <div
+            class="task-editor-tabs"
+            role="tablist"
+            aria-label="Task editor sections"
+          >
+            <button
+              id="task-editor-completion-tab"
+              class="task-editor-tab"
+              :class="{ 'task-editor-tab-active': activeSidebarTab === 'completion' }"
+              type="button"
+              role="tab"
+              :aria-selected="activeSidebarTab === 'completion'"
+              aria-controls="task-editor-completion-panel"
+              @click="activeSidebarTab = 'completion'"
+            >
+              Completion
+            </button>
+            <button
+              id="task-editor-instructions-tab"
+              class="task-editor-tab"
+              :class="{ 'task-editor-tab-active': activeSidebarTab === 'instructions' }"
+              type="button"
+              role="tab"
+              :aria-selected="activeSidebarTab === 'instructions'"
+              aria-controls="task-editor-instructions-panel"
+              @click="activeSidebarTab = 'instructions'"
+            >
+              Instructions
+            </button>
+          </div>
+
+          <section
+            v-if="activeSidebarTab === 'completion'"
+            id="task-editor-completion-panel"
+            class="task-editor-tab-panel"
+            role="tabpanel"
+            aria-labelledby="task-editor-completion-tab"
+          >
+            <div class="task-editor-info-card">
+              <span class="task-editor-info-icon">
+                <app-icon
+                  variant="info"
+                  size="22"
+                  no-margin
+                />
+              </span>
+              <div>
+                <h2>Task status</h2>
+                <p>{{ taskStatusHelpText }}</p>
+              </div>
             </div>
+
+            <section
+              v-if="!isReviewTask"
+              class="task-editor-completion-section task-editor-mapping-completion"
+            >
+              <h2>Ready to finish mapping?</h2>
+              <p>
+                Push your edits in Rapid before marking this task as done. You can skip the task to
+                release the lock without submitting it.
+              </p>
+            </section>
+
+            <section
+              v-if="isReviewTask"
+              class="task-editor-completion-section task-editor-review"
+            >
+              <fieldset class="task-editor-feedback-group">
+                <legend class="task-editor-feedback-legend">Review this mapping</legend>
+                <label
+                  class="task-editor-feedback-option"
+                  :class="{ 'task-editor-feedback-option-selected': reviewDecision === 'approve' }"
+                >
+                  <input
+                    v-model="reviewDecision"
+                    class="visually-hidden"
+                    type="radio"
+                    name="task-editor-review-decision"
+                    value="approve"
+                  >
+                  <span>Approve</span>
+                </label>
+                <label
+                  class="task-editor-feedback-option"
+                  :class="{ 'task-editor-feedback-option-selected': reviewDecision === 'remap' }"
+                >
+                  <input
+                    v-model="reviewDecision"
+                    class="visually-hidden"
+                    type="radio"
+                    name="task-editor-review-decision"
+                    value="remap"
+                  >
+                  <span>Request remap</span>
+                </label>
+              </fieldset>
+
+              <div
+                v-if="reviewDecision === 'remap'"
+                class="task-editor-feedback-fields"
+              >
+                <label
+                  class="task-editor-field-label"
+                  for="task-editor-feedback-reason"
+                >
+                  Reason
+                </label>
+                <app-select
+                  id="task-editor-feedback-reason"
+                  v-model="feedbackReasonCategory"
+                  class="task-editor-feedback-select"
+                  :options="feedbackReasonOptions"
+                  placeholder="Select a reason"
+                  aria-label="Select a remap reason"
+                />
+
+                <label
+                  class="task-editor-field-label"
+                  for="task-editor-feedback-notes"
+                >
+                  Notes
+                </label>
+                <textarea
+                  id="task-editor-feedback-notes"
+                  v-model="feedbackNotes"
+                  class="form-control task-editor-field task-editor-feedback-notes"
+                  rows="5"
+                  placeholder="Describe what the mapper needs to fix"
+                  required
+                />
+                <p class="task-editor-feedback-hint">
+                  A reason and notes are required to request a remap.
+                </p>
+              </div>
+            </section>
+          </section>
+
+          <section
+            v-else
+            id="task-editor-instructions-panel"
+            class="task-editor-tab-panel task-editor-instructions"
+            role="tabpanel"
+            aria-labelledby="task-editor-instructions-tab"
+          >
             <div class="task-editor-section-heading">
               <h2>Instructions</h2>
             </div>
@@ -81,42 +231,6 @@
               :html="project.instructions"
             />
           </section>
-
-          <section class="task-editor-sidebar-section task-editor-feedback">
-            <div class="task-editor-feedback-fields">
-              <label
-                class="task-editor-field-label"
-                for="task-editor-feedback-notes"
-              >
-                Comments
-              </label>
-              <textarea
-                id="task-editor-feedback-notes"
-                v-model="feedbackNotes"
-                class="form-control task-editor-field task-editor-feedback-notes"
-                rows="4"
-                placeholder="Optional notes for task feedback"
-              />
-            </div>
-
-            <fieldset class="task-editor-feedback-group">
-              <legend class="task-editor-feedback-legend">Feedback reason</legend>
-              <label
-                v-for="option in feedbackReasonOptions"
-                :key="option.value"
-                class="task-editor-feedback-option"
-              >
-                <input
-                  v-model="feedbackReasonCategory"
-                  class="form-check-input"
-                  type="radio"
-                  name="task-editor-feedback-reason"
-                  :value="option.value"
-                >
-                <span>{{ option.label }}</span>
-              </label>
-            </fieldset>
-          </section>
         </div>
 
         <footer class="task-editor-sidebar-footer">
@@ -124,16 +238,18 @@
             <p
               v-if="submitErrorMessage"
               class="task-editor-submit-error"
+              aria-live="polite"
             >
               {{ submitErrorMessage }}
             </p>
 
             <div
-              v-if="completeTaskStatusMessage"
+              v-if="showActionStatus"
               class="task-editor-action-status"
               :class="{
                 'task-editor-action-status-blocked': Boolean(completeTaskBlockedReason)
               }"
+              aria-live="polite"
             >
               <app-icon
                 :variant="completeTaskBlockedReason ? 'info' : 'check_circle'"
@@ -195,10 +311,12 @@ const editorContainer = ref<HTMLDivElement | null>(null);
 const manager = rapidManager;
 const pendingEditCount = ref(0);
 const isSidebarOpen = ref(true);
+const activeSidebarTab = ref<'completion' | 'instructions'>('completion');
 const hasActiveEdits = computed(() => pendingEditCount.value > 0);
 const taskEditorSidebarId = 'task-editor-sidebar';
 const feedbackNotes = ref('');
 const feedbackReasonCategory = ref<WorkspaceProjectTaskFeedbackReasonCategory | ''>('');
+const reviewDecision = ref<'approve' | 'remap'>('approve');
 const isSubmittingTask = ref(false);
 const isSubmittingChangeset = ref(false);
 const activeTaskAction = ref<'complete' | 'skip' | null>(null);
@@ -208,14 +326,17 @@ const showUnsavedEditsDialog = ref(false);
 const pendingUnsavedAction = ref<'route' | 'skip' | null>(null);
 const pendingChangesetId = ref<number | null>(null);
 const uploadedChangesetId = ref(-1);
+const lockClock = ref(Date.now());
 const newApiUrl = import.meta.env.VITE_NEW_API_URL;
 let allowNextRouteLeave = false;
 let resolvePendingRouteLeave: ((shouldLeave: boolean) => void) | null = null;
+let lockCountdownTimer: ReturnType<typeof setInterval> | null = null;
 
-const taskActions = [
-  { id: 'complete', label: 'Completed Mapping', variant: 'primary' },
-  { id: 'skip', label: 'Skip This Task', variant: 'outline-secondary' },
-] as const;
+const [project, task] = await Promise.all([
+  loadProjectDetail(),
+  loadTaskDetail(),
+]);
+
 const feedbackReasonOptions: Array<{
   label: string;
   value: WorkspaceProjectTaskFeedbackReasonCategory;
@@ -226,6 +347,52 @@ const feedbackReasonOptions: Array<{
   { label: 'Other', value: 'other' },
 ];
 const trimmedFeedbackNotes = computed(() => feedbackNotes.value.trim());
+const isReviewTask = computed(() =>
+  task.apiStatus === 'to_review' || task.apiStatus === 'to_validate',
+);
+const isRemapTask = computed(() =>
+  task.apiStatus === 'to_remap' || task.apiStatus === 'more_mapping_needed',
+);
+const taskStatusLabel = computed(() => {
+  if (isReviewTask.value) {
+    return 'TO REVIEW';
+  }
+
+  if (isRemapTask.value) {
+    return 'MORE MAPPING REQUIRED';
+  }
+
+  return task.apiStatus === 'completed' || task.apiStatus === 'done'
+    ? 'COMPLETED'
+    : 'TO MAP';
+});
+const taskStatusHelpText = computed(() => {
+  if (isReviewTask.value) {
+    return 'Approve the completed mapping or request a remap with clear feedback.';
+  }
+
+  if (isRemapTask.value) {
+    return 'Complete the additional mapping required, push your edits in Rapid, and submit the task again.';
+  }
+
+  return 'Complete the mapping in Rapid, push your edits, and submit when the task is ready.';
+});
+const lockTimeRemaining = computed(() =>
+  formatLockTimeRemaining(task.lock?.expires_at, lockClock.value),
+);
+const reviewFeedbackIsIncomplete = computed(() =>
+  isReviewTask.value
+  && reviewDecision.value === 'remap'
+  && (!feedbackReasonCategory.value || !trimmedFeedbackNotes.value),
+);
+const taskActions = computed(() => [
+  { id: 'skip' as const, label: 'Skip Task', variant: 'outline-secondary' },
+  {
+    id: 'complete' as const,
+    label: isReviewTask.value ? 'Submit Review' : 'I’m Done Mapping',
+    variant: 'primary',
+  },
+]);
 const completeTaskBlockedReason = computed(() => {
   if (isSubmittingTask.value) {
     return 'Task submission is in progress.';
@@ -244,6 +411,10 @@ const completeTaskBlockedReason = computed(() => {
     return `Uploaded changeset #${pendingChangesetId.value} has not been attached to this task yet. Please upload again before completing.`;
   }
 
+  if (reviewFeedbackIsIncomplete.value) {
+    return 'Select a reason and add notes before requesting a remap.';
+  }
+
   return '';
 });
 const completeTaskStatusMessage = computed(() => {
@@ -255,13 +426,13 @@ const completeTaskStatusMessage = computed(() => {
     return `Last uploaded changeset #${uploadedChangesetId.value} will be attached when you complete this task.`;
   }
 
-  return 'Push your edits in Rapid, then complete this task.';
+  return isReviewTask.value
+    ? 'Approve the mapping or request a remap with feedback.'
+    : 'Push your edits in Rapid, then complete this task.';
 });
-
-const [project, task] = await Promise.all([
-  loadProjectDetail(),
-  loadTaskDetail(),
-]);
+const showActionStatus = computed(() =>
+  Boolean(completeTaskBlockedReason.value) || uploadedChangesetId.value > 0,
+);
 
 const backToTasksRoute = computed(() => ({
   path: `/workspace/${workspaceId}/projects/${projectId}`,
@@ -304,6 +475,9 @@ let stopLoadedWatch: (() => void) | null = null;
 
 onMounted(() => {
   window.addEventListener('beforeunload', handleBeforeUnload);
+  lockCountdownTimer = setInterval(() => {
+    lockClock.value = Date.now();
+  }, 60_000);
 
   if (window.matchMedia('(max-width: 991.98px)').matches) {
     isSidebarOpen.value = false;
@@ -362,6 +536,10 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload);
+  if (lockCountdownTimer) {
+    clearInterval(lockCountdownTimer);
+    lockCountdownTimer = null;
+  }
   stopLoadedWatch?.();
 });
 
@@ -535,17 +713,17 @@ function normalizeChangesetId(value: unknown): number | null {
   return null;
 }
 
-function isTaskActionDisabled(actionId: typeof taskActions[number]['id']) {
+function isTaskActionDisabled(actionId: 'complete' | 'skip') {
   if (isSubmittingTask.value || isSubmittingChangeset.value || activeTaskAction.value !== null) {
     return true;
   }
 
   return actionId === 'complete'
-    ? hasActiveEdits.value || pendingChangesetId.value !== null
+    ? hasActiveEdits.value || pendingChangesetId.value !== null || reviewFeedbackIsIncomplete.value
     : false;
 }
 
-function getTaskActionLabel(actionId: typeof taskActions[number]['id'], fallback: string) {
+function getTaskActionLabel(actionId: 'complete' | 'skip', fallback: string) {
   if (actionId === 'complete' && isSubmittingTask.value) {
     return 'Submitting...';
   }
@@ -558,19 +736,46 @@ function getTaskActionLabel(actionId: typeof taskActions[number]['id'], fallback
 }
 
 function buildFeedbackPayload(): WorkspaceProjectTaskSubmitFeedback | undefined {
-  if (!trimmedFeedbackNotes.value && !feedbackReasonCategory.value) {
+  if (!isReviewTask.value || reviewDecision.value === 'approve') {
     return undefined;
   }
 
+  if (!feedbackReasonCategory.value) {
+    throw new Error('Select a feedback reason before requesting a remap.');
+  }
+
   if (!trimmedFeedbackNotes.value) {
-    throw new Error('Feedback notes are required when sending feedback.');
+    throw new Error('Add feedback notes before requesting a remap.');
   }
 
   return {
     notes: trimmedFeedbackNotes.value,
-    reasonCategory: feedbackReasonCategory.value || undefined,
+    reasonCategory: feedbackReasonCategory.value,
   };
 }
+
+function formatLockTimeRemaining(expiresAt: string | undefined, currentTime: number) {
+  if (!expiresAt) {
+    return '';
+  }
+
+  const remainingMilliseconds = new Date(expiresAt).getTime() - currentTime;
+
+  if (!Number.isFinite(remainingMilliseconds) || remainingMilliseconds <= 0) {
+    return 'Lock expired';
+  }
+
+  const remainingMinutes = Math.ceil(remainingMilliseconds / 60_000);
+  const hours = Math.floor(remainingMinutes / 60);
+  const minutes = remainingMinutes % 60;
+
+  if (hours === 0) {
+    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} left`;
+  }
+
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'}, ${minutes} ${minutes === 1 ? 'minute' : 'minutes'} left`;
+}
+
 function generateInitialHash() {
   const center = shapeToCenter(task.geometry);
   const lat = center[0];
@@ -716,6 +921,8 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
+$review-option-color: #1a1e3d;
+
 .task-editor-page {
   height: 100%;
   overflow: hidden;
@@ -725,7 +932,7 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
 }
 
 .task-editor-shell {
-  --task-editor-sidebar-width: min(29rem, 32vw);
+  --task-editor-sidebar-width: min(34rem, 32vw);
   --task-editor-sidebar-rail-width: 3.75rem;
   height: 100%;
   min-height: 0;
@@ -760,14 +967,14 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
   overflow: visible;
   width: 100%;
   height: 100%;
-  border: 1px solid rgba($text-navy, 0.08);
+  border: 0;
   border-radius: 0;
-  border-left-color: rgba($text-navy, 0.1);
-  box-shadow: -0.6rem 0 2rem rgba($text-navy, 0.08);
+  border-left: 1px solid rgba($text-navy, 0.1);
+  box-shadow: -0.5rem 0 1.5rem rgba($text-navy, 0.08);
   transition:
     width 0.28s ease,
     box-shadow 0.28s ease;
-  background: $purple-background-light;
+  background: $white;
 }
 
 .task-editor-sidebar:not(.task-editor-sidebar-open) {
@@ -789,8 +996,8 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
   height: 100%;
   display: grid;
   align-content: start;
-  gap: 1rem;
-  padding: 1.15rem 1rem 1rem 1.05rem;
+  gap: 0;
+  padding: 0;
   overflow-y: auto;
   scrollbar-width: thin;
   transition: opacity 0.16s ease;
@@ -807,9 +1014,10 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
   position: sticky;
   bottom: 0;
   display: grid;
-  gap: 0.9rem;
-  padding: 0 1rem 1rem 1.05rem;
-  background: linear-gradient(180deg, rgba($purple-background-light, 0) 0%, rgba($purple-background-light, 0.96) 16%, $purple-background-light 100%);
+  gap: 0;
+  padding: 1rem 1.75rem 1.25rem;
+  background: $white;
+  border-top: 1px solid rgba($text-navy, 0.1);
 }
 
 .task-editor-sidebar:not(.task-editor-sidebar-open) .task-editor-sidebar-footer {
@@ -820,7 +1028,7 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
 
 .task-editor-sidebar-handle {
   position: absolute;
-  top: clamp(4.1rem, 9vh, 5.35rem);
+  top: 2rem;
   left: 0.9rem;
   z-index: 1;
   display: inline-flex;
@@ -828,13 +1036,11 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
   justify-content: center;
   width: 2.35rem;
   height: 3.15rem;
-  color: $white;
-  background: $primary;
-  border: 1px solid rgba($text-navy, 0.18);
-  border-radius: 0.8rem;
-  box-shadow:
-    0 0 0 0.22rem rgba($white, 0.92),
-    0 0.8rem 1.8rem rgba($text-navy, 0.22);
+  color: $text-navy;
+  background: $white;
+  border: 1px solid rgba($text-navy, 0.14);
+  border-radius: 0.65rem;
+  box-shadow: $box-shadow;
   transition:
     background-color 0.2s ease,
     box-shadow 0.2s ease,
@@ -845,11 +1051,10 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
 .task-editor-sidebar-handle:hover,
 .task-editor-sidebar-handle:focus-visible {
   color: $white;
-  background: $brand-accent;
+  background: $primary;
   box-shadow:
-    0 0 0 0.22rem rgba($white, 0.96),
     0 0 0 0.38rem rgba($primary, 0.2),
-    0 0.95rem 2rem rgba($text-navy, 0.24);
+    $box-shadow;
 }
 
 .task-editor-sidebar.task-editor-sidebar-open .task-editor-sidebar-handle {
@@ -862,39 +1067,170 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
   transform: translateX(-50%);
 }
 
-.task-editor-kicker {
-  margin: 0;
-  color: $secondary;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .task-editor-title {
   margin: 0;
   color: $text-navy;
   font-family: var(--secondary-font-family);
-  font-size: 1.8rem;
+  font-size: 1.65rem;
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.3;
 }
 
-.task-editor-title span {
-  font-weight: 800;
+.task-editor-status {
+  width: fit-content;
+  margin: 0;
+  padding: 0.35rem 0.6rem;
+  color: $primary;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: rgba($primary, 0.08);
+  border-radius: 999px;
 }
 
 .task-editor-sidebar-hero {
   display: grid;
-  gap: 0.8rem;
-  padding: 0.35rem 0.2rem 0;
+  gap: 1.25rem;
+  padding: 1.75rem;
+  background: $purple-background-light;
 }
 
-.task-editor-sidebar-topbar {
+.task-editor-task-summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 1rem;
+  padding-top: 1rem;
+  color: $secondary;
+  border-top: 1px dashed rgba($text-navy, 0.25);
+}
+
+.task-editor-task-badges {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.task-editor-lock-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  color: #8a6300;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: #fffaf0;
+  border: 1px solid #ead9ad;
+  border-radius: 999px;
+}
+
+.task-editor-tabs {
+  display: flex;
+  gap: 1.75rem;
+  padding: 1.25rem 1.75rem 0;
+  background: $white;
+  border-bottom: 0.25rem solid rgba($primary, 0.08);
+}
+
+.task-editor-tab {
+  position: relative;
+  padding: 0 0 0.75rem;
+  color: $secondary;
+  font-size: 1rem;
+  font-weight: 600;
+  background: transparent;
+  border: 0;
+}
+
+.task-editor-tab::after {
+  position: absolute;
+  right: 0;
+  bottom: -0.25rem;
+  left: 0;
+  height: 0.25rem;
+  content: "";
+  background: transparent;
+}
+
+.task-editor-tab:hover,
+.task-editor-tab:focus-visible,
+.task-editor-tab-active {
+  color: $text-navy;
+}
+
+.task-editor-tab-active::after {
+  background: $text-navy;
+}
+
+.task-editor-tab-panel {
+  display: grid;
+  align-content: start;
+  gap: 1.75rem;
+  padding: 1.5rem 1.75rem 2rem;
+}
+
+.task-editor-info-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.85rem;
+  padding: 1rem;
+  background: #fbfcff;
+  border: 1px solid rgba($text-navy, 0.1);
+  border-radius: 0.8rem;
+}
+
+.task-editor-info-card h2,
+.task-editor-info-card p {
+  margin: 0;
+}
+
+.task-editor-info-card h2 {
+  color: $text-navy;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.task-editor-info-card p {
+  margin-top: 0.25rem;
+  color: $secondary;
+  font-size: 0.93rem;
+  line-height: 1.45;
+}
+
+.task-editor-info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  color: $secondary;
+  background: $purple-background-light;
+  border-radius: 50%;
+}
+
+.task-editor-completion-section {
+  display: grid;
+  gap: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba($text-navy, 0.1);
+}
+
+.task-editor-mapping-completion h2,
+.task-editor-mapping-completion p {
+  margin: 0;
+}
+
+.task-editor-mapping-completion h2 {
+  color: $text-navy;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.task-editor-mapping-completion p {
+  color: $secondary;
+  line-height: 1.5;
 }
 
 .task-editor-sidebar-section {
@@ -926,32 +1262,9 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
   letter-spacing: 0.02em;
 }
 
-.task-editor-meta-label {
-  color: $secondary;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.task-editor-meta-value {
-  color: $text-navy;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.task-editor-instructions,
-.task-editor-experiments {
+.task-editor-instructions {
   display: grid;
   gap: 0.85rem;
-}
-
-.task-editor-experiment-copy,
-.task-editor-experiment-note {
-  margin: 0;
-  color: $secondary;
-  font-size: 0.92rem;
-  line-height: 1.45;
 }
 
 .task-editor-rich-copy {
@@ -965,9 +1278,13 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
   gap: 0.9rem;
   position: relative;
   z-index: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
-.task-editor-feedback {
+.task-editor-review {
   display: grid;
   gap: 0.9rem;
 }
@@ -975,7 +1292,7 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
 .task-editor-feedback-fields,
 .task-editor-feedback-group {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.75rem;
 }
 
 .task-editor-field-label,
@@ -987,9 +1304,18 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
 }
 
 .task-editor-feedback-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   padding: 0;
   margin: 0;
   border: 0;
+}
+
+.task-editor-feedback-legend {
+  flex: 0 0 100%;
+  margin-bottom: 0.25rem;
+  font-size: 1.2rem;
 }
 
 .task-editor-field {
@@ -1010,21 +1336,49 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
 }
 
 .task-editor-feedback-option {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.65rem 0.75rem;
-  color: $secondary;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.55rem 1.25rem;
+  color: $review-option-color;
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 1;
   background: $white;
-  border: 1px solid rgba($text-navy, 0.08);
-  border-radius: 0.85rem;
+  border: 1px solid $review-option-color;
+  border-radius: 999px;
+  cursor: pointer;
 }
 
-.task-editor-feedback-option .form-check-input {
-  margin: 0;
-  accent-color: $primary;
+.task-editor-feedback-option:hover {
+  background: rgba($review-option-color, 0.05);
+}
+
+.task-editor-feedback-option:focus-within {
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba($review-option-color, 0.18);
+}
+
+.task-editor-feedback-option-selected {
+  color: $white;
+  background: $review-option-color;
+  border-color: $review-option-color;
+}
+
+.task-editor-feedback-option-selected:hover,
+.task-editor-feedback-option-selected:focus-within {
+  color: $white;
+  background: $review-option-color;
+  border-color: $review-option-color;
+}
+
+.task-editor-feedback-option > span {
+  white-space: nowrap;
+}
+
+.task-editor-feedback-select {
+  width: 100%;
 }
 
 .task-editor-feedback-hint,
@@ -1081,7 +1435,7 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
   justify-content: center;
   padding-inline: 1rem;
   font-weight: 700;
-  border-radius: 0.9rem;
+  border-radius: 0.35rem;
 }
 
 .task-editor-action-button.btn-primary {
@@ -1096,35 +1450,29 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
   background: $white;
 }
 
-.task-editor-action-note {
-  margin: 0;
-  padding: 0.85rem 0.9rem;
-  color: $secondary;
-  font-size: 0.9rem;
-  line-height: 1.45;
-  background: $purple-background-medium;
-  border: 1px solid rgba($text-navy, 0.12);
-  border-radius: 0.85rem;
-}
-
 .task-editor-back {
   width: fit-content;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 2.4rem;
-  padding-inline: 0.9rem;
+  min-height: auto;
+  padding: 0;
   font-weight: 700;
   color: $secondary;
-  background: $white;
-  border-color: rgba($text-navy, 0.15);
-  border-radius: 0.9rem;
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+}
+
+.task-editor-back:hover,
+.task-editor-back:focus-visible {
+  color: $primary;
 }
 
 @include media-breakpoint-down(lg) {
   .task-editor-shell {
-    --task-editor-sidebar-width: min(24rem, 36vw);
+    --task-editor-sidebar-width: min(28rem, 40vw);
     --task-editor-sidebar-rail-width: 3.5rem;
   }
 }
@@ -1135,7 +1483,7 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
   }
 
   .task-editor-shell {
-    --task-editor-sidebar-width: min(19.5rem, 58vw);
+    --task-editor-sidebar-width: min(25rem, calc(100vw - 3.25rem));
     --task-editor-sidebar-rail-width: 3.25rem;
   }
 
@@ -1143,9 +1491,36 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
     font-size: 1.45rem;
   }
 
-  .task-editor-sidebar-topbar {
+  .task-editor-sidebar-hero,
+  .task-editor-tab-panel {
+    padding-inline: 1rem;
+  }
+
+  .task-editor-tabs,
+  .task-editor-sidebar-footer {
+    padding-inline: 1rem;
+  }
+
+  .task-editor-task-summary {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .task-editor-task-badges {
+    justify-content: flex-start;
+  }
+
+  .task-editor-feedback-group {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .task-editor-feedback-legend {
+    flex-basis: auto;
+  }
+
+  .task-editor-action-list {
+    grid-template-columns: 1fr;
   }
 }
 </style>

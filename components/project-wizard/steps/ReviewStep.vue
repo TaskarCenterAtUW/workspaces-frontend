@@ -40,6 +40,11 @@
       </div>
 
       <div class="project-wizard-review-item">
+        <h3>Area of Interest</h3>
+        <p>{{ summary.aoiAreaLabel }}</p>
+      </div>
+
+      <div class="project-wizard-review-item">
         <h3>Lock Timeout</h3>
         <p>{{ summary.lockTimeoutLabel }}</p>
       </div>
