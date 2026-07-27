@@ -1,4 +1,4 @@
-import { sanitizeReviewHtml } from '~/services/project-wizard-review';
+import { sanitizeRichTextHtml } from '~/util/rich-text';
 
 import type {
   ProjectWizardCreatePayload,
@@ -31,7 +31,7 @@ export function buildProjectWizardCreatePayload(draft: ProjectWizardDraft): Proj
     name: draft.details.name.trim(),
     description: draft.details.description.trim() || null,
     custom_imagery: parseProjectWizardCustomImagery(draft.details.imageryUrl),
-    instructions: sanitizeReviewHtml(draft.settings.instructions).trim(),
+    instructions: sanitizeRichTextHtml(draft.settings.instructions).trim(),
     review_required: draft.settings.reviewRequired,
     lock_timeout_hours: draft.settings.lockTimeoutHours,
     aoi: draft.area.aoi.geometry,

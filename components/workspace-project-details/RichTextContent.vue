@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import DOMPurify from 'dompurify';
+import { sanitizeRichTextHtml } from '~/util/rich-text';
 
 interface Props {
   /** Raw HTML string, typically coming from an API response or a WYSIWYG editor. */
@@ -24,9 +24,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const safeHtml = computed(() =>
-  DOMPurify.sanitize(props.html, { USE_PROFILES: { html: true } })
-);
+const safeHtml = computed(() => sanitizeRichTextHtml(props.html));
 </script>
 
 <style lang="scss" scoped>

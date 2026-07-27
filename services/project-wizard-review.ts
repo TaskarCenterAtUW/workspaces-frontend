@@ -1,7 +1,6 @@
-import DOMPurify from 'dompurify';
-
 import { calculateProjectWizardAoiAreaSquareKilometers } from '~/services/project-wizard-aoi';
-import { formatArea, type AreaDisplayUnit } from '~/composables/useAreaDisplayUnit';
+import { formatArea, type AreaDisplayUnit } from '~/util/area';
+import { sanitizeRichTextHtml } from '~/util/rich-text';
 
 import type {
   ProjectWizardDraft,
@@ -28,7 +27,7 @@ export function buildProjectWizardReviewSummary(
   areaDisplayUnit: AreaDisplayUnit = 'square_kilometers',
 ): ProjectWizardReviewSummary {
   const hasImageryUrl = draft.details.imageryUrl.trim().length > 0;
-  const instructionsHtml = sanitizeReviewHtml(draft.settings.instructions);
+  const instructionsHtml = sanitizeRichTextHtml(draft.settings.instructions);
 
   return {
     projectName: draft.details.name.trim() || 'Not provided',
@@ -48,14 +47,4 @@ export function buildProjectWizardReviewSummary(
         )
       : formatArea(0, areaDisplayUnit),
   };
-}
-
-export function sanitizeReviewHtml(html: string): string {
-  if (!html.trim()) {
-    return '';
-  }
-
-  return typeof window !== 'undefined'
-    ? DOMPurify.sanitize(html, { USE_PROFILES: { html: true } })
-    : html;
 }

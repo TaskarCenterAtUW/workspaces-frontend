@@ -9,7 +9,7 @@
         v-for="tool in tools"
         :key="tool.id"
         class="btn btn-link project-wizard-rich-text-editor-tool"
-        :class="{ 'project-wizard-rich-text-editor-tool-active': isToolActive(tool.id) }"
+        :class="{ 'project-wizard-rich-text-editor-tool-active': tool.active }"
         type="button"
         :aria-label="tool.label"
         @mousedown.prevent
@@ -31,6 +31,7 @@
 </template>
 
 <script setup lang="ts">
+import type { Editor } from '@tiptap/core';
 import { EditorContent, useEditor } from '@tiptap/vue-3';
 import { Image } from '@tiptap/extension-image';
 import { Link } from '@tiptap/extension-link';
@@ -49,7 +50,7 @@ type RichTextToolId
 
 const model = defineModel<string>({ default: '' });
 
-const tools: Array<{ icon: string; id: RichTextToolId; label: string }> = [
+const TOOL_DEFINITIONS: Array<{ icon: string; id: RichTextToolId; label: string }> = [
   { id: 'bold', icon: 'format_bold', label: 'Bold' },
   { id: 'italic', icon: 'format_italic', label: 'Italic' },
   { id: 'link', icon: 'link', label: 'Link' },
@@ -59,6 +60,21 @@ const tools: Array<{ icon: string; id: RichTextToolId; label: string }> = [
   { id: 'table', icon: 'table_rows', label: 'Table' },
   { id: 'quote', icon: 'format_quote', label: 'Quote' },
 ];
+const ACTIVE_TOOL_NAMES: Partial<Record<RichTextToolId, string>> = {
+  'bold': 'bold',
+  'italic': 'italic',
+  'link': 'link',
+  'bullet-list': 'bulletList',
+  'numbered-list': 'orderedList',
+  'quote': 'blockquote',
+};
+const activeToolIds = ref<Set<RichTextToolId>>(new Set());
+const tools = computed(() =>
+  TOOL_DEFINITIONS.map(tool => ({
+    ...tool,
+    active: activeToolIds.value.has(tool.id),
+  })),
+);
 
 const editor = useEditor({
   content: model.value || '<p></p>',
@@ -85,6 +101,12 @@ const editor = useEditor({
   onUpdate({ editor: currentEditor }) {
     model.value = currentEditor.isEmpty ? '' : currentEditor.getHTML();
   },
+  onCreate({ editor: currentEditor }) {
+    updateActiveTools(currentEditor);
+  },
+  onTransaction({ editor: currentEditor }) {
+    updateActiveTools(currentEditor);
+  },
 });
 
 watch(
@@ -106,29 +128,15 @@ watch(
   },
 );
 
-function isToolActive(toolId: RichTextToolId) {
-  const currentEditor = editor.value;
-
-  if (!currentEditor) {
-    return false;
-  }
-
-  switch (toolId) {
-    case 'bold':
-      return currentEditor.isActive('bold');
-    case 'italic':
-      return currentEditor.isActive('italic');
-    case 'link':
-      return currentEditor.isActive('link');
-    case 'bullet-list':
-      return currentEditor.isActive('bulletList');
-    case 'numbered-list':
-      return currentEditor.isActive('orderedList');
-    case 'quote':
-      return currentEditor.isActive('blockquote');
-    default:
-      return false;
-  }
+function updateActiveTools(currentEditor: Editor) {
+  activeToolIds.value = new Set(
+    TOOL_DEFINITIONS
+      .filter(({ id }) => {
+        const activeToolName = ACTIVE_TOOL_NAMES[id];
+        return activeToolName ? currentEditor.isActive(activeToolName) : false;
+      })
+      .map(({ id }) => id),
+  );
 }
 
 function applyTool(toolId: RichTextToolId) {

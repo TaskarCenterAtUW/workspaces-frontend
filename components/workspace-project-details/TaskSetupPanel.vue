@@ -41,23 +41,12 @@
           :for="rangeInputId"
         >Set task area</label>
         <div class="project-task-setup-range-value">
-          <div
-            class="project-task-setup-unit-toggle"
-            role="group"
-            aria-label="Task area display unit"
-          >
-            <button
-              v-for="option in areaUnitOptions"
-              :key="option.value"
-              class="project-task-setup-unit-option"
-              :class="{ 'project-task-setup-unit-option-active': areaUnit === option.value }"
-              type="button"
-              :aria-pressed="areaUnit === option.value"
-              @click="selectAreaUnit(option.value)"
-            >
-              {{ option.label }}
-            </button>
-          </div>
+          <area-unit-toggle
+            :model-value="areaUnit"
+            label="Task area display unit"
+            size="md"
+            @update:model-value="selectAreaUnit"
+          />
           <strong>{{ formattedTaskArea }}</strong>
         </div>
       </div>
@@ -207,6 +196,7 @@ import type {
   ProjectWizardTaskGenerationSummary,
   ProjectWizardTaskSaveSummary,
 } from '~/types/project-wizard';
+import { formatArea } from '~/util/area';
 
 interface Props {
   /** Whether the Generate button should be enabled (AOI exists, no in-flight request, etc.). */
@@ -251,7 +241,7 @@ const emit = defineEmits<{
  * replace this with `useId()` (available in Vue 3.5+) to generate a unique ID per instance.
  */
 const rangeInputId = 'project-task-setup-range';
-const { areaUnit, areaUnitOptions, selectAreaUnit } = useAreaDisplayUnit();
+const { areaUnit, selectAreaUnit } = useAreaDisplayUnit();
 
 /** Formatted strings for the min/max labels and current value display. */
 const formattedMinimumTaskArea = computed(() =>
@@ -401,42 +391,6 @@ function onTaskAreaInput(event: Event) {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-}
-
-.project-task-setup-unit-toggle {
-  display: inline-flex;
-  padding: 0.2rem;
-  background: #f1f3f9;
-  border: 1px solid rgba($text-navy, 0.12);
-  border-radius: 0.55rem;
-}
-
-.project-task-setup-unit-option {
-  min-width: 3.25rem;
-  padding: 0.35rem 0.55rem;
-  color: #667091;
-  font-size: 0.85rem;
-  font-weight: 700;
-  line-height: 1;
-  background: transparent;
-  border: 0;
-  border-radius: 0.4rem;
-}
-
-.project-task-setup-unit-option:hover,
-.project-task-setup-unit-option:focus-visible {
-  color: $text-navy;
-}
-
-.project-task-setup-unit-option:focus-visible {
-  outline: 0;
-  box-shadow: 0 0 0 0.2rem rgba($primary, 0.16);
-}
-
-.project-task-setup-unit-option-active {
-  color: $text-navy;
-  background: #ffffff;
-  box-shadow: 0 0.1rem 0.3rem rgba($text-navy, 0.12);
 }
 
 .project-task-setup-range-header strong {
