@@ -317,11 +317,7 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 @import "~/assets/scss/theme.scss";
 
 .project-detail-card {
-  padding: 1.5rem;
   background: #ffffff;
-  border: 1px solid rgba($text-navy, 0.1);
-  border-radius: 1rem;
-  box-shadow: 0 0.75rem 2rem rgba($text-navy, 0.08);
 }
 
 .project-detail-task-card {
@@ -334,6 +330,7 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   gap: 0.85rem;
   align-items: end;
   margin-bottom: 1rem;
+  margin-top: -10px;
 }
 
 .project-detail-task-search {
@@ -341,8 +338,7 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 }
 
 .project-detail-task-search .form-control {
-  min-height: 2.85rem;
-  padding-right: 2.9rem;
+  border-radius: 6px;
 }
 
 .project-detail-task-search-icon {
@@ -366,7 +362,7 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 
 .project-detail-card :deep(.tdei-select-toggle),
 .project-detail-card :deep(.tdei-select-menu) {
-  border-radius: 0.75rem;
+  border-radius: 6px;
 }
 
 .project-detail-task-list-wrap {
@@ -374,7 +370,7 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   display: grid;
   gap: 0;
   border: 1px solid rgba($text-navy, 0.08);
-  border-radius: 0.85rem;
+  border-radius: 10px;
   overflow: visible;
 }
 
@@ -391,6 +387,7 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   font-size: 0.88rem;
   font-weight: 700;
   background: #f7f8fc;
+  border-radius: 10px 10px 4px 4px;
 }
 
 .project-detail-task-list {
@@ -405,6 +402,10 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   padding: 1.1rem 1.35rem;
   background: #ffffff;
   border-top: 1px solid rgba($text-navy, 0.08);
+}
+
+.project-detail-task-item:nth-last-child(1) {
+  border-radius: 0px 0px 10px 10px;
 }
 
 .project-detail-task-item-selected {
@@ -447,8 +448,10 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  color: #37405d;
+  color: $text-navy;
   line-height: 1.35;
+  font-weight: 500;
+  font-size: 15px;
 }
 
 .project-detail-task-status-swatch {
@@ -476,9 +479,11 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 
 .project-detail-task-value {
   display: inline-block;
-  color: #37405d;
+  color: $text-navy;
   line-height: 1.35;
   word-break: break-word;
+  font-weight: 500;
+  font-size: 15px;
 }
 
 .project-detail-task-mobile-label {
