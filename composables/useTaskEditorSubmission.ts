@@ -134,7 +134,10 @@ export function useTaskEditorSubmission(options: UseTaskEditorSubmissionOptions)
     }
   }
 
+  const changesetAttachSequence = ref(0);
+
   async function attachUploadedChangeset(osmChangesetId: number) {
+    const sequence = ++changesetAttachSequence.value;
     pendingChangesetId.value = osmChangesetId;
     isSubmittingChangeset.value = true;
     submitErrorMessage.value = '';
@@ -146,6 +149,9 @@ export function useTaskEditorSubmission(options: UseTaskEditorSubmissionOptions)
         options.taskNumber,
         osmChangesetId,
       );
+      if (sequence !== changesetAttachSequence.value) {
+        return;
+      }
       uploadedChangesetId.value = osmChangesetId;
 
       if (pendingChangesetId.value === osmChangesetId) {
@@ -153,10 +159,15 @@ export function useTaskEditorSubmission(options: UseTaskEditorSubmissionOptions)
       }
     }
     catch {
+      if (sequence !== changesetAttachSequence.value) {
+        return;
+      }
       submitErrorMessage.value = `Uploaded changeset #${osmChangesetId} could not be attached to this task. Please upload again before completing.`;
     }
     finally {
-      isSubmittingChangeset.value = false;
+      if (sequence === changesetAttachSequence.value) {
+        isSubmittingChangeset.value = false;
+      }
     }
   }
 

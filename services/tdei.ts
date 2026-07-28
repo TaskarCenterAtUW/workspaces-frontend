@@ -530,7 +530,8 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
    * Load the user's complete membership list and select the owning project group locally.
    */
   async getMyRolesForProjectGroupById(projectGroupId: string): Promise<string[]> {
-    const { items } = await this.getMyProjectGroups(1, '', 10000);
+    const response = await this._get(`project-group-roles/${this.#auth.subject}?page_size=10000&page_no=1&sort_by=name`);
+    const items = (await response.json() as TdeiProjectGroupApiResponse[]) ?? [];
     return items.find(p => p.tdei_project_group_id === projectGroupId)?.roles ?? [];
   }
 

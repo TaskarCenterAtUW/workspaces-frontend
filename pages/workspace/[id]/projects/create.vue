@@ -221,7 +221,9 @@ const workspace = await workspacesClient.getWorkspace(workspaceId).catch((error)
 
 const myTdeiRoles = await tdeiUserClient.getMyRolesForProjectGroupById(
   workspace.tdeiProjectGroupId,
-).catch(() => []);
+).catch((error) => {
+  throw createError({ statusCode: 500, statusMessage: 'Failed to load TDEI project group roles.', data: error });
+});
 
 const { canCreateProject } = useWorkspaceProjectPermissions(
   () => workspace.role,
