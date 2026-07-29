@@ -34,7 +34,6 @@
 import type { Editor } from '@tiptap/core';
 import { EditorContent, useEditor } from '@tiptap/vue-3';
 import { Image } from '@tiptap/extension-image';
-import { Link } from '@tiptap/extension-link';
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
 import { StarterKit } from '@tiptap/starter-kit';
 
@@ -69,6 +68,7 @@ const ACTIVE_TOOL_NAMES: Partial<Record<RichTextToolId, string>> = {
   'quote': 'blockquote',
 };
 const activeToolIds = ref<Set<RichTextToolId>>(new Set());
+const lastEditorModelValue = ref(model.value);
 const tools = computed(() =>
   TOOL_DEFINITIONS.map(tool => ({
     ...tool,
@@ -78,12 +78,14 @@ const tools = computed(() =>
 
 const editor = useEditor({
   content: model.value || '<p></p>',
+  editable: true,
   extensions: [
-    StarterKit,
-    Link.configure({
-      openOnClick: false,
-      autolink: true,
-      defaultProtocol: 'https',
+    StarterKit.configure({
+      link: {
+        openOnClick: false,
+        autolink: true,
+        defaultProtocol: 'https',
+      },
     }),
     Image,
     Table.configure({
@@ -99,7 +101,9 @@ const editor = useEditor({
     },
   },
   onUpdate({ editor: currentEditor }) {
-    model.value = currentEditor.isEmpty ? '' : currentEditor.getHTML();
+    const nextValue = currentEditor.isEmpty ? '' : currentEditor.getHTML();
+    lastEditorModelValue.value = nextValue;
+    model.value = nextValue;
   },
   onCreate({ editor: currentEditor }) {
     updateActiveTools(currentEditor);
@@ -120,11 +124,15 @@ watch(
 
     const nextValue = value || '<p></p>';
 
-    if (currentEditor.isFocused || currentEditor.getHTML() === nextValue) {
+    if (
+      value === lastEditorModelValue.value
+      || currentEditor.getHTML() === nextValue
+    ) {
       return;
     }
 
     currentEditor.commands.setContent(nextValue, { emitUpdate: false });
+    lastEditorModelValue.value = value;
   },
 );
 
