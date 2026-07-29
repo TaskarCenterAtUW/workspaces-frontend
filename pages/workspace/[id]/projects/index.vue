@@ -73,7 +73,7 @@
           >
             <img
               :src="option.icon"
-              :alt="option.label"
+              alt=""
               class="view-icon"
             />
             <span class="visually-hidden">{{ option.label }}</span>
