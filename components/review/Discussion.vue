@@ -17,6 +17,7 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from 'vue3-toastify';
 import type { ReviewListItem } from '~/services/review';
 import { osmClient } from '~/services/index';
 
@@ -53,16 +54,19 @@ async function refresh() {
 }
 
 async function refreshChangeset() {
-  if (!props.item.hasComments) {
-    messages.value = [];
-    return;
-  }
-
+  // getChangesetComments already returns [] when there are none, so don't gate
+  // on props.item.hasComments — that reads the changeset-list payload's
+  // comments_count, which is never updated after posting, so a freshly added
+  // comment would otherwise never appear.
   messages.value = await osmClient.getChangesetComments(workspaceId, props.item.id);
 }
 
 function refreshNote() {
-  messages.value = (props.item.data as OsmNote).comments.map(comment => ({
+  messages.value = noteComments(props.item.data as OsmNote);
+}
+
+function noteComments(note: OsmNote): ChatMessage[] {
+  return note.comments.map(comment => ({
     id: Symbol(),
     user: comment.user,
     date: comment.date,
@@ -71,15 +75,38 @@ function refreshNote() {
 }
 
 async function send(message: string) {
-  if (props.item.isChangeset) {
-    await sendChangeset(message);
-  }
+  try {
+    if (props.item.isChangeset) {
+      await osmClient.postChangesetComment(workspaceId, props.item.id, message);
+      // Re-fetch so the newly posted comment (and its server timestamp) appears.
+      await refreshChangeset();
+    }
+    else if (props.item.isNote) {
+      await osmClient.postNoteComment(workspaceId, props.item.id, message);
+      // Notes have no single-note fetch endpoint, so reflect the just-posted
+      // comment optimistically rather than re-listing every note.
+      appendLocalMessage(message);
+    }
 
-  chat.value?.clear();
+    // Only clear the input once the comment posted, so a failed send keeps the
+    // user's text.
+    chat.value?.clear();
+  }
+  catch {
+    toast.error('Failed to post your comment. Please try again.');
+  }
 }
 
-async function sendChangeset(message: string) {
-  await osmClient.postChangesetComment(workspaceId, props.item.id, message);
+function appendLocalMessage(text: string) {
+  messages.value = [
+    ...messages.value,
+    {
+      id: Symbol(),
+      user: osmClient.auth.displayName || undefined,
+      date: new Date(),
+      text
+    }
+  ];
 }
 </script>
 

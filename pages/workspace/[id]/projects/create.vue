@@ -710,21 +710,23 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
 @import "~/assets/scss/theme.scss";
 
 .project-create-page {
-  height: calc(100vh - #{$navbar-height});
-  padding-top: 1rem !important;
-  padding-bottom: 1rem !important;
+  height: 100%;
+  padding: 0px 0px;
+  padding-top: 0px !important;
+  padding-bottom: 0px !important;
   overflow: hidden;
 }
 
 .project-create-shell {
-  position: relative;
+  position: absolute;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
-  background: #a9d3e6;
-  border: 1px solid rgba($text-navy, 0.12);
-  box-shadow: $box-shadow;
+  background: #ffffff;
   overflow: hidden;
+  width: 100%;
+  top: 0px;
+  z-index: 9999;
 }
 
 .project-create-header {
@@ -734,9 +736,9 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.2rem 1.5rem;
+  padding: 15px 40px;
   background-color: #fff;
-  border-bottom: 1px solid rgba($text-navy, 0.1);
+  box-shadow: 0px 3px 6px #00000029;
 }
 
 .project-create-header-copy {
@@ -749,9 +751,8 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   margin: 0;
   padding-right: 1.45rem;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
-  font-size: 1.15rem;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 600;
   line-height: 1.2;
   border-right: 1px solid rgba($text-navy, 0.15);
 }
@@ -763,13 +764,12 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
 }
 
 .project-create-workspace-label {
-  color: rgba($secondary, 0.95);
-  font-size: 0.95rem;
+  color: $text-secondary;
+  font-size: 14px;
 }
 
 .project-create-workspace-copy strong {
-  font-family: var(--secondary-font-family);
-  font-size: 0.95rem;
+  font-size: 16px;
   font-weight: 600;
 }
 

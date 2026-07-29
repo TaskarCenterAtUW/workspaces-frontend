@@ -32,10 +32,9 @@ const safeHtml = computed(() => sanitizeRichTextHtml(props.html));
 
 .project-detail-rich-text {
   overflow-x: auto;
-  color: #5a607b;
-  font-family: var(--primary-font-family);
-  font-size: 1.1rem;
-  line-height: 1.9;
+  color: $text-navy;
+  font-size: 16px;
+  line-height: 26px;
 }
 
 .project-detail-rich-text:deep(h3) {

@@ -13,7 +13,7 @@ export function useProjectDisplay(project: Ref<WorkspaceProject> | WorkspaceProj
 
   const taskSummary = computed(() =>
     progressPercent.value === 0
-      ? 'Not started'
+      ? 'Not Started'
       : `${completedTaskCount.value}/${projectRef.value.taskCount} Tasks Executed`,
   );
 

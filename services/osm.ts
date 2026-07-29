@@ -1,5 +1,5 @@
 import parseOsmChangeXml from '@osmcha/osmchange-parser';
-import type { FeatureCollection, Point } from 'geojson';
+import type { Feature, FeatureCollection, Point } from 'geojson';
 
 import {
   BaseHttpClient,
@@ -56,28 +56,26 @@ function formatFeatureIdPlaceholders(feature: Element) {
   }
 }
 
-function notesGeoJsonToEntities(geoJson: FeatureCollection): OsmNote[] {
-  const notes = [];
+function noteFeatureToEntity(feature: Feature): OsmNote {
+  const geometry = feature.geometry as Point;
+  const properties = feature.properties ?? { };
 
-  for (const feature of geoJson.features) {
-    const geometry = feature.geometry as Point;
-    const properties = feature.properties ?? { };
-
-    for (const comment of properties.comments) {
-      comment.date = new Date(comment.date);
-    }
-
-    notes.push({
-      id: properties.id,
-      status: properties.status,
-      lat: geometry.coordinates[1] ?? 0,
-      lon: geometry.coordinates[0] ?? 0,
-      created_at: new Date(properties.date_created),
-      comments: properties.comments,
-    });
+  for (const comment of properties.comments) {
+    comment.date = new Date(comment.date);
   }
 
-  return notes;
+  return {
+    id: properties.id,
+    status: properties.status,
+    lat: geometry.coordinates[1] ?? 0,
+    lon: geometry.coordinates[0] ?? 0,
+    created_at: new Date(properties.date_created),
+    comments: properties.comments,
+  };
+}
+
+function notesGeoJsonToEntities(geoJson: FeatureCollection): OsmNote[] {
+  return geoJson.features.map(noteFeatureToEntity);
 }
 
 function cleanOscForDemo(features: Element[]) {
@@ -461,12 +459,31 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     changesetId: number,
     message: string,
   ): Promise<void> {
-    const body = new FormData();
-    body.append('text', message);
-
-    await this._post(`changeset/${changesetId}/comment`, body, {
+    await this._post(`changeset/${changesetId}/comment?text=${encodeURIComponent(message)}`, undefined, {
       headers: { 'X-Workspace': String(workspaceId) },
     });
+  }
+
+  async postNoteComment(
+    workspaceId: WorkspaceId,
+    noteId: number,
+    message: string,
+  ): Promise<OsmNote | undefined> {
+    // OSM takes the note comment text as a query parameter and returns the
+    // updated note (including the new comment) as a single GeoJSON Feature.
+    const params = new URLSearchParams();
+    params.append('text', message);
+
+    const response = await this._post(`notes/${noteId}/comment.json?${params}`, undefined, {
+      headers: {
+        'Accept': 'application/json',
+        'X-Workspace': String(workspaceId),
+      },
+    });
+
+    const feature = await response.json();
+
+    return feature ? noteFeatureToEntity(feature) : undefined;
   }
 
   async getNotes(workspaceId: WorkspaceId, includeClosed: boolean): Promise<OsmNote[]> {

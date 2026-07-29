@@ -126,7 +126,6 @@ function formatRole(role: WorkspaceRole) {
 .project-wizard-step-title {
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.15;
@@ -142,7 +141,7 @@ function formatRole(role: WorkspaceRole) {
 
 .project-wizard-review-group {
   display: grid;
-  gap: 1.25rem;
+  gap: 25px;
 }
 
 .project-wizard-review-item {
@@ -153,13 +152,12 @@ function formatRole(role: WorkspaceRole) {
 .project-wizard-review-item h3 {
   margin: 0;
   text-align: left;
-  font-family: Lato, var(--primary-font-family), sans-serif;
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-style: normal;
   font-weight: 600;
   line-height: 1.375rem;
   letter-spacing: 0;
-  color: #1a1e3d;
+  color: $text-navy;
   opacity: 1;
 }
 
@@ -167,12 +165,12 @@ function formatRole(role: WorkspaceRole) {
   margin: 0;
   text-align: left;
   font-family: Lato, var(--primary-font-family), sans-serif;
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-style: normal;
   font-weight: 400;
   line-height: 1.625rem;
   letter-spacing: 0;
-  color: #5a607b;
+  color: $text-secondary;
   opacity: 1;
 }
 
@@ -189,6 +187,10 @@ function formatRole(role: WorkspaceRole) {
   letter-spacing: 0;
   color: #5a607b;
   opacity: 1;
+}
+
+.project-wizard-review-status span {
+  font-size: 1rem;
 }
 
 .project-wizard-review-validator-list {
@@ -232,9 +234,8 @@ function formatRole(role: WorkspaceRole) {
 }
 
 .project-wizard-review-instructions {
-  color: #5a607b;
-  font-family: Lato, var(--primary-font-family), sans-serif;
-  font-size: 1.125rem;
+  color: $text-secondary;
+  font-size: 1rem;
   font-style: normal;
   font-weight: 400;
   line-height: 1.625rem;
