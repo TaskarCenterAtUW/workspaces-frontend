@@ -2,11 +2,8 @@
   <!--
     Project card — used in the grid view on the workspace projects page.
 
-    ACCESSIBILITY NOTE: The entire card is clickable but contains a nested action button.
-    We use Bootstrap's "stretched-link" technique: the <nuxt-link> gets `position: absolute; inset: 0`
-    (via the `project-card-link` class) making the whole card's surface area clickable,
-    while the action button sits above it using `position: relative; z-index: 1`.
-    This avoids the anti-pattern of putting @click on a non-interactive <article> element.
+    The entire card is clickable using a stretched <nuxt-link>. This avoids the anti-pattern
+    of putting @click on a non-interactive <article> element.
   -->
   <article class="project-card">
     <div class="project-card-top">
@@ -16,24 +13,6 @@
         :src="projectIcon"
         :alt="''"
       >
-
-      <!--
-        Three-dot action button. `position: relative` + `z-index: 1` lets it receive clicks
-        even though the stretched-link overlay sits beneath the whole card.
-        `@click.stop` prevents the card-level navigation from also firing.
-      -->
-      <button
-        class="project-card-menu btn btn-link"
-        type="button"
-        aria-label="Project actions"
-        @click.stop
-      >
-        <app-icon
-          variant="more_vert"
-          size="22"
-          no-margin
-        />
-      </button>
     </div>
 
     <div class="project-card-body">
@@ -87,7 +66,7 @@
     <!--
       Stretched link: covers the full card area via `position: absolute; inset: 0`.
       Screen readers announce this as the card's navigation target.
-      Placed last in the DOM so the action button's z-index stacks above it without any hacks.
+      Placed last in the DOM so the card content remains the accessible link target.
     -->
     <nuxt-link
       :to="projectRoute"
@@ -159,16 +138,9 @@ const projectRoute = computed(
   color: transparent;
 }
 
-/* Keep the action button above the stretched-link overlay so it remains independently clickable. */
-.project-card-menu {
-  position: relative;
-  z-index: 1;
-}
-
 .project-card-top {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
   padding: 1.2rem 1.2rem 0;
 }
 
@@ -177,13 +149,6 @@ const projectRoute = computed(
   width: 2.8125rem;
   height: 2.8125rem;
   flex-shrink: 0;
-}
-
-.project-card-menu {
-  padding: 0;
-  color: #8b92ab;
-  opacity: 1;
-  text-decoration: none;
 }
 
 .project-card-body {

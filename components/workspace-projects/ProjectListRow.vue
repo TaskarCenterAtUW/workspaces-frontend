@@ -3,8 +3,7 @@
     Project list row — used in the list view on the workspace projects page.
 
     Same stretched-link technique as ProjectCard.vue:
-    The <nuxt-link> overlay (`project-list-link`) covers the entire row, while the action
-    button stays independently clickable via `position: relative; z-index: 1`.
+    The <nuxt-link> overlay (`project-list-link`) covers the entire row.
   -->
   <article class="project-list-row">
     <div class="project-list-title-cell">
@@ -46,22 +45,6 @@
       </div>
     </div>
 
-    <!-- Action button sits above the stretched-link overlay via z-index. -->
-    <div class="project-list-actions-cell">
-      <button
-        class="project-list-menu-button btn btn-link"
-        type="button"
-        aria-label="Project actions"
-        @click.stop
-      >
-        <app-icon
-          variant="more_vert"
-          size="22"
-          no-margin
-        />
-      </button>
-    </div>
-
     <!-- Stretched-link overlay: makes the full row surface navigate to the project detail page. -->
     <nuxt-link
       :to="projectRoute"
@@ -98,7 +81,7 @@ const projectRoute = computed(
   /* `position: relative` is required for the stretched-link overlay. */
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 2.9fr) minmax(8.5rem, 1.1fr) minmax(12rem, 1.35fr) minmax(11rem, 1.2fr) minmax(15rem, 1.6fr) 2.25rem;
+  grid-template-columns: minmax(0, 2.9fr) minmax(8.5rem, 1.1fr) minmax(12rem, 1.35fr) minmax(11rem, 1.2fr) minmax(15rem, 1.6fr);
   gap: 1.5rem;
   align-items: start;
   padding: 2.2rem 0;
@@ -123,15 +106,6 @@ const projectRoute = computed(
   z-index: 0;
   text-decoration: none;
   color: transparent;
-}
-
-/* Action button stays above the stretched-link overlay and inherits its own padding/color. */
-.project-list-menu-button {
-  position: relative;
-  z-index: 1;
-  padding: 0;
-  color: #8b92ab;
-  text-decoration: none;
 }
 
 .project-list-title {
@@ -167,17 +141,9 @@ const projectRoute = computed(
   border-radius: 999px;
 }
 
-.project-list-actions-cell {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 0.1rem;
-}
-
-/* Duplicate .project-list-menu-button declaration removed — merged with block above. */
-
 @include media-breakpoint-down(xl) {
   .project-list-row {
-    grid-template-columns: minmax(0, 2.2fr) minmax(8rem, 1fr) minmax(10rem, 1.2fr) minmax(9rem, 1fr) minmax(12rem, 1.35fr) 2rem;
+    grid-template-columns: minmax(0, 2.2fr) minmax(8rem, 1fr) minmax(10rem, 1.2fr) minmax(9rem, 1fr) minmax(12rem, 1.35fr);
     gap: 1.15rem;
   }
 }
@@ -192,10 +158,6 @@ const projectRoute = computed(
   .project-list-title-cell,
   .project-list-progress-cell {
     grid-column: 1 / -1;
-  }
-
-  .project-list-actions-cell {
-    justify-content: flex-start;
   }
 }
 
