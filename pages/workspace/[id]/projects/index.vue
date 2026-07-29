@@ -75,13 +75,13 @@
               :src="option.icon"
               alt=""
               class="view-icon"
-            />
+            >
             <span class="visually-hidden">{{ option.label }}</span>
           </button>
         </div>
 
         <span
-          v-if="isWorkspaceLead"
+          v-if="canCreateProject"
           class="workspace-projects-toolbar-divider"
           aria-hidden="true"
         />
@@ -422,7 +422,7 @@ onBeforeUnmount(() => {
 .workspace-projects-filters {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 1.25rem;
   flex: 1;
   min-width: 0;
 }
@@ -491,17 +491,17 @@ onBeforeUnmount(() => {
   border: 0;
 }
 
-.workspace-projects-view-button i.material-icons{
-  margin-top: 0px;
+.workspace-projects-view-button i.material-icons {
+  margin-top: 0;
 }
 
 .workspace-projects-view-button .view-icon {
-    width: 16px;
-    height: 16px;
+  width: 1rem;
+  height: 1rem;
 }
 
 .workspace-projects-view-button-active {
-  background-color: #EBEDF6;
+  background-color: $progress-track;
 }
 
 .workspace-projects-toolbar-divider {
@@ -530,7 +530,7 @@ onBeforeUnmount(() => {
 .workspace-projects-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 25px 25px;
+  gap: 1.5625rem;
 }
 
 .workspace-projects-empty-state {

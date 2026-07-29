@@ -25,10 +25,10 @@
           >
             <option
               v-for="hourOption in hourOptions"
-              :key="hourOption"
-              :value="hourOption"
+              :key="hourOption.value"
+              :value="hourOption.value"
             >
-              {{ String(hourOption).padStart(2, '0') }}
+              {{ hourOption.label }}
             </option>
           </select>
           <span class="project-wizard-settings-select-suffix">hours</span>
@@ -118,7 +118,14 @@ const emit = defineEmits<{
 }>();
 
 const lockTimeoutId = 'project-wizard-settings-lock-timeout';
-const hourOptions = Array.from({ length: 24 }, (_, index) => index + 1);
+const hourOptions = Array.from({ length: 24 }, (_, index) => {
+  const value = index + 1;
+
+  return {
+    label: String(value).padStart(2, '0'),
+    value,
+  };
+});
 const instructionsModel = computed({
   get: () => props.instructions,
   set: value => emit('update:instructions', value),
@@ -138,7 +145,7 @@ function onReviewRequiredChange(event: Event) {
 
 .project-wizard-step-settings {
   display: grid;
-  gap: 30px;
+  gap: 1.875rem;
 }
 
 .project-wizard-step-header,

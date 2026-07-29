@@ -84,7 +84,7 @@ const projectRoute = computed(
   grid-template-columns: minmax(0, 2.9fr) minmax(8.5rem, 1.1fr) minmax(12rem, 1.35fr) minmax(11rem, 1.2fr) minmax(15rem, 1.6fr);
   gap: 1.5rem;
   align-items: start;
-  padding: 25px 10px;
+  padding: 1.5625rem 0.625rem;
   cursor: pointer;
   border-bottom: 1px solid rgba($text-navy, 0.08);
   transition: background-color 160ms ease;
@@ -120,7 +120,7 @@ const projectRoute = computed(
 .project-list-progress-cell {
   display: grid;
   align-content: start;
-  gap: 15px;
+  gap: 0.9375rem;
   padding-top: 0.05rem;
 }
 
@@ -133,11 +133,11 @@ const projectRoute = computed(
 
 .project-list-progress-bar {
   height: 0.36rem;
-  background-color: #e5e8f3;
+  background-color: $border-card;
 }
 
 .project-list-progress-bar .progress-bar {
-  background-color: #4e5fe0;
+  background-color: $progress-fill;
   border-radius: 999px;
 }
 

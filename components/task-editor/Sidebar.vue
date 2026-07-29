@@ -363,11 +363,11 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
   align-items: center;
   gap: 0.35rem;
   padding: 0.35rem 0.65rem;
-  color: #8a6300;
+  color: $status-warning-text;
   font-size: 0.82rem;
   font-weight: 600;
-  background: #fffaf0;
-  border: 1px solid #ead9ad;
+  background: $status-warning-surface;
+  border: 1px solid $status-warning-border;
   border-radius: 999px;
 }
 
@@ -432,7 +432,7 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0.85rem;
   padding: 1rem;
-  background: #fbfcff;
+  background: $surface-subtle;
   border: 1px solid rgba($text-navy, 0.1);
   border-radius: 0.8rem;
 }

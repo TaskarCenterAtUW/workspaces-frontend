@@ -45,6 +45,7 @@ export function useProjectRole(
 ) {
   // Fetch the user's explicit project-level role. Returns null if none is assigned (404).
   const projectRole = ref<WorkspaceProjectContributorRole | null>(null);
+  const roleLoadError = ref<unknown>(null);
 
   /**
    * The effective role is the highest-privilege role the user holds.
@@ -87,7 +88,7 @@ export function useProjectRole(
   const isExplicitProjectLead = computed(() => projectRole.value === 'lead');
 
   const promise = (async () => {
-    if (currentUserId) {
+    if (currentUserId && workspaceRole !== 'lead') {
       try {
         projectRole.value = await workspaceProjectsClient.getWorkspaceProjectUserRole(
           workspaceId,
@@ -95,7 +96,8 @@ export function useProjectRole(
           currentUserId,
         );
       }
-      catch {
+      catch (error) {
+        roleLoadError.value = error;
         projectRole.value = null;
       }
     }
@@ -110,5 +112,6 @@ export function useProjectRole(
     canMap,
     canManageContributors,
     promise,
+    roleLoadError,
   };
 }

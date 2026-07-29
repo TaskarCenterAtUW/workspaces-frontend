@@ -94,8 +94,6 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
-$review-option-color: #1a1e3d;
-
 .task-editor-review-panel {
   display: grid;
   gap: 0.9rem;
@@ -155,36 +153,36 @@ $review-option-color: #1a1e3d;
   justify-content: center;
   min-height: 2.75rem;
   padding: 0.55rem 1.25rem;
-  color: $review-option-color;
+  color: $text-navy;
   font-size: 0.95rem;
   font-weight: 700;
   line-height: 1;
   background: $white;
-  border: 1px solid $review-option-color;
+  border: 1px solid $text-navy;
   border-radius: 999px;
   cursor: pointer;
 }
 
 .task-editor-feedback-option:hover {
-  background: rgba($review-option-color, 0.05);
+  background: rgba($text-navy, 0.05);
 }
 
 .task-editor-feedback-option:focus-within {
   outline: 0;
-  box-shadow: 0 0 0 0.2rem rgba($review-option-color, 0.18);
+  box-shadow: 0 0 0 0.2rem rgba($text-navy, 0.18);
 }
 
 .task-editor-feedback-option-selected {
   color: $white;
-  background: $review-option-color;
-  border-color: $review-option-color;
+  background: $text-navy;
+  border-color: $text-navy;
 }
 
 .task-editor-feedback-option-selected:hover,
 .task-editor-feedback-option-selected:focus-within {
   color: $white;
-  background: $review-option-color;
-  border-color: $review-option-color;
+  background: $text-navy;
+  border-color: $text-navy;
 }
 
 .task-editor-feedback-option > span {

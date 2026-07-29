@@ -28,6 +28,8 @@ import type {
 import type { WorkspaceId } from '~/types/workspaces';
 
 const PAGE_SIZE_DEFAULT = 10;
+const TASK_PAGE_SIZE_MAXIMUM = 1000;
+const TASK_PAGE_REQUEST_CONCURRENCY = 4;
 const USE_MOCK_WORKSPACE_PROJECTS = import.meta.env.VITE_USE_MOCK_WORKSPACE_PROJECTS === 'true';
 
 function normalizeStatus(status: WorkspaceProjectApiItem['status']): WorkspaceProject['status'] {
@@ -334,12 +336,10 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     workspaceId: WorkspaceId,
     projectId: number | string,
   ): Promise<WorkspaceProjectTaskListItem[]> {
-    const pageSize = 1000; // Fetch all tasks in one go, as the API does not support filtering or sorting.
-
     const fetchPage = async (page: number): Promise<WorkspaceProjectTasksApiResponse> => {
       const params = new URLSearchParams({
         page: String(page),
-        page_size: String(pageSize),
+        page_size: String(TASK_PAGE_SIZE_MAXIMUM),
       });
       const response = await this._get(
         `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks?${params.toString()}`,
@@ -349,13 +349,31 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     };
 
     const firstPage = await fetchPage(1);
-    const totalPages = Math.ceil(firstPage.pagination.total / pageSize);
-    const remainingPages = await Promise.all(
-      Array.from(
-        { length: Math.max(0, totalPages - 1) },
-        (_, index) => fetchPage(index + 2),
-      ),
+    const totalPages = Math.ceil(
+      firstPage.pagination.total / TASK_PAGE_SIZE_MAXIMUM,
     );
+    const remainingPages: WorkspaceProjectTasksApiResponse[] = [];
+
+    // The UI filters and sorts the complete task collection locally. Fetch every API page in
+    // bounded batches so large projects do not exceed the API's page-size limit or create an
+    // unbounded burst of simultaneous requests.
+    for (
+      let firstPageInBatch = 2;
+      firstPageInBatch <= totalPages;
+      firstPageInBatch += TASK_PAGE_REQUEST_CONCURRENCY
+    ) {
+      const lastPageInBatch = Math.min(
+        totalPages,
+        firstPageInBatch + TASK_PAGE_REQUEST_CONCURRENCY - 1,
+      );
+      const batch = await Promise.all(
+        Array.from(
+          { length: lastPageInBatch - firstPageInBatch + 1 },
+          (_, index) => fetchPage(firstPageInBatch + index),
+        ),
+      );
+      remainingPages.push(...batch);
+    }
 
     return [firstPage, ...remainingPages]
       .flatMap(page => page.tasks)

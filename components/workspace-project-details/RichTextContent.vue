@@ -33,13 +33,13 @@ const safeHtml = computed(() => sanitizeRichTextHtml(props.html));
 .project-detail-rich-text {
   overflow-x: auto;
   color: $text-navy;
-  font-size: 16px;
-  line-height: 26px;
+  font-size: 1rem;
+  line-height: 1.625;
 }
 
 .project-detail-rich-text:deep(h3) {
   margin: 0 0 0.9rem;
-  color: #1a1e3d;
+  color: $text-navy;
   font-family: var(--secondary-font-family);
   font-size: 1.18rem;
   font-weight: 700;
@@ -64,7 +64,7 @@ const safeHtml = computed(() => sanitizeRichTextHtml(props.html));
 .project-detail-rich-text:deep(blockquote) {
   margin: 0 0 1.4rem;
   padding: 0.75rem 1rem;
-  color: #5a607b;
+  color: $text-secondary;
   background-color: rgba($primary, 0.04);
   border-left: 3px solid rgba($primary, 0.22);
 }
@@ -89,7 +89,7 @@ const safeHtml = computed(() => sanitizeRichTextHtml(props.html));
 }
 
 .project-detail-rich-text:deep(th) {
-  color: #1a1e3d;
+  color: $text-navy;
   font-weight: 700;
   background-color: rgba($primary, 0.06);
 }
@@ -100,7 +100,7 @@ const safeHtml = computed(() => sanitizeRichTextHtml(props.html));
 }
 
 .project-detail-rich-text:deep(a) {
-  color: #5578d9;
+  color: $link-text;
   text-decoration: none;
 }
 

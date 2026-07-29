@@ -1,6 +1,7 @@
 <template>
   <app-page
     fluid
+    padding="sm"
     class="project-edit-page"
   >
     <section class="project-edit-shell">
@@ -897,8 +898,6 @@ $project-edit-action-spacing: 1.5rem;
 
 .project-edit-page {
   height: calc(100vh - #{$navbar-height});
-  padding-top: 1rem !important;
-  padding-bottom: 1rem !important;
   overflow: hidden;
 }
 
@@ -1453,8 +1452,8 @@ $project-edit-action-spacing: 1.5rem;
   line-height: 1.5;
 }
 
-.project-edit-unavailable-copy {
-  color: #8a91ab !important;
+.project-edit-message-copy .project-edit-unavailable-copy {
+  color: $text-disabled;
 }
 
 .project-edit-action-block {

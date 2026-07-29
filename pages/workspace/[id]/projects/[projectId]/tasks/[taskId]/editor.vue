@@ -1,6 +1,7 @@
 <template>
   <app-page
     fluid
+    padding="none"
     class="task-editor-page"
   >
     <section
@@ -164,6 +165,8 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
 }
 
 let stopLoadedWatch: (() => void) | null = null;
+let stopStateChangeListener: (() => void) | null = null;
+let stopUploadResultListener: (() => void) | null = null;
 
 onMounted(() => {
   window.addEventListener('beforeunload', handleBeforeUnload);
@@ -172,10 +175,10 @@ onMounted(() => {
     isSidebarOpen.value = false;
   }
 
-  manager.onStateChange((state) => {
+  stopStateChangeListener = manager.onStateChange((state) => {
     pendingEditCount.value = normalizePendingEditCount(state);
   });
-  manager.onUploadResult((result) => {
+  stopUploadResultListener = manager.onUploadResult((result) => {
     const nextChangesetId = extractChangesetId(result);
 
     if (nextChangesetId === null) {
@@ -225,6 +228,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload);
   stopLoadedWatch?.();
+  stopStateChangeListener?.();
+  stopUploadResultListener?.();
 });
 
 async function loadProjectDetail(): Promise<WorkspaceProjectDetail> {
@@ -458,7 +463,6 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
 .task-editor-page {
   height: 100%;
   box-sizing: border-box;
-  padding: 0 !important;
   overflow: hidden;
   background: $purple-background-light;
 }
