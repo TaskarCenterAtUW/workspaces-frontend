@@ -130,9 +130,9 @@ const projectRoute = computed(
   height: 100%;
   cursor: pointer;
   background-color: #ffffff;
-  border: 1px solid rgba($text-navy, 0.1);
-  border-radius: 0.8rem;
-  box-shadow: 0 0.35rem 0.9rem rgba($text-navy, 0.08);
+  box-shadow: 0px 3px 6px #0000000D;
+  border: 1px solid #E5E7F0;
+  border-radius: 10px;
   transition:
     transform 160ms ease,
     box-shadow 160ms ease,
@@ -190,7 +190,7 @@ const projectRoute = computed(
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 1rem;
+  gap: 20px;
   padding: 0.9rem 1.2rem 1.3rem;
 }
 
@@ -198,8 +198,7 @@ const projectRoute = computed(
   display: -webkit-box;
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
-  font-size: 1.05rem;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.5;
   overflow: hidden;
@@ -226,18 +225,18 @@ const projectRoute = computed(
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  color: rgba($secondary, 0.95);
-  font-size: 0.95rem;
+  color: $text-secondary;
+  font-size: 14px;
 }
 
 .project-progress-copy strong {
   font-weight: 600;
-  color: $text-navy;
 }
 
 .project-progress-bar {
   height: 0.35rem;
-  background-color: #e5e8f3;
+  background-color: #EBEDF6;
+  margin-top: -10px;
 }
 
 .project-progress-bar .progress-bar {
@@ -266,8 +265,8 @@ const projectRoute = computed(
   display: block;
   min-width: 0;
   color: $text-navy;
-  font-size: 0.95rem;
-  font-weight: 400;
+  font-size: 14px;
+  font-weight: 500;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -275,7 +274,7 @@ const projectRoute = computed(
 .project-card-label {
   display: block;
   margin-bottom: 0.1rem;
-  color: rgba($secondary, 0.92);
-  font-size: 0.85rem;
+  color: $text-secondary;
+  font-size: 14px;
 }
 </style>

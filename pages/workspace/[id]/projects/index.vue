@@ -71,16 +71,17 @@
             :aria-pressed="option.value === viewMode"
             @click="viewMode = option.value"
           >
-            <app-icon
-              :variant="option.icon"
-              size="20"
-              no-margin
+            <img
+              :src="option.icon"
+              alt=""
+              class="view-icon"
             />
             <span class="visually-hidden">{{ option.label }}</span>
           </button>
         </div>
 
         <span
+          v-if="isWorkspaceLead"
           class="workspace-projects-toolbar-divider"
           aria-hidden="true"
         />
@@ -208,6 +209,8 @@
 <script setup lang="ts">
 import { LoadingContext } from '~/services/loading';
 import { tdeiUserClient, workspaceProjectsClient, workspacesClient } from '~/services/index';
+import gridIcon from '~/assets/img/grid.svg';
+import listIcon from '~/assets/img/list.svg';
 
 import type {
   WorkspaceProjectsQuery,
@@ -270,8 +273,8 @@ const sortOptions: SelectOption[] = [
 ];
 
 const viewOptions: Array<{ icon: string; label: string; value: WorkspaceProjectView }> = [
-  { icon: 'grid_view', label: 'Grid view', value: 'grid' },
-  { icon: 'view_list', label: 'List view', value: 'list' },
+  { icon: gridIcon, label: 'Grid view', value: 'grid' },
+  { icon: listIcon, label: 'List view', value: 'list' },
 ];
 
 const statusOptions: SelectOption[] = [
@@ -411,7 +414,7 @@ onBeforeUnmount(() => {
 .workspace-projects-filters {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 20px;
   flex: 1;
   min-width: 0;
 }
@@ -473,15 +476,24 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.8rem;
+  width: 2.4rem;
   height: 2.4rem;
   color: $secondary;
   background-color: #fff;
   border: 0;
 }
 
+.workspace-projects-view-button i.material-icons{
+  margin-top: 0px;
+}
+
+.workspace-projects-view-button .view-icon {
+    width: 16px;
+    height: 16px;
+}
+
 .workspace-projects-view-button-active {
-  background-color: $gray-200;
+  background-color: #EBEDF6;
 }
 
 .workspace-projects-toolbar-divider {
@@ -505,13 +517,12 @@ onBeforeUnmount(() => {
 .workspace-projects-list {
   gap: 0;
   border-top: 1px solid rgba($text-navy, 0.08);
-  border-bottom: 1px solid rgba($text-navy, 0.08);
 }
 
 .workspace-projects-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1.6rem 1.2rem;
+  gap: 25px 25px;
 }
 
 .workspace-projects-empty-state {

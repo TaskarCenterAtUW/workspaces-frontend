@@ -76,7 +76,7 @@ defineEmits<{
 @import "~/assets/scss/theme.scss";
 
 .project-detail-task-action-bar {
-  min-height: 6.6rem;
+  min-height: 90px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -124,8 +124,9 @@ defineEmits<{
 
 .project-detail-task-action-copy span,
 .project-detail-task-action-status span {
-  color: #707796;
-  font-size: 0.95rem;
+  color: $text-secondary;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .project-detail-task-action-copy strong,
@@ -133,8 +134,8 @@ defineEmits<{
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  color: #1a1e3d;
-  font-size: 1.1rem;
+  color: $text-navy;
+  font-size: 1rem;
   font-weight: 700;
 }
 

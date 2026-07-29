@@ -135,7 +135,7 @@ function onReviewRequiredChange(event: Event) {
 
 .project-wizard-step-settings {
   display: grid;
-  gap: 1.4rem;
+  gap: 30px;
 }
 
 .project-wizard-step-header,
@@ -147,7 +147,6 @@ function onReviewRequiredChange(event: Event) {
 .project-wizard-step-title {
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.15;

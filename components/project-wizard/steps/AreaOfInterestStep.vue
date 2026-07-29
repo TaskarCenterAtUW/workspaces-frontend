@@ -43,8 +43,9 @@
       <div class="project-wizard-area-captured-copy">
         <app-icon
           variant="check_circle"
-          size="18"
+          size="20"
           no-margin
+          class="mt-1"
         />
         <div>
           <strong>Area of interest captured</strong>
@@ -243,7 +244,6 @@ function onFileDrop(event: DragEvent) {
 .project-wizard-step-title {
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.15;
@@ -331,8 +331,7 @@ function onFileDrop(event: DragEvent) {
 
 .project-wizard-area-captured {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 1rem;
   padding: 0.95rem 1rem;
   background: #f3fcf8;
@@ -374,6 +373,7 @@ function onFileDrop(event: DragEvent) {
   color: $text-navy;
   background: #ffffff;
   border: 1px solid rgba($text-navy, 0.14);
+  width: fit-content;
 }
 
 .project-wizard-area-dropzone-shell {
