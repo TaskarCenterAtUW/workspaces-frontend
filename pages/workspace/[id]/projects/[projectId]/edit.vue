@@ -280,12 +280,19 @@
                   </div>
 
                   <div class="project-edit-member-actions">
+                    <span
+                      v-if="member.role === 'lead'"
+                      class="project-edit-member-role-readonly"
+                    >
+                      Lead
+                    </span>
                     <app-select
+                      v-else
                       :id="`project-edit-member-role-${member.id}`"
                       :model-value="member.role"
                       :options="memberRoleOptions"
                       :aria-label="`Change role for ${member.name}`"
-                      :disabled="isRoleChangeLocked(member) || mutatingMemberId === member.id"
+                      :disabled="mutatingMemberId === member.id"
                       @update:model-value="updateMemberRole(member, $event)"
                     />
 
@@ -576,7 +583,6 @@ const {
   editableMembers,
   getSearchResultRole,
   isMemberRemovalLocked,
-  isRoleChangeLocked,
   leadMemberCount,
   memberRoleOptions,
   memberSearchLoading,
@@ -1176,7 +1182,7 @@ $project-edit-action-spacing: 1.5rem;
 }
 
 .project-edit-search-results {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .project-edit-members-list {
@@ -1196,6 +1202,18 @@ $project-edit-action-spacing: 1.5rem;
 .project-edit-search-result {
   grid-template-columns: minmax(0, 1fr) auto;
   border-bottom: 1px solid rgba($text-navy, 0.08);
+}
+
+.project-edit-search-result:first-child {
+  border-radius: calc(1rem - 1px) calc(1rem - 1px) 0 0;
+}
+
+.project-edit-search-result:last-child {
+  border-radius: 0 0 calc(1rem - 1px) calc(1rem - 1px);
+}
+
+.project-edit-search-result:only-child {
+  border-radius: calc(1rem - 1px);
 }
 
 .project-edit-member-item {
@@ -1247,6 +1265,19 @@ $project-edit-action-spacing: 1.5rem;
 
 .project-edit-member-actions {
   justify-content: flex-end;
+}
+
+.project-edit-member-role-readonly {
+  min-width: 11rem;
+  min-height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 0.9rem;
+  color: $text-secondary;
+  font-weight: 600;
+  background: $surface-card;
+  border: 1px solid $border-subtle;
+  border-radius: 0.8rem;
 }
 
 .project-edit-member-copy {

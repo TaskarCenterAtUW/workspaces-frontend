@@ -89,7 +89,14 @@
 
           <div class="project-detail-contributors-role-cell">
             <div class="project-detail-contributors-role-actions">
+              <span
+                v-if="contributor.role === 'lead'"
+                class="project-detail-contributors-role-readonly"
+              >
+                Lead
+              </span>
               <app-select
+                v-else
                 :id="`project-detail-contributor-role-${contributor.id}`"
                 :model-value="localRoles[contributor.id] ?? contributor.role"
                 :aria-label="`Change role for ${contributor.name}`"
@@ -99,7 +106,7 @@
               />
 
               <button
-                v-if="props.canManage"
+                v-if="props.canManage && contributor.role !== 'lead'"
                 class="btn btn-outline-danger project-detail-contributors-delete"
                 type="button"
                 :disabled="props.updatingContributorId === contributor.id"
@@ -259,7 +266,6 @@ const roleOptions: SelectOption[] = [
 ];
 
 const rowRoleOptions: SelectOption[] = [
-  { label: 'Lead', value: 'lead' },
   { label: 'Validator', value: 'validator' },
   { label: 'Contributor', value: 'contributor' },
 ];
@@ -580,6 +586,19 @@ function openAddContributorDialog() {
   min-height: 2.75rem;
   padding: 0.7rem 0.9rem;
   font-weight: 600;
+  border-radius: 0.8rem;
+}
+
+.project-detail-contributors-role-readonly {
+  min-width: 12.5rem;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.7rem 0.9rem;
+  color: $text-secondary;
+  font-weight: 600;
+  background: $surface-card;
+  border: 1px solid $border-subtle;
   border-radius: 0.8rem;
 }
 

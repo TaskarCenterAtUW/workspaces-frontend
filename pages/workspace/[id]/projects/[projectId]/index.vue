@@ -884,7 +884,7 @@ async function handleAddContributor(payload: {
 }
 
 async function confirmRemoveContributor(contributor: WorkspaceProjectContributor) {
-  if (!canManageContributors.value) {
+  if (!canManageContributors.value || contributor.role === 'lead') {
     return;
   }
 
@@ -930,7 +930,12 @@ async function handleUpdateContributorRole(payload: {
     contributor => contributor.id === payload.contributorId,
   );
 
-  if (!existingContributor || existingContributor.role === payload.role) {
+  if (
+    !existingContributor
+    || existingContributor.role === 'lead'
+    || payload.role === 'lead'
+    || existingContributor.role === payload.role
+  ) {
     return;
   }
 
