@@ -65,4 +65,26 @@ describe('useTaskEditorSubmission', () => {
     expect(unlockWorkspaceProjectTask).toHaveBeenCalledWith(1763, '39', 2);
     expect(onFinished).toHaveBeenCalledWith(true);
   });
+
+  it('uses a skip-specific fallback when releasing the lock fails', async () => {
+    unlockWorkspaceProjectTask.mockRejectedValue(null);
+    const onFinished = vi.fn().mockResolvedValue(undefined);
+    const submission = useTaskEditorSubmission({
+      buildFeedbackPayload: () => undefined,
+      hasActiveEdits: ref(false),
+      isReviewTask: ref(false),
+      onFinished,
+      pendingEditCount: ref(0),
+      projectId: '39',
+      reviewFeedbackIsIncomplete: ref(false),
+      taskNumber: 2,
+      workspaceId: 1763
+    });
+
+    await submission.releaseTask();
+
+    expect(submission.submitErrorMessage.value)
+      .toBe('Task could not be skipped. Please try again.');
+    expect(onFinished).not.toHaveBeenCalled();
+  });
 });

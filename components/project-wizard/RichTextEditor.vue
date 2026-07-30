@@ -57,7 +57,7 @@ const TOOL_DEFINITIONS: Array<{ icon: string; id: RichTextToolId; label: string 
   { id: 'numbered-list', icon: 'format_list_numbered', label: 'Numbered list' },
   { id: 'image', icon: 'image', label: 'Image' },
   { id: 'table', icon: 'table_rows', label: 'Table' },
-  { id: 'quote', icon: 'format_quote', label: 'Quote' },
+  { id: 'quote', icon: 'format_quote', label: 'Quote' }
 ];
 const ACTIVE_TOOL_NAMES: Partial<Record<RichTextToolId, string>> = {
   'bold': 'bold',
@@ -65,15 +65,17 @@ const ACTIVE_TOOL_NAMES: Partial<Record<RichTextToolId, string>> = {
   'link': 'link',
   'bullet-list': 'bulletList',
   'numbered-list': 'orderedList',
-  'quote': 'blockquote',
+  'image': 'image',
+  'table': 'table',
+  'quote': 'blockquote'
 };
 const activeToolIds = ref<Set<RichTextToolId>>(new Set());
 const lastEditorModelValue = ref(model.value);
 const tools = computed(() =>
   TOOL_DEFINITIONS.map(tool => ({
     ...tool,
-    active: activeToolIds.value.has(tool.id),
-  })),
+    active: activeToolIds.value.has(tool.id)
+  }))
 );
 
 const editor = useEditor({
@@ -84,21 +86,21 @@ const editor = useEditor({
       link: {
         openOnClick: false,
         autolink: true,
-        defaultProtocol: 'https',
-      },
+        defaultProtocol: 'https'
+      }
     }),
     Image,
     Table.configure({
-      resizable: false,
+      resizable: false
     }),
     TableRow,
     TableHeader,
-    TableCell,
+    TableCell
   ],
   editorProps: {
     attributes: {
-      class: 'project-wizard-rich-text-editor-surface project-wizard-rich-text-content',
-    },
+      class: 'project-wizard-rich-text-editor-surface project-wizard-rich-text-content'
+    }
   },
   onUpdate({ editor: currentEditor }) {
     const nextValue = currentEditor.isEmpty ? '' : currentEditor.getHTML();
@@ -110,7 +112,7 @@ const editor = useEditor({
   },
   onTransaction({ editor: currentEditor }) {
     updateActiveTools(currentEditor);
-  },
+  }
 });
 
 watch(
@@ -133,7 +135,7 @@ watch(
 
     currentEditor.commands.setContent(nextValue, { emitUpdate: false });
     lastEditorModelValue.value = value;
-  },
+  }
 );
 
 function updateActiveTools(currentEditor: Editor) {
@@ -143,7 +145,7 @@ function updateActiveTools(currentEditor: Editor) {
         const activeToolName = ACTIVE_TOOL_NAMES[id];
         return activeToolName ? currentEditor.isActive(activeToolName) : false;
       })
-      .map(({ id }) => id),
+      .map(({ id }) => id)
   );
 }
 

@@ -203,7 +203,7 @@ const emit = defineEmits<{
 const fileInputRef = useTemplateRef<HTMLInputElement>('fileInputRef');
 const isDraggingFile = ref(false);
 const formattedArea = computed(() =>
-  formatArea(props.areaSquareKilometers, props.areaDisplayUnit),
+  formatArea(props.areaSquareKilometers, props.areaDisplayUnit)
 );
 
 watch(

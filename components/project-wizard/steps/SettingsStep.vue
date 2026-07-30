@@ -123,12 +123,12 @@ const hourOptions = Array.from({ length: 24 }, (_, index) => {
 
   return {
     label: String(value).padStart(2, '0'),
-    value,
+    value
   };
 });
 const instructionsModel = computed({
   get: () => props.instructions,
-  set: value => emit('update:instructions', value),
+  set: value => emit('update:instructions', value)
 });
 
 function onLockTimeoutChange(event: Event) {

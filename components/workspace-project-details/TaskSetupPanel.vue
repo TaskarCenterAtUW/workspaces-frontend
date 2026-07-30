@@ -245,16 +245,16 @@ const { areaUnit, selectAreaUnit } = useAreaDisplayUnit();
 
 /** Formatted strings for the min/max labels and current value display. */
 const formattedMinimumTaskArea = computed(() =>
-  formatArea(props.minimumTaskAreaSquareKilometers, areaUnit.value),
+  formatArea(props.minimumTaskAreaSquareKilometers, areaUnit.value)
 );
 const formattedMaximumTaskArea = computed(() =>
-  formatArea(props.maximumTaskAreaSquareKilometers, areaUnit.value),
+  formatArea(props.maximumTaskAreaSquareKilometers, areaUnit.value)
 );
 const formattedTaskArea = computed(() =>
-  formatArea(props.taskAreaSquareKilometers, areaUnit.value),
+  formatArea(props.taskAreaSquareKilometers, areaUnit.value)
 );
 const taskGenerationActionLabel = computed(() =>
-  props.generatedSummary ? 'Generate Again' : 'Generate Tasks',
+  props.generatedSummary ? 'Generate Again' : 'Generate Tasks'
 );
 
 /**

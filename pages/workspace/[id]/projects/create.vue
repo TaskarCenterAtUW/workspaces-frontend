@@ -221,14 +221,14 @@ const workspace = await workspacesClient.getWorkspace(workspaceId).catch((error)
 });
 
 const myTdeiRoles = await tdeiUserClient.getMyRolesForProjectGroupById(
-  workspace.tdeiProjectGroupId,
+  workspace.tdeiProjectGroupId
 ).catch((error) => {
   throw createError({ statusCode: 500, statusMessage: 'Failed to load TDEI project group roles.', data: error });
 });
 
 const { canCreateProject } = useWorkspaceProjectPermissions(
   () => workspace.role,
-  myTdeiRoles,
+  myTdeiRoles
 );
 
 if (!canCreateProject.value) {
@@ -310,7 +310,7 @@ const hasAreaOfInterest = computed(() => draft.area.aoi !== null);
 const aoiAreaSquareKilometers = computed(() =>
   draft.area.aoi
     ? calculateProjectWizardAoiAreaSquareKilometers(draft.area.aoi)
-    : 0,
+    : 0
 );
 const {
   addValidator,
@@ -334,8 +334,8 @@ const reviewSummary = computed(() =>
   buildProjectWizardReviewSummary(
     draft,
     selectedValidators.value,
-    areaUnit.value,
-  ),
+    areaUnit.value
+  )
 );
 
 const detailsStepComplete = computed(() =>

@@ -236,7 +236,7 @@ const statusOptions: SelectOption[] = [
   { label: 'Ready for mapping', value: 'ready_for_mapping' },
   { label: 'Ready for validation', value: 'ready_for_validation' },
   { label: 'More mapping required', value: 'needs_more_mapping' },
-  { label: 'Completed', value: 'completed' },
+  { label: 'Completed', value: 'completed' }
 ];
 
 const sortOptions: SelectOption[] = [

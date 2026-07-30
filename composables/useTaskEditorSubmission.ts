@@ -184,7 +184,10 @@ export function useTaskEditorSubmission(options: UseTaskEditorSubmissionOptions)
       await options.onFinished(true);
     }
     catch (error) {
-      submitErrorMessage.value = await resolveTaskSubmitErrorMessage(error);
+      submitErrorMessage.value = await resolveTaskSubmitErrorMessage(
+        error,
+        'Task could not be skipped. Please try again.'
+      );
     }
     finally {
       activeTaskAction.value = null;
@@ -203,6 +206,9 @@ export function useTaskEditorSubmission(options: UseTaskEditorSubmissionOptions)
   };
 }
 
-async function resolveTaskSubmitErrorMessage(error: unknown): Promise<string> {
-  return await resolveHttpErrorMessage(error, 'Task submission failed.');
+async function resolveTaskSubmitErrorMessage(
+  error: unknown,
+  fallbackMessage = 'Task submission failed.'
+): Promise<string> {
+  return await resolveHttpErrorMessage(error, fallbackMessage);
 }

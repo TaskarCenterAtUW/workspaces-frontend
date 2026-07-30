@@ -108,8 +108,8 @@ const props = defineProps<Props>();
 const displayValidators = computed(() =>
   props.summary.selectedValidators.map(validator => ({
     ...validator,
-    roleLabel: formatRole(validator.role),
-  })),
+    roleLabel: formatRole(validator.role)
+  }))
 );
 
 function formatRole(role: WorkspaceRole): string {

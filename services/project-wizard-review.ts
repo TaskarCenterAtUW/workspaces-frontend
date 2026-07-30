@@ -4,7 +4,7 @@ import { sanitizeRichTextHtml } from '~/util/rich-text';
 
 import type {
   ProjectWizardDraft,
-  ProjectWizardWorkspaceUser,
+  ProjectWizardWorkspaceUser
 } from '~/types/project-wizard';
 
 export interface ProjectWizardReviewSummary {
@@ -24,7 +24,7 @@ export interface ProjectWizardReviewSummary {
 export function buildProjectWizardReviewSummary(
   draft: ProjectWizardDraft,
   selectedValidators: ProjectWizardWorkspaceUser[],
-  areaDisplayUnit: AreaDisplayUnit = 'square_kilometers',
+  areaDisplayUnit: AreaDisplayUnit = 'square_kilometers'
 ): ProjectWizardReviewSummary {
   const hasImageryUrl = draft.details.imageryUrl.trim().length > 0;
   const instructionsHtml = sanitizeRichTextHtml(draft.settings.instructions);
@@ -43,8 +43,8 @@ export function buildProjectWizardReviewSummary(
     aoiAreaLabel: draft.area.aoi
       ? formatArea(
           calculateProjectWizardAoiAreaSquareKilometers(draft.area.aoi),
-          areaDisplayUnit,
+          areaDisplayUnit
         )
-      : formatArea(0, areaDisplayUnit),
+      : formatArea(0, areaDisplayUnit)
   };
 }

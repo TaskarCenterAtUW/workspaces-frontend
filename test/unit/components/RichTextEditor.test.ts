@@ -66,4 +66,37 @@ describe('RichTextEditor', () => {
     expect(editor.getText()).toBe('Replacement');
     wrapper.unmount();
   });
+
+  it('marks image and table toolbar buttons active for their selections', async () => {
+    const wrapper = mount(RichTextEditor, {
+      props: {
+        modelValue: ''
+      },
+      global: {
+        stubs: {
+          AppIcon: true
+        }
+      }
+    });
+
+    await flushPromises();
+
+    const editor = wrapper.findComponent(EditorContent).props('editor') as Editor;
+    const activeClass = 'project-wizard-rich-text-editor-tool-active';
+
+    editor.commands.setContent('<img src="https://example.com/image.png">');
+    editor.commands.setNodeSelection(0);
+    await flushPromises();
+
+    expect(wrapper.get('button[aria-label="Image"]').classes()).toContain(activeClass);
+
+    editor.commands.setContent(
+      '<table><tbody><tr><td><p>Cell</p></td></tr></tbody></table>'
+    );
+    editor.commands.setTextSelection(4);
+    await flushPromises();
+
+    expect(wrapper.get('button[aria-label="Table"]').classes()).toContain(activeClass);
+    wrapper.unmount();
+  });
 });

@@ -535,11 +535,11 @@ const BASE_SECTIONS: ProjectEditSection[] = [
 const hourOptions = Array.from({ length: 24 }, (_, index) => index + 1);
 const workspace = await workspacesClient.getWorkspace(workspaceId);
 const myTdeiRoles = await tdeiUserClient.getMyRolesForProjectGroupById(
-  workspace.tdeiProjectGroupId,
-).catch(() => []);
+  workspace.tdeiProjectGroupId
+);
 const { canEditProjectMetadata } = useWorkspaceProjectPermissions(
   () => workspace.role,
-  myTdeiRoles,
+  myTdeiRoles
 );
 
 if (!canEditProjectMetadata.value) {
@@ -564,8 +564,8 @@ await rolePromise;
 
 const sections = computed(() =>
   BASE_SECTIONS.filter(section =>
-    section.id !== 'team' || canManageContributors.value,
-  ),
+    section.id !== 'team' || canManageContributors.value
+  )
 );
 
 const initialCustomImageryJson = formatCustomImagery(project.value.customImagery);

@@ -334,15 +334,15 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
 
   async getWorkspaceProjectTasks(
     workspaceId: WorkspaceId,
-    projectId: number | string,
+    projectId: number | string
   ): Promise<WorkspaceProjectTaskListItem[]> {
     const fetchPage = async (page: number): Promise<WorkspaceProjectTasksApiResponse> => {
       const params = new URLSearchParams({
         page: String(page),
-        page_size: String(TASK_PAGE_SIZE_MAXIMUM),
+        page_size: String(TASK_PAGE_SIZE_MAXIMUM)
       });
       const response = await this._get(
-        `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks?${params.toString()}`,
+        `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks?${params.toString()}`
       );
 
       return await response.json() as WorkspaceProjectTasksApiResponse;
@@ -350,7 +350,7 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
 
     const firstPage = await fetchPage(1);
     const totalPages = Math.ceil(
-      firstPage.pagination.total / TASK_PAGE_SIZE_MAXIMUM,
+      firstPage.pagination.total / TASK_PAGE_SIZE_MAXIMUM
     );
     const remainingPages: WorkspaceProjectTasksApiResponse[] = [];
 
@@ -364,13 +364,13 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     ) {
       const lastPageInBatch = Math.min(
         totalPages,
-        firstPageInBatch + TASK_PAGE_REQUEST_CONCURRENCY - 1,
+        firstPageInBatch + TASK_PAGE_REQUEST_CONCURRENCY - 1
       );
       const batch = await Promise.all(
         Array.from(
           { length: lastPageInBatch - firstPageInBatch + 1 },
-          (_, index) => fetchPage(firstPageInBatch + index),
-        ),
+          (_, index) => fetchPage(firstPageInBatch + index)
+        )
       );
       remainingPages.push(...batch);
     }
