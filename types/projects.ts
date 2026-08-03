@@ -22,7 +22,15 @@ export type WorkspaceProjectTaskStatus
     | 'completed';
 export type WorkspaceProjectContributorRole = WorkspaceRole;
 export type WorkspaceProjectContributorApiRole = WorkspaceRole;
-export type WorkspaceProjectTaskApiStatus = 'to_map' | 'to_validate' | 'more_mapping_needed' | 'done' | 'completed' | 'to_review';
+export type WorkspaceProjectTaskApiStatus
+  = | 'to_map'
+    | 'to_remap'
+    | 'to_review'
+    // Legacy values retained while older tasking responses are still in circulation.
+    | 'to_validate'
+    | 'more_mapping_needed'
+    | 'done'
+    | 'completed';
 export type WorkspaceProjectTaskFeedbackReasonCategory
   = | 'incomplete_mapping'
     | 'data_quality_issue'
@@ -152,6 +160,8 @@ export interface WorkspaceProjectTaskListItem {
   updatedAt: string;
   lock: WorkspaceProjectTaskApiLock | null;
   locked: boolean;
+  lastMapperId: string | null;
+  apiStatus: WorkspaceProjectTaskApiStatus;
 }
 
 export interface WorkspaceProjectTaskDetail extends WorkspaceProjectTaskListItem {

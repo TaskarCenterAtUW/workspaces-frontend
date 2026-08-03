@@ -53,6 +53,15 @@
         </div>
       </div>
 
+      <div class="project-wizard-area-measurement">
+        <span>Area: <strong>{{ formattedArea }}</strong></span>
+        <area-unit-toggle
+          :model-value="areaDisplayUnit"
+          label="Area of interest display unit"
+          @update:model-value="onAreaDisplayUnitUpdate"
+        />
+      </div>
+
       <button
         class="btn btn-light project-wizard-area-download"
         type="button"
@@ -169,8 +178,11 @@ import uploadIcon from '~/assets/img/upload.svg';
 import warningIcon from '~/assets/img/warning.svg';
 
 import type { ProjectWizardAreaStepDefinition } from '~/types/project-wizard';
+import { formatArea, type AreaDisplayUnit } from '~/util/area';
 
 interface Props {
+  areaDisplayUnit: AreaDisplayUnit;
+  areaSquareKilometers: number;
   errorMessage: string;
   hasAoi: boolean;
   importedFileName: string;
@@ -181,14 +193,18 @@ interface Props {
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
-  download: [];
-  draw: [];
-  reset: [];
-  upload: [file: File];
+  'download': [];
+  'draw': [];
+  'reset': [];
+  'upload': [file: File];
+  'update:area-display-unit': [unit: AreaDisplayUnit];
 }>();
 
 const fileInputRef = useTemplateRef<HTMLInputElement>('fileInputRef');
 const isDraggingFile = ref(false);
+const formattedArea = computed(() =>
+  formatArea(props.areaSquareKilometers, props.areaDisplayUnit)
+);
 
 watch(
   () => props.importedFileName,
@@ -201,6 +217,10 @@ watch(
 
 function openFilePicker() {
   fileInputRef.value?.click();
+}
+
+function onAreaDisplayUnitUpdate(unit: AreaDisplayUnit) {
+  emit('update:area-display-unit', unit);
 }
 
 function onFileInputChange(event: Event) {
@@ -337,6 +357,14 @@ function onFileDrop(event: DragEvent) {
   background: #f3fcf8;
   border: 1px solid #bcebdd;
   border-radius: 0.55rem;
+}
+
+.project-wizard-area-measurement {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: #195747;
+  font-size: 0.88rem;
 }
 
 .project-wizard-area-captured-copy {
@@ -501,6 +529,10 @@ function onFileDrop(event: DragEvent) {
 
   .project-wizard-area-download {
     justify-content: center;
+  }
+
+  .project-wizard-area-measurement {
+    justify-content: space-between;
   }
 }
 </style>

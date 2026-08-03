@@ -63,7 +63,7 @@
         class="project-detail-task-list"
       >
         <li
-          v-for="task in paginatedTasks"
+          v-for="{ statusLabel, task } in displayedTasks"
           :key="task.id"
           class="project-detail-task-item"
           :class="{ 'project-detail-task-item-selected': task.id === selectedTaskId }"
@@ -96,7 +96,7 @@
                 class="project-detail-task-status-swatch"
                 :class="`project-detail-task-status-${task.status}`"
               />
-              {{ formatTaskStatus(task) }}
+              {{ statusLabel }}
             </span>
           </div>
 
@@ -235,15 +235,15 @@ const statusOptions: SelectOption[] = [
   { label: 'All', value: 'all' },
   { label: 'Ready for mapping', value: 'ready_for_mapping' },
   { label: 'Ready for validation', value: 'ready_for_validation' },
-  { label: 'More mapping needed', value: 'needs_more_mapping' },
-  { label: 'Completed', value: 'completed' },
+  { label: 'More mapping required', value: 'needs_more_mapping' },
+  { label: 'Completed', value: 'completed' }
 ];
 
 const sortOptions: SelectOption[] = [
   { label: 'Latest', value: 'latest' },
   { label: 'Oldest', value: 'oldest' },
-  { label: 'Task ID A-Z', value: 'task_asc' },
-  { label: 'Task ID Z-A', value: 'task_desc' },
+  { label: 'Task # Low to High', value: 'task_asc' },
+  { label: 'Task # High to Low', value: 'task_desc' },
 ];
 
 /**
@@ -292,6 +292,12 @@ const { currentPage, totalPages, paginatedItems: paginatedTasks, visiblePaginati
   () => sortedTasks.value,
   () => pageSize
 );
+const displayedTasks = computed(() =>
+  paginatedTasks.value.map(task => ({
+    statusLabel: resolveWorkspaceProjectTaskStatusLabel(task, props.viewerProjectRole),
+    task,
+  })),
+);
 
 const paginationSummary = computed(() => {
   if (sortedTasks.value.length === 0) {
@@ -307,17 +313,13 @@ const paginationSummary = computed(() => {
 watch([searchQuery, selectedStatus, sortBy], () => {
   currentPage.value = 1;
 });
-
-function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
-  return resolveWorkspaceProjectTaskStatusLabel(task, props.viewerProjectRole);
-}
 </script>
 
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
 .project-detail-card {
-  background: #ffffff;
+  background: $surface-card;
 }
 
 .project-detail-task-card {
@@ -330,7 +332,6 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   gap: 0.85rem;
   align-items: end;
   margin-bottom: 1rem;
-  margin-top: -10px;
 }
 
 .project-detail-task-search {
@@ -338,14 +339,14 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 }
 
 .project-detail-task-search .form-control {
-  border-radius: 6px;
+  border-radius: 0.375rem;
 }
 
 .project-detail-task-search-icon {
   position: absolute;
   right: 0.9rem;
   top: 50%;
-  color: #858cab;
+  color: $text-secondary;
   transform: translateY(-50%);
 }
 
@@ -355,14 +356,14 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 }
 
 .project-detail-task-filter span {
-  color: #1a1e3d;
+  color: $text-navy;
   font-size: 0.9rem;
   font-weight: 600;
 }
 
 .project-detail-card :deep(.tdei-select-toggle),
 .project-detail-card :deep(.tdei-select-menu) {
-  border-radius: 6px;
+  border-radius: 0.375rem;
 }
 
 .project-detail-task-list-wrap {
@@ -370,7 +371,7 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   display: grid;
   gap: 0;
   border: 1px solid rgba($text-navy, 0.08);
-  border-radius: 10px;
+  border-radius: 0.625rem;
   overflow: visible;
 }
 
@@ -383,11 +384,11 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 
 .project-detail-task-list-header {
   padding: 1rem 1.35rem 0.95rem;
-  color: #6e7490;
+  color: $text-secondary;
   font-size: 0.88rem;
   font-weight: 700;
-  background: #f7f8fc;
-  border-radius: 10px 10px 4px 4px;
+  background: $surface-subtle;
+  border-radius: 0.625rem 0.625rem 0.25rem 0.25rem;
 }
 
 .project-detail-task-list {
@@ -400,12 +401,12 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 .project-detail-task-item {
   align-items: center;
   padding: 1.1rem 1.35rem;
-  background: #ffffff;
+  background: $surface-card;
   border-top: 1px solid rgba($text-navy, 0.08);
 }
 
-.project-detail-task-item:nth-last-child(1) {
-  border-radius: 0px 0px 10px 10px;
+.project-detail-task-item:last-child {
+  border-radius: 0 0 0.625rem 0.625rem;
 }
 
 .project-detail-task-item-selected {
@@ -429,11 +430,11 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 
 .project-detail-task-select:hover strong,
 .project-detail-task-select:focus-visible strong {
-  color: #214d85;
+  color: $link-text;
 }
 
 .project-detail-task-cell-id strong {
-  color: #1a1e3d;
+  color: $text-navy;
   font-size: 0.95rem;
   font-weight: 700;
 }
@@ -451,30 +452,30 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   color: $text-navy;
   line-height: 1.35;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .project-detail-task-status-swatch {
   width: 0.95rem;
   height: 0.95rem;
   flex-shrink: 0;
-  border: 1px solid rgba(90, 96, 123, 0.12);
+  border: 1px solid rgba($text-secondary, 0.12);
 }
 
 .project-detail-task-status-ready_for_mapping {
-  background: #fde9aa;
+  background: $task-ready-mapping;
 }
 
 .project-detail-task-status-ready_for_validation {
-  background: #a8d8f8;
+  background: $task-ready-validation;
 }
 
 .project-detail-task-status-needs_more_mapping {
-  background: #f8be90;
+  background: $task-remap;
 }
 
 .project-detail-task-status-completed {
-  background: #aae8cd;
+  background: $task-completed;
 }
 
 .project-detail-task-value {
@@ -483,13 +484,13 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   line-height: 1.35;
   word-break: break-word;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .project-detail-task-mobile-label {
   display: none;
   margin-bottom: 0.28rem;
-  color: #6e7490;
+  color: $text-secondary;
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -499,7 +500,7 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 .project-detail-task-empty {
   margin: 0;
   padding: 1.25rem;
-  color: #5a607b;
+  color: $text-secondary;
   text-align: center;
 }
 
@@ -514,7 +515,7 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 
 .project-detail-task-footer p {
   margin: 0;
-  color: #5a607b;
+  color: $text-secondary;
   font-size: 0.95rem;
   flex: 0 1 auto;
 }
@@ -535,15 +536,15 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #59607a;
+  color: $text-secondary;
   background: transparent;
   border: 0;
   border-radius: 0.45rem;
 }
 
-.project-detail-task-pagination-active {
-  color: #ffffff !important;
-  background: $primary !important;
+.project-detail-task-pagination .project-detail-task-pagination-active {
+  color: $white;
+  background: $primary;
 }
 
 .project-detail-task-pagination-ellipsis {
@@ -551,7 +552,7 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #7b819c;
+  color: $text-secondary;
   font-size: 1rem;
 }
 

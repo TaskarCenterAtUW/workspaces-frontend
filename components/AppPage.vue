@@ -5,15 +5,20 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps({
-  fluid: {
-    type: Boolean,
-    default: false,
-  },
+interface Props {
+  fluid?: boolean;
+  padding?: 'default' | 'none' | 'sm';
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  fluid: false,
+  padding: 'default',
 });
 
 const classes = computed(() => ({
-  'py-4': true,
+  'py-0': props.padding === 'none',
+  'py-3': props.padding === 'sm',
+  'py-4': props.padding === 'default',
   'container-fluid': props.fluid === true,
   'container-lg': props.fluid === false,
 }));

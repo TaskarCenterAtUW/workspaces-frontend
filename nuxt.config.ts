@@ -82,6 +82,7 @@ export default defineNuxtConfig({
         'bootstrap-vue-next/components/BModal',
         'bootstrap-vue-next/components/BNavbar',
         'bootstrap-vue-next/components/BPopover',
+        'bootstrap-vue-next/components/BTabs',
         'bootstrap-vue-next/composables/useModal',
         'dayjs', // CJS
         'dayjs/plugin/relativeTime', // CJS

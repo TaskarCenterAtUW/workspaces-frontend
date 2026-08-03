@@ -1,6 +1,7 @@
 <template>
   <app-page
     fluid
+    padding="none"
     class="project-create-page"
   >
     <section
@@ -37,7 +38,7 @@
             <project-wizard-stepper
               :steps="steps"
               :current-index="currentStepIndex"
-              :selection-locked="Boolean(createdProject)"
+              :selection-locked="creationCompleted"
               @select="onSelectStep"
             />
 
@@ -71,8 +72,10 @@
                 <project-wizard-steps-area-of-interest-step
                   v-else-if="areaStep"
                   :step="areaStep"
+                  :area-display-unit="areaUnit"
+                  :area-square-kilometers="aoiAreaSquareKilometers"
                   :error-message="areaImportError"
-                  :has-aoi="Boolean(draft.area.aoi)"
+                  :has-aoi="hasAreaOfInterest"
                   :imported-file-name="draft.area.importedFileName"
                   :is-drawing="isAreaDrawMode"
                   :warning-message="areaWarningMessage"
@@ -80,6 +83,7 @@
                   @draw="startAreaDrawMode"
                   @reset="resetAreaOfInterest"
                   @upload="importAreaOfInterest"
+                  @update:area-display-unit="selectAreaUnit"
                 />
                 <project-wizard-steps-settings-step
                   v-else-if="settingsStep"
@@ -188,9 +192,10 @@
 </template>
 
 <script setup lang="ts">
-import { projectWizardClient, workspacesClient } from '~/services/index';
+import { projectWizardClient, tdeiUserClient, workspacesClient } from '~/services/index';
 import { resolveHttpErrorMessage } from '~/services/http';
 import { validateProjectCustomImagery } from '~/services/project-custom-imagery';
+import { calculateProjectWizardAoiAreaSquareKilometers } from '~/services/project-wizard-aoi';
 import { buildProjectWizardReviewSummary } from '~/services/project-wizard-review';
 
 import type {
@@ -214,6 +219,25 @@ if (!Number.isInteger(workspaceId) || workspaceId <= 0) {
 const workspace = await workspacesClient.getWorkspace(workspaceId).catch((error) => {
   throw createError({ statusCode: 500, statusMessage: 'Failed to load workspace.', data: error });
 });
+
+const myTdeiRoles = await tdeiUserClient.getMyRolesForProjectGroupById(
+  workspace.tdeiProjectGroupId
+).catch((error) => {
+  throw createError({ statusCode: 500, statusMessage: 'Failed to load TDEI project group roles.', data: error });
+});
+
+const { canCreateProject } = useWorkspaceProjectPermissions(
+  () => workspace.role,
+  myTdeiRoles
+);
+
+if (!canCreateProject.value) {
+  throw createError({
+    statusCode: 403,
+    statusMessage: 'Only workspace leads or project group POCs can create projects.',
+  });
+}
+
 const projectsRoute = `/workspace/${workspaceId}/projects`;
 const PROJECT_NAME_CHECK_DEBOUNCE_MS = 300;
 const IMAGERY_VALIDATION_DEBOUNCE_MS = 300;
@@ -280,6 +304,14 @@ const {
   currentStep,
   draft,
 });
+const { areaUnit, selectAreaUnit } = useAreaDisplayUnit();
+const creationCompleted = computed(() => createdProject.value !== null);
+const hasAreaOfInterest = computed(() => draft.area.aoi !== null);
+const aoiAreaSquareKilometers = computed(() =>
+  draft.area.aoi
+    ? calculateProjectWizardAoiAreaSquareKilometers(draft.area.aoi)
+    : 0
+);
 const {
   addValidator,
   filteredWorkspaceUsers,
@@ -302,7 +334,8 @@ const reviewSummary = computed(() =>
   buildProjectWizardReviewSummary(
     draft,
     selectedValidators.value,
-  ),
+    areaUnit.value
+  )
 );
 
 const detailsStepComplete = computed(() =>
@@ -681,9 +714,7 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
 
 .project-create-page {
   height: 100%;
-  padding: 0px 0px;
-  padding-top: 0px !important;
-  padding-bottom: 0px !important;
+  position: relative;
   overflow: hidden;
 }
 
@@ -692,11 +723,10 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
-  background: #ffffff;
+  background: $surface-card;
   overflow: hidden;
   width: 100%;
-  top: 0px;
-  z-index: 9999;
+  top: 0;
 }
 
 .project-create-header {
@@ -706,9 +736,9 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 15px 40px;
-  background-color: #fff;
-  box-shadow: 0px 3px 6px #00000029;
+  padding: 0.9375rem 2.5rem;
+  background-color: $surface-card;
+  box-shadow: $header-shadow;
 }
 
 .project-create-header-copy {
@@ -721,7 +751,7 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   margin: 0;
   padding-right: 1.45rem;
   color: $text-navy;
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 600;
   line-height: 1.2;
   border-right: 1px solid rgba($text-navy, 0.15);
@@ -735,11 +765,11 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
 
 .project-create-workspace-label {
   color: $text-secondary;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .project-create-workspace-copy strong {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -766,7 +796,7 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100%;
-  background-color: #fff;
+  background-color: $surface-card;
   border: 1px solid rgba($text-navy, 0.1);
   box-shadow: 0 0.45rem 1.2rem rgba($text-navy, 0.08);
   overflow: hidden;
@@ -812,7 +842,7 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   gap: 1rem;
   padding: 1rem 1.4rem;
   border-top: 1px solid rgba($text-navy, 0.1);
-  background-color: #fff;
+  background-color: $surface-card;
 }
 
 .project-create-footer-actions {
@@ -866,6 +896,7 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   }
 
   .project-create-shell {
+    position: relative;
     height: auto;
     min-height: calc(100vh - #{$navbar-height} - 2rem);
   }

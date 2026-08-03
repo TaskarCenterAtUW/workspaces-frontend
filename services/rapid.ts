@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref } from 'vue';
 import type { TdeiAuthStore } from '~/services/tdei';
 import type { ImagerySource } from '~/types/imagery';
 import { convertToRapidImagerySource } from '~/util/rapid-imagery';
@@ -32,8 +32,14 @@ export class RapidManager {
     this.rapidContext = null;
   }
 
-  onStateChange(callback: (state: any) => void) {
+  onStateChange(callback: (state: any) => void): () => void {
     this.#stateCallback = callback;
+
+    return () => {
+      if (this.#stateCallback === callback) {
+        this.#stateCallback = null;
+      }
+    };
   }
 
   #notifyStateChange(state: any) {
@@ -42,8 +48,14 @@ export class RapidManager {
     }
   }
 
-  onUploadResult(callback: (result: any) => void) {
+  onUploadResult(callback: (result: any) => void): () => void {
     this.#uploadCallback = callback;
+
+    return () => {
+      if (this.#uploadCallback === callback) {
+        this.#uploadCallback = null;
+      }
+    };
   }
 
   #notifyUploadResult(result: any) {
