@@ -801,7 +801,7 @@ async function handleSave() {
       );
     }
 
-    toast.success('Project updated');
+    toast.success('Project updated', { clearOnUrlChange: false });
     await navigateAfterSave();
   }
   catch (error) {
@@ -809,6 +809,7 @@ async function handleSave() {
       error,
       'Project changes could not be saved.',
     );
+    toast.error(pageErrorMessage.value);
   }
   finally {
     saving.value = false;

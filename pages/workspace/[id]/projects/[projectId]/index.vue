@@ -1372,6 +1372,7 @@ function escapeHtml(value: string) {
 .project-detail-summary-item {
   display: flex;
   gap: 0.9375rem;
+  min-width: 0;
 }
 
 .project-detail-summary-item span {
@@ -1381,9 +1382,12 @@ function escapeHtml(value: string) {
 }
 
 .project-detail-summary-item strong {
+  flex: 1;
+  min-width: 0;
   color: $text-secondary;
   font-size: 1rem;
   font-weight: 400;
+  overflow-wrap: anywhere;
 }
 
 .project-detail-copy-card {
