@@ -800,9 +800,6 @@ async function handleSave() {
         },
       );
     }
-
-    toast.success('Project updated', { clearOnUrlChange: false });
-    await navigateAfterSave();
   }
   catch (error) {
     pageErrorMessage.value = await resolveHttpErrorMessage(
@@ -810,9 +807,19 @@ async function handleSave() {
       'Project changes could not be saved.',
     );
     toast.error(pageErrorMessage.value);
+    return;
   }
   finally {
     saving.value = false;
+  }
+
+  toast.success('Project updated', { clearOnUrlChange: false });
+
+  try {
+    await navigateAfterSave();
+  }
+  catch {
+    toast.warning('The project was updated, but the next page could not be opened. Please reload.');
   }
 }
 
