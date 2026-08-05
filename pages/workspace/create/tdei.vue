@@ -51,8 +51,8 @@
               Dataset
               <dataset-picker
                 v-model="tdeiRecordId"
-                :project-group-id="projectGroupId ?? ''"
                 :disabled="context.active"
+                :selected-dataset="selectedDataset"
                 required
               />
             </label>
@@ -165,6 +165,7 @@
 import { LoadingContext } from '~/services/loading'
 import { TdeiImporter, TdeiImporterContext } from '~/services/import/tdei';
 import { osmClient, tdeiClient, workspacesClient } from '~/services/index';
+import type { TdeiDatasetSummary } from '~/types/tdei';
 
 declare const L: any;
 
@@ -179,6 +180,18 @@ const map = ref<any>({});
 const workspaceTitle = ref('');
 const projectGroupId = ref<string | null>(null);
 const datasetError = ref<string | null>(null);
+
+const selectedDataset = computed<TdeiDatasetSummary | undefined>(() => {
+  const detail = record.metadata?.dataset_detail
+  if (!tdeiRecordId.value || !detail?.name) return undefined
+
+  return {
+    id: tdeiRecordId.value,
+    name: detail.name,
+    version: detail.version,
+    projectGroupName: record.project_group?.name,
+  }
+})
 
 watch(tdeiRecordId, val => getDatasetInfo(val));
 
@@ -223,7 +236,6 @@ async function getDatasetInfo(id: string | null) {
   }
 
   workspaceTitle.value = record.metadata?.dataset_detail?.name ?? ''
-  projectGroupId.value = record.project_group.tdei_project_group_id
   tdeiRecordId.value = record.tdei_dataset_id
 
   initMap();

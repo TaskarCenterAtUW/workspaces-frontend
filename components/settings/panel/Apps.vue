@@ -146,9 +146,18 @@
       <button
         type="submit"
         class="btn btn-primary"
-        :disabled="!isLead"
+        :disabled="!isLead || isSaving"
       >
-        Save
+        <template v-if="isSaving">
+          <span
+            class="spinner-border spinner-border-sm me-2"
+            aria-hidden="true"
+          />
+          Saving&hellip;
+        </template>
+        <template v-else>
+          Save
+        </template>
       </button>
     </div><!-- .card-body -->
   </form><!-- .card -->
@@ -183,6 +192,7 @@ const longFormQuestDef = ref(longFormQuestSettings.definition);
 const longFormQuestUrl = ref(longFormQuestSettings.url);
 const longFormQuestError = ref<string | null>(null);
 const isDraggingQuest = ref(false);
+const isSaving = ref(false);
 
 watch(
   [
@@ -203,48 +213,51 @@ function onQuestFileDrop(event: DragEvent) {
 }
 
 async function saveExternalAppConfiguration() {
+  if (isSaving.value) return;
+
+  isSaving.value = true;
   clearExternalAppMessages();
 
-  let type = longFormQuestType.value;
-  let definition = longFormQuestDef.value;
-  let url = longFormQuestUrl.value;
+  try {
+    let type = longFormQuestType.value;
+    let definition = longFormQuestDef.value;
+    let url = longFormQuestUrl.value;
 
-  if (type === 'JSON') {
-    url = undefined;
+    if (type === 'JSON') {
+      url = undefined;
 
-    if (!definition) {
-      type = 'NONE';
-    }
-    else {
-      const validationResult = await validateJson(
-        definition,
-        longFormQuestSchemaUrl,
-        longFormQuestSchema,
-        'Long form quest definition',
-      );
+      if (!definition) {
+        type = 'NONE';
+      }
+      else {
+        const validationResult = await validateJson(
+          definition,
+          longFormQuestSchemaUrl,
+          longFormQuestSchema,
+          'Long form quest definition',
+        );
 
-      if (validationResult.error) {
-        longFormQuestError.value = validationResult.error;
-        return;
+        if (validationResult.error) {
+          longFormQuestError.value = validationResult.error;
+          return;
+        }
       }
     }
-  }
-  else if (type === 'URL') {
-    definition = undefined;
+    else if (type === 'URL') {
+      definition = undefined;
 
-    if (!url) {
-      type = 'NONE';
+      if (!url) {
+        type = 'NONE';
+      }
+      else if (!isHttpUrl(url)) {
+        longFormQuestError.value = 'The URL is not valid.';
+        return;
+      }
+      else {
+        url = normalizeUrl(url);
+      }
     }
-    else if (!isHttpUrl(url)) {
-      longFormQuestError.value = 'The URL is not valid.';
-      return;
-    }
-    else {
-      url = normalizeUrl(url);
-    }
-  }
 
-  try {
     await Promise.all([
       workspacesClient.updateWorkspace(workspace.id, {
         externalAppAccess: workspace.externalAppAccess,
@@ -264,6 +277,9 @@ async function saveExternalAppConfiguration() {
   catch (e) {
     const errorMessage = e instanceof Error ? e.message : 'unexpected error';
     toast.error('Failed to save changes: ' + errorMessage);
+  }
+  finally {
+    isSaving.value = false;
   }
 }
 </script>
