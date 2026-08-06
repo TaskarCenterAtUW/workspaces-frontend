@@ -23,9 +23,19 @@
         <button
           type="submit"
           class="btn btn-primary"
-          :disabled="!isLead"
+          :disabled="!isLead || isRenaming"
+          :aria-busy="isRenaming"
         >
-          Rename
+          <template v-if="isRenaming">
+            <span
+              class="spinner-border spinner-border-sm me-2"
+              aria-hidden="true"
+            />
+            Renaming&hellip;
+          </template>
+          <template v-else>
+            Rename
+          </template>
         </button>
       </form>
 
@@ -65,8 +75,13 @@ const workspace = inject<Workspace>('workspace')!;
 const { isLead } = useWorkspaceRole();
 const workspaceName = ref(workspace.title);
 const autoFlagReview = ref(workspace.autoFlagReview ?? false);
+const isRenaming = ref(false);
 
 async function rename() {
+  if (isRenaming.value) return;
+
+  isRenaming.value = true;
+
   try {
     await workspacesClient.updateWorkspace(workspace.id, {
       title: workspaceName.value,
@@ -80,6 +95,9 @@ async function rename() {
     else {
       toast.error('Rename failed: unexpected error');
     }
+  }
+  finally {
+    isRenaming.value = false;
   }
 }
 

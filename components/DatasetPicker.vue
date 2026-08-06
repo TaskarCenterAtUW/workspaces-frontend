@@ -10,12 +10,15 @@
       type="text"
       class="form-select"
       :disabled="props.disabled"
+      :required="props.required"
       placeholder="Search released and accessible datasets..."
       aria-label="Dataset Selection"
       role="combobox"
       aria-autocomplete="list"
       :aria-expanded="isOpen"
-      aria-controls="dataset-picker-options"
+      :aria-controls="listboxId"
+      :aria-activedescendant="activeOptionId"
+      :aria-required="props.required"
       autocomplete="off"
       @focus="onFocus"
       @click="isOpen = true"
@@ -30,44 +33,47 @@
     >
       <div class="dataset-header">
         <span
-          v-if="datasets.length > 0"
+          v-if="datasetOptions.length > 0"
           class="dataset-count"
         >
-          Showing first {{ datasets.length }} matching dataset{{ datasets.length !== 1 ? 's' : '' }}
-          <span v-if="datasets.length === pageSize">&#183; Refine your search for more results</span>
+          {{ resultSummary }}
         </span>
         <span
           v-if="loading"
           class="spinner-border spinner-border-sm ms-auto"
-          role="status"
-          aria-label="Loading datasets"
+          aria-hidden="true"
         />
       </div>
 
-      <div
-        ref="listRef"
-        class="dataset-list-wrap"
-      >
+      <span
+        class="visually-hidden"
+        role="status"
+        aria-live="polite"
+      >{{ statusMessage }}</span>
+
+      <div class="dataset-list-wrap">
+        <p
+          v-if="errorMessage && !loading"
+          class="list-group-item text-danger mb-0"
+        >
+          {{ errorMessage }}
+        </p>
+        <p
+          v-else-if="datasetOptions.length === 0 && !loading"
+          class="list-group-item text-muted mb-0"
+        >
+          No datasets found.
+        </p>
+
         <ul
-          id="dataset-picker-options"
+          :id="listboxId"
           class="list-group list-group-flush"
           role="listbox"
+          :aria-busy="loading"
         >
           <li
-            v-if="errorMessage && !loading"
-            class="list-group-item text-danger"
-          >
-            {{ errorMessage }}
-          </li>
-          <li
-            v-else-if="datasets.length === 0 && !loading"
-            class="list-group-item text-muted"
-          >
-            No datasets found.
-          </li>
-          <li
-            v-for="(dataset, index) in datasets"
-            :id="`dataset-item-${index}`"
+            v-for="(dataset, index) in datasetOptions"
+            :id="getOptionId(index)"
             :key="dataset.id"
             class="list-group-item list-group-item-action cursor-pointer"
             :class="{ 'highlighted': activeIndex === index, 'fw-bold': model === dataset.id }"
@@ -76,7 +82,7 @@
             @click="selectDataset(dataset)"
             @mouseenter="activeIndex = index"
           >
-            <div>{{ formatDataset(dataset) }}</div>
+            <div>{{ dataset.displayName }}</div>
             <small
               v-if="dataset.projectGroupName"
               class="text-muted"
@@ -89,179 +95,257 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onUnmounted, ref, watch } from 'vue'
-import { tdeiClient } from '~/services/index'
-import type { TdeiDatasetSummary } from '~/types/tdei'
+import { computed, nextTick, onUnmounted, ref, useId, watch } from 'vue';
+import { tdeiClient } from '~/services/index';
+import type { TdeiDatasetSummary } from '~/types/tdei';
 
-const pageSize = 10
+interface DatasetOption extends TdeiDatasetSummary {
+  displayName: string;
+}
+
+const pageSize = 10;
 const props = withDefaults(defineProps<{
   id?: string;
   disabled?: boolean;
+  required?: boolean;
   selectedDataset?: TdeiDatasetSummary;
 }>(), {
   disabled: false,
-  selectedDataset: undefined,
-})
-const model = defineModel<string | null>({ required: true })
+  required: false,
+  selectedDataset: undefined
+});
+const model = defineModel<string | null>({ required: true });
 
-const pickerRef = ref<HTMLElement | null>(null)
-const listRef = ref<HTMLElement | null>(null)
-const searchText = ref('')
-const selectedText = ref('')
-const datasets = ref<TdeiDatasetSummary[]>([])
-const isOpen = ref(false)
-const loading = ref(false)
-const activeIndex = ref(-1)
-const errorMessage = ref('')
+const generatedId = useId();
+const listboxId = computed(() => `${props.id || `dataset-picker-${generatedId}`}-options`);
+const pickerRef = ref<HTMLElement | null>(null);
+const searchText = ref('');
+const selectedText = ref('');
+const datasets = ref<TdeiDatasetSummary[]>([]);
+const isOpen = ref(false);
+const loading = ref(false);
+const activeIndex = ref(-1);
+const errorMessage = ref('');
 
-let debounceId: ReturnType<typeof setTimeout>
-let requestSequence = 0
-let hasLoaded = false
+const datasetOptions = computed<DatasetOption[]>(() => datasets.value.map(dataset => ({
+  ...dataset,
+  displayName: formatDataset(dataset)
+})));
+const activeOptionId = computed(() => isOpen.value && activeIndex.value >= 0
+  ? getOptionId(activeIndex.value)
+  : undefined);
+const resultSummary = computed(() => {
+  const count = datasetOptions.value.length;
+  const prefix = count === pageSize ? 'Showing first' : 'Showing';
+  const summary = `${prefix} ${count} matching dataset${count === 1 ? '' : 's'}`;
+
+  return count === pageSize
+    ? `${summary} · Refine your search for more results`
+    : summary;
+});
+const statusMessage = computed(() => {
+  if (loading.value) {
+    return 'Loading datasets.';
+  }
+
+  if (errorMessage.value) {
+    return errorMessage.value;
+  }
+
+  if (!hasLoaded.value) {
+    return '';
+  }
+
+  return datasetOptions.value.length > 0
+    ? resultSummary.value
+    : 'No datasets found.';
+});
+
+let debounceId: ReturnType<typeof setTimeout>;
+let requestSequence = 0;
+const hasLoaded = ref(false);
+let requestAbortController: AbortController | undefined;
 
 function formatDataset(dataset: TdeiDatasetSummary) {
   return dataset.version
     ? `${dataset.name} (version ${dataset.version})`
-    : dataset.name
+    : dataset.name;
+}
+
+function getOptionId(index: number) {
+  return `${listboxId.value}-option-${index}`;
 }
 
 watch(
   () => props.selectedDataset,
   (dataset) => {
     if (dataset && dataset.id === model.value) {
-      selectedText.value = formatDataset(dataset)
-      searchText.value = selectedText.value
+      selectedText.value = formatDataset(dataset);
+      searchText.value = selectedText.value;
     }
   },
-  { immediate: true },
-)
+  { immediate: true }
+);
 
 async function loadDatasets(name: string) {
-  const requestId = ++requestSequence
-  loading.value = true
-  errorMessage.value = ''
-  activeIndex.value = -1
+  requestAbortController?.abort();
+  const abortController = new AbortController();
+  requestAbortController = abortController;
+  const requestId = ++requestSequence;
+  const client = tdeiClient.clone(abortController.signal);
+  loading.value = true;
+  errorMessage.value = '';
+  activeIndex.value = -1;
 
   try {
-    const results = await tdeiClient.getAvailableDatasetsByName(name, 1, pageSize)
+    const results = await client.getAvailableDatasetsByName(name, 1, pageSize);
     if (requestId === requestSequence) {
-      datasets.value = results
-      hasLoaded = true
+      datasets.value = results;
+      hasLoaded.value = true;
     }
-  } catch (error) {
+  }
+  catch (error) {
+    if (abortController.signal.aborted) {
+      return;
+    }
+
     if (requestId === requestSequence) {
-      datasets.value = []
-      errorMessage.value = 'Unable to load datasets. Please try again.'
+      datasets.value = [];
+      errorMessage.value = 'Unable to load datasets. Please try again.';
     }
-    console.error(error)
-  } finally {
-    if (requestId === requestSequence) loading.value = false
+    console.error(error);
+  }
+  finally {
+    if (requestId === requestSequence) {
+      loading.value = false;
+    }
   }
 }
 
 function onInput() {
-  model.value = null
-  selectedText.value = ''
-  isOpen.value = true
-  requestSequence++
-  datasets.value = []
-  errorMessage.value = ''
-  loading.value = true
-  clearTimeout(debounceId)
-  debounceId = setTimeout(() => loadDatasets(searchText.value.trim()), 300)
+  model.value = null;
+  selectedText.value = '';
+  isOpen.value = true;
+  requestAbortController?.abort();
+  requestSequence++;
+  datasets.value = [];
+  errorMessage.value = '';
+  loading.value = true;
+  clearTimeout(debounceId);
+  debounceId = setTimeout(() => loadDatasets(searchText.value.trim()), 300);
 }
 
 function selectDataset(dataset: TdeiDatasetSummary) {
-  model.value = dataset.id
-  selectedText.value = formatDataset(dataset)
-  searchText.value = selectedText.value
-  isOpen.value = false
+  model.value = dataset.id;
+  selectedText.value = formatDataset(dataset);
+  searchText.value = selectedText.value;
+  isOpen.value = false;
 }
 
 function onFocus(event: FocusEvent) {
-  isOpen.value = true
-  if (!hasLoaded && !loading.value) loadDatasets('')
-  ;(event.target as HTMLInputElement).select()
+  isOpen.value = true;
+  if (!hasLoaded.value && !loading.value) {
+    void loadDatasets('');
+  }
+  (event.target as HTMLInputElement).select();
 }
 
 function closeDropdown() {
-  isOpen.value = false
-  if (model.value) searchText.value = selectedText.value
+  isOpen.value = false;
+  if (model.value) {
+    searchText.value = selectedText.value;
+  }
 }
 
 function onFocusOut(event: FocusEvent) {
-  if (!pickerRef.value?.contains(event.relatedTarget as Node)) closeDropdown()
+  if (!pickerRef.value?.contains(event.relatedTarget as Node)) {
+    closeDropdown();
+  }
 }
 
 function scrollToActive() {
   nextTick(() => {
-    const active = listRef.value?.querySelector(`#dataset-item-${activeIndex.value}`) as HTMLElement | null
-    active?.scrollIntoView({ block: 'nearest' })
-  })
+    const active = document.getElementById(getOptionId(activeIndex.value));
+    active?.scrollIntoView({ block: 'nearest' });
+  });
 }
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
-    event.preventDefault()
-    closeDropdown()
-    return
+    event.preventDefault();
+    closeDropdown();
+    return;
   }
 
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-    event.preventDefault()
-    isOpen.value = true
-    const direction = event.key === 'ArrowDown' ? 1 : -1
+    event.preventDefault();
+    isOpen.value = true;
+    const direction = event.key === 'ArrowDown' ? 1 : -1;
     activeIndex.value = Math.min(
       datasets.value.length - 1,
-      Math.max(0, activeIndex.value + direction),
-    )
-    scrollToActive()
-    return
+      Math.max(0, activeIndex.value + direction)
+    );
+    scrollToActive();
+    return;
   }
 
   if (event.key === 'Enter' && isOpen.value && activeIndex.value >= 0) {
-    event.preventDefault()
-    const dataset = datasets.value[activeIndex.value]
-    if (dataset) selectDataset(dataset)
+    event.preventDefault();
+    const dataset = datasets.value[activeIndex.value];
+    if (dataset) {
+      selectDataset(dataset);
+    }
   }
 }
 
-onUnmounted(() => clearTimeout(debounceId))
+onUnmounted(() => {
+  clearTimeout(debounceId);
+  requestSequence++;
+  requestAbortController?.abort();
+});
 </script>
 
 <style lang="scss" scoped>
-@import "assets/scss/theme.scss";
+@import "~/assets/scss/theme.scss";
+
+$dataset-picker-list-max-height: 16.25rem;
 
 .cursor-pointer {
   cursor: pointer;
 }
+
 .dataset-dropdown {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  border-radius: 0.375rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  background: $dropdown-bg;
+  border: $dropdown-border-width solid $dropdown-border-color;
+  border-radius: $dropdown-border-radius;
+  box-shadow: $box-shadow;
   overflow: hidden;
-  z-index: 1000;
+  z-index: $zindex-dropdown;
 }
+
 .dataset-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 12px;
+  gap: $spacer * 0.5;
+  padding: $spacer * 0.25 $spacer * 0.75;
   border-bottom: 1px solid $gray-200;
   background: $gray-100;
-  min-height: 30px;
 }
+
 .dataset-count {
-  color: $gray-700;
   flex: 1;
-  font-size: 0.74rem;
+  color: $gray-700;
+  font-size: $small-font-size;
+  line-height: $line-height-sm;
 }
+
 .dataset-list-wrap {
-  max-height: 260px;
+  max-height: $dataset-picker-list-max-height;
   overflow-y: auto;
 }
+
 .list-group-item.highlighted {
-  background-color: rgba(13, 110, 253, 0.15);
+  background-color: $dropdown-active-bg;
   color: inherit;
 }
 </style>

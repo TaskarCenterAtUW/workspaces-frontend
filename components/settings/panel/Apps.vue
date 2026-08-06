@@ -147,6 +147,7 @@
         type="submit"
         class="btn btn-primary"
         :disabled="!isLead || isSaving"
+        :aria-busy="isSaving"
       >
         <template v-if="isSaving">
           <span

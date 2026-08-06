@@ -182,16 +182,16 @@ const projectGroupId = ref<string | null>(null);
 const datasetError = ref<string | null>(null);
 
 const selectedDataset = computed<TdeiDatasetSummary | undefined>(() => {
-  const detail = record.metadata?.dataset_detail
-  if (!tdeiRecordId.value || !detail?.name) return undefined
+  const detail = record.metadata?.dataset_detail;
+  if (!tdeiRecordId.value || !detail?.name) return undefined;
 
   return {
     id: tdeiRecordId.value,
     name: detail.name,
     version: detail.version,
-    projectGroupName: record.project_group?.name,
-  }
-})
+    projectGroupName: record.project_group?.name
+  };
+});
 
 watch(tdeiRecordId, val => getDatasetInfo(val));
 

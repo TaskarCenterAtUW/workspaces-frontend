@@ -92,7 +92,7 @@ async function stubSettings(page: Page) {
     }
     return route.fallback();
   });
-  await page.route('**/imagery-schema.json', route =>
+  await page.route(/(?:imagery-schema|schema)\.json$/, route =>
     route.fulfill({ json: imagerySchema })
   );
 }
@@ -113,10 +113,15 @@ test.describe('workspace settings', () => {
     await stubSettings(page);
 
     let patchBody: unknown = null;
-    await page.route('**/workspaces/1', (route) => {
+    let releaseRename: () => void = () => {};
+    const renameGate = new Promise<void>((resolve) => {
+      releaseRename = resolve;
+    });
+    await page.route('**/workspaces/1', async (route) => {
       const req = route.request();
       if (req.method() === 'PATCH') {
         patchBody = JSON.parse(req.postData() ?? '{}');
+        await renameGate;
         return route.fulfill({ status: 204, body: '' });
       }
       return route.fallback();
@@ -130,6 +135,8 @@ test.describe('workspace settings', () => {
     await titleField.fill('Renamed Workspace');
     await general.getByRole('button', { name: 'Rename' }).click();
 
+    await expect(general.getByRole('button', { name: /Renaming/ })).toBeDisabled();
+    releaseRename();
     await expect(successToast(page)).toBeVisible();
     await expect(successToast(page)).toContainText('Workspace renamed successfully.');
     expect(patchBody).toEqual({ title: 'Renamed Workspace' });
@@ -205,6 +212,44 @@ test.describe('workspace settings', () => {
     expect(patchBody).toEqual({ externalAppAccess: 0 });
   });
 
+  // @test e2e: While External Apps settings are being saved, the Save button is
+  //            disabled and displays "Saving..." to prevent duplicate submissions.
+  test('external apps save shows a disabled saving state', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubSettings(page);
+
+    let releaseSave: () => void = () => {};
+    const saveGate = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+
+    await page.route('**/workspaces/1', async (route) => {
+      if (route.request().method() === 'PATCH') {
+        await saveGate;
+        return route.fulfill({ status: 204, body: '' });
+      }
+      return route.fallback();
+    });
+    await page.route('**/workspaces/1/quests/long/settings', async (route) => {
+      if (route.request().method() === 'PATCH') {
+        await saveGate;
+        return route.fulfill({ status: 204, body: '' });
+      }
+      return route.fallback();
+    });
+
+    await page.goto('/workspace/1/settings');
+
+    const apps = page.locator('form.card', { hasText: 'External Apps' });
+    const saveButton = apps.getByRole('button', { name: 'Save' });
+    await saveButton.click();
+
+    await expect(apps.getByRole('button', { name: /Saving/ })).toBeDisabled();
+
+    releaseSave();
+    await expect(successToast(page)).toBeVisible();
+  });
+
   // @test e2e: Under "External Apps", turning ON "Publish this workspace" enables the other
   //            buttons and when clicking "Save" shows a confirmation and sends the proper API call.
   test('publishing enables app controls, saves, and confirms', async ({ page }) => {
@@ -231,7 +276,7 @@ test.describe('workspace settings', () => {
     await page.route('**/workspaces/1/imagery/settings', route =>
       route.fulfill({ json: emptyImagerySettings })
     );
-    await page.route('**/imagery-schema.json', route =>
+    await page.route(/(?:imagery-schema|schema)\.json$/, route =>
       route.fulfill({ json: imagerySchema })
     );
 
@@ -261,13 +306,18 @@ test.describe('workspace settings', () => {
     await stubSettings(page);
 
     let imageryPatch: unknown = null;
-    await page.route('**/workspaces/1/imagery/settings', (route) => {
+    let releaseImagerySave: () => void = () => {};
+    const imagerySaveGate = new Promise<void>((resolve) => {
+      releaseImagerySave = resolve;
+    });
+    await page.route('**/workspaces/1/imagery/settings', async (route) => {
       const req = route.request();
       if (req.method() === 'GET') {
         return route.fulfill({ json: emptyImagerySettings });
       }
       if (req.method() === 'PATCH') {
         imageryPatch = JSON.parse(req.postData() ?? '{}');
+        await imagerySaveGate;
         return route.fulfill({ status: 204, body: '' });
       }
       return route.fallback();
@@ -279,6 +329,8 @@ test.describe('workspace settings', () => {
     await imagery.getByLabel('Imagery JSON Definition').fill(JSON.stringify(validImageryDef));
     await imagery.getByRole('button', { name: 'Save' }).click();
 
+    await expect(imagery.getByRole('button', { name: /Saving/ })).toBeDisabled();
+    releaseImagerySave();
     // Outline: a toast is shown when validation passes and the save succeeds.
     await expect(successToast(page)).toBeVisible();
     // Proper API call: PATCH imagery/settings with the parsed definition array.
@@ -293,9 +345,14 @@ test.describe('workspace settings', () => {
     await stubSettings(page);
 
     let deleteCalled = false;
-    await page.route('**/workspaces/1', (route) => {
+    let releaseDelete: () => void = () => {};
+    const deleteGate = new Promise<void>((resolve) => {
+      releaseDelete = resolve;
+    });
+    await page.route('**/workspaces/1', async (route) => {
       if (route.request().method() === 'DELETE') {
         deleteCalled = true;
+        await deleteGate;
         return route.fulfill({ status: 204, body: '' });
       }
       return route.fallback();
@@ -313,6 +370,8 @@ test.describe('workspace settings', () => {
     await confirmField.fill('delete');
     await del.getByRole('button', { name: 'Delete this workspace', exact: true }).click();
 
+    await expect(del.getByRole('button', { name: /Deleting/ })).toBeDisabled();
+    releaseDelete();
     await expect.poll(() => deleteCalled).toBe(true);
     await expect(page).toHaveURL(/\/dashboard$/);
   });
