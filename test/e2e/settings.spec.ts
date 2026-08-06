@@ -136,6 +136,7 @@ test.describe('workspace settings', () => {
     await general.getByRole('button', { name: 'Rename' }).click();
 
     await expect(general.getByRole('button', { name: /Renaming/ })).toBeDisabled();
+    await expect(titleField).toBeDisabled();
     releaseRename();
     await expect(successToast(page)).toBeVisible();
     await expect(successToast(page)).toContainText('Workspace renamed successfully.');
@@ -332,6 +333,7 @@ test.describe('workspace settings', () => {
     await imagery.getByRole('button', { name: 'Save' }).click();
 
     await expect(imagery.getByRole('button', { name: /Saving/ })).toBeDisabled();
+    await expect(imagery.getByLabel('Imagery JSON Definition')).toBeDisabled();
     releaseImagerySave();
     // Outline: a toast is shown when validation passes and the save succeeds.
     await expect(successToast(page)).toBeVisible();

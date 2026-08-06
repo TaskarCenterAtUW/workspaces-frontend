@@ -16,7 +16,7 @@
           <input
             v-model.trim="workspaceName"
             class="form-control"
-            :disabled="!isLead"
+            :disabled="!isLead || isRenaming"
           >
         </label>
 

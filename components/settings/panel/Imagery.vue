@@ -26,7 +26,7 @@
           :class="{ 'drag-over': isDraggingImagery }"
           rows="5"
           placeholder="Optional"
-          :disabled="!isLead"
+          :disabled="!isLead || isSaving"
           @dragover.prevent="isDraggingImagery = true"
           @dragleave.prevent="isDraggingImagery = false"
           @drop.prevent="onImageryFileDrop"
