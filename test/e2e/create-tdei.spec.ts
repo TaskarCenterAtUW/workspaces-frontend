@@ -169,7 +169,7 @@ async function fillForm(page: Page) {
 }
 
 test.describe('create workspace from TDEI', () => {
-  test('dataset picker is accessible and requests published datasets', async ({ page }) => {
+  test('dataset picker is accessible and requests all datasets', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await stubHappyPath(page);
 

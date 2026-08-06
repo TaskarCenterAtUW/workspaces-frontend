@@ -26,7 +26,7 @@
             class="form-check-input"
             :true-value="1"
             :false-value="0"
-            :disabled="!isLead"
+            :disabled="!isLead || isSaving"
           >
           Publish this workspace for external apps
         </label>
@@ -178,10 +178,11 @@ const longFormQuestExampleUrl = import.meta.env.VITE_LONG_FORM_QUEST_EXAMPLE_URL
 
 const workspace = inject<Workspace>('workspace')!;
 const { isLead } = useWorkspaceRole();
+const isSaving = ref(false);
 
 // The quest-definition controls only apply when the workspace is published for
-// external apps, so they're disabled when "Publish" is off (or for non-leads).
-const appControlsDisabled = computed(() => !isLead.value || !workspace.externalAppAccess);
+// external apps, so they're disabled when "Publish" is off, while saving, or for non-leads.
+const appControlsDisabled = computed(() => !isLead.value || !workspace.externalAppAccess || isSaving.value);
 
 const [longFormQuestSettings] = await Promise.all([
   workspacesClient.getLongFormQuestSettings(workspace.id),
@@ -193,7 +194,6 @@ const longFormQuestDef = ref(longFormQuestSettings.definition);
 const longFormQuestUrl = ref(longFormQuestSettings.url);
 const longFormQuestError = ref<string | null>(null);
 const isDraggingQuest = ref(false);
-const isSaving = ref(false);
 
 watch(
   [

@@ -252,9 +252,7 @@ function onFocus(event: FocusEvent) {
 
 function closeDropdown() {
   isOpen.value = false;
-  if (model.value) {
-    searchText.value = selectedText.value;
-  }
+  searchText.value = model.value ? selectedText.value : '';
 }
 
 function onFocusOut(event: FocusEvent) {

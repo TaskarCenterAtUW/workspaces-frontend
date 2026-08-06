@@ -95,6 +95,7 @@ async function submitDelete() {
 
   try {
     await workspacesClient.deleteWorkspace(workspace.id);
+    await navigateTo('/dashboard');
   }
   catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'unexpected error';
@@ -104,7 +105,5 @@ async function submitDelete() {
   finally {
     isDeleting.value = false;
   }
-
-  await navigateTo('/dashboard');
 }
 </script>
