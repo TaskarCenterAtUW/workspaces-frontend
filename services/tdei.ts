@@ -243,7 +243,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
       sort_field: 'uploaded_timestamp',
       sort_order: 'DESC',
       status: 'All',
-      name,
+      name
     });
     const response = await this._get(`datasets?${params.toString()}`);
 
@@ -252,7 +252,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
         id: d.tdei_dataset_id,
         name: d.metadata?.dataset_detail?.name ?? d.tdei_dataset_id,
         version: d.metadata?.dataset_detail?.version,
-        projectGroupName: d.project_group?.name,
+        projectGroupName: d.project_group?.name
       }));
   }
 

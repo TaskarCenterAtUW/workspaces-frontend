@@ -238,6 +238,7 @@ test.describe('workspace settings', () => {
       return route.fallback();
     });
 
+    const c = recordContract(page);
     await page.goto('/workspace/1/settings');
 
     const apps = page.locator('form.card', { hasText: 'External Apps' });
@@ -248,6 +249,7 @@ test.describe('workspace settings', () => {
 
     releaseSave();
     await expect(successToast(page)).toBeVisible();
+    await expect.poll(() => c.violations()).toEqual([]);
   });
 
   // @test e2e: Under "External Apps", turning ON "Publish this workspace" enables the other

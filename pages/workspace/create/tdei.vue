@@ -202,7 +202,9 @@ const complete = computed(() =>
   && datasetError.value === null,
 );
 
+let datasetInfoSequence = 0;
 async function getDatasetInfo(id: string | null) {
+  const requestId = ++datasetInfoSequence;
   datasetError.value = null
 
   if (id === null) {
@@ -216,7 +218,7 @@ async function getDatasetInfo(id: string | null) {
 
   await loading.wrap(tdeiClient, async (client) => {
     const info = await client.getDatasetInfo(id);
-
+    if (requestId !== datasetInfoSequence) return;
     if (!info) return
 
     // Clear stale keys from any previously loaded dataset before merging,
@@ -229,6 +231,8 @@ async function getDatasetInfo(id: string | null) {
   });
 
   await nextTick();
+
+  if (requestId !== datasetInfoSequence) return;
 
   if (!record.project_group?.tdei_project_group_id || !record.tdei_dataset_id) {
     datasetError.value = 'The selected dataset returned incomplete data. Please try a different dataset or contact support.'
