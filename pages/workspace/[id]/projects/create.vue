@@ -1,6 +1,7 @@
 <template>
   <app-page
     fluid
+    padding="none"
     class="project-create-page"
   >
     <section
@@ -37,7 +38,7 @@
             <project-wizard-stepper
               :steps="steps"
               :current-index="currentStepIndex"
-              :selection-locked="Boolean(createdProject)"
+              :selection-locked="creationCompleted"
               @select="onSelectStep"
             />
 
@@ -61,6 +62,8 @@
                   v-if="detailsStep"
                   :step="detailsStep"
                   :details="draft.details"
+                  :imagery-error="imageryError"
+                  :imagery-validating="imageryValidating"
                   :name-availability-status="nameAvailabilityStatus"
                   :name-availability-message="nameAvailabilityMessage"
                   @update:field="updateDetailsField"
@@ -69,8 +72,10 @@
                 <project-wizard-steps-area-of-interest-step
                   v-else-if="areaStep"
                   :step="areaStep"
+                  :area-display-unit="areaUnit"
+                  :area-square-kilometers="aoiAreaSquareKilometers"
                   :error-message="areaImportError"
-                  :has-aoi="Boolean(draft.area.aoi)"
+                  :has-aoi="hasAreaOfInterest"
                   :imported-file-name="draft.area.importedFileName"
                   :is-drawing="isAreaDrawMode"
                   :warning-message="areaWarningMessage"
@@ -78,6 +83,7 @@
                   @draw="startAreaDrawMode"
                   @reset="resetAreaOfInterest"
                   @upload="importAreaOfInterest"
+                  @update:area-display-unit="selectAreaUnit"
                 />
                 <project-wizard-steps-settings-step
                   v-else-if="settingsStep"
@@ -88,8 +94,10 @@
                   :selected-validators="selectedValidators"
                   :validator-search-query="validatorSearchQuery"
                   :workspace-users="filteredWorkspaceUsers"
+                  :workspace-users-error="workspaceUsersError"
                   :workspace-users-loading="workspaceUsersLoading"
                   @add:validator="addValidator"
+                  @retry:workspace-users="retryLoadWorkspaceUsers"
                   @remove:validator="removeValidator"
                   @update:instructions="updateInstructions"
                   @update:lock-timeout-hours="updateLockTimeoutHours"
@@ -184,7 +192,10 @@
 </template>
 
 <script setup lang="ts">
-import { projectWizardClient, workspacesClient } from '~/services/index';
+import { projectWizardClient, tdeiUserClient, workspacesClient } from '~/services/index';
+import { resolveHttpErrorMessage } from '~/services/http';
+import { validateProjectCustomImagery } from '~/services/project-custom-imagery';
+import { calculateProjectWizardAoiAreaSquareKilometers } from '~/services/project-wizard-aoi';
 import { buildProjectWizardReviewSummary } from '~/services/project-wizard-review';
 
 import type {
@@ -200,9 +211,37 @@ import type {
 
 const route = useRoute();
 const workspaceId = Number(route.params.id);
-const workspace = await workspacesClient.getWorkspace(workspaceId);
+
+if (!Number.isInteger(workspaceId) || workspaceId <= 0) {
+  throw createError({ statusCode: 404, statusMessage: 'Workspace not found.' });
+}
+
+const workspace = await workspacesClient.getWorkspace(workspaceId).catch((error) => {
+  throw createError({ statusCode: 500, statusMessage: 'Failed to load workspace.', data: error });
+});
+
+const myTdeiRoles = await tdeiUserClient.getMyRolesForProjectGroupById(
+  workspace.tdeiProjectGroupId
+).catch((error) => {
+  throw createError({ statusCode: 500, statusMessage: 'Failed to load TDEI project group roles.', data: error });
+});
+
+const { canCreateProject } = useWorkspaceProjectPermissions(
+  () => workspace.role,
+  myTdeiRoles
+);
+
+if (!canCreateProject.value) {
+  throw createError({
+    statusCode: 403,
+    statusMessage: 'Only workspace leads or project group POCs can create projects.',
+  });
+}
+
 const projectsRoute = `/workspace/${workspaceId}/projects`;
 const PROJECT_NAME_CHECK_DEBOUNCE_MS = 300;
+const IMAGERY_VALIDATION_DEBOUNCE_MS = 300;
+const imagerySchemaUrl = import.meta.env.VITE_IMAGERY_SCHEMA;
 
 const {
   creating,
@@ -245,6 +284,9 @@ const reviewStep = computed(() =>
 
 const nameAvailabilityStatus = ref<ProjectWizardNameAvailabilityStatus>('idle');
 const nameAvailabilityMessage = ref('');
+const imageryError = ref<string | null>(null);
+const imagerySchema = ref<object>();
+const imageryValidating = ref(false);
 const {
   areaImportError,
   areaWarningMessage,
@@ -262,6 +304,14 @@ const {
   currentStep,
   draft,
 });
+const { areaUnit, selectAreaUnit } = useAreaDisplayUnit();
+const creationCompleted = computed(() => createdProject.value !== null);
+const hasAreaOfInterest = computed(() => draft.area.aoi !== null);
+const aoiAreaSquareKilometers = computed(() =>
+  draft.area.aoi
+    ? calculateProjectWizardAoiAreaSquareKilometers(draft.area.aoi)
+    : 0
+);
 const {
   addValidator,
   filteredWorkspaceUsers,
@@ -272,7 +322,9 @@ const {
   updateReviewRequired,
   updateValidatorSearchQuery,
   validatorSearchQuery,
+  workspaceUsersError,
   workspaceUsersLoading,
+  retryLoadWorkspaceUsers,
 } = useProjectWizardSettings({
   currentStep,
   draft,
@@ -282,17 +334,30 @@ const reviewSummary = computed(() =>
   buildProjectWizardReviewSummary(
     draft,
     selectedValidators.value,
-  ),
+    areaUnit.value
+  )
 );
+
+const detailsStepComplete = computed(() =>
+  draft.details.name.trim().length > 0
+  && nameAvailabilityStatus.value === 'available'
+  && !imageryValidating.value
+  && !imageryError.value,
+);
+
+const areaStepComplete = computed(() => Boolean(draft.area.aoi));
 
 const canProceed = computed(() => {
   switch (currentStep.value) {
     case 'details':
-      return draft.details.name.trim().length > 0 && nameAvailabilityStatus.value === 'available';
+      return draft.details.name.trim().length > 0
+        && nameAvailabilityStatus.value === 'available'
+        && !imageryValidating.value
+        && !imageryError.value;
     case 'area':
       return Boolean(draft.area.aoi);
     case 'review':
-      return !createdProject.value;
+      return !createdProject.value && detailsStepComplete.value && areaStepComplete.value;
     default:
       return true;
   }
@@ -338,6 +403,8 @@ const mapPadding = ref({
 
 let nameCheckDebounce: ReturnType<typeof setTimeout> | undefined;
 let nameCheckRequestId = 0;
+let imageryValidationDebounce: ReturnType<typeof setTimeout> | undefined;
+let imageryValidationRequestId = 0;
 
 function syncMapPadding() {
   if (!import.meta.client) {
@@ -368,8 +435,12 @@ onBeforeUnmount(() => {
   if (nameCheckDebounce) {
     clearTimeout(nameCheckDebounce);
   }
+  if (imageryValidationDebounce) {
+    clearTimeout(imageryValidationDebounce);
+  }
 
   nameCheckRequestId += 1;
+  imageryValidationRequestId += 1;
   window.removeEventListener('resize', syncMapPadding);
 });
 
@@ -418,6 +489,79 @@ watch(
   { immediate: true },
 );
 
+watch(
+  () => draft.details.imageryUrl,
+  (customImagery) => {
+    if (imageryValidationDebounce) {
+      clearTimeout(imageryValidationDebounce);
+    }
+
+    imageryValidationRequestId += 1;
+    imageryError.value = null;
+
+    if (!customImagery.trim()) {
+      imageryValidating.value = false;
+      return;
+    }
+
+    imageryValidating.value = true;
+    const requestId = imageryValidationRequestId;
+    imageryValidationDebounce = setTimeout(() => {
+      imageryValidationDebounce = undefined;
+      void validateCustomImagery(customImagery, requestId).then((result) => {
+        if (!isCurrentImageryValidation(customImagery, requestId)) {
+          return;
+        }
+
+        imageryError.value = result.error;
+      });
+    }, IMAGERY_VALIDATION_DEBOUNCE_MS);
+  },
+  { immediate: true },
+);
+
+async function validateCustomImagery(customImagery: string, requestId: number) {
+  try {
+    return await validateProjectCustomImagery(
+      customImagery,
+      imagerySchemaUrl,
+      imagerySchema,
+    );
+  }
+  catch (error) {
+    console.error('Custom imagery validation failed', error);
+    return {
+      data: null,
+      error: 'Custom imagery could not be validated. Please try again.',
+    };
+  }
+  finally {
+    if (requestId === imageryValidationRequestId) {
+      imageryValidating.value = false;
+    }
+  }
+}
+
+function isCurrentImageryValidation(customImagery: string, requestId: number) {
+  return requestId === imageryValidationRequestId
+    && customImagery === draft.details.imageryUrl;
+}
+
+async function validateCurrentCustomImagery() {
+  if (imageryValidationDebounce) {
+    clearTimeout(imageryValidationDebounce);
+    imageryValidationDebounce = undefined;
+  }
+
+  const customImagery = draft.details.imageryUrl;
+  const requestId = ++imageryValidationRequestId;
+  imageryValidating.value = true;
+  imageryError.value = null;
+  const result = await validateCustomImagery(customImagery, requestId);
+
+  return { customImagery, requestId, result };
+}
+
 function updateDetailsField(fieldId: ProjectWizardDetailsFieldId, value: string) {
   draft.details[fieldId] = value;
 }
@@ -432,6 +576,21 @@ async function exitWizard() {
 }
 
 async function onPrimaryAction() {
+  if (currentStep.value === 'details' && draft.details.imageryUrl.trim()) {
+    const validation = await validateCurrentCustomImagery();
+
+    if (!isCurrentImageryValidation(validation.customImagery, validation.requestId)
+      || currentStep.value !== 'details') {
+      return;
+    }
+
+    imageryError.value = validation.result.error;
+
+    if (validation.result.error) {
+      return;
+    }
+  }
+
   if (currentStep.value === 'review') {
     await submitProject();
     return;
@@ -451,6 +610,10 @@ async function onSecondaryAction() {
 
 async function onSelectStep(step: ProjectWizardStepId) {
   if (createdProject.value) {
+    return;
+  }
+
+  if (step === 'review' && (!detailsStepComplete.value || !areaStepComplete.value)) {
     return;
   }
 
@@ -490,12 +653,23 @@ async function handleStatusDialogSecondaryAction() {
 
 async function submitProject() {
   try {
+    const validation = await validateCurrentCustomImagery();
+
+    if (!isCurrentImageryValidation(validation.customImagery, validation.requestId)) {
+      return;
+    }
+
+    imageryError.value = validation.result.error;
+    if (validation.result.error) {
+      throw new Error(validation.result.error);
+    }
+
     const result = await createProject();
 
     openProjectCreationSuccessDialog(result);
   }
   catch (error) {
-    openProjectCreationErrorDialog(error);
+    await openProjectCreationErrorDialog(error);
   }
 }
 
@@ -516,13 +690,14 @@ function openProjectCreationSuccessDialog(result: ProjectWizardCreateResult) {
   };
 }
 
-function openProjectCreationErrorDialog(error: unknown) {
+async function openProjectCreationErrorDialog(error: unknown) {
   statusDialog.value = {
     variant: 'error',
     title: 'Something went wrong',
-    message: error instanceof Error
-      ? error.message
-      : 'Project could not be created. Please try again.',
+    message: await resolveHttpErrorMessage(
+      error,
+      'Project could not be created. Please try again.',
+    ),
     primaryActionLabel: 'Try Again',
     primaryActionType: 'retry-create',
     primaryRoute: '',
@@ -538,21 +713,20 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
 @import "~/assets/scss/theme.scss";
 
 .project-create-page {
-  height: calc(100vh - #{$navbar-height});
-  padding-top: 1rem !important;
-  padding-bottom: 1rem !important;
+  height: 100%;
+  position: relative;
   overflow: hidden;
 }
 
 .project-create-shell {
-  position: relative;
+  position: absolute;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
-  background: #a9d3e6;
-  border: 1px solid rgba($text-navy, 0.12);
-  box-shadow: $box-shadow;
+  background: $surface-card;
   overflow: hidden;
+  width: 100%;
+  top: 0;
 }
 
 .project-create-header {
@@ -562,9 +736,9 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.2rem 1.5rem;
-  background-color: #fff;
-  border-bottom: 1px solid rgba($text-navy, 0.1);
+  padding: 0.9375rem 2.5rem;
+  background-color: $surface-card;
+  box-shadow: $header-shadow;
 }
 
 .project-create-header-copy {
@@ -577,9 +751,8 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   margin: 0;
   padding-right: 1.45rem;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
-  font-size: 1.15rem;
-  font-weight: 700;
+  font-size: 1.375rem;
+  font-weight: 600;
   line-height: 1.2;
   border-right: 1px solid rgba($text-navy, 0.15);
 }
@@ -591,13 +764,12 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
 }
 
 .project-create-workspace-label {
-  color: rgba($secondary, 0.95);
-  font-size: 0.95rem;
+  color: $text-secondary;
+  font-size: 0.875rem;
 }
 
 .project-create-workspace-copy strong {
-  font-family: var(--secondary-font-family);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -624,7 +796,7 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100%;
-  background-color: #fff;
+  background-color: $surface-card;
   border: 1px solid rgba($text-navy, 0.1);
   box-shadow: 0 0.45rem 1.2rem rgba($text-navy, 0.08);
   overflow: hidden;
@@ -670,7 +842,7 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   gap: 1rem;
   padding: 1rem 1.4rem;
   border-top: 1px solid rgba($text-navy, 0.1);
-  background-color: #fff;
+  background-color: $surface-card;
 }
 
 .project-create-footer-actions {
@@ -724,6 +896,7 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   }
 
   .project-create-shell {
+    position: relative;
     height: auto;
     min-height: calc(100vh - #{$navbar-height} - 2rem);
   }

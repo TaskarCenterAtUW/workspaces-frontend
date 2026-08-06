@@ -9,7 +9,7 @@
       <div class="project-wizard-settings-row">
         <div class="project-wizard-settings-copy">
           <h3 class="project-wizard-settings-heading">Lock Timeout</h3>
-          <p class="project-wizard-settings-text">Project will be locked for specific hours</p>
+          <p class="project-wizard-settings-text">Unlock tasks after the specified number of hours pass</p>
         </div>
 
         <div class="project-wizard-settings-lock-control">
@@ -25,10 +25,10 @@
           >
             <option
               v-for="hourOption in hourOptions"
-              :key="hourOption"
-              :value="hourOption"
+              :key="hourOption.value"
+              :value="hourOption.value"
             >
-              {{ String(hourOption).padStart(2, '0') }}
+              {{ hourOption.label }}
             </option>
           </select>
           <span class="project-wizard-settings-select-suffix">hours</span>
@@ -62,12 +62,14 @@
       </div>
 
       <project-wizard-assign-users-field
+        :error="workspaceUsersError"
         :loading="workspaceUsersLoading"
         :search-query="validatorSearchQuery"
         :search-results="workspaceUsers"
         :selected-users="selectedValidators"
         @add:user="emit('add:validator', $event)"
         @remove:user="emit('remove:validator', $event)"
+        @retry="emit('retry:workspace-users')"
         @update:search="emit('update:validator-search', $event)"
       />
     </section>
@@ -79,8 +81,7 @@
 
       <client-only fallback-tag="div">
         <project-wizard-rich-text-editor
-          :model-value="instructions"
-          @update:model-value="emit('update:instructions', $event)"
+          v-model="instructionsModel"
         />
       </client-only>
     </section>
@@ -101,13 +102,15 @@ interface Props {
   step: ProjectWizardSettingsStepDefinition;
   validatorSearchQuery: string;
   workspaceUsers: ProjectWizardWorkspaceUser[];
+  workspaceUsersError?: string | null;
   workspaceUsersLoading: boolean;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 const emit = defineEmits<{
   'add:validator': [user: ProjectWizardWorkspaceUser];
   'remove:validator': [userId: string];
+  'retry:workspace-users': [];
   'update:instructions': [value: string];
   'update:lock-timeout-hours': [value: number];
   'update:review-required': [value: boolean];
@@ -115,7 +118,18 @@ const emit = defineEmits<{
 }>();
 
 const lockTimeoutId = 'project-wizard-settings-lock-timeout';
-const hourOptions = Array.from({ length: 24 }, (_, index) => index + 1);
+const hourOptions = Array.from({ length: 24 }, (_, index) => {
+  const value = index + 1;
+
+  return {
+    label: String(value).padStart(2, '0'),
+    value
+  };
+});
+const instructionsModel = computed({
+  get: () => props.instructions,
+  set: value => emit('update:instructions', value)
+});
 
 function onLockTimeoutChange(event: Event) {
   emit('update:lock-timeout-hours', Number((event.target as HTMLSelectElement).value));
@@ -131,7 +145,7 @@ function onReviewRequiredChange(event: Event) {
 
 .project-wizard-step-settings {
   display: grid;
-  gap: 1.4rem;
+  gap: 1.875rem;
 }
 
 .project-wizard-step-header,
@@ -143,7 +157,6 @@ function onReviewRequiredChange(event: Event) {
 .project-wizard-step-title {
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.15;

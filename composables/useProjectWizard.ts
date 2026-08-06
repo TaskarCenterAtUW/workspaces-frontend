@@ -5,6 +5,7 @@ import {
   createDefaultProjectWizardDraft,
   getProjectWizardStepDefinition,
 } from '~/services/project-wizard-definitions';
+import { isValidProjectWizardStoredState } from '~/util/project-wizard-storage';
 
 import type {
   ProjectWizardCreatedProjectCheckpoint,
@@ -30,7 +31,12 @@ function readStoredState(workspaceId: WorkspaceId): ProjectWizardStoredState | n
   }
 
   try {
-    return JSON.parse(serializedState) as ProjectWizardStoredState;
+    const parsed: unknown = JSON.parse(serializedState);
+    if (!isValidProjectWizardStoredState(parsed)) {
+      localStorage.removeItem(createStorageKey(workspaceId));
+      return null;
+    }
+    return parsed;
   }
   catch {
     localStorage.removeItem(createStorageKey(workspaceId));
@@ -59,10 +65,6 @@ function serializeStoredState(state: ProjectWizardStoredState) {
 }
 
 function shouldPersistState(state: ProjectWizardStoredState) {
-  if (state.createdProject) {
-    return false;
-  }
-
   const defaultState: ProjectWizardStoredState = {
     createdProject: null,
     currentStep: 'details',
@@ -92,7 +94,7 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
       return;
     }
 
-    createdProject.value = null;
+    createdProject.value = state.createdProject;
     currentStep.value = PROJECT_WIZARD_STEPS.includes(state.currentStep)
       ? state.currentStep
       : 'details';
@@ -186,24 +188,35 @@ export function useProjectWizard(workspaceId: WorkspaceId) {
     applyStoredState(readStoredState(workspaceId));
   }
 
+  let persistTimer: ReturnType<typeof setTimeout> | undefined;
+
   watch(
     [currentStep, draft, createdProject],
     () => {
-      const state: ProjectWizardStoredState = {
-        createdProject: structuredClone(toRaw(createdProject.value)),
-        currentStep: currentStep.value,
-        draft: structuredClone(toRaw(draft)),
-      };
+      clearTimeout(persistTimer);
+      persistTimer = setTimeout(() => {
+        const state: ProjectWizardStoredState = {
+          createdProject: structuredClone(toRaw(createdProject.value)),
+          currentStep: currentStep.value,
+          draft: structuredClone(toRaw(draft)),
+        };
 
-      if (!shouldPersistState(state)) {
-        clearStoredState(workspaceId);
-        return;
-      }
-
-      writeStoredState(workspaceId, state);
+        try {
+          if (!shouldPersistState(state)) {
+            clearStoredState(workspaceId);
+            return;
+          }
+          writeStoredState(workspaceId, state);
+        }
+        catch {
+          // storage quota or access error — do not break the watcher
+        }
+      }, 300);
     },
     { deep: true },
   );
+
+  onUnmounted(() => clearTimeout(persistTimer));
 
   return {
     clearDraft,

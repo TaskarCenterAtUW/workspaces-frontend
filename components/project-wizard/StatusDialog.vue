@@ -203,6 +203,7 @@ function handleWindowKeydown(event: KeyboardEvent) {
   color: rgba($secondary, 0.98);
   font-size: 1rem;
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .project-wizard-status-dialog-actions {

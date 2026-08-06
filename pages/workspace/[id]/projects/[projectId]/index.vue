@@ -1,6 +1,7 @@
 <template>
   <app-page
     fluid
+    padding="none"
     class="project-detail-page"
   >
     <div class="project-detail-layout">
@@ -11,6 +12,15 @@
         }"
       >
         <section class="project-detail-content">
+          <p
+            v-if="permissionLoadError"
+            class="alert alert-warning m-3"
+            role="alert"
+          >
+            Your project permissions could not be loaded. Task and project actions are
+            temporarily unavailable. Refresh the page to try again.
+          </p>
+
           <header class="project-detail-hero">
             <nav
               class="project-detail-breadcrumbs"
@@ -28,21 +38,37 @@
                 {{ project.name }}
               </h2>
 
-              <button
-                v-if="showActivateProjectButton"
-                class="btn project-detail-activate-button"
-                type="button"
-                :disabled="isActivatingProject"
-                @click="handleActivateProject"
-              >
-                <app-spinner
-                  v-if="isActivatingProject"
-                  size="sm"
-                />
-                <template v-else>
-                  Activate Project
-                </template>
-              </button>
+              <div class="project-detail-hero-actions">
+                <button
+                  v-if="showProjectEditButton"
+                  class="btn project-detail-edit-button"
+                  type="button"
+                  aria-label="Edit project"
+                  @click="openProjectEditPage"
+                >
+                  <app-icon
+                    variant="edit"
+                    size="20"
+                    no-margin
+                  />
+                </button>
+
+                <button
+                  v-if="showActivateProjectButton"
+                  class="btn project-detail-activate-button"
+                  type="button"
+                  :disabled="isActivatingProject"
+                  @click="handleActivateProject"
+                >
+                  <app-spinner
+                    v-if="isActivatingProject"
+                    size="sm"
+                  />
+                  <template v-else>
+                    Activate Project
+                  </template>
+                </button>
+              </div>
             </div>
 
             <div class="project-detail-progress-copy">
@@ -205,7 +231,7 @@
         :action-label="selectedTaskPrimaryActionLabel"
         :busy="selectedTaskActionBusy"
         :show-action-button="showSelectedTaskActionButton"
-        :status-label="formatTaskStatus(selectedTask)"
+        :status-label="selectedTaskStatusLabel"
         :task="selectedTask"
         @action="handleSelectedTaskAction"
         @close="clearSelectedTask"
@@ -235,7 +261,9 @@ import {
   PROJECT_WIZARD_TASK_AREA_MINIMUM,
   PROJECT_WIZARD_TASK_AREA_STEP,
 } from '~/services/project-wizard-tasks';
-import { workspaceProjectsClient, workspacesClient } from '~/services/index';
+import { tdeiUserClient, workspaceProjectsClient, workspacesClient } from '~/services/index';
+import { resolveHttpErrorMessage } from '~/services/http';
+import { isTaskSelfValidation } from '~/util/task-access';
 import { resolveWorkspaceProjectTaskStatusLabel } from '~/util/task-status';
 
 import type {
@@ -273,6 +301,20 @@ const BASE_TABS: ProjectDetailTabOption[] = [
 ];
 
 const workspace = await workspacesClient.getWorkspace(workspaceId);
+let projectGroupRolesLoadFailed = false;
+const myTdeiRoles = await tdeiUserClient.getMyRolesForProjectGroupById(
+  workspace.tdeiProjectGroupId,
+).catch(() => {
+  projectGroupRolesLoadFailed = true;
+  return [];
+});
+const {
+  canEditProjectMetadata,
+  canManageProjectLifecycle,
+} = useWorkspaceProjectPermissions(
+  () => workspace.role,
+  myTdeiRoles,
+);
 const project = ref(await loadProjectDetail());
 const projectAoi = ref(await loadProjectAoi());
 const projectTasks = ref<WorkspaceProjectTaskListItem[] | null>(await loadProjectTasks());
@@ -284,12 +326,11 @@ const projectGroupUsers = ref<ProjectWizardWorkspaceUser[]>([]);
 const currentUserIdForRole = workspaceProjectsClient.auth.subject || null;
 const {
   effectiveRole,
-  isProjectLead,
-  isExplicitProjectLead,
   canValidate,
   canMap,
   canManageContributors,
   promise: rolePromise,
+  roleLoadError,
 } = useProjectRole(
   workspaceId,
   projectId,
@@ -297,14 +338,18 @@ const {
   workspace.role,
 );
 await rolePromise;
+const permissionLoadError = computed(() =>
+  (projectGroupRolesLoadFailed && workspace.role !== 'lead')
+  || roleLoadError.value !== null,
+);
 
 /**
- * The Contributors tab is only visible to project leads.
+ * Project roles can be managed by workspace leads or project leads.
  * All other tabs are always visible.
  */
 const tabs = computed<ProjectDetailTabOption[]>(() => [
   ...BASE_TABS,
-  ...(isExplicitProjectLead.value ? [{ id: 'contributors' as WorkspaceProjectDetailTab, label: 'Contributors' }] : []),
+  ...(canManageContributors.value ? [{ id: 'contributors' as WorkspaceProjectDetailTab, label: 'Contributors' }] : []),
 ]);
 
 // The detail API does not expose separate rich-text fields for overview content yet,
@@ -429,9 +474,18 @@ const selectedTaskLockedByCurrentUser = computed(() =>
   Boolean(selectedTask.value?.lock?.user_id)
   && selectedTask.value?.lock?.user_id === currentUserId.value,
 );
+const selectedTaskStatusLabel = computed(() =>
+  selectedTask.value
+    ? resolveWorkspaceProjectTaskStatusLabel(selectedTask.value, effectiveRole.value)
+    : '',
+);
+const selectedTaskWasLastMappedByCurrentUser = computed(() =>
+  selectedTask.value
+    ? isTaskSelfValidation(selectedTask.value, currentUserId.value)
+    : false,
+);
 const showSelectedTaskBar = computed(() =>
-  activeTab.value === 'tasks'
-  && !showTaskSetup.value
+  !showTaskSetup.value
   && Boolean(selectedTask.value),
 );
 const selectedTaskWorkActionLabel = computed(() => {
@@ -459,6 +513,10 @@ const selectedTaskPrimaryActionLabel = computed(() => {
     return selectedTaskLockedByCurrentUser.value ? selectedTaskWorkActionLabel.value : 'Task Locked';
   }
 
+  if (selectedTaskWasLastMappedByCurrentUser.value) {
+    return 'Cannot Validate Own Mapping';
+  }
+
   return selectedTaskWorkActionLabel.value;
 });
 
@@ -481,6 +539,7 @@ const showSelectedTaskActionButton = computed(() => {
 const selectedTaskActionDisabled = computed(() =>
   !selectedTask.value
   || mutatingTaskNumber.value === selectedTask.value.taskNumber
+  || selectedTaskWasLastMappedByCurrentUser.value
   || (selectedTask.value.locked && !selectedTaskLockedByCurrentUser.value),
 );
 const selectedTaskActionBusy = computed(() =>
@@ -490,8 +549,9 @@ const selectedTaskActionBusy = computed(() =>
   ),
 );
 const showActivateProjectButton = computed(() =>
-  projectRequiresActivation.value && isProjectLead.value,
+  projectRequiresActivation.value && canManageProjectLifecycle.value,
 );
+const showProjectEditButton = computed(() => canEditProjectMetadata.value);
 
 let projectGroupUserSearchDebounce: ReturnType<typeof setTimeout> | undefined;
 let projectGroupUserSearchRequestId = 0;
@@ -577,7 +637,7 @@ async function handleGenerateTasks() {
     await generateTasks();
   }
   catch (error) {
-    openTaskGenerationErrorDialog(error);
+    await openTaskGenerationErrorDialog(error);
   }
 }
 
@@ -589,11 +649,13 @@ async function handleSaveTasks() {
       return;
     }
 
+    // Keep the project summary in sync while the paginated task-list request reloads all tasks.
+    project.value.taskCount = result.taskCount;
     await refreshProjectTaskStateAfterSave();
     openTaskSaveSuccessDialog(result);
   }
   catch (error) {
-    openTaskSaveErrorDialog(error);
+    await openTaskSaveErrorDialog(error);
   }
 }
 
@@ -607,6 +669,16 @@ function selectTask(taskId: string) {
 
 function clearSelectedTask() {
   selectedTaskId.value = null;
+}
+
+async function openProjectEditPage() {
+  if (!canEditProjectMetadata.value) {
+    return;
+  }
+
+  await navigateTo({
+    path: `/workspace/${workspaceId}/projects/${projectId}/edit`,
+  });
 }
 
 async function handleStatusDialogPrimaryAction() {
@@ -634,6 +706,10 @@ async function handleSelectedTaskAction() {
     return;
   }
 
+  if (isTaskSelfValidation(taskToOpen, currentUserId.value)) {
+    return;
+  }
+
   if (taskToOpen.locked) {
     if (!selectedTaskLockedByCurrentUser.value) {
       return;
@@ -652,6 +728,10 @@ async function handleSelectedTaskAction() {
 }
 
 async function handleActivateProject() {
+  if (!canManageProjectLifecycle.value) {
+    return;
+  }
+
   try {
     isActivatingProject.value = true;
 
@@ -737,7 +817,7 @@ async function loadProjectGroupUsers(searchText: string = '') {
   }
   catch (error) {
     if (requestId === projectGroupUserSearchRequestId) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load workspace users');
+      toast.error(await resolveHttpErrorMessage(error, 'Failed to load workspace users'));
     }
   }
   finally {
@@ -748,6 +828,10 @@ async function loadProjectGroupUsers(searchText: string = '') {
 }
 
 function handleOpenAddContributorDialog() {
+  if (!canManageContributors.value) {
+    return;
+  }
+
   if (projectGroupUsersLoaded.value || projectGroupUsersLoading.value) {
     return;
   }
@@ -756,6 +840,10 @@ function handleOpenAddContributorDialog() {
 }
 
 function handleSearchAvailableUsers(value: string) {
+  if (!canManageContributors.value) {
+    return;
+  }
+
   projectGroupUserSearchQuery.value = value;
 
   if (projectGroupUserSearchDebounce) {
@@ -771,6 +859,12 @@ async function handleAddContributor(payload: {
   role: WorkspaceProjectContributor['role'];
   userId: string;
 }) {
+  // A project has one lead, established when the project is created. The add-contributor
+  // workflow may grant tasking roles but must never create another project lead.
+  if (!canManageContributors.value || payload.role === 'lead') {
+    return;
+  }
+
   if (projectContributors.value.some(contributor => contributor.id === payload.userId)) {
     return;
   }
@@ -782,7 +876,7 @@ async function handleAddContributor(payload: {
     projectContributors.value = await workspaceProjectsClient.getWorkspaceProjectRoles(workspaceId, projectId);
   }
   catch (error) {
-    toast.error(error instanceof Error ? error.message : 'Failed to add contributor');
+    toast.error(await resolveHttpErrorMessage(error, 'Failed to add contributor'));
   }
   finally {
     addingContributor.value = false;
@@ -790,6 +884,10 @@ async function handleAddContributor(payload: {
 }
 
 async function confirmRemoveContributor(contributor: WorkspaceProjectContributor) {
+  if (!canManageContributors.value || contributor.role === 'lead') {
+    return;
+  }
+
   const value = await create({
     title: 'Remove Contributor',
     body: `Remove ${contributor.name} from this project?`,
@@ -813,7 +911,7 @@ async function confirmRemoveContributor(contributor: WorkspaceProjectContributor
     );
   }
   catch (error) {
-    toast.error(error instanceof Error ? error.message : 'Failed to remove contributor');
+    toast.error(await resolveHttpErrorMessage(error, 'Failed to remove contributor'));
   }
   finally {
     mutatingContributorId.value = null;
@@ -824,11 +922,20 @@ async function handleUpdateContributorRole(payload: {
   contributorId: string;
   role: WorkspaceProjectContributor['role'];
 }) {
+  if (!canManageContributors.value) {
+    return;
+  }
+
   const existingContributor = projectContributors.value.find(
     contributor => contributor.id === payload.contributorId,
   );
 
-  if (!existingContributor || existingContributor.role === payload.role) {
+  if (
+    !existingContributor
+    || existingContributor.role === 'lead'
+    || payload.role === 'lead'
+    || existingContributor.role === payload.role
+  ) {
     return;
   }
 
@@ -871,7 +978,7 @@ async function handleUpdateContributorRole(payload: {
       };
     });
 
-    toast.error(error instanceof Error ? error.message : 'Failed to update contributor role');
+    toast.error(await resolveHttpErrorMessage(error, 'Failed to update contributor role'));
   }
   finally {
     mutatingContributorId.value = null;
@@ -885,8 +992,7 @@ onBeforeUnmount(() => {
 });
 
 async function hydrateProjectDataFromApi() {
-  // Refresh the independent project, AOI, and task resources opportunistically so one
-  // failed request does not wipe out the rest of the page state.
+  // Refresh independent resources concurrently so one failure does not wipe out the rest.
   const [projectResult, aoiResult, tasksResult, contributorsResult] = await Promise.allSettled([
     workspaceProjectsClient.getWorkspaceProjectDetail(workspaceId, projectId),
     workspaceProjectsClient.getWorkspaceProjectAoi(workspaceId, projectId),
@@ -976,25 +1082,27 @@ function openTaskSaveSuccessDialog(result: ProjectWizardTaskSaveSummary) {
   };
 }
 
-function openTaskGenerationErrorDialog(error: unknown) {
+async function openTaskGenerationErrorDialog(error: unknown) {
   statusDialog.value = {
     variant: 'error',
     title: 'Generate failed',
-    message: error instanceof Error
-      ? error.message
-      : 'Tasks could not be generated. Please try again.',
+    message: await resolveHttpErrorMessage(
+      error,
+      'Tasks could not be generated. Please try again.',
+    ),
     primaryActionLabel: 'Try Again',
     primaryActionType: 'retry-generate',
   };
 }
 
-function openTaskSaveErrorDialog(error: unknown) {
+async function openTaskSaveErrorDialog(error: unknown) {
   statusDialog.value = {
     variant: 'error',
     title: 'Save failed',
-    message: error instanceof Error
-      ? error.message
-      : 'Tasks could not be saved. Please try again.',
+    message: await resolveHttpErrorMessage(
+      error,
+      'Tasks could not be saved. Please try again.',
+    ),
     primaryActionLabel: 'Try Again',
     primaryActionType: 'retry-save',
   };
@@ -1010,46 +1118,13 @@ function openTaskLockErrorDialog(message: string) {
   };
 }
 
-function formatTaskStatus(task: Pick<WorkspaceProjectTaskListItem, 'locked' | 'status'>) {
-  return resolveWorkspaceProjectTaskStatusLabel(task, effectiveRole.value);
-}
-
 async function resolveTaskMutationErrorMessage(error: unknown, fallbackMessage: string) {
-  if (!(error instanceof Error) || !('response' in error)) {
-    return fallbackMessage;
-  }
-
-  const response = (error as { response?: Response }).response;
-
-  if (!response) {
-    return fallbackMessage;
-  }
-
-  try {
-    // FastAPI-style validation errors come back in `detail[]`, so prefer that over the generic
-    // HTTP status text when present.
-    const body = await response.clone().json() as {
-      detail?: Array<{ msg?: string }> | string;
-    };
-
-    if (typeof body.detail === 'string' && body.detail.trim()) {
-      return body.detail;
-    }
-
-    if (Array.isArray(body.detail) && body.detail[0]?.msg) {
-      return body.detail[0].msg;
-    }
-  }
-  catch {
-    // Fall back to the generic message when the API does not return a parseable JSON body.
-  }
-
-  return error.message || fallbackMessage;
+  return await resolveHttpErrorMessage(error, fallbackMessage);
 }
 
 function resolveProjectDescriptionHtml() {
-  if (project.value.summary?.trim()) {
-    return `<p>${escapeHtml(project.value.summary)}</p>`;
+  if (project.value.description?.trim()) {
+    return `<p>${escapeHtml(project.value.description)}</p>`;
   }
 
   return '<p>Project description is not available.</p>';
@@ -1080,8 +1155,6 @@ function escapeHtml(value: string) {
   display: flex;
   flex-direction: column;
   height: calc(100vh - #{$navbar-height});
-  padding-top: 1rem !important;
-  padding-bottom: 1rem !important;
   overflow: hidden;
 }
 
@@ -1098,9 +1171,9 @@ function escapeHtml(value: string) {
   grid-template-columns: minmax(0, 50%) minmax(0, 50%);
   height: 100%;
   min-height: 0;
-  background: #ffffff;
+  background: $surface-card;
   border: 1px solid rgba($text-navy, 0.12);
-  border-radius: 1rem;
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -1114,15 +1187,13 @@ function escapeHtml(value: string) {
   flex-direction: column;
   height: 100%;
   min-width: 0;
-  background: #ffffff;
+  background: $surface-card;
   overflow-y: auto;
 }
 
 .project-detail-hero {
   padding: 2.2rem 2.5rem 2rem;
-  background:
-    radial-gradient(circle at top left, rgba(244, 240, 251, 0.98), rgba(244, 240, 251, 0.7) 44%, rgba(244, 240, 251, 0.28) 100%),
-    linear-gradient(180deg, #faf8fe 0%, #f7f3fc 100%);
+  background: linear-gradient(283deg, $hero-gradient-start 0%, $hero-gradient-end 100%);
   border-bottom: 1px solid rgba($text-navy, 0.08);
 }
 
@@ -1131,8 +1202,9 @@ function escapeHtml(value: string) {
   flex-wrap: wrap;
   gap: 0.55rem;
   margin-bottom: 1.25rem;
-  color: #757d98;
-  font-size: 1rem;
+  color: $text-secondary;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .project-detail-breadcrumbs a {
@@ -1147,12 +1219,10 @@ function escapeHtml(value: string) {
 .project-detail-title {
   max-width: 44rem;
   margin: 0;
-  color: #1a1e3d;
-  font-family: var(--secondary-font-family);
-  font-size: clamp(1rem, 2vw, 2rem);
+  color: $text-navy;
+  font-size: 1.625rem;
   font-weight: 600;
-  line-height: 1.18;
-  letter-spacing: -0.03em;
+  line-height: 1.4;
 }
 
 .project-detail-title-row {
@@ -1162,24 +1232,54 @@ function escapeHtml(value: string) {
   gap: 1rem;
 }
 
-.project-detail-activate-button {
-  min-width: 10.5rem;
-  min-height: 2.85rem;
-  padding-inline: 1.15rem;
+.project-detail-hero-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
   flex-shrink: 0;
-  color: #ffffff;
+}
+
+.project-detail-edit-button {
+  width: 2.625rem;
+  height: 2.625rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #4d158d;
+  background: $primary-soft;
+  border: 1px solid rgba(77, 21, 141, 0.28);
+  border-radius: 0.5rem;
+  box-shadow: 0 0.4rem 1rem rgba(77, 21, 141, 0.08);
+}
+
+.project-detail-edit-button:hover:not(:disabled),
+.project-detail-edit-button:focus-visible:not(:disabled) {
+  color: $primary-hover;
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(77, 21, 141, 0.42);
+}
+
+.project-detail-edit-button:disabled {
+  opacity: 0.6;
+}
+
+.project-detail-activate-button {
+  height: 2.625rem;
+  padding: 0 0.9375rem;
+  flex-shrink: 0;
+  color: $white;
   font-size: 0.98rem;
-  font-weight: 700;
-  background: #4d158d;
-  border: 1px solid #4d158d;
-  border-radius: 0.6rem;
+  font-weight: 600;
+  background: $primary;
+  border: 1px solid $primary;
+  border-radius: 0.5rem;
 }
 
 .project-detail-activate-button:hover:not(:disabled),
 .project-detail-activate-button:focus-visible:not(:disabled) {
-  color: #ffffff;
-  background: #421178;
-  border-color: #421178;
+  color: $white;
+  background: $primary-hover;
+  border-color: $primary-hover;
 }
 
 .project-detail-activate-button:disabled {
@@ -1192,23 +1292,26 @@ function escapeHtml(value: string) {
   justify-content: space-between;
   gap: 1rem;
   margin-top: 2.3rem;
-  color: #5f647a;
-  font-size: 1.1rem;
+  color: $text-secondary;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .project-detail-progress-copy strong {
-  color: #5f647a;
+  color: $text-secondary;
   font-weight: 500;
 }
 
 .project-detail-progress-bar {
-  height: 0.45rem;
+  height: 0.625rem;
   margin-top: 0.55rem;
-  background: #e4e7f5;
+  background: $surface-card;
+  border: 1px solid $progress-border;
+  border-radius: 1.25rem;
 }
 
 .project-detail-progress-bar .progress-bar {
-  background: #4e5fe0;
+  background: $progress-fill;
   border-radius: 999px;
 }
 
@@ -1223,13 +1326,13 @@ function escapeHtml(value: string) {
 .project-detail-tab-link {
   position: relative;
   padding-bottom: 1rem;
-  color: #5a607b;
-  font-size: 1.1rem;
+  color: $text-secondary;
+  font-size: 1rem;
   text-decoration: none;
 }
 
 .project-detail-tab-link-active {
-  color: #1a1e3d;
+  color: $text-navy;
   font-weight: 700;
 }
 
@@ -1240,7 +1343,7 @@ function escapeHtml(value: string) {
   right: 0;
   bottom: -1px;
   height: 0.22rem;
-  background: #1a1e3d;
+  background: $text-navy;
   border-radius: 999px;
 }
 
@@ -1250,14 +1353,14 @@ function escapeHtml(value: string) {
 
 .project-detail-card,
 .project-detail-copy-card {
-  background: #ffffff;
-  border: 1px solid rgba($text-navy, 0.1);
-  border-radius: 1rem;
-  box-shadow: 0 0.75rem 2rem rgba($text-navy, 0.08);
+  background: $surface-card;
 }
 
 .project-detail-summary-card {
-  padding: 1.55rem;
+  padding: 1.25rem;
+  border: 1px solid $border-subtle;
+  border-radius: 1rem;
+  margin-bottom: 1.875rem;
 }
 
 .project-detail-summary-grid {
@@ -1267,32 +1370,34 @@ function escapeHtml(value: string) {
 }
 
 .project-detail-summary-item {
-  display: grid;
-  gap: 0.45rem;
+  display: flex;
+  gap: 0.9375rem;
+  min-width: 0;
 }
 
 .project-detail-summary-item span {
-  color: #1a1e3d;
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
+  min-width: 7.5rem;
 }
 
 .project-detail-summary-item strong {
-  color: #5a607b;
-  font-size: 1.05rem;
+  flex: 1;
+  min-width: 0;
+  color: $text-secondary;
+  font-size: 1rem;
   font-weight: 400;
+  overflow-wrap: anywhere;
 }
 
 .project-detail-copy-card {
-  margin-top: 1.35rem;
-  padding: 1.75rem;
+  margin-top: 0;
 }
 
 .project-detail-copy-card h2 {
-  margin: 0 0 1.35rem;
-  color: #1a1e3d;
-  font-family: var(--secondary-font-family);
-  font-size: 1.4rem;
+  margin-bottom: 0.75rem;
+  color: $text-navy;
+  font-size: 1rem;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -1342,8 +1447,12 @@ function escapeHtml(value: string) {
     align-items: flex-start;
   }
 
+  .project-detail-hero-actions {
+    width: 100%;
+  }
+
   .project-detail-title {
-    font-size: 2.2rem;
+    font-size: 1.5rem;
   }
 
   .project-detail-summary-grid {

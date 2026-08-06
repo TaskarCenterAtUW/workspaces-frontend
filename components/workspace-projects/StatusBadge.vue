@@ -67,11 +67,12 @@ const badgeClasses = computed(() => ({
   gap: 0.35rem;
   border: 1px solid currentColor;
   border-radius: 999px;
-  font-size: 0.875rem;
-  font-weight: 400;
+  font-size: 0.75rem;
+  font-weight: 600;
   line-height: 1;
-  padding: 0.38rem 0.72rem;
+  padding: 0.375rem 0.625rem;
   white-space: nowrap;
+  width: fit-content;
 }
 
 .project-status-badge-icon {
@@ -90,20 +91,20 @@ const badgeClasses = computed(() => ({
 }
 
 .project-status-badge-completed {
-  background-color: #f6fcfa;
-  border-color: #d4e4dd;
-  color: #5c9f83;
+  background-color: $status-completed-surface;
+  border-color: $status-completed-border;
+  color: $status-completed-text;
 }
 
 .project-status-badge-in-progress {
-  background-color: #f4fbff;
-  border-color: #c8e0ee;
-  color: #5a97cc;
+  background-color: $status-in-progress-surface;
+  border-color: $status-in-progress-border;
+  color: $status-in-progress-text;
 }
 
 .project-status-badge-draft {
-  background-color: #fffcf5;
-  border-color: #e9e1d3;
-  color: #b88d41;
+  background-color: $status-draft-surface;
+  border-color: $status-draft-border;
+  color: $status-draft-text;
 }
 </style>
