@@ -51,8 +51,8 @@
               Dataset
               <dataset-picker
                 v-model="tdeiRecordId"
-                :project-group-id="projectGroupId ?? ''"
                 :disabled="context.active"
+                :selected-dataset="selectedDataset"
                 required
               />
             </label>
@@ -165,6 +165,7 @@
 import { LoadingContext } from '~/services/loading'
 import { TdeiImporter, TdeiImporterContext } from '~/services/import/tdei';
 import { osmClient, tdeiClient, workspacesClient } from '~/services/index';
+import type { TdeiDatasetSummary } from '~/types/tdei';
 
 declare const L: any;
 
@@ -180,6 +181,18 @@ const workspaceTitle = ref('');
 const projectGroupId = ref<string | null>(null);
 const datasetError = ref<string | null>(null);
 
+const selectedDataset = computed<TdeiDatasetSummary | undefined>(() => {
+  const detail = record.metadata?.dataset_detail;
+  if (!tdeiRecordId.value || !detail?.name) return undefined;
+
+  return {
+    id: tdeiRecordId.value,
+    name: detail.name,
+    version: detail.version,
+    projectGroupName: record.project_group?.name
+  };
+});
+
 watch(tdeiRecordId, val => getDatasetInfo(val));
 
 const complete = computed(() =>
@@ -189,7 +202,9 @@ const complete = computed(() =>
   && datasetError.value === null,
 );
 
+let datasetInfoSequence = 0;
 async function getDatasetInfo(id: string | null) {
+  const requestId = ++datasetInfoSequence;
   datasetError.value = null
 
   if (id === null) {
@@ -203,7 +218,7 @@ async function getDatasetInfo(id: string | null) {
 
   await loading.wrap(tdeiClient, async (client) => {
     const info = await client.getDatasetInfo(id);
-
+    if (requestId !== datasetInfoSequence) return;
     if (!info) return
 
     // Clear stale keys from any previously loaded dataset before merging,
@@ -217,13 +232,14 @@ async function getDatasetInfo(id: string | null) {
 
   await nextTick();
 
+  if (requestId !== datasetInfoSequence) return;
+
   if (!record.project_group?.tdei_project_group_id || !record.tdei_dataset_id) {
     datasetError.value = 'The selected dataset returned incomplete data. Please try a different dataset or contact support.'
     return
   }
 
   workspaceTitle.value = record.metadata?.dataset_detail?.name ?? ''
-  projectGroupId.value = record.project_group.tdei_project_group_id
   tdeiRecordId.value = record.tdei_dataset_id
 
   initMap();

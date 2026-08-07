@@ -108,8 +108,8 @@ function formatTypeLabel(type: string) {
   border-left-color: var(--bs-primary);
   box-shadow: 0 8px 24px rgba(50, 0, 110, 0.14);
   position: sticky;
-  top: 1rem;
-  bottom: 1rem;
+  top: 0;
+  bottom: 0;
 }
 
 .workspace-card-main {

@@ -26,7 +26,7 @@
           :class="{ 'drag-over': isDraggingImagery }"
           rows="5"
           placeholder="Optional"
-          :disabled="!isLead"
+          :disabled="!isLead || isSaving"
           @dragover.prevent="isDraggingImagery = true"
           @dragleave.prevent="isDraggingImagery = false"
           @drop.prevent="onImageryFileDrop"
@@ -62,9 +62,19 @@
       <button
         type="submit"
         class="btn btn-primary"
-        :disabled="!isLead"
+        :disabled="!isLead || isSaving"
+        :aria-busy="isSaving"
       >
-        Save
+        <template v-if="isSaving">
+          <span
+            class="spinner-border spinner-border-sm me-2"
+            aria-hidden="true"
+          />
+          Saving&hellip;
+        </template>
+        <template v-else>
+          Save
+        </template>
       </button>
     </div><!-- .card-body -->
   </form><!-- .card -->
@@ -88,6 +98,7 @@ const imagerySchema = ref<object | undefined>();
 const imageryListDef = ref('');
 const imageryError = ref<string | null>(null);
 const isDraggingImagery = ref(false);
+const isSaving = ref(false);
 
 onMounted(async () => {
   const settings = await workspacesClient.getImagerySettings(workspace.id);
@@ -106,21 +117,24 @@ function onImageryFileDrop(event: DragEvent) {
 }
 
 async function saveImageryConfiguration() {
+  if (isSaving.value) return;
+
+  isSaving.value = true;
   clearImageryMessages();
 
-  const imageryResult = await validateJson(
-    imageryListDef.value,
-    imagerySchemaUrl,
-    imagerySchema,
-    'Imagery definition',
-  );
-
-  if (imageryResult.error) {
-    imageryError.value = imageryResult.error;
-    return;
-  }
-
   try {
+    const imageryResult = await validateJson(
+      imageryListDef.value,
+      imagerySchemaUrl,
+      imagerySchema,
+      'Imagery definition',
+    );
+
+    if (imageryResult.error) {
+      imageryError.value = imageryResult.error;
+      return;
+    }
+
     await workspacesClient.saveImageryDefSettings(workspace.id, {
       definition: imageryResult.data,
     });
@@ -129,6 +143,9 @@ async function saveImageryConfiguration() {
   catch (e) {
     const errorMessage = e instanceof Error ? e.message : 'unexpected error';
     toast.error('Failed to save changes: ' + errorMessage);
+  }
+  finally {
+    isSaving.value = false;
   }
 }
 </script>

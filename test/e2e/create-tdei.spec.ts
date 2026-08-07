@@ -162,16 +162,40 @@ async function fillForm(page: Page) {
   await pgInput.click();
   await page.getByRole('listitem').filter({ hasText: 'Puget Sound' }).first().click();
 
-  // Choose the dataset; this fires getDatasetInfo which auto-fills the title.
-  // DatasetPicker is a native <select> whose option values are dataset ids and
-  // whose display text is "{name} (version {v})"; select the first real option
-  // (index 1, after the disabled placeholder at index 0).
-  await page.getByLabel('Dataset Selection').selectOption({ index: 1 });
+  await page.getByRole('combobox', { name: 'Dataset Selection' }).click();
+  await page.getByRole('option', { name: /Downtown Sidewalks/ }).click();
 
   await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeEnabled();
 }
 
 test.describe('create workspace from TDEI', () => {
+  test('dataset picker is accessible and requests all datasets', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubHappyPath(page);
+
+    let listRequestUrl = '';
+    await page.route('**/tdei/datasets**', (route) => {
+      const url = new URL(route.request().url());
+      if (!url.searchParams.has('tdei_dataset_id')) {
+        listRequestUrl = url.toString();
+      }
+      return route.fulfill({ json: [TDEI_DATASET] });
+    });
+
+    await page.goto('/workspace/create/tdei');
+
+    const datasetPicker = page.getByRole('combobox', { name: 'Dataset Selection' });
+    await expect(datasetPicker).toHaveAttribute('required', '');
+    await datasetPicker.click();
+    await expect(page.getByRole('option', { name: /Downtown Sidewalks/ })).toBeVisible();
+    await expect.poll(() => listRequestUrl
+      ? new URL(listRequestUrl).searchParams.get('status')
+      : null).toBe('All');
+
+    await datasetPicker.press('ArrowDown');
+    await expect(datasetPicker).toHaveAttribute('aria-activedescendant', /-option-0$/);
+  });
+
   // @test e2e: submitting the form with valid values shows a loading state, then redirects to the dashboard with the
   //            new workspace selected (playwright snapshot the loading state)
   test('valid submit shows a loading state then redirects to the dashboard with the new workspace', async ({ page }) => {
