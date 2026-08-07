@@ -15,7 +15,9 @@ import type {
   WorkspaceProjectRoleApiItem,
   WorkspaceProjectRolesApiResponse,
   WorkspaceProjectTaskApiItem,
+  WorkspaceProjectTaskApiFeedback,
   WorkspaceProjectTaskDetail,
+  WorkspaceProjectTaskFeedback,
   WorkspaceProjectTaskListItem,
   WorkspaceProjectTaskSubmitPayload,
   WorkspaceProjectTasksApiResponse,
@@ -161,8 +163,21 @@ function normalizeProjectTaskDetail(task: WorkspaceProjectTaskApiItem): Workspac
     ...normalizeProjectTask(task),
     areaSquareKilometers: task.area_sqkm,
     createdAt: new Date(task.created_at),
+    feedback: (task.feedback ?? []).map(normalizeProjectTaskFeedback),
     lastMapperName: task.last_mapper?.user_name ?? null,
     updatedAtIso: task.updated_at,
+  };
+}
+
+function normalizeProjectTaskFeedback(
+  feedback: WorkspaceProjectTaskApiFeedback,
+): WorkspaceProjectTaskFeedback {
+  return {
+    reasonCategory: feedback.reason_category,
+    notes: feedback.notes,
+    createdAt: new Date(feedback.created_at),
+    createdByUserId: feedback.created_by_user_id,
+    createdByUserName: feedback.created_by_user_name,
   };
 }
 
