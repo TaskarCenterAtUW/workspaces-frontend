@@ -475,7 +475,7 @@ function openAddContributorDialog() {
   padding: 0.75rem 0.9rem;
   color: $text-navy;
   background: #ffffff;
-  border: 1px solid rgba($text-navy, 0.1);
+  border: 1px solid #dee2e6;
   border-radius: 0.35rem;
   box-shadow: inset 0 1px 2px rgba($text-navy, 0.02);
 }
@@ -614,6 +614,10 @@ function openAddContributorDialog() {
   padding: 0;
   border-radius: 0.35rem;
   flex: 0 0 auto;
+  border: 1px solid #dee2e6;
+}
+.project-detail-contributors-delete:hover {
+  border: 1px solid #dc3545;
 }
 
 .project-detail-contributors-empty {

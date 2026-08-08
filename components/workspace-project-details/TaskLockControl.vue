@@ -34,6 +34,7 @@
         variant="lock"
         size="16"
         no-margin
+        class="task-lock-icon-size"
       />
     </span>
 

@@ -97,7 +97,7 @@ defineEmits<{
   padding: 0;
   color: #db4b4b;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
 }
 

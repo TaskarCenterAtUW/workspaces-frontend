@@ -269,12 +269,13 @@ function selectUser(userId: string) {
 
 .project-detail-add-contributor-search-input {
   padding-right: 2.5rem;
+  border-radius: 4px;
 }
 
 .project-detail-add-contributor-results {
   min-height: 8rem;
   border: 1px solid rgba($text-navy, 0.12);
-  border-radius: 0.75rem;
+  border-radius: 8px;
   background: #ffffff;
   overflow: hidden;
 }
