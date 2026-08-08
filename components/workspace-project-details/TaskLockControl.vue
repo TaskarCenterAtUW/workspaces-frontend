@@ -16,6 +16,7 @@
         variant="lock"
         size="16"
         no-margin
+        class="task-lock-icon-size"
       />
       <app-icon
         :variant="menuOpen ? 'keyboard_arrow_up' : 'keyboard_arrow_down'"
@@ -140,20 +141,23 @@ function handleWindowPointerDown(event: PointerEvent) {
 
 .project-detail-task-lock-button,
 .project-detail-task-lock-indicator {
-  min-width: 2.15rem;
-  height: 2rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.05rem;
+  gap: 2px;
   color: #d94f4f;
   background: #ffffff;
   border: 1px solid rgba($text-navy, 0.14);
-  border-radius: 0.45rem;
+  border-radius: 5px;
+  padding: 2px 5px;
 }
 
 .project-detail-task-lock-button:disabled {
   opacity: 0.55;
+}
+
+.task-lock-icon-size {
+  font-size: 18px;
 }
 
 .project-detail-task-lock-menu {

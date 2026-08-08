@@ -947,7 +947,6 @@ $project-edit-action-spacing: 1.5rem;
 .project-edit-title {
   margin: 0;
   color: #1a1e3d;
-  font-family: var(--secondary-font-family);
   font-size: $project-edit-title-font-size;
   font-weight: 600;
   line-height: 1.15;

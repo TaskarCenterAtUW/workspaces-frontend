@@ -201,20 +201,23 @@ defineEmits<{
   .project-detail-task-action-bar {
     flex-wrap: wrap;
     padding: 1rem 1.75rem;
+    position: fixed;
+    bottom: 0px;
+    width: 100%
   }
 
-  .project-detail-task-action-summary {
-    justify-content: flex-start;
-  }
+  // .project-detail-task-action-summary {
+  //   justify-content: flex-start;
+  // }
 }
 
 @include media-breakpoint-down(md) {
-  .project-detail-task-action-summary {
-    width: 100%;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
+  // .project-detail-task-action-summary {
+  //   width: 100%;
+  //   flex-direction: column;
+  //   align-items: flex-start;
+  //   gap: 1rem;
+  // }
 
   .project-detail-task-action-status {
     padding-left: 0;

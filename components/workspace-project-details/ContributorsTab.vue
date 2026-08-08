@@ -405,8 +405,7 @@ function openAddContributorDialog() {
 
 .project-detail-contributors-card {
   display: grid;
-  gap: 1.25rem;
-  padding: 1rem 1rem 0.85rem;
+  gap: 25px;
   background: linear-gradient(180deg, rgba(#ffffff, 0.98) 0%, rgba(#fbfbff, 0.96) 100%);
 }
 
@@ -418,25 +417,23 @@ function openAddContributorDialog() {
 }
 
 .project-detail-contributors-add {
-  min-height: 3rem;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  padding-inline: 1rem;
+  padding: 8px 10px;
   flex-shrink: 0;
 }
 
 .project-detail-contributors-copy h2 {
   margin: 0;
-  color: #1a1e3d;
-  font-size: 1.9rem;
-  font-family: var(--secondary-font-family);
+  color: $text-navy;
+  font-size: 18px;
   font-weight: 700;
 }
 
 .project-detail-contributors-copy p {
   margin: 0.35rem 0 0;
-  color: #66708f;
+  color: $text-secondary;
   font-size: 1rem;
 }
 
@@ -454,10 +451,10 @@ function openAddContributorDialog() {
 .project-detail-contributors-search .form-control {
   min-height: 3.1rem;
   padding-left: 2.75rem;
-  color: #3f4763;
+  color: $text-navy;
   background: #ffffff;
   border-color: rgba($text-navy, 0.1);
-  border-radius: 0.85rem;
+  border-radius: 0.35rem;
   box-shadow: inset 0 1px 2px rgba($text-navy, 0.02);
 }
 
@@ -476,10 +473,10 @@ function openAddContributorDialog() {
 .project-detail-contributors-card :deep(.tdei-select-toggle) {
   min-height: 3.1rem;
   padding: 0.75rem 0.9rem;
-  color: #4f5672;
+  color: $text-navy;
   background: #ffffff;
   border: 1px solid rgba($text-navy, 0.1);
-  border-radius: 0.85rem;
+  border-radius: 0.35rem;
   box-shadow: inset 0 1px 2px rgba($text-navy, 0.02);
 }
 
@@ -491,7 +488,7 @@ function openAddContributorDialog() {
 
 .project-detail-contributors-list-wrap {
   border: 1px solid rgba($text-navy, 0.08);
-  border-radius: 1rem;
+  border-radius: 10px;
   background: #ffffff;
   overflow: visible;
 }
@@ -511,7 +508,7 @@ function openAddContributorDialog() {
 }
 
 .project-detail-contributors-item {
-  padding: 1rem 1.25rem;
+  padding: 20px 20px;
   border-top: 1px solid rgba($text-navy, 0.08);
 }
 
@@ -551,16 +548,15 @@ function openAddContributorDialog() {
 
 .project-detail-contributors-person h3 {
   margin: 0;
-  color: #1a1e3d;
+  color: $text-navy;
   font-size: 1rem;
-  font-family: var(--secondary-font-family);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .project-detail-contributors-person p {
   margin: 0.22rem 0 0;
-  color: #66708f;
-  font-size: 0.93rem;
+  color: $text-secondary;
+  font-size: 14px;
 }
 
 .project-detail-contributors-role-cell {
@@ -583,23 +579,24 @@ function openAddContributorDialog() {
 }
 
 .project-detail-contributors-role-cell :deep(.tdei-select-toggle) {
-  min-height: 2.75rem;
-  padding: 0.7rem 0.9rem;
-  font-weight: 600;
-  border-radius: 0.8rem;
+    min-height: 40px;
+    padding: 8px 12px;
+    font-weight: 600;
+    border-radius: 0.35rem;
+    font-size: 14px;
 }
 
 .project-detail-contributors-role-readonly {
   min-width: 12.5rem;
-  min-height: 2.75rem;
+  min-height: 40px;
   display: inline-flex;
   align-items: center;
-  padding: 0.7rem 0.9rem;
+  padding: 8px 12px;
   color: $text-secondary;
   font-weight: 600;
   background: $surface-card;
   border: 1px solid $border-subtle;
-  border-radius: 0.8rem;
+  border-radius: 0.35rem;
 }
 
 .project-detail-contributors-role-cell :deep(.tdei-select-menu) {
@@ -609,13 +606,13 @@ function openAddContributorDialog() {
 }
 
 .project-detail-contributors-delete {
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 40px;
+  height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border-radius: 0.8rem;
+  border-radius: 0.35rem;
   flex: 0 0 auto;
 }
 

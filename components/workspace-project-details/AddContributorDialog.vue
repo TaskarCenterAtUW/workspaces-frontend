@@ -342,8 +342,8 @@ function selectUser(userId: string) {
 
 .project-detail-add-contributor-user-copy strong {
   color: $text-navy;
-  font-size: 0.96rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
   line-height: 1.25;
 }
 
