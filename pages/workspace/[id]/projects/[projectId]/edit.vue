@@ -749,7 +749,7 @@ async function confirmDiscardProjectEdits() {
     okTitle: 'Discard',
     okVariant: 'danger',
     cancelTitle: 'Continue Editing',
-    cancelClass: 'btn-link p-0',
+    cancelClass: 'btn-link',
     cancelVariant: null,
   }).show();
 
@@ -877,7 +877,7 @@ function getInitial(value: string) {
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
-$project-edit-header-padding: 1.25rem 1.75rem 1.2rem;
+$project-edit-header-padding: 25px 30px;
 $project-edit-header-padding-mobile: 1.25rem 1rem;
 $project-edit-breadcrumb-gap: 0.45rem;
 $project-edit-breadcrumb-spacing: 0.75rem;
@@ -904,24 +904,25 @@ $project-edit-control-font-size: 0.95rem;
 $project-edit-small-font-size: 0.9rem;
 $project-edit-nav-radius: 0.7rem;
 $project-edit-card-radius: 0.75rem;
-$project-edit-panel-gap: 1.25rem;
+$project-edit-panel-gap: 25px;
 $project-edit-field-gap: 0.55rem;
 $project-edit-row-gap: 0.75rem;
-$project-edit-action-gap: 0.9rem;
-$project-edit-action-spacing: 1.5rem;
+$project-edit-action-gap: 20px;
+$project-edit-action-spacing: 30px;
 
 .project-edit-page {
   height: calc(100vh - #{$navbar-height});
   overflow: hidden;
+  padding: 0px 0px !important;
 }
 
 .project-edit-shell {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
-  border: 1px solid rgba($text-navy, 0.1);
-  border-radius: 1rem;
+  // background: #ffffff;
+  // border: 1px solid rgba($text-navy, 0.1);
+  // border-radius: 1rem;
   overflow: hidden;
 }
 
@@ -935,8 +936,9 @@ $project-edit-action-spacing: 1.5rem;
   flex-wrap: wrap;
   gap: $project-edit-breadcrumb-gap;
   margin-bottom: $project-edit-breadcrumb-spacing;
-  color: #757d98;
-  font-size: $project-edit-small-font-size;
+  color: $text-secondary;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .project-edit-breadcrumbs a {
@@ -1161,6 +1163,7 @@ $project-edit-action-spacing: 1.5rem;
 .project-edit-search-input {
   min-height: 3rem;
   padding-right: 3rem;
+  border-radius: 6px;
 }
 
 .project-edit-search-result-actions :deep(.tdei-select-toggle),
@@ -1184,7 +1187,7 @@ $project-edit-action-spacing: 1.5rem;
 .project-edit-search-results,
 .project-edit-members-list {
   border: 1px solid rgba($text-navy, 0.1);
-  border-radius: 1rem;
+  border-radius: 8px;
   background: #ffffff;
 }
 
@@ -1202,8 +1205,7 @@ $project-edit-action-spacing: 1.5rem;
   display: grid;
   align-items: center;
   gap: $project-edit-row-gap;
-  padding: $project-edit-row-padding;
-  background: #ffffff;
+  padding: 18px 15px;
 }
 
 .project-edit-search-result {
@@ -1275,16 +1277,16 @@ $project-edit-action-spacing: 1.5rem;
 }
 
 .project-edit-member-role-readonly {
-  min-width: 11rem;
-  min-height: 3rem;
+  min-width: 8rem;
+  min-height: 2.9rem;
   display: inline-flex;
   align-items: center;
-  padding: 0.75rem 0.9rem;
+  padding: 5px 10px;
   color: $text-secondary;
-  font-weight: 600;
+  font-weight: 500;
   background: $surface-card;
   border: 1px solid $border-subtle;
-  border-radius: 0.8rem;
+  border-radius: 8px;
 }
 
 .project-edit-member-copy {
@@ -1294,7 +1296,7 @@ $project-edit-action-spacing: 1.5rem;
 }
 
 .project-edit-member-copy strong {
-  color: #273156;
+  color: $text-navy;
   font-size: 1rem;
   font-weight: 700;
 }
@@ -1328,7 +1330,7 @@ $project-edit-action-spacing: 1.5rem;
   font-weight: 700;
   background: rgba($primary, 0.08);
   border: 1px solid rgba($primary, 0.18);
-  border-radius: 0.8rem;
+  border-radius: 8px;
 }
 
 .project-edit-search-add:hover,
@@ -1346,8 +1348,8 @@ $project-edit-action-spacing: 1.5rem;
   justify-content: center;
   color: #e14646;
   background: #ffffff;
-  border: 1px solid rgba(225, 70, 70, 0.24);
-  border-radius: 0.65rem;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
 }
 
 .project-edit-member-remove:hover:not(:disabled),
@@ -1543,7 +1545,7 @@ $project-edit-action-spacing: 1.5rem;
 .project-edit-content :deep(.tdei-select-toggle) {
   min-width: 8rem;
   min-height: 2.9rem;
-  border-radius: 0.65rem;
+  border-radius: 8px;
 }
 
 @include media-breakpoint-down(lg) {
@@ -1578,6 +1580,7 @@ $project-edit-action-spacing: 1.5rem;
 
   .project-edit-nav {
     padding-bottom: 1rem;
+    display: block;
   }
 
   .project-edit-nav-item {
@@ -1586,6 +1589,11 @@ $project-edit-action-spacing: 1.5rem;
 
   .project-edit-sidebar-footer {
     padding-top: 1rem;
+    position: fixed;
+    bottom: 0px;
+    width: 100%;
+    background: #ffffff;
+    z-index: 10;
   }
 
   .project-edit-content {
@@ -1595,6 +1603,7 @@ $project-edit-action-spacing: 1.5rem;
   .project-edit-content-inner {
     max-width: none;
     padding: 1.5rem;
+    margin-bottom: 80px;
   }
 
   .project-edit-settings-row {
@@ -1626,6 +1635,7 @@ $project-edit-action-spacing: 1.5rem;
 
   .project-edit-member-item {
     display: grid;
+    gap: 25px;
   }
 
   .project-edit-member-actions {

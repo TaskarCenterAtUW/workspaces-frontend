@@ -896,7 +896,7 @@ async function confirmRemoveContributor(contributor: WorkspaceProjectContributor
     okTitle: 'Remove',
     okVariant: 'danger',
     cancelTitle: 'Cancel',
-    cancelClass: 'btn-link p-0',
+    cancelClass: 'btn-link',
     cancelVariant: null,
   }).show();
 

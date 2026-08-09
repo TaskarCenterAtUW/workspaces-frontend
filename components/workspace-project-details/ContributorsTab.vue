@@ -422,6 +422,7 @@ function openAddContributorDialog() {
   gap: 0.45rem;
   padding: 8px 10px;
   flex-shrink: 0;
+  border-radius: 4px;
 }
 
 .project-detail-contributors-copy h2 {

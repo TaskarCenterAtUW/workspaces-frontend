@@ -207,7 +207,7 @@ function handleWindowKeydown(event: KeyboardEvent) {
   width: min(40rem, 100%);
   display: grid;
   gap: 30px;
-  padding: 2rem 2.15rem 2.05rem;
+  padding: 30px;
   background: #ffffff;
   border-radius: 1.15rem;
   box-shadow: 0 1.25rem 3rem rgba($text-navy, 0.18);
@@ -311,7 +311,7 @@ function handleWindowKeydown(event: KeyboardEvent) {
   }
 
   .app-confirmation-dialog-title {
-    font-size: 1.75rem;
+    font-size: 20px;
   }
 
   .app-confirmation-dialog-actions {

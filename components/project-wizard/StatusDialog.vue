@@ -153,8 +153,8 @@ function handleWindowKeydown(event: KeyboardEvent) {
   position: relative;
   width: min(35.5rem, 100%);
   display: grid;
-  gap: 1.5rem;
-  padding: 1.7rem 1.95rem 1.95rem;
+  gap: 30px;
+  padding: 30px;
   background-color: #fff;
   border-radius: 1rem;
   box-shadow: 0 1rem 2.5rem rgba($text-navy, 0.18);
@@ -173,8 +173,8 @@ function handleWindowKeydown(event: KeyboardEvent) {
 }
 
 .project-wizard-status-dialog-icon {
-  width: 3.6rem;
-  height: 3.6rem;
+  width: 50px;
+  height: 50px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -194,7 +194,7 @@ function handleWindowKeydown(event: KeyboardEvent) {
 .project-wizard-status-dialog-title {
   margin: 0;
   color: $text-navy;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1.1;
 }
@@ -217,6 +217,7 @@ function handleWindowKeydown(event: KeyboardEvent) {
   align-items: center;
   gap: 0.9rem;
   padding-top: 0.35rem;
+  justify-content: flex-end;
 }
 
 .project-wizard-status-dialog-secondary,
