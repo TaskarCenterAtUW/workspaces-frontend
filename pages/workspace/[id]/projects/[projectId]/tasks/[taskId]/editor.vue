@@ -22,6 +22,7 @@
         :actions="taskActions"
         :editor-load-error-message="editorLoadErrorMessage"
         :feedback-reason-options="feedbackReasonOptions"
+        :feedback="task.feedback"
         :instructions="project.instructions"
         :lock-time-remaining="lockTimeRemaining"
         :open="isSidebarOpen"

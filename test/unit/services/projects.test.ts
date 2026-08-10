@@ -98,3 +98,33 @@ describe('WorkspaceProjectsClient.getWorkspaceProjectTasks', () => {
     expect(tasks[1249]?.taskNumber).toBe(1250);
   });
 });
+
+describe('WorkspaceProjectsClient.getWorkspaceProjectTaskDetail', () => {
+  it('normalizes task feedback returned by the detail endpoint', async () => {
+    server.use(
+      http.get(
+        `${TEST_API_BASE}workspaces/1764/tasking/projects/46/tasks/9`,
+        () => HttpResponse.json({
+          ...makeTask(9),
+          feedback: [{
+            reason_category: 'incomplete_mapping',
+            notes: 'Complete the missing crossings.',
+            created_at: '2026-08-06T10:45:34.533Z',
+            created_by_user_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+            created_by_user_name: 'Ada Lovelace',
+          }],
+        }),
+      ),
+    );
+
+    const task = await makeClient().getWorkspaceProjectTaskDetail(1764, 46, 9);
+
+    expect(task.feedback).toEqual([{
+      reasonCategory: 'incomplete_mapping',
+      notes: 'Complete the missing crossings.',
+      createdAt: new Date('2026-08-06T10:45:34.533Z'),
+      createdByUserId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      createdByUserName: 'Ada Lovelace',
+    }]);
+  });
+});

@@ -22,22 +22,24 @@
 
     <div class="task-editor-sidebar-scroll">
       <header class="task-editor-sidebar-hero">
-        <button
-          class="btn btn-link task-editor-back"
-          type="button"
-          @click="emit('back')"
-        >
-          <app-icon
-            variant="chevron_left"
-            size="20"
-            no-margin
-          />
-          Go back
-        </button>
+        <div class="task-editor-heading">
+          <button
+            class="btn btn-link task-editor-back"
+            type="button"
+            @click="emit('back')"
+          >
+            <app-icon
+              variant="chevron_left"
+              size="20"
+              no-margin
+            />
+            Go back
+          </button>
 
-        <h1 class="task-editor-title">
-          {{ projectName }}
-        </h1>
+          <h1 class="task-editor-title">
+            {{ projectName }}
+          </h1>
+        </div>
 
         <div class="task-editor-task-summary">
           <strong>{{ taskLabel }}</strong>
@@ -119,6 +121,24 @@
             :html="instructions"
           />
         </b-tab>
+
+        <b-tab
+          id="task-editor-feedback-panel"
+          button-id="task-editor-feedback-tab"
+          class="task-editor-tab-panel"
+          title-link-class="task-editor-tab"
+        >
+          <template #title>
+            <span class="task-editor-feedback-tab-title">
+              Feedback
+              <span
+                v-if="feedback.length"
+                class="task-editor-feedback-count"
+              >{{ feedback.length }}</span>
+            </span>
+          </template>
+          <task-editor-feedback-panel :feedback="feedback" />
+        </b-tab>
       </b-tabs>
     </div>
 
@@ -169,7 +189,10 @@ import type {
   TaskFeedbackReasonOption,
   TaskReviewDecision,
 } from '~/composables/useTaskEditorContext';
-import type { WorkspaceProjectTaskFeedbackReasonCategory } from '~/types/projects';
+import type {
+  WorkspaceProjectTaskFeedback,
+  WorkspaceProjectTaskFeedbackReasonCategory,
+} from '~/types/projects';
 import type { TaskEditorAction, TaskEditorActionId } from '~/types/task-editor';
 
 interface Props {
@@ -177,6 +200,7 @@ interface Props {
   actionStatusMessage: string;
   actions: TaskEditorAction[];
   editorLoadErrorMessage: string;
+  feedback: WorkspaceProjectTaskFeedback[];
   feedbackReasonOptions: TaskFeedbackReasonOption[];
   instructions: string;
   lockTimeRemaining: string;
@@ -209,6 +233,8 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
+$task-editor-sidebar-handle-top: 5rem;
+
 .task-editor-sidebar {
   min-height: 0;
   position: relative;
@@ -232,7 +258,7 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 }
 
 .task-editor-load-error {
-  margin: 0.85rem 0 0;
+  margin: 0;
   padding: 0.75rem;
   color: $danger-red;
   font-size: 0.9rem;
@@ -273,7 +299,7 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 
 .task-editor-sidebar-handle {
   position: absolute;
-  top: 2rem;
+  top: $task-editor-sidebar-handle-top;
   left: 0.9rem;
   z-index: 1;
   display: inline-flex;
@@ -314,9 +340,16 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 
 .task-editor-sidebar-hero {
   display: grid;
-  gap: 1.25rem;
-  padding: 1.75rem;
+  gap: 0.85rem;
+  padding: 1.25rem 1.75rem 1.5rem;
   background: $purple-background-light;
+}
+
+.task-editor-heading {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
 .task-editor-title {
@@ -333,9 +366,14 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding-top: 1rem;
+  padding-top: 0.75rem;
   color: $secondary;
   border-top: 1px dashed rgba($text-navy, 0.25);
+}
+
+.task-editor-task-summary > strong {
+  flex: none;
+  white-space: nowrap;
 }
 
 .task-editor-task-badges {
@@ -377,7 +415,7 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 
 .task-editor-tabs :deep(.task-editor-tab-list) {
   display: flex;
-  gap: 1.75rem;
+  gap: 0;
   margin: 0;
   padding: 1.25rem 1.75rem 0;
   list-style: none;
@@ -385,8 +423,16 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
   border-bottom: 0.25rem solid rgba($primary, 0.08);
 }
 
+.task-editor-tabs :deep(.task-editor-tab-list > li) {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .task-editor-tabs :deep(.task-editor-tab) {
   position: relative;
+  display: flex;
+  justify-content: center;
+  width: 100%;
   padding: 0 0 0.75rem;
   color: $secondary;
   font-size: 1rem;
@@ -414,6 +460,27 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 
 .task-editor-tabs :deep(.task-editor-tab.active::after) {
   background: $text-navy;
+}
+
+.task-editor-feedback-tab-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.task-editor-feedback-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding-inline: 0.35rem;
+  color: $white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  background: $primary;
+  border-radius: 999px;
 }
 
 .task-editor-tabs :deep(.task-editor-tab-panel) {
@@ -590,6 +657,22 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
   .task-editor-tabs :deep(.task-editor-tab-list),
   .task-editor-tabs :deep(.task-editor-tab-panel) {
     padding-inline: 1rem;
+  }
+
+  .task-editor-tabs :deep(.task-editor-tab) {
+    padding-inline: 0.2rem;
+    font-size: 0.82rem;
+  }
+
+  .task-editor-feedback-tab-title {
+    gap: 0.2rem;
+  }
+
+  .task-editor-feedback-count {
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding-inline: 0.25rem;
+    font-size: 0.68rem;
   }
 
   .task-editor-task-summary {
