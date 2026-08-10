@@ -166,8 +166,8 @@ function onReviewRequiredChange(event: Event) {
 .project-wizard-step-copy,
 .project-wizard-settings-text {
   margin: 0;
-  color: rgba($secondary, 0.95);
-  font-size: 0.95rem;
+  color: $text-secondary;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -186,7 +186,7 @@ function onReviewRequiredChange(event: Event) {
 .project-wizard-settings-heading {
   margin: 0;
   color: $text-navy;
-  font-size: 0.98rem;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.3;
 }

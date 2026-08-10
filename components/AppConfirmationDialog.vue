@@ -37,16 +37,18 @@
         </span>
       </div>
 
-      <h2
-        :id="titleId"
-        class="app-confirmation-dialog-title"
-      >
-        {{ title }}
-      </h2>
+      <div class="app-confirmation-dialog-body">
+        <h2
+          :id="titleId"
+          class="app-confirmation-dialog-title"
+        >
+          {{ title }}
+        </h2>
 
-      <p class="app-confirmation-dialog-message">
-        {{ message }}
-      </p>
+        <p class="app-confirmation-dialog-message">
+          {{ message }}
+        </p>
+      </div>
 
       <div class="app-confirmation-dialog-actions">
         <button
@@ -202,10 +204,10 @@ function handleWindowKeydown(event: KeyboardEvent) {
 
 .app-confirmation-dialog {
   position: relative;
-  width: min(44rem, 100%);
+  width: min(40rem, 100%);
   display: grid;
-  gap: 1rem;
-  padding: 2rem 2.15rem 2.05rem;
+  gap: 30px;
+  padding: 30px;
   background: #ffffff;
   border-radius: 1.15rem;
   box-shadow: 0 1.25rem 3rem rgba($text-navy, 0.18);
@@ -224,8 +226,8 @@ function handleWindowKeydown(event: KeyboardEvent) {
 }
 
 .app-confirmation-dialog-icon {
-  width: 4rem;
-  height: 4rem;
+  width: 50px;
+  height: 50px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -245,16 +247,20 @@ function handleWindowKeydown(event: KeyboardEvent) {
 .app-confirmation-dialog-title {
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
-  font-size: clamp(1.9rem, 2.4vw, 2.3rem);
+  font-size: 20px;
   font-weight: 700;
   line-height: 1.12;
   letter-spacing: -0.03em;
 }
 
+.app-confirmation-dialog-body {
+    display: grid;
+    gap: 15px;
+}
+
 .app-confirmation-dialog-message {
   margin: 0;
-  color: rgba($secondary, 0.98);
+  color: $text-secondary;
   font-size: 1rem;
   line-height: 1.55;
 }
@@ -268,11 +274,9 @@ function handleWindowKeydown(event: KeyboardEvent) {
 
 .app-confirmation-dialog-secondary,
 .app-confirmation-dialog-primary {
-  min-width: 10.5rem;
-  min-height: 3.25rem;
+  min-height: 40px;
   font-size: 1rem;
-  font-weight: 700;
-  border-radius: 0.5rem;
+  font-weight: 600;
 }
 
 .app-confirmation-dialog-primary-default {
@@ -307,7 +311,7 @@ function handleWindowKeydown(event: KeyboardEvent) {
   }
 
   .app-confirmation-dialog-title {
-    font-size: 1.75rem;
+    font-size: 20px;
   }
 
   .app-confirmation-dialog-actions {
