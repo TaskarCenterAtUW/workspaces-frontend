@@ -212,7 +212,6 @@ function formatRole(role: WorkspaceRole): string {
   gap: 0.55rem;
   color: $text-secondary;
   font-family: var(--primary-font-family);
-  font-size: 1.125rem;
   font-style: normal;
   font-weight: 400;
   line-height: 1.625rem;

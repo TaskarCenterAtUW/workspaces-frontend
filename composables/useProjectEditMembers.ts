@@ -243,7 +243,7 @@ export function useProjectEditMembers(options: {
       okTitle: 'Remove',
       okVariant: 'danger',
       cancelTitle: 'Cancel',
-      cancelClass: 'btn-link p-0',
+      cancelClass: 'btn-link',
       cancelVariant: null,
     }).show();
     if (!value?.ok) return;

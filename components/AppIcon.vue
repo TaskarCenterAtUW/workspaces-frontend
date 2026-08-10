@@ -29,7 +29,7 @@ const classes = computed(() => ([
 <style lang="scss">
 .material-icons {
   vertical-align: middle;
-  margin-top: -3px;
+  //margin-top: -3px;
 
   &.me-2 {
     margin-right: 0.33em !important;
