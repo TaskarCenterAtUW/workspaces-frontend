@@ -96,7 +96,7 @@ export class RapidManager {
   async init(
     workspaceId: number,
     customImagerySource: ImagerySource | null = null,
-    changesetHashtags?: string,
+    changesetHashtags?: string
   ): Promise<void> {
     this.rapidContext.workspaceId = workspaceId;
     this.rapidContext.tdeiAuth = this.#tdeiAuth;
@@ -130,7 +130,7 @@ export class RapidManager {
   async switchWorkspace(
     workspaceId: number,
     customImagerySource: ImagerySource | null = null,
-    changesetHashtags?: string,
+    changesetHashtags?: string
   ): Promise<void> {
     this.rapidContext.workspaceId = workspaceId;
     this.#setInitialChangesetHashtags(changesetHashtags);

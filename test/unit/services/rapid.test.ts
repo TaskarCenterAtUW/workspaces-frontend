@@ -26,7 +26,7 @@ describe('RapidManager subscriptions', () => {
       },
       systems: {
         urlhash: {
-          initialHashParams: new Map<string, string>(),
+          initialHashParams: new Map<string, string>()
         },
         editor: {
           changes: () => ({ created: [], deleted: [], modified: [{}] }),
@@ -65,12 +65,12 @@ describe('RapidManager subscriptions', () => {
 
   it('replaces the initial changeset hashtag when initializing another task', async () => {
     const initialHashParams = new Map<string, string>([
-      ['hashtags', '#tm-39-1'],
+      ['hashtags', '#tm-39-1']
     ]);
     const manager = new RapidManager(
       '/rapid/',
       'https://www.openstreetmap.org/',
-      { ok: true } as TdeiAuthStore,
+      { ok: true } as TdeiAuthStore
     );
     manager.rapidContext = {
       initAsync: vi.fn().mockResolvedValue(undefined),
