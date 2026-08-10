@@ -6,6 +6,17 @@ import { convertToRapidImagerySource } from '~/util/rapid-imagery';
 /** Global `Rapid` namespace injected by the Rapid script at runtime. */
 declare const Rapid: any;
 
+type RapidInitialHashParams = Pick<Map<string, string>, 'delete' | 'set'>;
+
+function isRapidInitialHashParams(value: unknown): value is RapidInitialHashParams {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.delete === 'function' && typeof candidate.set === 'function';
+}
+
 export class RapidManager {
   #baseUrl: string;
   #osmUrl: string;
@@ -86,7 +97,7 @@ export class RapidManager {
     workspaceId: number,
     customImagerySource: ImagerySource | null = null,
     changesetHashtags?: string,
-  ) {
+  ): Promise<void> {
     this.rapidContext.workspaceId = workspaceId;
     this.rapidContext.tdeiAuth = this.#tdeiAuth;
     this.rapidContext.preauth = { url: this.#osmUrl, apiUrl: this.#osmUrl };
@@ -120,7 +131,7 @@ export class RapidManager {
     workspaceId: number,
     customImagerySource: ImagerySource | null = null,
     changesetHashtags?: string,
-  ) {
+  ): Promise<void> {
     this.rapidContext.workspaceId = workspaceId;
     this.#setInitialChangesetHashtags(changesetHashtags);
 
@@ -134,11 +145,11 @@ export class RapidManager {
     this.#addCustomImagerySource(customImagerySource);
   }
 
-  #setInitialChangesetHashtags(changesetHashtags?: string) {
-    const initialHashParams = this.rapidContext.systems.urlhash?.initialHashParams
+  #setInitialChangesetHashtags(changesetHashtags?: string): void {
+    const initialHashParams: unknown = this.rapidContext.systems?.urlhash?.initialHashParams
       ?? this.rapidContext.initialHashParams;
 
-    if (!initialHashParams) {
+    if (!isRapidInitialHashParams(initialHashParams)) {
       return;
     }
 
