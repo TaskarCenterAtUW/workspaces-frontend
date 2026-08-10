@@ -85,6 +85,7 @@ const [project, task] = await Promise.all([
   loadProjectDetail(),
   loadTaskDetail(),
 ]);
+const changesetTag = `#tm-${projectId}-${task.taskNumber}`;
 
 const {
   buildFeedbackPayload,
@@ -222,7 +223,7 @@ onMounted(() => {
 
   editorContainer.value.appendChild(manager.containerNode);
   editorLoadErrorMessage.value = '';
-  void manager.switchWorkspace(workspaceId, project.customImagery)
+  void manager.switchWorkspace(workspaceId, project.customImagery, changesetTag)
     .catch(error => handleEditorLoadFailure('switch', error));
 });
 
@@ -428,6 +429,7 @@ function generateInitialHash() {
   if (customImagerySource) {
     return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}&background=${customImagerySource.id}`;
   }
+
   return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}`;
 }
 
@@ -447,7 +449,7 @@ async function mountEditor() {
   }
 
   editorContainer.value.appendChild(manager.containerNode);
-  await manager.init(workspaceId, project.customImagery);
+  await manager.init(workspaceId, project.customImagery, changesetTag);
 }
 
 function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown) {
