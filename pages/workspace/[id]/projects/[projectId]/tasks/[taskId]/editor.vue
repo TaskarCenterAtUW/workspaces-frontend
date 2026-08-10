@@ -427,9 +427,10 @@ function generateInitialHash() {
   const dataUrl = boundaryUrl;
   const customImagerySource = project.customImagery || null;
   if (customImagerySource) {
-    return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}&background=${customImagerySource.id}&hashtags=${encodeURIComponent(changesetTag)}`;
+    return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}&background=${customImagerySource.id}`;
   }
-  return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}&hashtags=${encodeURIComponent(changesetTag)}`;
+
+  return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}`;
 }
 
 function syncTaskHash() {
