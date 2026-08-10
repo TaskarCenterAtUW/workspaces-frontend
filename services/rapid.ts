@@ -85,10 +85,12 @@ export class RapidManager {
   async init(
     workspaceId: number,
     customImagerySource: ImagerySource | null = null,
+    changesetHashtags?: string,
   ) {
     this.rapidContext.workspaceId = workspaceId;
     this.rapidContext.tdeiAuth = this.#tdeiAuth;
     this.rapidContext.preauth = { url: this.#osmUrl, apiUrl: this.#osmUrl };
+    this.#setInitialChangesetHashtags(changesetHashtags);
     const initPromise = this.rapidContext.initAsync();
     this.#patchRapidAuth();
     await initPromise;
@@ -116,9 +118,11 @@ export class RapidManager {
 
   async switchWorkspace(
     workspaceId: number,
-    customImagerySource: ImagerySource | null = null
+    customImagerySource: ImagerySource | null = null,
+    changesetHashtags?: string,
   ) {
     this.rapidContext.workspaceId = workspaceId;
+    this.#setInitialChangesetHashtags(changesetHashtags);
 
     // Induce the editor to re-read the configuration from the URL hash:
     window.dispatchEvent(new HashChangeEvent('hashchange', {
@@ -128,6 +132,21 @@ export class RapidManager {
 
     await this.rapidContext.resetAsync();
     this.#addCustomImagerySource(customImagerySource);
+  }
+
+  #setInitialChangesetHashtags(changesetHashtags?: string) {
+    const initialHashParams = this.rapidContext.systems.urlhash?.initialHashParams
+      ?? this.rapidContext.initialHashParams;
+
+    if (!initialHashParams) {
+      return;
+    }
+
+    if (changesetHashtags) {
+      initialHashParams.set('hashtags', changesetHashtags);
+    } else {
+      initialHashParams.delete('hashtags');
+    }
   }
 
   #onLoaded() {
