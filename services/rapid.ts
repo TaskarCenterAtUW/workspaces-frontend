@@ -8,6 +8,12 @@ declare const Rapid: any;
 
 type RapidInitialHashParams = Pick<Map<string, string>, 'delete' | 'set'>;
 
+interface RapidCustomImageryRegistration {
+  key: string;
+  previousSource: any;
+  source: any;
+}
+
 function isRapidInitialHashParams(value: unknown): value is RapidInitialHashParams {
   if (!value || typeof value !== 'object') {
     return false;
@@ -21,6 +27,7 @@ export class RapidManager {
   #baseUrl: string;
   #osmUrl: string;
   #tdeiAuth: TdeiAuthStore;
+  #customImageryRegistration: RapidCustomImageryRegistration | null = null;
   #stateCallback: ((state: any) => void) | null = null;
   #uploadCallback: ((result: any) => void) | null = null;
 
@@ -77,7 +84,7 @@ export class RapidManager {
 
   load() {
     if (this.loaded.value) {
-      return
+      return;
     }
 
     const style = document.createElement('link');
@@ -111,6 +118,8 @@ export class RapidManager {
   }
 
   #addCustomImagerySource(customImagerySource: ImagerySource | null) {
+    this.#removeCustomImagerySource();
+
     if (!customImagerySource) {
       return;
     }
@@ -118,13 +127,50 @@ export class RapidManager {
     const imagerySystem = this.rapidContext.systems.imagery;
 
     const newCustomSourceData = convertToRapidImagerySource(customImagerySource as unknown as ImagerySource | null);
-    console.log('Custom Imagery Source Converted', newCustomSourceData);
     if (!newCustomSourceData) {
       return;
     }
+
+    const key = newCustomSourceData.id.toLowerCase();
     const newCustomSource = new Rapid.ImagerySource(this.rapidContext, newCustomSourceData);
-    imagerySystem._imageryIndex.sources.set(newCustomSourceData.id, newCustomSource);
+    const previousSource = imagerySystem._imageryIndex.sources.get(key);
+    imagerySystem._imageryIndex.sources.set(key, newCustomSource);
+    this.#customImageryRegistration = {
+      key,
+      previousSource,
+      source: newCustomSource,
+    };
     imagerySystem.setSourceByID(newCustomSourceData.id);
+  }
+
+  #removeCustomImagerySource() {
+    const registration = this.#customImageryRegistration;
+
+    if (!registration) {
+      return;
+    }
+
+    const imagerySystem = this.rapidContext.systems.imagery;
+    const sources = imagerySystem._imageryIndex.sources;
+    const activeSource = imagerySystem.baseLayerSource();
+
+    if (sources.get(registration.key) === registration.source) {
+      if (registration.previousSource) {
+        sources.set(registration.key, registration.previousSource);
+      } else {
+        sources.delete(registration.key);
+      }
+    }
+
+    this.#customImageryRegistration = null;
+
+    if (activeSource === registration.source) {
+      const fallbackSource = imagerySystem.chooseDefaultSource();
+
+      if (fallbackSource) {
+        imagerySystem.baseLayerSource(fallbackSource);
+      }
+    }
   }
 
   async switchWorkspace(
@@ -134,6 +180,7 @@ export class RapidManager {
   ): Promise<void> {
     this.rapidContext.workspaceId = workspaceId;
     this.#setInitialChangesetHashtags(changesetHashtags);
+    this.#removeCustomImagerySource();
 
     // Induce the editor to re-read the configuration from the URL hash:
     window.dispatchEvent(new HashChangeEvent('hashchange', {
@@ -161,14 +208,12 @@ export class RapidManager {
   }
 
   #onLoaded() {
-    this.loaded.value = true;
-
     this.rapidContext = new Rapid.Context();
     this.rapidContext.embed(true);
     this.rapidContext.containerNode = this.containerNode;
     this.rapidContext.assetPath = this.#baseUrl;
 
-    console.log('Rapid loaded', this.rapidContext);
+    this.loaded.value = true;
   }
 
   #patchRapidAuth() {
@@ -185,12 +230,10 @@ export class RapidManager {
   }
 
   #bindRapidEvents() {
-    console.log('Rapid editor ', this.rapidContext);
     const editSystem = this.rapidContext.systems.editor;
     editSystem.on('stablechange', (_state: any) => {
       // this.#notifyStateChange(_state);
       const changes = editSystem.changes();
-      console.log('Rapid editor changes', changes);
       const changesLength = changes.modified.length || changes.created.length || changes.deleted.length;
 
       this.#notifyStateChange(changesLength);

@@ -40,7 +40,6 @@ onMounted(() => {
   }
   //   }
   rapidManager.onStateChange((changes) => {
-    console.log('Rapid state changed:', changes);
     sideBarText.value = `Rapid state changed: ${JSON.stringify(changes)}`;
   });
 

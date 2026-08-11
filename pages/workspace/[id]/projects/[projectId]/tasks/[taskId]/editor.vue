@@ -70,6 +70,7 @@ const projectId = String(route.params.projectId);
 const taskId = String(route.params.taskId);
 const editorContainer = ref<HTMLDivElement | null>(null);
 const manager = rapidManager;
+manager.load();
 const pendingEditCount = ref(0);
 const isSidebarOpen = ref(true);
 const hasActiveEdits = computed(() => pendingEditCount.value > 0);
@@ -212,8 +213,6 @@ onMounted(() => {
       stopLoadedWatch?.();
       stopLoadedWatch = null;
     });
-
-    manager.load();
     return;
   }
 
