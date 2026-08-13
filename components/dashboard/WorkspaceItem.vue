@@ -22,12 +22,11 @@
         <span>Created {{ createdTime }}</span>
       </span>
 
-      <img
+      <span
         v-if="selected"
         class="workspace-card-selected-icon"
-        :src="selectedIcon"
-        alt=""
-      >
+        aria-hidden="true"
+      />
     </span>
 
     <span class="workspace-card-meta">
@@ -59,7 +58,6 @@
 import dataTypeIcon from '~/assets/img/data-type.svg';
 import listProjectsIcon from '~/assets/img/list-projects.svg';
 import workspaceIcon from '~/assets/img/project.svg';
-import selectedIcon from '~/assets/img/check-circle.svg';
 import { formatElapsed } from '~/util/time';
 
 import type { Workspace } from '~/types/workspaces';
@@ -76,11 +74,11 @@ const props = withDefaults(defineProps<Props>(), {
 const createdTime = computed(() => formatElapsed(props.workspace.createdAt));
 const typeLabel = computed(() => props.workspace.type.toUpperCase());
 const projectLabel = computed(() => {
-  if (props.workspace.projectCount == null) {
+  if (props.workspace.projectsCount == null) {
     return 'Projects';
   }
 
-  const count = props.workspace.projectCount;
+  const count = props.workspace.projectsCount;
   return `${count} ${count === 1 ? 'Project' : 'Projects'}`;
 });
 </script>
@@ -88,27 +86,28 @@ const projectLabel = computed(() => {
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
-$workspace-card-padding: 1rem;
-$workspace-card-gap: 0.85rem;
-$workspace-card-icon-size: 2.6rem;
-$workspace-card-radius: 0.7rem;
-$workspace-card-title-size: 0.98rem;
-$workspace-card-copy-size: 0.86rem;
-$workspace-card-meta-size: 0.88rem;
-$workspace-card-selected-icon-size: 1.25rem;
-$workspace-card-meta-icon-height: 1rem;
+$workspace-card-padding: 0.8rem;
+$workspace-card-gap: 0.7rem;
+$workspace-card-min-height: 7.85rem;
+$workspace-card-icon-size: 2.1rem;
+$workspace-card-radius: 0.625rem;
+$workspace-card-title-size: 1rem;
+$workspace-card-copy-size: 0.9rem;
+$workspace-card-meta-size: 0.75rem;
+$workspace-card-selected-icon-size: 1.3rem;
+$workspace-card-meta-icon-height: 0.85rem;
 
 .workspace-card {
   width: 100%;
+  min-height: $workspace-card-min-height;
   display: grid;
   gap: $workspace-card-gap;
   padding: $workspace-card-padding;
   color: $text-navy;
   text-align: left;
-  background: $white;
-  border: $border-width solid $border-color;
+  background: $surface-card;
+  border: $border-width solid $border-strong;
   border-radius: $workspace-card-radius;
-  box-shadow: $box-shadow-sm;
   cursor: pointer;
   transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
 }
@@ -124,7 +123,7 @@ $workspace-card-meta-icon-height: 1rem;
   top: 0;
   z-index: 1;
   background: $purple-background-subtle;
-  border-color: rgba($primary, 0.24);
+  border-color: $border-strong;
 }
 
 .workspace-card-heading {
@@ -158,30 +157,38 @@ $workspace-card-meta-icon-height: 1rem;
 .workspace-card-copy strong {
   overflow: hidden;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
+  font-family: var(--primary-font-family);
   font-size: $workspace-card-title-size;
-  font-weight: $font-weight-semibold;
+  font-weight: $font-weight-bold;
+  line-height: 1.5;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .workspace-card-copy span,
 .workspace-card-meta {
-  color: $secondary;
+  color: $text-secondary;
+  font-family: var(--primary-font-family);
   font-size: $workspace-card-copy-size;
+  font-weight: 500;
+  line-height: 1.4444;
 }
 
 .workspace-card-selected-icon {
   width: $workspace-card-selected-icon-size;
   height: $workspace-card-selected-icon-size;
+  color: $primary;
+  background-color: currentColor;
+  mask: url("~/assets/img/selected-workspace.svg") center / contain no-repeat;
 }
 
 .workspace-card-meta {
   display: flex;
   align-items: center;
   gap: $spacer;
-  padding-top: 0.75rem;
+  padding-top: 0.6rem;
   font-size: $workspace-card-meta-size;
+  line-height: 1.25;
   border-top: $border-width dashed rgba($secondary, 0.2);
 }
 

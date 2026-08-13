@@ -135,11 +135,10 @@
               <span class="dashboard-workspace-badge">{{ workspaceTypeLabel }}</span>
               <span class="dashboard-workspace-badge">{{ workspaceRoleLabel }}</span>
               <span class="dashboard-workspace-created">
-                <app-icon
-                  variant="schedule"
-                  size="18"
-                  no-margin
-                />
+                <img
+                  :src="timelineIcon"
+                  alt=""
+                >
                 Created {{ workspaceCreatedTime }}
               </span>
             </div>
@@ -156,43 +155,6 @@
             />
           </div>
 
-          <section
-            class="dashboard-summary-grid"
-            aria-label="Workspace totals"
-          >
-            <article class="dashboard-summary-card">
-              <div>
-                <h3>Total Projects</h3>
-                <strong aria-live="polite">{{ projectCountLabel }}</strong>
-              </div>
-              <span
-                class="dashboard-summary-icon dashboard-summary-icon-projects"
-                aria-hidden="true"
-              >
-                <img
-                  :src="projectsIcon"
-                  alt=""
-                >
-              </span>
-            </article>
-
-            <article class="dashboard-summary-card">
-              <div>
-                <h3>Total Members</h3>
-                <strong aria-live="polite">{{ memberCountLabel }}</strong>
-              </div>
-              <span
-                class="dashboard-summary-icon dashboard-summary-icon-members"
-                aria-hidden="true"
-              >
-                <img
-                  :src="membersIcon"
-                  alt=""
-                >
-              </span>
-            </article>
-          </section>
-
           <dashboard-workspace-information
             :workspace="currentWorkspace"
             :my-tdei-roles="currentWorkspaceTdeiRoles"
@@ -204,8 +166,7 @@
 </template>
 
 <script setup lang="ts">
-import membersIcon from '~/assets/img/members.svg';
-import projectsIcon from '~/assets/img/projects.svg';
+import timelineIcon from '~/assets/img/timeline.svg';
 import { tdeiUserClient, workspacesClient } from '~/services/index';
 import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 import { formatElapsed } from '~/util/time';
@@ -266,13 +227,6 @@ const workspaceRoleLabel = computed(() => {
 const workspaceCreatedTime = computed(() =>
   currentWorkspace.value ? formatElapsed(currentWorkspace.value.createdAt) : '',
 );
-const projectCountLabel = computed(() =>
-  formatSummaryCount(currentWorkspace.value?.projectCount),
-);
-const memberCountLabel = computed(() =>
-  formatSummaryCount(currentWorkspace.value?.memberCount),
-);
-
 watch(currentWorkspace, (workspace) => {
   if (workspace) {
     setLastWorkspaceId(workspace.id);
@@ -288,10 +242,6 @@ onMounted(() => {
   autoSelectPreferredWorkspace();
   syncSelectedWorkspace(currentWorkspaces.value);
 });
-
-function formatSummaryCount(count?: number | null): string {
-  return count == null ? '—' : count.toLocaleString();
-}
 
 function syncSelectedWorkspace(availableWorkspaces: Workspace[]): void {
   if (availableWorkspaces.length === 0) {
@@ -389,33 +339,29 @@ function setLastWorkspaceId(workspaceId: number): void {
 
 $dashboard-page-inline-padding: 2rem;
 $dashboard-topbar-gap: 1.5rem;
-$dashboard-topbar-spacing: 1.5rem;
-$dashboard-control-height: 2.8rem;
+$dashboard-topbar-spacing: 1.25rem;
+$dashboard-control-height: 2.5rem;
 $dashboard-shell-height: calc(100vh - #{$navbar-height} - 8.5rem);
 $dashboard-sidebar-width: minmax(18rem, 29%);
 $dashboard-shell-radius: 0.75rem;
-$dashboard-panel-padding: 1.2rem;
+$dashboard-panel-padding: 1rem;
 $dashboard-panel-gap: 1rem;
 $dashboard-details-padding: 0.85rem;
 $dashboard-details-max-width: 81.25rem;
-$dashboard-header-padding: 0.75rem 1rem;
-$dashboard-heading-gap: 0.25rem;
-$dashboard-title-size: 1.15rem;
-$dashboard-copy-size: 0.9rem;
-$dashboard-badge-padding: 0.2rem 0.55rem;
+$dashboard-header-height: 6rem;
+$dashboard-header-radius: 0.8125rem;
+$dashboard-header-padding: 1.2rem 1.6rem;
+$dashboard-heading-gap: 0.65rem;
+$dashboard-list-title-size: 1rem;
+$dashboard-details-title-size: 1.2rem;
+$dashboard-copy-size: 0.8rem;
+$dashboard-badge-padding: 0.16rem 0.45rem;
 $dashboard-map-radius: 0.65rem;
-$dashboard-summary-gap: 0.65rem;
-$dashboard-summary-padding: 0.55rem 0.85rem;
-$dashboard-summary-radius: 0.65rem;
-$dashboard-summary-icon-size: 2.2rem;
-$dashboard-summary-value-size: 1.35rem;
+$dashboard-details-gap: 0.65rem;
 $dashboard-empty-max-width: 34rem;
 $dashboard-create-button-width: 13.875rem;
 $dashboard-create-button-height: 3rem;
 $dashboard-create-button-radius: 0.375rem;
-$dashboard-create-button-shadow: 0 0.0625rem 0.375rem rgba($black, 0.05);
-$dashboard-badge-background: #0015800a;
-$dashboard-badge-border: #0011661a;
 
 .dashboard-page {
   padding-right: $dashboard-page-inline-padding;
@@ -464,7 +410,8 @@ $dashboard-badge-border: #0011661a;
   background: $primary;
   border: $border-width solid $primary;
   border-radius: $dashboard-create-button-radius;
-  box-shadow: $dashboard-create-button-shadow;
+  box-shadow: $control-shadow;
+  white-space: nowrap;
 }
 
 .dashboard-empty-state {
@@ -500,7 +447,7 @@ $dashboard-badge-border: #0011661a;
 .dashboard-empty-state h2 {
   color: $text-navy;
   font-family: var(--secondary-font-family);
-  font-size: $dashboard-title-size;
+  font-size: $dashboard-list-title-size;
 }
 
 .dashboard-shell {
@@ -513,6 +460,7 @@ $dashboard-badge-border: #0011661a;
   background: $white;
   border: $border-width solid $border-color;
   border-radius: $dashboard-shell-radius;
+  font-family: var(--primary-font-family);
 }
 
 .dashboard-workspace-panel {
@@ -533,10 +481,11 @@ $dashboard-badge-border: #0011661a;
 
 .dashboard-workspace-panel-header h2 {
   margin: 0;
-  color: $secondary;
-  font-family: var(--secondary-font-family);
-  font-size: $dashboard-title-size;
-  font-weight: $font-weight-semibold;
+  color: $text-secondary;
+  font-family: var(--primary-font-family);
+  font-size: $dashboard-list-title-size;
+  font-weight: $font-weight-bold;
+  line-height: 1.5;
 }
 
 .dashboard-workspace-search {
@@ -588,6 +537,7 @@ $dashboard-badge-border: #0011661a;
 }
 
 .dashboard-workspace-header {
+  min-height: $dashboard-header-height;
   flex: 0 0 auto;
   padding: $dashboard-header-padding;
   display: flex;
@@ -596,6 +546,7 @@ $dashboard-badge-border: #0011661a;
   gap: $dashboard-panel-gap;
   background: $purple-background-subtle;
   border-bottom: $border-width solid $border-color;
+  border-radius: 0 $dashboard-header-radius 0 0;
 }
 
 .dashboard-workspace-heading {
@@ -608,9 +559,10 @@ $dashboard-badge-border: #0011661a;
   margin: 0;
   overflow: hidden;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
-  font-size: $dashboard-title-size;
-  font-weight: $font-weight-semibold;
+  font-family: var(--primary-font-family);
+  font-size: $dashboard-details-title-size;
+  font-weight: $font-weight-bold;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -620,15 +572,15 @@ $dashboard-badge-border: #0011661a;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.55rem;
-  color: $secondary;
+  color: $text-secondary;
   font-size: $dashboard-copy-size;
 }
 
 .dashboard-workspace-badge {
   padding: $dashboard-badge-padding;
   line-height: 1;
-  background: $dashboard-badge-background;
-  border: $border-width solid $dashboard-badge-border;
+  background: $surface-badge-muted;
+  border: $border-width solid $border-badge-muted;
   border-radius: $border-radius;
 }
 
@@ -637,7 +589,12 @@ $dashboard-badge-border: #0011661a;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  border-left: $border-width solid rgba($secondary, 0.25);
+  border-left: $border-width solid rgba($text-secondary, 0.25);
+}
+
+.dashboard-workspace-created img {
+  width: 1rem;
+  height: 1rem;
 }
 
 .dashboard-details-content {
@@ -647,8 +604,8 @@ $dashboard-badge-border: #0011661a;
   max-width: $dashboard-details-max-width;
   padding: $dashboard-details-padding;
   display: grid;
-  grid-template-rows: minmax(10rem, 1fr) auto auto;
-  gap: $dashboard-summary-gap;
+  grid-template-rows: minmax(10rem, 1fr) auto;
+  gap: $dashboard-details-gap;
 }
 
 .dashboard-map-frame {
@@ -656,51 +613,6 @@ $dashboard-badge-border: #0011661a;
   overflow: hidden;
   border: $border-width solid $border-color;
   border-radius: $dashboard-map-radius;
-}
-
-.dashboard-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: $dashboard-summary-gap;
-}
-
-.dashboard-summary-card {
-  padding: $dashboard-summary-padding;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: $spacer;
-  border: $border-width solid $border-color;
-  border-radius: $dashboard-summary-radius;
-}
-
-.dashboard-summary-card h3 {
-  margin: 0 0 0.15rem;
-  color: $secondary;
-  font-size: $dashboard-copy-size;
-  font-weight: $font-weight-normal;
-}
-
-.dashboard-summary-card strong {
-  color: $text-navy;
-  font-family: var(--secondary-font-family);
-  font-size: $dashboard-summary-value-size;
-  font-weight: $font-weight-semibold;
-}
-
-.dashboard-summary-icon {
-  width: $dashboard-summary-icon-size;
-  height: $dashboard-summary-icon-size;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  border-radius: 50%;
-}
-
-.dashboard-summary-icon img {
-  width: 100%;
-  height: 100%;
 }
 
 @include media-breakpoint-down(lg) {
@@ -771,14 +683,12 @@ $dashboard-badge-border: #0011661a;
 
   .dashboard-workspace-header {
     padding: $dashboard-panel-padding;
+    border-radius: 0;
   }
 
   .dashboard-workspace-heading h2 {
     white-space: normal;
   }
 
-  .dashboard-summary-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

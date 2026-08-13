@@ -3,25 +3,49 @@
     class="workspace-information"
     aria-labelledby="workspace-information-title"
   >
-    <h2 id="workspace-information-title">Workspace Information</h2>
+    <header class="workspace-information-header">
+      <h2 id="workspace-information-title">Workspace Information</h2>
+      <div
+        class="workspace-information-project-count"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        :aria-label="`Total projects: ${projectCountValue}`"
+      >
+        <img
+          :src="projectsIcon"
+          alt=""
+        >
+        <strong>{{ projectCountValue }}</strong>
+        <span>{{ projectCountNoun }}</span>
+      </div>
+      <div class="workspace-information-version">
+        <span>TDEI Dataset Version</span>
+        <strong>{{ datasetVersion }}</strong>
+      </div>
+    </header>
 
     <dl class="workspace-information-grid">
       <div
-        v-for="item in informationItems"
-        :key="item.label"
-        :class="[
-          'workspace-information-item',
-          `workspace-information-item-${item.width}`
-        ]"
+        v-for="(column, columnIndex) in informationColumns"
+        :key="columnIndex"
+        class="workspace-information-column"
       >
-        <dt>{{ item.label }}</dt>
-        <dd :title="item.value">{{ item.value }}</dd>
+        <div
+          v-for="item in column"
+          :key="item.label"
+          class="workspace-information-item"
+        >
+          <dt>{{ item.label }}</dt>
+          <dd :title="item.value">{{ item.value }}</dd>
+        </div>
       </div>
     </dl>
   </section>
 </template>
 
 <script setup lang="ts">
+import projectsIcon from '~/assets/img/projects.svg';
 import { formatShort } from '~/util/time';
 
 import type { Workspace, WorkspaceRole } from '~/types/workspaces';
@@ -34,7 +58,6 @@ interface Props {
 interface InformationItem {
   label: string;
   value: string;
-  width: 'compact' | 'standard' | 'wide';
 }
 
 const props = defineProps<Props>();
@@ -51,30 +74,45 @@ const appAccessLabels: Record<Workspace['externalAppAccess'], string> = {
   2: 'Project Group Only',
 };
 
+const projectCountValue = computed(() =>
+  props.workspace.projectsCount == null
+    ? '—'
+    : props.workspace.projectsCount.toLocaleString(),
+);
+const projectCountNoun = computed(() =>
+  props.workspace.projectsCount === 1 ? 'Project' : 'Projects',
+);
+const datasetVersion = computed(() => getDatasetVersion(props.workspace.tdeiMetadata));
+
 const roleLabel = computed(() => {
+  const labels: string[] = [];
+
   if (props.myTdeiRoles.includes('poc')) {
-    return 'POC';
+    labels.push('POC');
   }
 
   if (props.myTdeiRoles.includes(`${props.workspace.type}_data_generator`)) {
-    return 'Data Generator';
+    labels.push('Data Generator');
   }
 
-  return props.workspace.role ? roleLabels[props.workspace.role] : 'Member';
+  labels.push(props.workspace.role ? roleLabels[props.workspace.role] : 'Member');
+
+  return [...new Set(labels)].join(', ');
 });
 
-const informationItems = computed<InformationItem[]>(() => [
-  { label: 'Created At', value: formatShort(props.workspace.createdAt), width: 'standard' },
-  { label: 'Created By', value: props.workspace.createdByName || 'N/A', width: 'standard' },
-  { label: 'My Role', value: roleLabel.value, width: 'standard' },
-  { label: 'App Access', value: appAccessLabels[props.workspace.externalAppAccess], width: 'standard' },
-  { label: 'From TDEI Dataset ID', value: props.workspace.tdeiRecordId ?? 'N/A', width: 'wide' },
-  { label: 'TDEI Project Group ID', value: props.workspace.tdeiProjectGroupId, width: 'wide' },
-  {
-    label: 'TDEI Dataset Version',
-    value: getDatasetVersion(props.workspace.tdeiMetadata),
-    width: 'compact',
-  },
+const informationColumns = computed<InformationItem[][]>(() => [
+  [
+    { label: 'Created At', value: formatShort(props.workspace.createdAt) },
+    { label: 'Created By', value: props.workspace.createdByName || 'N/A' },
+  ],
+  [
+    { label: 'My Role', value: roleLabel.value },
+    { label: 'App Access', value: appAccessLabels[props.workspace.externalAppAccess] },
+  ],
+  [
+    { label: 'From TDEI Dataset ID', value: props.workspace.tdeiRecordId ?? 'N/A' },
+    { label: 'TDEI Project Group ID', value: props.workspace.tdeiProjectGroupId },
+  ],
 ]);
 
 function getDatasetVersion(metadata: unknown): string {
@@ -106,13 +144,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
-$workspace-information-padding: 0.65rem 0.85rem;
-$workspace-information-gap: 0.5rem;
-$workspace-information-column-gap: 0.75rem;
+$workspace-information-padding: 0.55rem 0.7rem;
+$workspace-information-gap: 0.4rem;
+$workspace-information-column-gap: 0.6rem;
 $workspace-information-radius: 0.65rem;
-$workspace-information-heading-size: 1rem;
-$workspace-information-label-size: 0.88rem;
-$workspace-information-value-size: 0.9rem;
+$workspace-information-text-size: 0.9rem;
+$workspace-information-title-size: 0.975rem;
+$workspace-information-meta-size: 0.875rem;
 
 .workspace-information {
   padding: $workspace-information-padding;
@@ -120,65 +158,107 @@ $workspace-information-value-size: 0.9rem;
   border-radius: $workspace-information-radius;
 }
 
-.workspace-information h2 {
-  margin: 0 0 0.45rem;
-  color: $secondary;
-  font-family: var(--secondary-font-family);
-  font-size: $workspace-information-heading-size;
+.workspace-information-header {
+  margin-bottom: 0.7rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.workspace-information-header h2 {
+  margin: 0;
+  color: $text-secondary;
+  font-family: var(--primary-font-family);
+  font-size: $workspace-information-title-size;
+  font-weight: $font-weight-bold;
+  line-height: 1.2222;
+}
+
+.workspace-information-project-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: $text-secondary;
+  font-family: var(--primary-font-family);
+  font-size: $workspace-information-meta-size;
+  line-height: 1.25;
+}
+
+.workspace-information-project-count img {
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-right: 0.15rem;
+}
+
+.workspace-information-project-count strong {
+  color: $text-navy;
+  font-weight: $font-weight-semibold;
+}
+
+.workspace-information-project-count span {
+  font-weight: $font-weight-normal;
+}
+
+.workspace-information-version {
+  padding-left: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: $text-secondary;
+  font-family: var(--primary-font-family);
+  font-size: $workspace-information-meta-size;
+  line-height: 1.25;
+  border-left: $border-width solid $border-subtle;
+}
+
+.workspace-information-version span {
+  font-weight: $font-weight-normal;
+}
+
+.workspace-information-version strong {
+  color: $text-navy;
   font-weight: $font-weight-semibold;
 }
 
 .workspace-information-grid {
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: $workspace-information-gap $workspace-information-column-gap;
 }
 
-.workspace-information-item {
+.workspace-information-column {
   min-width: 0;
-  grid-column: span 3;
-}
-
-.workspace-information-item-wide {
-  grid-column: span 5;
-}
-
-.workspace-information-item-compact {
-  grid-column: span 2;
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
 }
 
 .workspace-information-item dt {
   margin-bottom: 0.25rem;
   color: $text-navy;
-  font-size: $workspace-information-label-size;
+  font-family: var(--primary-font-family);
+  font-size: $workspace-information-text-size;
   font-weight: $font-weight-semibold;
+  line-height: 1.2222;
 }
 
 .workspace-information-item dd {
   margin: 0;
   overflow: hidden;
-  color: $secondary;
-  font-size: $workspace-information-value-size;
+  color: $text-secondary;
+  font-family: var(--primary-font-family);
+  font-size: $workspace-information-text-size;
+  font-weight: $font-weight-normal;
+  line-height: 1.2222;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.workspace-information-item-wide dd {
-  overflow: visible;
-  font-size: $workspace-information-label-size;
-  text-overflow: clip;
 }
 
 @include media-breakpoint-down(lg) {
   .workspace-information-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .workspace-information-item,
-  .workspace-information-item-wide,
-  .workspace-information-item-compact {
-    grid-column: auto;
   }
 }
 

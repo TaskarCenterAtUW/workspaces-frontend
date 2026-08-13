@@ -24,11 +24,11 @@
       class="dashboard-editor-dropdown"
     >
       <template #button-content>
-        <app-icon
-          variant="edit_location_alt"
-          size="20"
-          no-margin
-        />
+        <img
+          class="dashboard-toolbar-rapid-icon"
+          :src="rapidPinIcon"
+          alt=""
+        >
         Rapid Editor
       </template>
       <b-dropdown-item :to="editRoute">
@@ -44,7 +44,14 @@
       class="btn btn-outline-secondary dashboard-toolbar-button"
       :to="editRoute"
     >
+      <img
+        v-if="isOsw"
+        class="dashboard-toolbar-rapid-icon"
+        :src="rapidPinIcon"
+        alt=""
+      >
       <app-icon
+        v-else
         variant="edit_location_alt"
         size="20"
         no-margin
@@ -89,6 +96,7 @@
 
 <script setup lang="ts">
 import projectsIcon from '~/assets/img/list-projects.svg';
+import rapidPinIcon from '~/assets/img/rapid-pin.svg';
 import { rapid3Manager } from '~/services/index';
 
 import type { Workspace } from '~/types/workspaces';
@@ -148,8 +156,6 @@ $dashboard-toolbar-gap: 0.5rem;
 $dashboard-toolbar-control-height: 2.35rem;
 $dashboard-toolbar-radius: 0.375rem;
 $dashboard-toolbar-button-padding: 0.4rem 0.75rem;
-$dashboard-toolbar-shadow: 0 0.0625rem 0.375rem rgba($black, 0.05);
-$dashboard-toolbar-border: rgba($secondary, 0.22);
 
 .dashboard-toolbar {
   display: flex;
@@ -167,15 +173,20 @@ $dashboard-toolbar-border: rgba($secondary, 0.22);
   padding: $dashboard-toolbar-button-padding;
   color: $secondary;
   background: $white;
-  border-color: $dashboard-toolbar-border;
+  border-color: $border-control-muted;
   border-radius: $dashboard-toolbar-radius;
-  box-shadow: $dashboard-toolbar-shadow;
+  box-shadow: $control-shadow;
   font-size: 0.9rem;
 }
 
 .dashboard-toolbar-icon {
   width: 1rem;
   height: auto;
+}
+
+.dashboard-toolbar-rapid-icon {
+  width: 1rem;
+  height: 1.25rem;
 }
 
 .dashboard-editor-dropdown,
@@ -189,8 +200,8 @@ $dashboard-toolbar-border: rgba($secondary, 0.22);
   min-height: $dashboard-toolbar-control-height;
   color: $secondary;
   background: $white;
-  border-color: $dashboard-toolbar-border;
-  box-shadow: $dashboard-toolbar-shadow;
+  border-color: $border-control-muted;
+  box-shadow: $control-shadow;
   font-size: 0.9rem;
 }
 

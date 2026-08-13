@@ -335,6 +335,16 @@ watch(
 )
 
 onMounted(async () => {
+  // Re-apply the selected option after hydration so the input always reflects
+  // the existing model without requiring focus or changing the selection.
+  const selectedOption = projectGroups.value.find(
+    group => group.tdei_project_group_id === model.value,
+  )
+  if (selectedOption) {
+    searchText.value = selectedOption.name
+    selectedGroupName.value = selectedOption.name
+  }
+
   // Show cached name immediately before the API call completes
   if (props.rememberSelection && model.value && loadCachedName(model.value as string)) {
     applyCachedName()

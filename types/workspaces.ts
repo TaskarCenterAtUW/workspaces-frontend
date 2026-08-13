@@ -29,8 +29,8 @@ export interface Workspace {
   autoFlagReview?: boolean;
   role?: WorkspaceRole;
   center?: WorkspaceCenter;
-  projectCount?: number | null;
-  memberCount?: number | null;
+  projectsCount?: number | null;
+  membersCount?: number | null;
 }
 
 export interface WorkspaceCreation {
