@@ -43,13 +43,23 @@
       <div class="project-wizard-area-captured-copy">
         <app-icon
           variant="check_circle"
-          size="18"
+          size="20"
           no-margin
+          class="mt-1"
         />
         <div>
           <strong>Area of interest captured</strong>
           <p>{{ importedFileName ? 'The uploaded GeoJSON is active on the map.' : 'The drawn polygon is active on the map.' }}</p>
         </div>
+      </div>
+
+      <div class="project-wizard-area-measurement">
+        <span>Area: <strong>{{ formattedArea }}</strong></span>
+        <area-unit-toggle
+          :model-value="areaDisplayUnit"
+          label="Area of interest display unit"
+          @update:model-value="onAreaDisplayUnitUpdate"
+        />
       </div>
 
       <button
@@ -168,8 +178,11 @@ import uploadIcon from '~/assets/img/upload.svg';
 import warningIcon from '~/assets/img/warning.svg';
 
 import type { ProjectWizardAreaStepDefinition } from '~/types/project-wizard';
+import { formatArea, type AreaDisplayUnit } from '~/util/area';
 
 interface Props {
+  areaDisplayUnit: AreaDisplayUnit;
+  areaSquareKilometers: number;
   errorMessage: string;
   hasAoi: boolean;
   importedFileName: string;
@@ -180,14 +193,18 @@ interface Props {
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
-  download: [];
-  draw: [];
-  reset: [];
-  upload: [file: File];
+  'download': [];
+  'draw': [];
+  'reset': [];
+  'upload': [file: File];
+  'update:area-display-unit': [unit: AreaDisplayUnit];
 }>();
 
 const fileInputRef = useTemplateRef<HTMLInputElement>('fileInputRef');
 const isDraggingFile = ref(false);
+const formattedArea = computed(() =>
+  formatArea(props.areaSquareKilometers, props.areaDisplayUnit)
+);
 
 watch(
   () => props.importedFileName,
@@ -200,6 +217,10 @@ watch(
 
 function openFilePicker() {
   fileInputRef.value?.click();
+}
+
+function onAreaDisplayUnitUpdate(unit: AreaDisplayUnit) {
+  emit('update:area-display-unit', unit);
 }
 
 function onFileInputChange(event: Event) {
@@ -243,7 +264,6 @@ function onFileDrop(event: DragEvent) {
 .project-wizard-step-title {
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.15;
@@ -331,13 +351,21 @@ function onFileDrop(event: DragEvent) {
 
 .project-wizard-area-captured {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 1.2rem;
   padding: 0.95rem 1rem;
-  background: #f3fcf8;
-  border: 1px solid #bcebdd;
+  background: #f6fcfa;
+  border: 1px solid #d4e4dd;
   border-radius: 0.55rem;
+  border-left: 4px solid #349377;
+}
+
+.project-wizard-area-measurement {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: $text-navy;
+  font-size: 0.88rem;
 }
 
 .project-wizard-area-captured-copy {
@@ -345,7 +373,7 @@ function onFileDrop(event: DragEvent) {
   display: inline-flex;
   align-items: flex-start;
   gap: 0.65rem;
-  color: #195747;
+  color: $text-navy;
 }
 
 .project-wizard-area-captured-copy strong,
@@ -374,11 +402,13 @@ function onFileDrop(event: DragEvent) {
   color: $text-navy;
   background: #ffffff;
   border: 1px solid rgba($text-navy, 0.14);
+  width: stretch;
+  justify-content: center;
 }
 
 .project-wizard-area-dropzone-shell {
-  border: 1px dashed rgba($text-navy, 0.28);
-  border-radius: 0.35rem;
+  border: 1px dashed #8A8FAD;
+  border-radius: 6px;
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
@@ -391,12 +421,13 @@ function onFileDrop(event: DragEvent) {
   width: 100%;
   display: grid;
   justify-items: center;
-  gap: 0.55rem;
+  gap: 10px;
   padding: 1.7rem 1rem;
   text-align: center;
   color: $text-navy;
-  background: transparent;
+  background: #fafafc;
   border: 0;
+  border-radius: 6px;
 }
 
 .project-wizard-area-dropzone-icon {
@@ -406,13 +437,12 @@ function onFileDrop(event: DragEvent) {
 }
 
 .project-wizard-area-upload-icon {
-  width: 1.2rem;
-  height: 1.2rem;
+  width: 35px;
+  height: 35px;
   display: block;
 }
 
 .project-wizard-area-dropzone-copy {
-  font-family: var(--secondary-font-family);
   font-size: 1rem;
   font-weight: 600;
   line-height: 1.3;
@@ -501,6 +531,10 @@ function onFileDrop(event: DragEvent) {
 
   .project-wizard-area-download {
     justify-content: center;
+  }
+
+  .project-wizard-area-measurement {
+    justify-content: space-between;
   }
 }
 </style>

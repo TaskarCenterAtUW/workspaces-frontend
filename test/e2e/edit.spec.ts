@@ -40,6 +40,14 @@ const RAPID2_SCRIPT = (route: Route) => route.fulfill({
             '<div class="fake-editor" role="application" aria-label="Rapid 2 editor">Rapid 2 editor</div>';
         }
         services = { osm: { _oauth: { fetch: () => {}, authenticated: () => true }, userDetails: () => {} } };
+        systems = {
+          urlhash: { initialHashParams: new Map() },
+          editor: {
+            changes: () => ({ created: [], deleted: [], modified: [] }),
+            on: () => {}
+          },
+          uploader: { on: () => {} }
+        };
       }
     };
   `

@@ -1,10 +1,21 @@
-import { ref } from 'vue'
+import { ref } from 'vue';
 import type { TdeiAuthStore } from '~/services/tdei';
 import type { ImagerySource } from '~/types/imagery';
 import { convertToRapidImagerySource } from '~/util/rapid-imagery';
 
 /** Global `Rapid` namespace injected by the Rapid script at runtime. */
 declare const Rapid: any;
+
+type RapidInitialHashParams = Pick<Map<string, string>, 'delete' | 'set'>;
+
+function isRapidInitialHashParams(value: unknown): value is RapidInitialHashParams {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.delete === 'function' && typeof candidate.set === 'function';
+}
 
 export class RapidManager {
   #baseUrl: string;
@@ -32,8 +43,14 @@ export class RapidManager {
     this.rapidContext = null;
   }
 
-  onStateChange(callback: (state: any) => void) {
+  onStateChange(callback: (state: any) => void): () => void {
     this.#stateCallback = callback;
+
+    return () => {
+      if (this.#stateCallback === callback) {
+        this.#stateCallback = null;
+      }
+    };
   }
 
   #notifyStateChange(state: any) {
@@ -42,8 +59,14 @@ export class RapidManager {
     }
   }
 
-  onUploadResult(callback: (result: any) => void) {
+  onUploadResult(callback: (result: any) => void): () => void {
     this.#uploadCallback = callback;
+
+    return () => {
+      if (this.#uploadCallback === callback) {
+        this.#uploadCallback = null;
+      }
+    };
   }
 
   #notifyUploadResult(result: any) {
@@ -73,10 +96,12 @@ export class RapidManager {
   async init(
     workspaceId: number,
     customImagerySource: ImagerySource | null = null,
-  ) {
+    changesetHashtags?: string,
+  ): Promise<void> {
     this.rapidContext.workspaceId = workspaceId;
     this.rapidContext.tdeiAuth = this.#tdeiAuth;
     this.rapidContext.preauth = { url: this.#osmUrl, apiUrl: this.#osmUrl };
+    this.#setInitialChangesetHashtags(changesetHashtags);
     const initPromise = this.rapidContext.initAsync();
     this.#patchRapidAuth();
     await initPromise;
@@ -104,9 +129,11 @@ export class RapidManager {
 
   async switchWorkspace(
     workspaceId: number,
-    customImagerySource: ImagerySource | null = null
-  ) {
+    customImagerySource: ImagerySource | null = null,
+    changesetHashtags?: string,
+  ): Promise<void> {
     this.rapidContext.workspaceId = workspaceId;
+    this.#setInitialChangesetHashtags(changesetHashtags);
 
     // Induce the editor to re-read the configuration from the URL hash:
     window.dispatchEvent(new HashChangeEvent('hashchange', {
@@ -116,6 +143,21 @@ export class RapidManager {
 
     await this.rapidContext.resetAsync();
     this.#addCustomImagerySource(customImagerySource);
+  }
+
+  #setInitialChangesetHashtags(changesetHashtags?: string): void {
+    const initialHashParams: unknown = this.rapidContext.systems?.urlhash?.initialHashParams
+      ?? this.rapidContext.initialHashParams;
+
+    if (!isRapidInitialHashParams(initialHashParams)) {
+      return;
+    }
+
+    if (changesetHashtags) {
+      initialHashParams.set('hashtags', changesetHashtags);
+    } else {
+      initialHashParams.delete('hashtags');
+    }
   }
 
   #onLoaded() {

@@ -236,11 +236,24 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     return (await response.json() as TdeiDatasetApiResponse[])[0];
   }
 
-  async getDatasetsByProjectGroupAndName(projectGroupId: string, name: string): Promise<TdeiDatasetSummary[]> {
-    const response = await this._get(`datasets?tdei_project_group_id=${projectGroupId}&name=${encodeURIComponent(name)}`);
+  async getAvailableDatasetsByName(name: string, pageNo = 1, pageSize = 10): Promise<TdeiDatasetSummary[]> {
+    const params = new URLSearchParams({
+      page_no: pageNo.toString(),
+      page_size: pageSize.toString(),
+      sort_field: 'uploaded_timestamp',
+      sort_order: 'DESC',
+      status: 'All',
+      name
+    });
+    const response = await this._get(`datasets?${params.toString()}`);
 
     return (await response.json() as TdeiDatasetApiResponse[])
-      .map(d => ({ id: d.tdei_dataset_id, name: d.metadata.dataset_detail.name, version: d.metadata.dataset_detail.version }));
+      .map(d => ({
+        id: d.tdei_dataset_id,
+        name: d.metadata?.dataset_detail?.name ?? d.tdei_dataset_id,
+        version: d.metadata?.dataset_detail?.version,
+        projectGroupName: d.project_group?.name
+      }));
   }
 
   async downloadOswDataset(tdeiRecordId: string, format: string = 'osw'): Promise<Blob> {
@@ -523,6 +536,16 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     const pgs = (await response.json()) as TdeiProjectGroupApiResponse[];
 
     return pgs.find(p => p.tdei_project_group_id === projectGroupId)?.roles ?? [];
+  }
+
+  /**
+   * The TDEI API does not expose a current-user role endpoint filtered by project-group ID.
+   * Load the user's complete membership list and select the owning project group locally.
+   */
+  async getMyRolesForProjectGroupById(projectGroupId: string): Promise<string[]> {
+    const response = await this._get(`project-group-roles/${this.#auth.subject}?page_size=10000&page_no=1&sort_by=name`);
+    const items = (await response.json() as TdeiProjectGroupApiResponse[]) ?? [];
+    return items.find(p => p.tdei_project_group_id === projectGroupId)?.roles ?? [];
   }
 
   async getMyServices(projectGroupId: string, type: string = 'all'): Promise<TdeiService[]> {

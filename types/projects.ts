@@ -22,7 +22,15 @@ export type WorkspaceProjectTaskStatus
     | 'completed';
 export type WorkspaceProjectContributorRole = WorkspaceRole;
 export type WorkspaceProjectContributorApiRole = WorkspaceRole;
-export type WorkspaceProjectTaskApiStatus = 'to_map' | 'to_validate' | 'more_mapping_needed' | 'done' | 'completed' | 'to_review';
+export type WorkspaceProjectTaskApiStatus
+  = | 'to_map'
+    | 'to_remap'
+    | 'to_review'
+    // Legacy values retained while older tasking responses are still in circulation.
+    | 'to_validate'
+    | 'more_mapping_needed'
+    | 'done'
+    | 'completed';
 export type WorkspaceProjectTaskFeedbackReasonCategory
   = | 'incomplete_mapping'
     | 'data_quality_issue'
@@ -75,6 +83,14 @@ export interface WorkspaceProjectTaskApiMapper {
   user_name: string;
 }
 
+export interface WorkspaceProjectTaskApiFeedback {
+  reason_category: WorkspaceProjectTaskFeedbackReasonCategory;
+  notes: string;
+  created_at: string;
+  created_by_user_id: string;
+  created_by_user_name: string;
+}
+
 export interface WorkspaceProjectTaskApiItem {
   id: number;
   task_number: number;
@@ -83,6 +99,7 @@ export interface WorkspaceProjectTaskApiItem {
   area_sqkm: number;
   lock: WorkspaceProjectTaskApiLock | null;
   last_mapper: WorkspaceProjectTaskApiMapper | null;
+  feedback?: WorkspaceProjectTaskApiFeedback[];
   created_at: string;
   updated_at: string;
 }
@@ -152,13 +169,24 @@ export interface WorkspaceProjectTaskListItem {
   updatedAt: string;
   lock: WorkspaceProjectTaskApiLock | null;
   locked: boolean;
+  lastMapperId: string | null;
+  apiStatus: WorkspaceProjectTaskApiStatus;
 }
 
 export interface WorkspaceProjectTaskDetail extends WorkspaceProjectTaskListItem {
   areaSquareKilometers: number;
   createdAt: Date;
+  feedback: WorkspaceProjectTaskFeedback[];
   lastMapperName: string | null;
   updatedAtIso: string;
+}
+
+export interface WorkspaceProjectTaskFeedback {
+  reasonCategory: WorkspaceProjectTaskFeedbackReasonCategory;
+  notes: string;
+  createdAt: Date;
+  createdByUserId: string;
+  createdByUserName: string;
 }
 
 export interface WorkspaceProjectTaskSubmitFeedback {

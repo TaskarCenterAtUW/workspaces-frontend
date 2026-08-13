@@ -15,7 +15,7 @@
         no-margin
       />
       <div>
-        <p>Set the task area between <strong>{{ formattedMinimumTaskArea }} km2</strong> to <strong>{{ formattedMaximumTaskArea }} km2</strong> and click generate tasks.</p>
+        <p>Set the task area between <strong>{{ formattedMinimumTaskArea }}</strong> and <strong>{{ formattedMaximumTaskArea }}</strong>, then click generate tasks.</p>
       </div>
     </section>
 
@@ -40,7 +40,15 @@
           class="project-task-setup-label"
           :for="rangeInputId"
         >Set task area</label>
-        <strong>{{ formattedTaskArea }} km2</strong>
+        <div class="project-task-setup-range-value">
+          <area-unit-toggle
+            :model-value="areaUnit"
+            label="Task area display unit"
+            size="md"
+            @update:model-value="selectAreaUnit"
+          />
+          <strong>{{ formattedTaskArea }}</strong>
+        </div>
       </div>
 
       <input
@@ -57,7 +65,7 @@
       >
 
       <p class="project-task-setup-range-copy">
-        Each task will be generated for <strong>{{ formattedTaskArea }} km2</strong>
+        Each task will be generated for <strong>{{ formattedTaskArea }}</strong>
       </p>
     </div>
 
@@ -78,7 +86,7 @@
             size="18"
             no-margin
           />
-          {{ generatedSummary ? 'Generate Again' : 'Generate Tasks' }}
+          <span>{{ taskGenerationActionLabel }}</span>
         </template>
       </button>
 
@@ -93,7 +101,7 @@
           size="18"
           no-margin
         />
-        Reset
+        <span>Reset</span>
       </button>
     </div>
 
@@ -109,7 +117,7 @@
       <div>
         <strong>Tasks created</strong>
         <p>This project will be created with <strong>{{ generatedSummary.totalTasks }} tasks</strong>.</p>
-        <p>The size of each task is approximately <strong>{{ formattedTaskArea }} km2</strong></p>
+        <p>The size of each task is approximately <strong>{{ formattedTaskArea }}</strong></p>
       </div>
     </section>
 
@@ -188,6 +196,7 @@ import type {
   ProjectWizardTaskGenerationSummary,
   ProjectWizardTaskSaveSummary,
 } from '~/types/project-wizard';
+import { formatArea } from '~/util/area';
 
 interface Props {
   /** Whether the Generate button should be enabled (AOI exists, no in-flight request, etc.). */
@@ -232,16 +241,20 @@ const emit = defineEmits<{
  * replace this with `useId()` (available in Vue 3.5+) to generate a unique ID per instance.
  */
 const rangeInputId = 'project-task-setup-range';
+const { areaUnit, selectAreaUnit } = useAreaDisplayUnit();
 
 /** Formatted strings for the min/max labels and current value display. */
 const formattedMinimumTaskArea = computed(() =>
-  formatSquareKilometers(props.minimumTaskAreaSquareKilometers),
+  formatArea(props.minimumTaskAreaSquareKilometers, areaUnit.value)
 );
 const formattedMaximumTaskArea = computed(() =>
-  formatSquareKilometers(props.maximumTaskAreaSquareKilometers),
+  formatArea(props.maximumTaskAreaSquareKilometers, areaUnit.value)
 );
 const formattedTaskArea = computed(() =>
-  formatSquareKilometers(props.taskAreaSquareKilometers),
+  formatArea(props.taskAreaSquareKilometers, areaUnit.value)
+);
+const taskGenerationActionLabel = computed(() =>
+  props.generatedSummary ? 'Generate Again' : 'Generate Tasks'
 );
 
 /**
@@ -260,14 +273,6 @@ const rangeProgressPercent = computed(() => {
   return ((props.taskAreaSquareKilometers - props.minimumTaskAreaSquareKilometers) / spread) * 100;
 });
 
-/** Format a raw km² number for display (e.g. 1.5 → "1.5", 1000 → "1,000"). */
-function formatSquareKilometers(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 0,
-  }).format(value);
-}
-
 /**
  * The range input uses a controlled pattern (`:value` binding + `@input` handler) rather
  * than `v-model` because the parent needs to normalise the value before accepting it.
@@ -284,11 +289,11 @@ function onTaskAreaInput(event: Event) {
 .project-task-setup-card {
   display: grid;
   gap: 1.55rem;
-  padding: 1.55rem 1.65rem 1.7rem;
+  padding: 30px;
   background: #ffffff;
-  border: 1px solid rgba(172, 184, 215, 0.28);
+  border: 1px solid #dfe2ef;
   border-radius: 1rem;
-  box-shadow: 0 1rem 2.2rem rgba($text-navy, 0.04);
+  // box-shadow: 0 1rem 2.2rem rgba($text-navy, 0.04);
 }
 
 .project-task-setup-hero {
@@ -299,18 +304,15 @@ function onTaskAreaInput(event: Event) {
 .project-task-setup-hero h2 {
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
-  font-size: 1.95rem;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1.04;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
 }
 
 .project-task-setup-hero p {
   margin: 0;
-  color: #667091;
-  font-size: 1.05rem;
+  color: $text-secondary;
+  font-size: 16px;
   line-height: 1.45;
 }
 
@@ -322,6 +324,7 @@ function onTaskAreaInput(event: Event) {
   border: 1px solid rgba(204, 214, 239, 0.8);
   border-left-width: 0.35rem;
   border-radius: 0.75rem;
+  align-items: center;
 }
 
 .project-task-setup-callout strong,
@@ -366,7 +369,7 @@ function onTaskAreaInput(event: Event) {
 
 .project-task-setup-range-block {
   display: grid;
-  gap: 0.95rem;
+  gap: 15px;
 }
 
 .project-task-setup-range-header {
@@ -378,8 +381,14 @@ function onTaskAreaInput(event: Event) {
 
 .project-task-setup-label {
   color: $text-navy;
-  font-size: 1.05rem;
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.project-task-setup-range-value {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .project-task-setup-range-header strong {
@@ -467,6 +476,17 @@ function onTaskAreaInput(event: Event) {
   font-size: 1rem;
   font-weight: 500;
   border-radius: 0.6rem;
+  white-space: nowrap;
+}
+
+.project-task-setup-action :deep(.material-icons) {
+  flex: 0 0 auto;
+  margin-top: 0;
+  line-height: 1;
+}
+
+.project-task-setup-action > span {
+  line-height: 1.2;
 }
 
 .project-task-setup-action-generate {
@@ -526,7 +546,7 @@ function onTaskAreaInput(event: Event) {
 
 .project-task-setup-save-copy p {
   margin: 0;
-  color: #667091;
+  color: $text-secondary;
   line-height: 1.45;
 }
 
@@ -565,6 +585,11 @@ function onTaskAreaInput(event: Event) {
   .project-task-setup-range-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .project-task-setup-range-value {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 </style>

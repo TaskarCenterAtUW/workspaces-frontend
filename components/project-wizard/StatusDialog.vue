@@ -28,29 +28,31 @@
       <div class="project-wizard-status-dialog-icon-shell">
         <span class="project-wizard-status-dialog-icon">
           <app-icon
-            :variant="variant === 'success' ? 'check_circle' : 'error'"
+            :variant="variant === 'success' ? 'check_circle' : 'info'"
             size="22"
             no-margin
           />
         </span>
       </div>
 
-      <h2
-        :id="titleId"
-        class="project-wizard-status-dialog-title"
-      >
-        {{ title }}
-      </h2>
+      <div class="project-wizard-body">
+        <h2
+          :id="titleId"
+          class="project-wizard-status-dialog-title"
+        >
+          {{ title }}
+        </h2>
 
-      <p class="project-wizard-status-dialog-message">
-        {{ message }}
-      </p>
+        <p class="project-wizard-status-dialog-message">
+          {{ message }}
+        </p>
+      </div>
 
       <div class="project-wizard-status-dialog-actions">
         <button
           v-if="secondaryActionLabel"
           ref="secondaryActionRef"
-          class="btn btn-outline-secondary project-wizard-status-dialog-secondary"
+          class="btn btn-outline-secondary"
           type="button"
           @click="emit('secondary-action')"
         >
@@ -59,7 +61,7 @@
 
         <button
           ref="primaryActionRef"
-          class="btn btn-primary project-wizard-status-dialog-primary"
+          class="btn btn-primary"
           type="button"
           @click="emit('primary-action')"
         >
@@ -151,8 +153,8 @@ function handleWindowKeydown(event: KeyboardEvent) {
   position: relative;
   width: min(35.5rem, 100%);
   display: grid;
-  gap: 1rem;
-  padding: 1.7rem 1.95rem 1.95rem;
+  gap: 30px;
+  padding: 30px;
   background-color: #fff;
   border-radius: 1rem;
   box-shadow: 0 1rem 2.5rem rgba($text-navy, 0.18);
@@ -171,8 +173,8 @@ function handleWindowKeydown(event: KeyboardEvent) {
 }
 
 .project-wizard-status-dialog-icon {
-  width: 3.6rem;
-  height: 3.6rem;
+  width: 50px;
+  height: 50px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -192,15 +194,19 @@ function handleWindowKeydown(event: KeyboardEvent) {
 .project-wizard-status-dialog-title {
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
-  font-size: 2rem;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1.1;
 }
 
+.project-wizard-body {
+    display: grid;
+    gap: 15px;
+}
+
 .project-wizard-status-dialog-message {
   margin: 0;
-  color: rgba($secondary, 0.98);
+  color: $text-secondary;
   font-size: 1rem;
   line-height: 1.55;
   overflow-wrap: anywhere;
@@ -211,6 +217,7 @@ function handleWindowKeydown(event: KeyboardEvent) {
   align-items: center;
   gap: 0.9rem;
   padding-top: 0.35rem;
+  justify-content: flex-end;
 }
 
 .project-wizard-status-dialog-secondary,

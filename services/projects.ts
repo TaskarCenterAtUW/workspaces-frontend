@@ -15,7 +15,9 @@ import type {
   WorkspaceProjectRoleApiItem,
   WorkspaceProjectRolesApiResponse,
   WorkspaceProjectTaskApiItem,
+  WorkspaceProjectTaskApiFeedback,
   WorkspaceProjectTaskDetail,
+  WorkspaceProjectTaskFeedback,
   WorkspaceProjectTaskListItem,
   WorkspaceProjectTaskSubmitPayload,
   WorkspaceProjectTasksApiResponse,
@@ -28,6 +30,8 @@ import type {
 import type { WorkspaceId } from '~/types/workspaces';
 
 const PAGE_SIZE_DEFAULT = 10;
+const TASK_PAGE_SIZE_MAXIMUM = 1000;
+const TASK_PAGE_REQUEST_CONCURRENCY = 4;
 const USE_MOCK_WORKSPACE_PROJECTS = import.meta.env.VITE_USE_MOCK_WORKSPACE_PROJECTS === 'true';
 
 function normalizeStatus(status: WorkspaceProjectApiItem['status']): WorkspaceProject['status'] {
@@ -47,15 +51,15 @@ function normalizeStatus(status: WorkspaceProjectApiItem['status']): WorkspacePr
 function normalizeTaskStatus(status: WorkspaceProjectTaskApiItem['status']): WorkspaceProjectTaskListItem['status'] {
   switch (status) {
     case 'to_validate':
+    case 'to_review':
       return 'ready_for_validation';
     case 'more_mapping_needed':
+    case 'to_remap':
       return 'needs_more_mapping';
     case 'done':
       return 'completed';
     case 'completed':
       return 'completed';
-    case 'to_review':
-      return 'ready_for_validation'
     case 'to_map':
     default:
       return 'ready_for_mapping';
@@ -149,6 +153,8 @@ function normalizeProjectTask(task: WorkspaceProjectTaskApiItem): WorkspaceProje
     updatedAt: formatProjectTaskDate(task.updated_at),
     lock: task.lock,
     locked: task.lock !== null,
+    lastMapperId: task.last_mapper?.user_id ?? null,
+    apiStatus: task.status,
   };
 }
 
@@ -157,8 +163,21 @@ function normalizeProjectTaskDetail(task: WorkspaceProjectTaskApiItem): Workspac
     ...normalizeProjectTask(task),
     areaSquareKilometers: task.area_sqkm,
     createdAt: new Date(task.created_at),
+    feedback: (task.feedback ?? []).map(normalizeProjectTaskFeedback),
     lastMapperName: task.last_mapper?.user_name ?? null,
     updatedAtIso: task.updated_at,
+  };
+}
+
+function normalizeProjectTaskFeedback(
+  feedback: WorkspaceProjectTaskApiFeedback,
+): WorkspaceProjectTaskFeedback {
+  return {
+    reasonCategory: feedback.reason_category,
+    notes: feedback.notes,
+    createdAt: new Date(feedback.created_at),
+    createdByUserId: feedback.created_by_user_id,
+    createdByUserName: feedback.created_by_user_name,
   };
 }
 
@@ -330,18 +349,50 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
 
   async getWorkspaceProjectTasks(
     workspaceId: WorkspaceId,
-    projectId: number | string,
+    projectId: number | string
   ): Promise<WorkspaceProjectTaskListItem[]> {
-    const params = new URLSearchParams({
-      page: '1',
-      page_size: '200',
-    });
-    const response = await this._get(
-      `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks?${params.toString()}`,
-    );
-    const body = await response.json() as WorkspaceProjectTasksApiResponse;
+    const fetchPage = async (page: number): Promise<WorkspaceProjectTasksApiResponse> => {
+      const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(TASK_PAGE_SIZE_MAXIMUM)
+      });
+      const response = await this._get(
+        `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks?${params.toString()}`
+      );
 
-    return body.tasks.map(normalizeProjectTask);
+      return await response.json() as WorkspaceProjectTasksApiResponse;
+    };
+
+    const firstPage = await fetchPage(1);
+    const totalPages = Math.ceil(
+      firstPage.pagination.total / TASK_PAGE_SIZE_MAXIMUM
+    );
+    const remainingPages: WorkspaceProjectTasksApiResponse[] = [];
+
+    // The UI filters and sorts the complete task collection locally. Fetch every API page in
+    // bounded batches so large projects do not exceed the API's page-size limit or create an
+    // unbounded burst of simultaneous requests.
+    for (
+      let firstPageInBatch = 2;
+      firstPageInBatch <= totalPages;
+      firstPageInBatch += TASK_PAGE_REQUEST_CONCURRENCY
+    ) {
+      const lastPageInBatch = Math.min(
+        totalPages,
+        firstPageInBatch + TASK_PAGE_REQUEST_CONCURRENCY - 1
+      );
+      const batch = await Promise.all(
+        Array.from(
+          { length: lastPageInBatch - firstPageInBatch + 1 },
+          (_, index) => fetchPage(firstPageInBatch + index)
+        )
+      );
+      remainingPages.push(...batch);
+    }
+
+    return [firstPage, ...remainingPages]
+      .flatMap(page => page.tasks)
+      .map(normalizeProjectTask);
   }
 
   async getWorkspaceProjectRoles(

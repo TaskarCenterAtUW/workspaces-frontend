@@ -160,7 +160,7 @@ const emptyCollection: FeatureCollection = {
 const legendItems = [
   { label: 'Ready for mapping', color: '#fde9aa' },
   { label: 'Ready for validation', color: '#a8d8f8' },
-  { label: 'More mapping needed', color: '#f8be90' },
+  { label: 'More mapping required', color: '#f8be90' },
   { label: 'Completed', color: '#aae8cd' },
 ];
 

@@ -89,10 +89,9 @@ const countCards = computed(() => {
 
 .project-detail-contribution-metric,
 .project-detail-contribution-count-card {
-  background: #ffffff;
-  border: 1px solid rgba($text-navy, 0.1);
-  border-radius: 1rem;
-  box-shadow: 0 0.75rem 2rem rgba($text-navy, 0.08);
+    background: #FCFCFF;
+    border: 1px solid #E2E2F5;
+    border-radius: 12px;
 }
 
 .project-detail-contribution-metric {
@@ -114,9 +113,7 @@ const countCards = computed(() => {
 
 .project-detail-contribution-copy h3,
 .project-detail-contribution-count-card h3 {
-  margin: 0;
-  color: #1a1e3d;
-  font-family: var(--secondary-font-family);
+  color: $text-secondary;
 }
 
 .project-detail-contribution-copy h3 {
@@ -126,8 +123,8 @@ const countCards = computed(() => {
 
 .project-detail-contribution-copy p,
 .project-detail-contribution-count-card p {
-  margin: 0.2rem 0 0;
-  color: #5a607b;
+  margin: 10px 0 0;
+  color: $text-navy;
 }
 
 .project-detail-contribution-copy p,
@@ -142,8 +139,8 @@ const countCards = computed(() => {
 }
 
 .project-detail-contribution-count-card h3 {
-  font-size: 0.98rem;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .project-detail-contribution-summary-card {

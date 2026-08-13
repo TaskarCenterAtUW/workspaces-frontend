@@ -20,7 +20,6 @@ export const PROJECT_MEMBER_ROLE_OPTIONS: Array<{
   label: string;
   value: WorkspaceProjectContributorRole;
 }> = [
-  { label: 'Lead', value: 'lead' },
   { label: 'Validator', value: 'validator' },
   { label: 'Contributor', value: 'contributor' },
 ];
@@ -152,13 +151,14 @@ export function useProjectEditMembers(options: {
   }
 
   function updateSearchResultRole(userId: string, nextRole: string | number | null) {
-    if (!isProjectContributorRole(nextRole)) return;
+    if (!isAssignableProjectRole(nextRole)) return;
     searchResultRoles.value = { ...searchResultRoles.value, [userId]: nextRole };
   }
 
   async function addMember(user: ProjectWizardWorkspaceUser) {
     if (selectedMemberIds.value.has(user.authUid)) return;
     const role = getSearchResultRole(user.authUid);
+    if (!isAssignableProjectRole(role)) return;
     mutatingMemberId.value = user.authUid;
     try {
       await workspaceProjectsClient.addWorkspaceProjectRole(options.workspaceId, options.projectId, {
@@ -206,11 +206,11 @@ export function useProjectEditMembers(options: {
   }
 
   async function updateMemberRole(member: EditableProjectMember, nextRole: string | number | null) {
-    if (!isProjectContributorRole(nextRole) || member.role === nextRole) return;
-    if (member.role === 'lead' && nextRole !== 'lead' && leadMemberCount.value <= 1) {
-      toast.error('At least one lead must remain on the project.');
-      return;
-    }
+    if (
+      member.role === 'lead'
+      || !isAssignableProjectRole(nextRole)
+      || member.role === nextRole
+    ) return;
 
     const previousMembers = editableMembers.value;
     editableMembers.value = editableMembers.value.map(candidate =>
@@ -243,7 +243,7 @@ export function useProjectEditMembers(options: {
       okTitle: 'Remove',
       okVariant: 'danger',
       cancelTitle: 'Cancel',
-      cancelClass: 'btn-link p-0',
+      cancelClass: 'btn-link',
       cancelVariant: null,
     }).show();
     if (!value?.ok) return;
@@ -269,12 +269,8 @@ export function useProjectEditMembers(options: {
     mutatingMemberId.value = null;
   }
 
-  function isRoleChangeLocked(member: EditableProjectMember) {
-    return member.role === 'lead' && leadMemberCount.value <= 1;
-  }
-
   function isMemberRemovalLocked(member: EditableProjectMember) {
-    return member.role === 'lead' && leadMemberCount.value <= 1;
+    return member.role === 'lead';
   }
 
   return {
@@ -282,7 +278,6 @@ export function useProjectEditMembers(options: {
     editableMembers,
     getSearchResultRole,
     isMemberRemovalLocked,
-    isRoleChangeLocked,
     leadMemberCount,
     memberRoleOptions: PROJECT_MEMBER_ROLE_OPTIONS,
     memberSearchLoading,
@@ -295,6 +290,8 @@ export function useProjectEditMembers(options: {
   };
 }
 
-function isProjectContributorRole(value: unknown): value is WorkspaceProjectContributorRole {
-  return value === 'lead' || value === 'validator' || value === 'contributor';
+function isAssignableProjectRole(
+  value: unknown,
+): value is Exclude<WorkspaceProjectContributorRole, 'lead'> {
+  return value === 'validator' || value === 'contributor';
 }

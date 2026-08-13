@@ -76,7 +76,7 @@ defineEmits<{
 @import "~/assets/scss/theme.scss";
 
 .project-detail-task-action-bar {
-  min-height: 6.6rem;
+  min-height: 90px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -97,7 +97,7 @@ defineEmits<{
   padding: 0;
   color: #db4b4b;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
 }
 
@@ -124,8 +124,9 @@ defineEmits<{
 
 .project-detail-task-action-copy span,
 .project-detail-task-action-status span {
-  color: #707796;
-  font-size: 0.95rem;
+  color: $text-secondary;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .project-detail-task-action-copy strong,
@@ -133,8 +134,8 @@ defineEmits<{
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  color: #1a1e3d;
-  font-size: 1.1rem;
+  color: $text-navy;
+  font-size: 1rem;
   font-weight: 700;
 }
 
@@ -200,20 +201,23 @@ defineEmits<{
   .project-detail-task-action-bar {
     flex-wrap: wrap;
     padding: 1rem 1.75rem;
+    position: fixed;
+    bottom: 0px;
+    width: 100%
   }
 
-  .project-detail-task-action-summary {
-    justify-content: flex-start;
-  }
+  // .project-detail-task-action-summary {
+  //   justify-content: flex-start;
+  // }
 }
 
 @include media-breakpoint-down(md) {
-  .project-detail-task-action-summary {
-    width: 100%;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
+  // .project-detail-task-action-summary {
+  //   width: 100%;
+  //   flex-direction: column;
+  //   align-items: flex-start;
+  //   gap: 1rem;
+  // }
 
   .project-detail-task-action-status {
     padding-left: 0;

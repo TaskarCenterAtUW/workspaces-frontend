@@ -143,7 +143,6 @@ function findField(fieldId: ProjectWizardDetailsFieldId): ProjectWizardDetailsFi
 .project-wizard-step-title {
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.15;

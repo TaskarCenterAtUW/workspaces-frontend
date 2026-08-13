@@ -45,7 +45,7 @@
         </div>
 
         <p
-          v-else-if="filteredUsers.length === 0"
+          v-else-if="displayUsers.length === 0"
           class="project-detail-add-contributor-status"
         >
           No users match your search.
@@ -58,15 +58,15 @@
           aria-label="Available users"
         >
           <button
-            v-for="user in filteredUsers"
+            v-for="{ existing, initial, user } in displayUsers"
             :key="user.authUid"
             class="project-detail-add-contributor-user"
             :class="{
-              'project-detail-add-contributor-user-disabled': isExistingUser(user.authUid),
+              'project-detail-add-contributor-user-disabled': existing,
               'project-detail-add-contributor-user-selected': selectedUserId === user.authUid
             }"
             type="button"
-            :disabled="isExistingUser(user.authUid)"
+            :disabled="existing"
             :aria-pressed="selectedUserId === user.authUid"
             @click="selectUser(user.authUid)"
           >
@@ -74,7 +74,7 @@
               class="project-detail-add-contributor-avatar"
               aria-hidden="true"
             >
-              {{ getInitial(user.displayName) }}
+              {{ initial }}
             </span>
 
             <span class="project-detail-add-contributor-user-copy">
@@ -83,7 +83,7 @@
             </span>
 
             <span
-              v-if="isExistingUser(user.authUid)"
+              v-if="existing"
               class="project-detail-add-contributor-state"
             >
               Already added
@@ -167,12 +167,17 @@ const selectedRole = ref<WorkspaceProjectContributorRole>('contributor');
 const selectedUserId = ref('');
 
 const roleOptions: SelectOption[] = [
-  { label: 'Lead', value: 'lead' },
   { label: 'Validator', value: 'validator' },
   { label: 'Contributor', value: 'contributor' },
 ];
 
-const filteredUsers = computed(() => props.users.slice(0, 10));
+const displayUsers = computed(() =>
+  props.users.slice(0, 10).map(user => ({
+    existing: props.existingUserIds.includes(user.authUid),
+    initial: getInitial(user.displayName),
+    user,
+  })),
+);
 
 const canSubmit = computed(() =>
   selectedUserId.value.trim().length > 0,
@@ -264,12 +269,13 @@ function selectUser(userId: string) {
 
 .project-detail-add-contributor-search-input {
   padding-right: 2.5rem;
+  border-radius: 4px;
 }
 
 .project-detail-add-contributor-results {
   min-height: 8rem;
   border: 1px solid rgba($text-navy, 0.12);
-  border-radius: 0.75rem;
+  border-radius: 8px;
   background: #ffffff;
   overflow: hidden;
 }
@@ -337,8 +343,8 @@ function selectUser(userId: string) {
 
 .project-detail-add-contributor-user-copy strong {
   color: $text-navy;
-  font-size: 0.96rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
   line-height: 1.25;
 }
 
