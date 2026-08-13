@@ -47,6 +47,7 @@
 <script setup lang="ts">
 import projectsIcon from '~/assets/img/projects.svg';
 import { formatShort } from '~/util/time';
+import { isRecord, parseMetadata } from '~/util/metadata';
 
 import type { Workspace, WorkspaceRole } from '~/types/workspaces';
 
@@ -82,7 +83,8 @@ const projectCountValue = computed(() =>
 const projectCountNoun = computed(() =>
   props.workspace.projectsCount === 1 ? 'Project' : 'Projects',
 );
-const datasetVersion = computed(() => getDatasetVersion(props.workspace.tdeiMetadata));
+const parsedMetadata = computed(() => parseMetadata(props.workspace.tdeiMetadata));
+const datasetVersion = computed(() => getDatasetVersion(parsedMetadata.value));
 
 const roleLabel = computed(() => {
   const labels: string[] = [];
@@ -115,8 +117,8 @@ const informationColumns = computed<InformationItem[][]>(() => [
   ],
 ]);
 
-function getDatasetVersion(metadata: unknown): string {
-  if (!isRecord(metadata)) {
+function getDatasetVersion(metadata: Record<string, unknown> | null): string {
+  if (metadata == null) {
     return 'N/A';
   }
 
@@ -136,9 +138,6 @@ function getDatasetVersion(metadata: unknown): string {
     : 'N/A';
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 </script>
 
 <style lang="scss" scoped>

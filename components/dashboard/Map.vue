@@ -24,6 +24,7 @@
 <script setup lang="ts">
 import { LoadingContext } from '~/services/loading';
 import { workspacesClient } from '~/services/index';
+import { isRecord, parseMetadata } from '~/util/metadata';
 
 import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
 
@@ -129,7 +130,7 @@ async function updateMapPreview(workspace: Workspace) {
 }
 
 async function setCurrentWorkspacePolygon(workspace: Workspace) {
-  const metadataArea = getMetadataArea(workspace.tdeiMetadata);
+  const metadataArea = getMetadataArea(parseMetadata(workspace.tdeiMetadata));
 
   if (metadataArea) {
     const polygon = L.geoJSON(metadataArea) as LeafletPolygon;
@@ -152,8 +153,8 @@ async function setCurrentWorkspacePolygon(workspace: Workspace) {
   });
 }
 
-function getMetadataArea(metadata: unknown): unknown {
-  if (!isRecord(metadata) || !isRecord(metadata.metadata)) {
+function getMetadataArea(metadata: Record<string, unknown> | null): unknown {
+  if (metadata == null || !isRecord(metadata.metadata)) {
     return undefined;
   }
 
@@ -161,9 +162,6 @@ function getMetadataArea(metadata: unknown): unknown {
   return isRecord(datasetDetail) ? datasetDetail.dataset_area : undefined;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 </script>
 
 <style lang="scss" scoped>
