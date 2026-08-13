@@ -87,9 +87,11 @@
 <script setup lang="ts">
 import { LoadingContext } from '~/services/loading'
 import { tdeiClient, osmClient } from '~/services/index'
+import { AUTH_HANDOFF_ERROR_KEY } from '~/util/auth-handoff'
 
 const loading = reactive(new LoadingContext())
-const error = ref ('')
+const error = ref(sessionStorage.getItem(AUTH_HANDOFF_ERROR_KEY) ?? '')
+sessionStorage.removeItem(AUTH_HANDOFF_ERROR_KEY)
 const username = ref('')
 const password = ref('')
 const showPassword = ref(false)

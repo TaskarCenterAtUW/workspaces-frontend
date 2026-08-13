@@ -39,7 +39,12 @@ function getJwtBody(accessToken: string): any {
   }
 
   let body = accessToken.substring(bodyStart + 1, bodyEnd);
-  body = JSON.parse(atob(body))
+  body = body
+    .replaceAll('-', '+')
+    .replaceAll('_', '/')
+    .padEnd(Math.ceil(body.length / 4) * 4, '=');
+  const bytes = Uint8Array.from(atob(body), character => character.charCodeAt(0));
+  body = JSON.parse(new TextDecoder().decode(bytes))
 
   return body;
 }
@@ -189,13 +194,27 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     this.#setAuth(username, body);
   }
 
+  async authenticateWithRefreshToken(refreshToken: string) {
+    if (!refreshToken.trim()) {
+      throw new Error('A TDEI refresh token is required');
+    }
+    const response = await super._send('refresh-token', 'POST', refreshToken);
+    this.#setAuth('', await response.json());
+  }
+
+  clearAuth() {
+    this.#auth.clear();
+    this.stopAutoAuthRefresh();
+    this.#setAuthHeader();
+  }
+
   async refreshToken() {
     try {
       const response = await super._send('refresh-token', 'POST', this.#auth.refreshToken);
       this.#setAuth(this.#auth.username, await response.json());
     } catch (e: unknown) {
       if (e instanceof BaseHttpClientError && e.response.status === 401) {
-        this.#auth.clear();
+        this.clearAuth();
       }
     }
   }
@@ -433,7 +452,9 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   #setAuth(username: string, body: any) {
     const jwt = getJwtBody(body.access_token);
 
-    this.#auth.username = username;
+    this.#auth.username = username
+      || (typeof jwt.preferred_username === 'string' ? jwt.preferred_username : '')
+      || (typeof jwt.email === 'string' ? jwt.email : '');
     this.#auth.subject = typeof jwt.sub === 'string' ? jwt.sub : '';
     this.#auth.displayName = typeof jwt.name === 'string' ? jwt.name : '';
     this.#auth.email = typeof jwt.email === 'string' ? jwt.email : '';
@@ -445,15 +466,13 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
 
     this.#setAuthHeader();
 
-    if (this.#refreshTimer) {
-      this.restartAutoAuthRefresh();
-    }
+    this.restartAutoAuthRefresh();
   }
 
   #setAuthHeader() {
-    if (this.#auth.complete) {
-      this._requestHeaders.Authorization = 'Bearer ' + this.#auth.accessToken;
-    }
+    this._requestHeaders.Authorization = this.#auth.complete
+      ? 'Bearer ' + this.#auth.accessToken
+      : '';
   }
 
   async #onAutoRefreshToken() {

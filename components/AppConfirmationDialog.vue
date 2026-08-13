@@ -52,6 +52,7 @@
 
       <div class="app-confirmation-dialog-actions">
         <button
+          v-if="secondaryActionLabel"
           ref="secondaryActionRef"
           class="btn btn-outline-secondary app-confirmation-dialog-secondary"
           type="button"
@@ -91,7 +92,7 @@ interface Props {
   message: string;
   primaryActionLabel: string;
   primaryVariant?: 'danger' | 'primary';
-  secondaryActionLabel?: string;
+  secondaryActionLabel?: string | null;
   title: string;
   visible: boolean;
 }
