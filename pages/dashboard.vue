@@ -180,15 +180,15 @@ const route = useRoute();
 
 const [workspaces, { items: myProjectGroups }] = await Promise.all([
   workspacesClient.getMyWorkspaces().then(items => items.sort(compareWorkspaceCreatedAtDesc)),
-  tdeiUserClient.getMyProjectGroups(1, '', 10000),
+  tdeiUserClient.getMyProjectGroups(1, '', 10000)
 ]);
 
 const rolesByProjectGroup = new Map(
-  myProjectGroups.map(projectGroup => [projectGroup.tdei_project_group_id, projectGroup.roles]),
+  myProjectGroups.map(projectGroup => [projectGroup.tdei_project_group_id, projectGroup.roles])
 );
 const workspacesByProjectGroup = Map.groupBy(
   workspaces,
-  workspace => workspace.tdeiProjectGroupId,
+  workspace => workspace.tdeiProjectGroupId
 );
 
 const currentProjectGroup = ref<string | null>(getLastProjectGroupId());
@@ -250,7 +250,7 @@ function syncSelectedWorkspace(availableWorkspaces: Workspace[]): void {
   }
 
   const selectionStillAvailable = availableWorkspaces.some(
-    workspace => workspace.id === currentWorkspace.value?.id,
+    workspace => workspace.id === currentWorkspace.value?.id
   );
 
   if (!selectionStillAvailable) {

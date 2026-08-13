@@ -96,7 +96,7 @@ function initMap() {
 async function updateMapPreview(workspace: Workspace) {
   if (workspaceAreaPolygon.value) {
     workspaceAreaPolygon.value.remove();
-    workspaceAreaPolygon.value = null
+    workspaceAreaPolygon.value = null;
   }
 
   if (!workspace.id) {
