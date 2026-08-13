@@ -137,7 +137,6 @@ function getDatasetVersion(metadata: Record<string, unknown> | null): string {
     ? String(version)
     : 'N/A';
 }
-
 </script>
 
 <style lang="scss" scoped>

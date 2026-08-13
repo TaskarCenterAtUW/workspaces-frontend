@@ -161,7 +161,6 @@ function getMetadataArea(metadata: Record<string, unknown> | null): unknown {
   const datasetDetail = metadata.metadata.dataset_detail;
   return isRecord(datasetDetail) ? datasetDetail.dataset_area : undefined;
 }
-
 </script>
 
 <style lang="scss" scoped>
