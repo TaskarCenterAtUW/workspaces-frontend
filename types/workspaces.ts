@@ -1,5 +1,5 @@
 export type WorkspaceId = number;
-export type WorkspaceType = 'osw' | 'pathways';
+export type WorkspaceType = 'osw' | 'pathways' | 'flex';
 export type WorkspaceAppAccess = 0 | 1 | 2;
 export type WorkspaceRole = 'lead' | 'validator' | 'contributor';
 
@@ -29,6 +29,8 @@ export interface Workspace {
   autoFlagReview?: boolean;
   role?: WorkspaceRole;
   center?: WorkspaceCenter;
+  projectsCount?: number | null;
+  membersCount?: number | null;
 }
 
 export interface WorkspaceCreation {

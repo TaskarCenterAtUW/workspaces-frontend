@@ -335,9 +335,15 @@ watch(
 )
 
 onMounted(async () => {
-  // Show cached name immediately before the API call completes
-  if (props.rememberSelection && model.value && loadCachedName(model.value as string)) {
-    applyCachedName()
+  // Restore the selected group name from the supplied options before fetching.
+  const selectedOption = projectGroups.value.find(
+    group => group.tdei_project_group_id === model.value
+  );
+  if (selectedOption) {
+    searchText.value = selectedOption.name;
+    selectedGroupName.value = selectedOption.name;
+  } else if (props.rememberSelection && model.value && loadCachedName(model.value as string)) {
+    applyCachedName();
   }
 
   if (!props.options) {

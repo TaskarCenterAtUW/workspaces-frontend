@@ -51,6 +51,7 @@ test.describe('dashboard', () => {
 
     await page.goto('/dashboard');
 
+    await expect(page.getByLabel('Project Group')).toHaveValue('Puget Sound');
     await expect(page.getByText('No workspaces exist in the selected project group.')).toBeVisible();
   });
 
