@@ -49,11 +49,11 @@
               v-if="lockTimeRemaining"
               class="task-editor-lock-time"
             >
-              <app-icon
-                variant="schedule"
-                size="17"
-                no-margin
-              />
+              <img
+                :src="timerIcon"
+                :alt="'Lock time remaining'"
+                class="task-editor-lock-time-icon"
+              >
               {{ lockTimeRemaining }}
             </span>
           </div>
@@ -91,7 +91,7 @@
               />
             </span>
             <div>
-              <h2>Task status</h2>
+              <h2>Task Status</h2>
               <p>{{ taskStatusHelpText }}</p>
             </div>
           </div>
@@ -113,9 +113,6 @@
           title="Instructions"
           title-link-class="task-editor-tab"
         >
-          <div class="task-editor-section-heading">
-            <h2>Instructions</h2>
-          </div>
           <workspace-project-details-rich-text-content
             class="task-editor-rich-copy"
             :html="instructions"
@@ -194,6 +191,7 @@ import type {
   WorkspaceProjectTaskFeedbackReasonCategory,
 } from '~/types/projects';
 import type { TaskEditorAction, TaskEditorActionId } from '~/types/task-editor';
+import timerIcon from '~/assets/img/timer_icon.svg';
 
 interface Props {
   actionStatusBlocked: boolean;
@@ -233,7 +231,7 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
-$task-editor-sidebar-handle-top: 5rem;
+$task-editor-sidebar-handle-top: 4rem;
 
 .task-editor-sidebar {
   min-height: 0;
@@ -305,12 +303,12 @@ $task-editor-sidebar-handle-top: 5rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.35rem;
-  height: 3.15rem;
+  width: 30px;
+  height: 30px;
   color: $text-navy;
   background: $white;
-  border: 1px solid rgba($text-navy, 0.14);
-  border-radius: 0.65rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 50px;
   box-shadow: $box-shadow;
   transition:
     background-color 0.2s ease,
@@ -342,21 +340,21 @@ $task-editor-sidebar-handle-top: 5rem;
   display: grid;
   gap: 0.85rem;
   padding: 1.25rem 1.75rem 1.5rem;
-  background: $purple-background-light;
+  background: transparent linear-gradient(285deg, #EEEAFF 0%, #F9F4FF 100%) 0% 0% no-repeat padding-box;
 }
 
 .task-editor-heading {
   display: grid;
   justify-items: start;
-  gap: 0.5rem;
+  gap: 20px;
   min-width: 0;
+  margin-bottom: 5px;
 }
 
 .task-editor-title {
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
-  font-size: 1.65rem;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1.3;
 }
@@ -364,10 +362,11 @@ $task-editor-sidebar-handle-top: 5rem;
 .task-editor-task-summary {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 1rem;
-  padding-top: 0.75rem;
-  color: $secondary;
+  padding-top: 15px;
+  color: $text-secondary;
   border-top: 1px dashed rgba($text-navy, 0.25);
 }
 
@@ -387,11 +386,10 @@ $task-editor-sidebar-handle-top: 5rem;
 .task-editor-status {
   width: fit-content;
   margin: 0;
-  padding: 0.35rem 0.6rem;
+  padding: 5px 12px;
   color: $primary;
   font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  font-weight: 600;
   background: rgba($primary, 0.08);
   border-radius: 999px;
 }
@@ -400,13 +398,16 @@ $task-editor-sidebar-handle-top: 5rem;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.35rem 0.65rem;
+  padding: 5px 12px;
   color: $status-warning-text;
   font-size: 0.82rem;
   font-weight: 600;
   background: $status-warning-surface;
   border: 1px solid $status-warning-border;
   border-radius: 999px;
+}
+.task-editor-lock-time-icon {
+  height: 16px;
 }
 
 .task-editor-tabs {
@@ -415,7 +416,8 @@ $task-editor-sidebar-handle-top: 5rem;
 
 .task-editor-tabs :deep(.task-editor-tab-list) {
   display: flex;
-  gap: 0;
+  flex-wrap: wrap;
+  gap: 25px;
   margin: 0;
   padding: 1.25rem 1.75rem 0;
   list-style: none;
@@ -423,10 +425,10 @@ $task-editor-sidebar-handle-top: 5rem;
   border-bottom: 0.25rem solid rgba($primary, 0.08);
 }
 
-.task-editor-tabs :deep(.task-editor-tab-list > li) {
-  flex: 1 1 0;
-  min-width: 0;
-}
+// .task-editor-tabs :deep(.task-editor-tab-list > li) {
+//   flex: 1 1 0;
+//   min-width: 0;
+// }
 
 .task-editor-tabs :deep(.task-editor-tab) {
   position: relative;
@@ -487,7 +489,7 @@ $task-editor-sidebar-handle-top: 5rem;
   display: grid;
   align-content: start;
   gap: 1.75rem;
-  padding: 1.5rem 1.75rem 2rem;
+  padding: 2.5rem 1.75rem 2.5rem;
 }
 
 .task-editor-tabs :deep(.task-editor-tab-panel:not(.active)) {
@@ -551,7 +553,7 @@ $task-editor-sidebar-handle-top: 5rem;
 }
 
 .task-editor-rich-copy {
-  color: $secondary;
+  color: $text-navy;
   font-size: 1rem;
   line-height: 1.55;
 }
@@ -630,13 +632,14 @@ $task-editor-sidebar-handle-top: 5rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 5px;
   padding: 0;
-  color: $secondary;
-  font-weight: 700;
+  color: $text-secondary;
+  font-weight: 500;
   text-decoration: none;
   background: transparent;
   border: 0;
+  margin-left: -8px;
 }
 
 .task-editor-back:hover,
