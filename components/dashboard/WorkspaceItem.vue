@@ -2,13 +2,11 @@
   <button
     class="workspace-card"
     :class="{
-      'workspace-card-selected': selected,
-      'workspace-card-disabled': disabled
+      'workspace-card-selected': selected
     }"
     type="button"
     :aria-label="workspaceAriaLabel"
     :aria-pressed="selected"
-    :disabled="disabled"
   >
     <span class="workspace-card-heading">
       <span
@@ -32,7 +30,7 @@
         aria-hidden="true"
       />
       <dashboard-workspace-import-status-badge
-        v-else-if="disabled"
+        v-else-if="isImporting"
         class="workspace-card-import-status"
         status="in-progress"
       />
@@ -54,7 +52,6 @@
         {{ projectLabel }}
       </span>
       <app-icon
-        v-if="!disabled"
         class="workspace-card-chevron"
         variant="chevron_right"
         size="22"
@@ -84,10 +81,11 @@ const props = withDefaults(defineProps<Props>(), {
 const updatedTime = computed(() => formatElapsed(
   props.workspace.updatedAt ?? props.workspace.createdAt
 ));
-const disabled = computed(() => props.workspace.importStatus === 'in-progress');
-const workspaceAriaLabel = computed(() => disabled.value
-  ? `Workspace ${props.workspace.title}, ID ${props.workspace.id}, import in progress`
-  : `Select workspace ${props.workspace.title}, ID ${props.workspace.id}`
+const isImporting = computed(() => props.workspace.importStatus === 'in-progress');
+const workspaceAriaLabel = computed(() =>
+  `Select workspace ${props.workspace.title}, ID ${props.workspace.id}${
+    isImporting.value ? ', import in progress' : ''
+  }`
 );
 const typeLabel = computed(() => props.workspace.type.toUpperCase());
 const projectLabel = computed(() => {
@@ -133,18 +131,6 @@ $workspace-card-meta-icon-height: 0.85rem;
 .workspace-card:focus-visible {
   border-color: rgba($primary, 0.35);
   box-shadow: 0 0.5rem 1.25rem rgba($primary, 0.1);
-}
-
-.workspace-card-disabled {
-  color: $text-disabled;
-  background: $surface-subtle;
-  cursor: not-allowed;
-}
-
-.workspace-card-disabled:hover,
-.workspace-card-disabled:focus-visible {
-  border-color: $border-strong;
-  box-shadow: none;
 }
 
 .workspace-card-selected {

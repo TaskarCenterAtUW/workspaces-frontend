@@ -124,7 +124,7 @@
       </aside>
 
       <section
-        v-if="currentWorkspace && isWorkspaceSelectable(currentWorkspace)"
+        v-if="currentWorkspace"
         class="dashboard-workspace-details"
         aria-labelledby="dashboard-workspace-title"
       >
@@ -298,18 +298,16 @@ onMounted(() => {
 });
 
 function syncSelectedWorkspace(availableWorkspaces: Workspace[]): void {
-  const selectableWorkspaces = availableWorkspaces.filter(isWorkspaceSelectable);
-
-  if (selectableWorkspaces.length === 0) {
+  if (availableWorkspaces.length === 0) {
     currentWorkspace.value = undefined;
     return;
   }
 
-  const selectedWorkspace = selectableWorkspaces.find(
+  const selectedWorkspace = availableWorkspaces.find(
     workspace => workspace.id === currentWorkspace.value?.id
   );
 
-  selectWorkspace(selectedWorkspace ?? selectableWorkspaces[0]!);
+  selectWorkspace(selectedWorkspace ?? availableWorkspaces[0]!);
 }
 
 function autoSelectPreferredWorkspace(): void {
@@ -323,22 +321,14 @@ function autoSelectPreferredWorkspace(): void {
   }
 
   const workspace = workspaces.value.find(item => item.id === preferredWorkspaceId);
-  if (workspace && isWorkspaceSelectable(workspace)) {
+  if (workspace) {
     currentProjectGroup.value = workspace.tdeiProjectGroupId;
     selectWorkspace(workspace);
   }
 }
 
 function selectWorkspace(workspace: Workspace): void {
-  if (!isWorkspaceSelectable(workspace)) {
-    return;
-  }
-
   currentWorkspace.value = workspace;
-}
-
-function isWorkspaceSelectable(workspace: Workspace): boolean {
-  return workspace.importStatus !== 'in-progress';
 }
 
 function showJobFailure(workspaceId: number): void {
