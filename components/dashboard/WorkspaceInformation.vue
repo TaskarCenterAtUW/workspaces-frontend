@@ -104,7 +104,10 @@ const roleLabel = computed(() => {
 
 const informationColumns = computed<InformationItem[][]>(() => [
   [
-    { label: 'Created At', value: formatShort(props.workspace.createdAt) },
+    {
+      label: 'Updated At',
+      value: formatShort(props.workspace.updatedAt ?? props.workspace.createdAt)
+    },
     { label: 'Created By', value: props.workspace.createdByName || 'N/A' },
   ],
   [

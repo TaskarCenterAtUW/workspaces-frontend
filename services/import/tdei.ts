@@ -1,55 +1,27 @@
-import type { OsmApiClient } from '~/services/osm';
-import { OsmApiClientError, osm2osc } from '~/services/osm';
-import { openTdeiPathwaysArchive, pathways2osc } from '~/services/pathways';
-import type { TdeiClient } from '~/services/tdei';
-import { TdeiClientError } from '~/services/tdei';
 import type { WorkspacesClient } from '~/services/workspaces';
 import { WorkspacesClientError } from '~/services/workspaces';
 
 import type { WorkspaceCreation } from '~/types/workspaces';
 
-const status = {
-  idle: 'Idle',
-  createWorkspace: 'Initializing workspace...',
-  downloadDataset: 'Downloading dataset from TDEI...',
-  extractDataset: 'Extracting dataset archive...',
-  createChangeset: 'Creating changeset...',
-  buildOsc: 'Building upload...',
-  import: 'Importing dataset to workspace...',
-  complete: 'Import complete.'
-};
-
 export class TdeiImporterContext {
   active: boolean = false;
-  status: string = status.idle;
   error?: string;
-
-  get complete(): boolean {
-    return this.status === status.complete;
-  }
 
   reset() {
     this.active = false;
-    this.status = status.idle;
     this.error = undefined;
   }
 }
 
 export class TdeiImporter {
   readonly _workspacesClient: WorkspacesClient;
-  readonly _tdeiClient: TdeiClient;
-  readonly _osmClient: OsmApiClient;
   readonly _context: TdeiImporterContext;
 
   constructor(
     workspacesClient: WorkspacesClient,
-    tdeiClient: TdeiClient,
-    osmClient: OsmApiClient,
     context: TdeiImporterContext
   ) {
     this._workspacesClient = workspacesClient;
-    this._tdeiClient = tdeiClient;
-    this._osmClient = osmClient;
     this._context = context ?? new TdeiImporterContext();
   }
 
@@ -71,45 +43,14 @@ export class TdeiImporter {
   }
 
   async _run(workspace: WorkspaceCreation): Promise<number> {
-    // Create the workspace in parallel:
-    const workspacePromise = this._workspacesClient.createWorkspace(workspace);
-
-    this._context.status = status.downloadDataset;
-    const datasetZip = workspace.type === 'osw'
-      ? await this._tdeiClient.downloadOswDataset(workspace.tdeiRecordId!, 'osm')
-      : await this._tdeiClient.downloadPathwaysDataset(workspace.tdeiRecordId!);
-
-    this._context.status = status.extractDataset;
-    const { dataset } = await this._tdeiClient.openDatasetArchive(datasetZip);
-
-    if (!dataset) {
-      throw new Error('Downloaded dataset archive contained no data file');
-    }
-
-    this._context.status = status.createWorkspace;
-    const workspaceId = await workspacePromise;
-
-    this._context.status = status.createChangeset;
-    const changesetId = await this._osmClient.createChangeset(workspaceId);
-
-    this._context.status = status.buildOsc;
-    const changesetXml = workspace.type === 'osw'
-      ? osm2osc(changesetId, await dataset.text())
-      : pathways2osc(changesetId, await openTdeiPathwaysArchive(dataset));
-
-    this._context.status = status.import;
-    await this._osmClient.uploadChangeset(workspaceId, changesetId, changesetXml);
-
-    return workspaceId
+    const workspaceId = await this._workspacesClient.createWorkspace(workspace);
+    return workspaceId;
   }
 
   async _handleError(e: any) {
     this._context.error = 'Unexpected error: ';
 
-    if (e instanceof TdeiClientError
-      || e instanceof OsmApiClientError
-      || e instanceof WorkspacesClientError
-    ) {
+    if (e instanceof WorkspacesClientError) {
       this._context.error += await e.response.text();
     } else {
       this._context.error += e.toString();

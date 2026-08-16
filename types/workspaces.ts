@@ -2,6 +2,26 @@ export type WorkspaceId = number;
 export type WorkspaceType = 'osw' | 'pathways' | 'flex';
 export type WorkspaceAppAccess = 0 | 1 | 2;
 export type WorkspaceRole = 'lead' | 'validator' | 'contributor';
+export type WorkspaceImportStatus = 'NA' | 'failed' | 'in-progress' | 'completed' | 'empty';
+
+export interface WorkspaceJobResponse {
+  message: string;
+  success: boolean;
+  messageCode: string;
+}
+
+export interface WorkspaceJob {
+  job_type: string;
+  request: Record<string, unknown>;
+  id: number;
+  current_task: string | null;
+  response: WorkspaceJobResponse | null;
+  created_at: string;
+  status: string;
+  updated_at: string;
+  current_task_status: string | null;
+  workspace_id: WorkspaceId;
+}
 
 // Map view centered on the workspace's data. Not returned by the API — it is
 // computed client-side from the workspace bbox and attached once the dashboard
@@ -22,6 +42,7 @@ export interface Workspace {
   tdeiServiceId?: string;
   tdeiMetadata?: string;
   createdAt: Date;
+  updatedAt?: Date;
   createdBy: string;
   createdByName: string;
   externalAppAccess: WorkspaceAppAccess;
@@ -31,6 +52,7 @@ export interface Workspace {
   center?: WorkspaceCenter;
   projectsCount?: number | null;
   membersCount?: number | null;
+  importStatus?: WorkspaceImportStatus | null;
 }
 
 export interface WorkspaceCreation {

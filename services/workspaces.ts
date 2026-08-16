@@ -20,6 +20,7 @@ import type {
   Workspace,
   WorkspaceCreation,
   WorkspaceId,
+  WorkspaceJob,
   WorkspaceMember,
   WorkspacePatch,
   WorkspaceRole,
@@ -52,6 +53,7 @@ function normalizeWorkspace(workspace: Workspace): Workspace {
   return {
     ...workspace,
     createdAt: new Date(workspace.createdAt),
+    updatedAt: new Date(workspace.updatedAt ?? workspace.createdAt),
     tdeiMetadata: parseTdeiMetadata(workspace.tdeiMetadata) as Workspace['tdeiMetadata'],
   };
 }
@@ -138,13 +140,18 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     }
   }
 
+  async getWorkspaceJobs(id: WorkspaceId): Promise<WorkspaceJob[]> {
+    const response = await this._get(`workspaces/${id}/jobs`);
+
+    return (await response.json()) ?? [];
+  }
+
   async createWorkspace(workspace: WorkspaceCreation): Promise<WorkspaceId> {
     workspace.createdBy = this.#tdeiClient.auth.subject;
     workspace.createdByName = this.#tdeiClient.auth.displayName;
 
     const workspaceResponse = await this._post('workspaces', workspace);
     const workspaceId = (await workspaceResponse.json()).workspaceId;
-    await this.#osmClient.createWorkspace(workspaceId);
 
     return workspaceId;
   }

@@ -3,6 +3,22 @@
     class="dashboard-toolbar"
     aria-label="Workspace actions"
   >
+    <button
+      class="btn btn-outline-secondary dashboard-toolbar-button dashboard-toolbar-refresh-button"
+      :class="{ 'dashboard-toolbar-refreshing': refreshing }"
+      type="button"
+      title="Refresh workspace status"
+      :disabled="refreshing"
+      @click="emit('refresh')"
+    >
+      <app-icon
+        variant="refresh"
+        size="20"
+        no-margin
+      />
+      <span class="visually-hidden">Refresh workspace status</span>
+    </button>
+
     <nuxt-link
       class="btn btn-outline-secondary dashboard-toolbar-button"
       :to="projectsRoute"
@@ -102,10 +118,16 @@ import { rapid3Manager } from '~/services/index';
 import type { Workspace } from '~/types/workspaces';
 
 interface Props {
+  refreshing?: boolean;
   workspace: Workspace;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  refreshing: false
+});
+const emit = defineEmits<{
+  refresh: [];
+}>();
 const rapid3Available = Boolean(rapid3Manager);
 
 const editHash = computed(() => {
@@ -184,6 +206,22 @@ $dashboard-toolbar-button-padding: 0.4rem 0.75rem;
   height: auto;
 }
 
+.dashboard-toolbar-refresh-button {
+  width: $dashboard-toolbar-control-height;
+  justify-content: center;
+  padding: 0;
+}
+
+.dashboard-toolbar-refreshing :deep(.material-icons) {
+  animation: dashboard-toolbar-spin 0.8s linear infinite;
+}
+
+@keyframes dashboard-toolbar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .dashboard-toolbar-rapid-icon {
   width: 1rem;
   height: 1.25rem;
@@ -234,7 +272,7 @@ $dashboard-toolbar-button-padding: 0.4rem 0.75rem;
   color: $secondary;
 }
 
-@include media-breakpoint-down(sm) {
+@include media-breakpoint-down(lg) {
   .dashboard-toolbar {
     width: 100%;
     justify-content: flex-start;
@@ -244,6 +282,18 @@ $dashboard-toolbar-button-padding: 0.4rem 0.75rem;
   .dashboard-toolbar-button,
   .dashboard-editor-dropdown {
     flex: 1 1 auto;
+  }
+}
+
+@include media-breakpoint-down(sm) {
+  .dashboard-toolbar-button,
+  .dashboard-editor-dropdown,
+  .dashboard-more-dropdown {
+    flex: 1 1 calc(50% - #{$dashboard-toolbar-gap});
+  }
+
+  .dashboard-more-dropdown :deep(.dashboard-more-toggle) {
+    width: 100%;
   }
 }
 </style>

@@ -1,12 +1,38 @@
 // Test outline
-// @test e2e: submitting the form with valid values shows a loading state, then redirects to the dashboard with the
-//            new workspace selected (playwright snapshot the loading state)
+// @test e2e: submitting the form with valid values confirms that workspace creation was initiated and links to the dashboard
 // @test e2e: submitting the form with an API error shows an error message
 // @test e2e: if an API error occurs when creating a workspace from either form, an error message is shown
 
 <template>
   <app-page class="create-tdei-page">
     <h1 class="mb-4 h2">Create a Workspace from the TDEI</h1>
+
+    <b-modal
+      ref="creationInitiatedModal"
+      title="Workspace creation initiated"
+      centered
+    >
+      <p>
+        Your workspace is being created in the background. You can check its status on the
+        dashboard. Use the Refresh button there to get the latest status.
+      </p>
+
+      <template #footer="{ hide }">
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          @click="hide()"
+        >
+          Stay on this page
+        </button>
+        <nuxt-link
+          class="btn btn-primary"
+          :to="`/dashboard?workspace=${createdWorkspaceId}`"
+        >
+          Go to Dashboard
+        </nuxt-link>
+      </template>
+    </b-modal>
 
     <template v-if="loading.active">
       <app-spinner />
@@ -24,7 +50,7 @@
               <input
                 v-model.trim="workspaceTitle"
                 class="form-control"
-                :disabled="context.active"
+                :disabled="context.active || createdWorkspaceId !== undefined"
                 required
               >
             </label>
@@ -39,7 +65,7 @@
               <project-group-picker
                 id="create_tdei_project_group"
                 v-model="projectGroupId"
-                :disabled="context.active"
+                :disabled="context.active || createdWorkspaceId !== undefined"
                 required
               />
             </div>
@@ -51,7 +77,7 @@
               Dataset
               <dataset-picker
                 v-model="tdeiRecordId"
-                :disabled="context.active"
+                :disabled="context.active || createdWorkspaceId !== undefined"
                 :selected-dataset="selectedDataset"
                 required
               />
@@ -66,12 +92,8 @@
           </div><!-- .card-body -->
 
           <div class="card-footer">
-            <template v-if="context.active">
-              <app-spinner size="sm" />
-              {{ context.status }}
-            </template>
             <section
-              v-else-if="context.error"
+              v-if="context.error"
               class="alert alert-danger m-0"
               role="alert"
             >
@@ -85,13 +107,13 @@
               </button>
             </section>
             <button
-              v-else-if="!context.complete"
+              v-else
               type="submit"
               class="btn btn-primary"
-              :disabled="!complete || context.active"
+              :disabled="!complete || context.active || createdWorkspaceId !== undefined"
               @click.prevent="create"
             >
-              Create Workspace
+              {{ createButtonLabel }}
             </button>
           </div><!-- .card-footer -->
         </div><!-- .card -->
@@ -164,13 +186,15 @@
 <script setup lang="ts">
 import { LoadingContext } from '~/services/loading'
 import { TdeiImporter, TdeiImporterContext } from '~/services/import/tdei';
-import { osmClient, tdeiClient, workspacesClient } from '~/services/index';
+import { tdeiClient, workspacesClient } from '~/services/index';
 import type { TdeiDatasetSummary } from '~/types/tdei';
+import { BModal } from 'bootstrap-vue-next/components/BModal';
+import type { ComponentExposed } from 'vue-component-type-helpers';
 
 declare const L: any;
 
 const context = reactive(new TdeiImporterContext());
-const importer = new TdeiImporter(workspacesClient, tdeiClient, osmClient, context);
+const importer = new TdeiImporter(workspacesClient, context);
 
 const loading = reactive(new LoadingContext());
 const route = useRoute();
@@ -180,6 +204,8 @@ const map = ref<any>({});
 const workspaceTitle = ref('');
 const projectGroupId = ref<string | null>(null);
 const datasetError = ref<string | null>(null);
+const createdWorkspaceId = ref<number>();
+const creationInitiatedModal = useTemplateRef<ComponentExposed<typeof BModal>>('creationInitiatedModal');
 
 const selectedDataset = computed<TdeiDatasetSummary | undefined>(() => {
   const detail = record.metadata?.dataset_detail;
@@ -201,6 +227,10 @@ const complete = computed(() =>
   && tdeiRecordId.value !== null
   && datasetError.value === null,
 );
+const createButtonLabel = computed(() => {
+  if (createdWorkspaceId.value !== undefined) return 'Creation initiated';
+  return context.active ? 'Initiating...' : 'Create Workspace';
+});
 
 let datasetInfoSequence = 0;
 async function getDatasetInfo(id: string | null) {
@@ -283,7 +313,9 @@ async function create() {
   });
 
   if (workspaceId) {
-    navigateTo('/dashboard?workspace=' + workspaceId);
+    createdWorkspaceId.value = workspaceId;
+    await nextTick();
+    creationInitiatedModal.value?.show();
   }
 }
 </script>
