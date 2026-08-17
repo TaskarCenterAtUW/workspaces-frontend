@@ -952,7 +952,6 @@ $project-edit-action-spacing: 30px;
   font-size: $project-edit-title-font-size;
   font-weight: 600;
   line-height: 1.15;
-  letter-spacing: -0.03em;
 }
 
 .project-edit-body {
