@@ -78,10 +78,10 @@ const appAccessLabels: Record<Workspace['externalAppAccess'], string> = {
 const projectCountValue = computed(() =>
   props.workspace.projectsCount == null
     ? '—'
-    : props.workspace.projectsCount.toLocaleString(),
+    : props.workspace.projectsCount.toLocaleString()
 );
 const projectCountNoun = computed(() =>
-  props.workspace.projectsCount === 1 ? 'Project' : 'Projects',
+  props.workspace.projectsCount === 1 ? 'Project' : 'Projects'
 );
 const parsedMetadata = computed(() => parseMetadata(props.workspace.tdeiMetadata));
 const datasetVersion = computed(() => getDatasetVersion(parsedMetadata.value));
@@ -108,16 +108,16 @@ const informationColumns = computed<InformationItem[][]>(() => [
       label: 'Updated At',
       value: formatShort(props.workspace.updatedAt ?? props.workspace.createdAt)
     },
-    { label: 'Created By', value: props.workspace.createdByName || 'N/A' },
+    { label: 'Created By', value: props.workspace.createdByName || 'N/A' }
   ],
   [
     { label: 'My Role', value: roleLabel.value },
-    { label: 'App Access', value: appAccessLabels[props.workspace.externalAppAccess] },
+    { label: 'App Access', value: appAccessLabels[props.workspace.externalAppAccess] }
   ],
   [
     { label: 'From TDEI Dataset ID', value: props.workspace.tdeiRecordId ?? 'N/A' },
-    { label: 'TDEI Project Group ID', value: props.workspace.tdeiProjectGroupId },
-  ],
+    { label: 'TDEI Project Group ID', value: props.workspace.tdeiProjectGroupId }
+  ]
 ]);
 
 function getDatasetVersion(metadata: Record<string, unknown> | null): string {

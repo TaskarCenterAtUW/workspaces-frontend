@@ -110,7 +110,8 @@ async function show(workspaceId: WorkspaceId): Promise<void> {
 }
 
 function formatTimestamp(value: string): string {
-  const date = new Date(value);
+  const hasTimezone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(value);
+  const date = new Date(hasTimezone ? value : `${value}Z`);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 </script>

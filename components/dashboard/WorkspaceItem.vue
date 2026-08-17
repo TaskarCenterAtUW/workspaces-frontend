@@ -75,7 +75,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  selected: false,
+  selected: false
 });
 
 const updatedTime = computed(() => formatElapsed(

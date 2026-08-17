@@ -250,7 +250,7 @@ const jobFailureDialog = useTemplateRef<JobFailureDialog>('jobFailureDialog');
 const currentWorkspaces = computed<Workspace[]>(() =>
   currentProjectGroup.value
     ? workspacesByProjectGroup.value.get(currentProjectGroup.value) ?? []
-    : [],
+    : []
 );
 const workspaceListItems = computed<Workspace[]>(() => {
   const normalizedSearch = workspaceSearch.value.toLocaleLowerCase();
@@ -266,10 +266,10 @@ const workspaceListItems = computed<Workspace[]>(() => {
 const currentWorkspaceTdeiRoles = computed<string[]>(() =>
   currentWorkspace.value
     ? rolesByProjectGroup.get(currentWorkspace.value.tdeiProjectGroupId) ?? []
-    : [],
+    : []
 );
 const workspaceListSummary = computed(() =>
-  `${workspaceListItems.value.length} of ${currentWorkspaces.value.length} workspaces shown.`,
+  `${workspaceListItems.value.length} of ${currentWorkspaces.value.length} workspaces shown.`
 );
 const workspaceTypeLabel = computed(() => currentWorkspace.value?.type.toUpperCase() ?? '');
 const workspaceRoleLabel = computed(() => {
@@ -279,7 +279,7 @@ const workspaceRoleLabel = computed(() => {
 const workspaceUpdatedTime = computed(() =>
   currentWorkspace.value
     ? formatElapsed(currentWorkspace.value.updatedAt ?? currentWorkspace.value.createdAt)
-    : '',
+    : ''
 );
 watch(currentWorkspace, (workspace) => {
   if (workspace) {
