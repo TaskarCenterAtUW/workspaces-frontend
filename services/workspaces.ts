@@ -49,11 +49,20 @@ function parseTdeiMetadata(value: Workspace['tdeiMetadata']): unknown {
   }
 }
 
+function parseWorkspaceTimestamp(value: Date | string): Date {
+  if (value instanceof Date) {
+    return value;
+  }
+
+  const hasTimezone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(value);
+  return new Date(hasTimezone ? value : `${value}Z`);
+}
+
 function normalizeWorkspace(workspace: Workspace): Workspace {
   return {
     ...workspace,
-    createdAt: new Date(workspace.createdAt),
-    updatedAt: new Date(workspace.updatedAt ?? workspace.createdAt),
+    createdAt: parseWorkspaceTimestamp(workspace.createdAt),
+    updatedAt: parseWorkspaceTimestamp(workspace.updatedAt ?? workspace.createdAt),
     tdeiMetadata: parseTdeiMetadata(workspace.tdeiMetadata) as Workspace['tdeiMetadata'],
   };
 }
