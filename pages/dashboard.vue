@@ -298,16 +298,18 @@ onMounted(() => {
 });
 
 function syncSelectedWorkspace(availableWorkspaces: Workspace[]): void {
-  if (availableWorkspaces.length === 0) {
+  const openableWorkspaces = availableWorkspaces.filter(isWorkspaceOpenable);
+
+  if (openableWorkspaces.length === 0) {
     currentWorkspace.value = undefined;
     return;
   }
 
-  const selectedWorkspace = availableWorkspaces.find(
+  const selectedWorkspace = openableWorkspaces.find(
     workspace => workspace.id === currentWorkspace.value?.id
   );
 
-  selectWorkspace(selectedWorkspace ?? availableWorkspaces[0]!);
+  selectWorkspace(selectedWorkspace ?? openableWorkspaces[0]!);
 }
 
 function autoSelectPreferredWorkspace(): void {
@@ -321,14 +323,22 @@ function autoSelectPreferredWorkspace(): void {
   }
 
   const workspace = workspaces.value.find(item => item.id === preferredWorkspaceId);
-  if (workspace) {
+  if (workspace && isWorkspaceOpenable(workspace)) {
     currentProjectGroup.value = workspace.tdeiProjectGroupId;
     selectWorkspace(workspace);
   }
 }
 
 function selectWorkspace(workspace: Workspace): void {
+  if (!isWorkspaceOpenable(workspace)) {
+    return;
+  }
+
   currentWorkspace.value = workspace;
+}
+
+function isWorkspaceOpenable(workspace: Workspace): boolean {
+  return workspace.importStatus !== 'in-progress';
 }
 
 function showJobFailure(workspaceId: number): void {

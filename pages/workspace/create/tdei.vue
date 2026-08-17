@@ -312,7 +312,7 @@ async function create() {
     tdeiMetadata: JSON.stringify(record),
   });
 
-  if (workspaceId) {
+  if (workspaceId !== undefined) {
     createdWorkspaceId.value = workspaceId;
     await nextTick();
     creationInitiatedModal.value?.show();
