@@ -82,6 +82,9 @@ let reviewMap: maplibregl.Map;
 let adiffViewer: typeof MapLibreAugmentedDiffViewer;
 let popup: maplibregl.Popup;
 let resizeObserver: ResizeObserver | undefined;
+const emptyChangeset = defineModel<boolean>('emptyChangeset', {
+  default: false
+});
 
 onMounted(() => {
   initMap();
@@ -126,32 +129,44 @@ function getLatLonZoom() {
 }
 
 async function drawItem(item: ReviewListItem | undefined) {
+  emptyChangeset.value = false;
   if (!item) {
     return;
   }
 
   loading.value = true;
+  try {
+    if (item.isChangeset) {
+      if (item.loadingChangeset) {
+        await item.oscPromise;
+      }
 
-  if (item.isChangeset) {
-    if (item.loadingChangeset) {
-      await item.oscPromise;
+      await drawChangeset(item.data as OsmChangeset);
     }
-
-    await drawChangeset(item.data as OsmChangeset);
+    else if (item.isFeedback) {
+      drawFeedback(item.data as TdeiFeedback);
+    }
+    else if (item.isNote) {
+      drawNote(item.data as OsmNote);
+    }
   }
-  else if (item.isFeedback) {
-    drawFeedback(item.data as TdeiFeedback);
+  finally {
+    loading.value = false;
   }
-  else if (item.isNote) {
-    drawNote(item.data as OsmNote);
-  }
-
-  loading.value = false;
 }
 
 async function drawChangeset(changeset: OsmChangeset) {
   const adiff = await changesetManager.getAdiff(props.workspaceId, changeset);
   resetMap();
+  const hasChanges = adiff.actions.some(action =>
+    action.type === 'create'
+    || action.type === 'modify'
+    || action.type === 'delete'
+  );
+  if (!hasChanges) {
+    emptyChangeset.value = true;
+    return;
+  }
 
   adiffViewer = new MapLibreAugmentedDiffViewer(adiff, {
     onClick: onAdiffClick,

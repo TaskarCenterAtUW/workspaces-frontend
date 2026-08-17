@@ -25,11 +25,12 @@
       <review-map
         ref="map"
         v-model:loading="loadingMap"
+        v-model:empty-changeset="emptyChangeset"
         v-model:current-diff="currentDiff"
         :workspace-id="workspaceId"
         :item="currentItem"
       />
-
+      v-model:current-diff="currentDiff" :workspace-id="workspaceId" :item="currentItem" />
       <transition name="fade">
         <div
           v-show="loadingMap"
@@ -38,12 +39,16 @@
           <app-spinner size="lg" />
         </div>
       </transition>
+
       <transition name="fade">
         <div
-          v-show="!currentItem"
+          v-show="emptyChangeset && !loadingMap"
           class="review-notice"
+          role="status"
         >
-          <!-- TODO: add some content/help here -->
+          <p class="d-flex h-100 align-items-center justify-content-center mb-0">
+            This changeset contains no changes.
+          </p>
         </div>
       </transition>
 
@@ -100,6 +105,7 @@ const imageViewer = useTemplateRef<InstanceType<typeof AppImageViewer>>('imageVi
 
 const loading = ref(false);
 const loadingMap = ref(false);
+const emptyChangeset = ref(false);
 const currentItem = ref<ReviewListItem | undefined>();
 const currentDiff = ref<AdiffAction | undefined>();
 
