@@ -500,7 +500,7 @@ $task-editor-sidebar-handle-top: 4rem;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0.85rem;
-  padding: 1rem;
+  padding: 15px;
   background: $surface-subtle;
   border: 1px solid rgba($text-navy, 0.1);
   border-radius: 0.8rem;
@@ -519,8 +519,8 @@ $task-editor-sidebar-handle-top: 4rem;
 
 .task-editor-info-card p {
   margin-top: 0.25rem;
-  color: $secondary;
-  font-size: 0.93rem;
+  color: $text-secondary;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -530,8 +530,8 @@ $task-editor-sidebar-handle-top: 4rem;
   justify-content: center;
   width: 2.75rem;
   height: 2.75rem;
-  color: $secondary;
-  background: $purple-background-light;
+  color: $text-secondary;
+  background: #f0f2f8;
   border-radius: 50%;
 }
 
@@ -575,26 +575,27 @@ $task-editor-sidebar-handle-top: 4rem;
 .task-editor-action-status {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
+  align-items: flex-start;
   gap: 0.6rem;
   margin: 0;
-  padding: 0.85rem 0.9rem;
-  color: $tdei-green;
+  padding: 10px 10px;
+  color: $text-navy;
   font-size: 0.92rem;
   line-height: 1.45;
   background: rgba($white, 0.92);
-  border: 1px solid rgba($tdei-green, 0.24);
-  border-radius: 0.85rem;
+  border: 1px solid rgba($text-navy, 0.24);
+  border-radius: 6px;
 }
 
 .task-editor-action-status :deep(.material-icons) {
-  margin-top: 0;
+  margin-top: 3px;
 }
 
 .task-editor-action-status-blocked {
   color: $text-navy;
-  background: $purple-background-medium;
-  border-color: rgba($primary, 0.18);
+  background: #fbfcff;
+  border-color: rgba(26, 30, 61, 0.1);
+  border-left: 4px solid #5a607b;
 }
 
 .task-editor-action-list {
