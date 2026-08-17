@@ -502,7 +502,7 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
   }
 }
 
-@include media-breakpoint-down(sm) {
+@include media-breakpoint-down(md) {
   .task-editor-shell {
     --task-editor-sidebar-width: min(25rem, calc(100vw - 3.25rem));
     --task-editor-sidebar-rail-width: 3.25rem;

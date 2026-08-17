@@ -7,14 +7,14 @@
     class="task-editor-feedback-panel"
     aria-labelledby="task-editor-feedback-heading"
   >
-    <div class="task-editor-feedback-heading">
+    <!-- <div class="task-editor-feedback-heading">
       <h2 id="task-editor-feedback-heading">
         Feedback<span v-if="feedback.length"> ({{ feedback.length }})</span>
       </h2>
       <p v-if="feedback.length">
         Feedback submitted for this task.
       </p>
-    </div>
+    </div> -->
 
     <p
       v-if="!feedback.length"
@@ -32,20 +32,8 @@
         :key="item.key"
       >
         <article class="task-editor-feedback-card">
-          <div class="task-editor-feedback-category">
-            <span
-              class="task-editor-feedback-dot"
-              :class="item.categoryClass"
-              aria-hidden="true"
-            />
-            <span class="task-editor-feedback-badge">{{ item.reasonLabel }}</span>
-          </div>
-
-          <p class="task-editor-feedback-notes">
-            {{ item.notes }}
-          </p>
-
-          <footer class="task-editor-feedback-author">
+          <div class="task-editor-feedback-badge">{{ item.reasonLabel }}</div>
+          <div class="task-editor-feedback-author">
             <span
               class="task-editor-feedback-avatar"
               aria-hidden="true"
@@ -54,7 +42,10 @@
               <strong>{{ item.authorName }}</strong>
               <time :datetime="item.createdAtIso">{{ item.createdAtLabel }}</time>
             </span>
-          </footer>
+          </div>
+          <p class="task-editor-feedback-notes">
+            {{ item.notes }}
+          </p>
         </article>
       </li>
     </ul>
@@ -153,7 +144,7 @@ function getInitials(name: string): string {
 }
 
 .task-editor-feedback-list {
-  gap: 0.8rem;
+  gap: 30px;
   padding: 0;
   margin: 0;
   list-style: none;
@@ -161,12 +152,13 @@ function getInitials(name: string): string {
 
 .task-editor-feedback-card {
   display: grid;
-  gap: 0.8rem;
-  padding: 1rem;
+  gap: 15px;
+  padding: 30px 20px 20px 20px;
   background: $surface-card;
   border: 1px solid $border-subtle;
   border-radius: $border-radius-lg;
   box-shadow: $box-shadow-sm;
+  position: relative;
 }
 
 .task-editor-feedback-category,
@@ -197,23 +189,24 @@ function getInitials(name: string): string {
 }
 
 .task-editor-feedback-badge {
-  padding: 0.2rem 0.55rem;
-  color: $text-navy;
-  font-size: 0.82rem;
-  font-weight: 700;
-  line-height: 1.3;
-  background: $purple-background-medium;
+  padding: 2px 12px;
+  color: #32006e;
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 600;
+  background: #e4dcf3;
   border-radius: 999px;
+  position: absolute;
+  top: -10px;
+  left: 20px;
 }
 
 .task-editor-feedback-notes {
-  padding-left: 1.1rem;
   color: $text-secondary;
 }
 
 .task-editor-feedback-author {
-  gap: 0.65rem;
-  padding-left: 1.1rem;
+  gap: 10px;
 }
 
 .task-editor-feedback-author > span:last-child {
@@ -223,14 +216,14 @@ function getInitials(name: string): string {
 
 .task-editor-feedback-author strong {
   color: $text-navy;
-  font-size: 0.85rem;
-  line-height: 1.3;
+  font-size: 14px;
 }
 
 .task-editor-feedback-author time {
-  color: $text-disabled;
-  font-size: 0.8rem;
+  color: $text-secondary;
+  font-size: 12px;
   line-height: 1.3;
+  font-weight: 500;
 }
 
 .task-editor-feedback-avatar {
@@ -239,10 +232,10 @@ function getInitials(name: string): string {
   justify-content: center;
   width: 2.25rem;
   height: 2.25rem;
-  color: $white;
+  color: $text-secondary;
   font-size: 0.75rem;
   font-weight: 700;
-  background: $secondary;
+  background: transparent linear-gradient(123deg, #F9DFFD 0%, #E9E3FF 100%) 0% 0% no-repeat padding-box;
   border-radius: 50%;
 }
 </style>
