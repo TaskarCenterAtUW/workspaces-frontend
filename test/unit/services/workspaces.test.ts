@@ -23,14 +23,31 @@ function makeClient() {
 }
 
 describe('WorkspacesClient.getMyWorkspaces', () => {
-  it('returns the workspaces and hydrates createdAt into a Date', async () => {
+  it('returns the workspaces and hydrates workspace timestamps into Dates', async () => {
     const workspaces = await makeClient().getMyWorkspaces();
 
     expect(workspaces).toHaveLength(2);
     expect(workspaces[0]!.id).toBe(1);
     expect(workspaces[0]!.title).toBe('Seattle Sidewalks');
+    expect(workspaces[0]!.importStatus).toBe('completed');
     expect(workspaces[0]!.createdAt).toBeInstanceOf(Date);
     expect(workspaces[0]!.createdAt.toISOString()).toBe('2026-01-15T12:00:00.000Z');
+    expect(workspaces[0]!.updatedAt).toBeInstanceOf(Date);
+    expect(workspaces[0]!.updatedAt!.toISOString()).toBe('2026-02-18T05:10:00.583Z');
+  });
+
+  it('falls back to createdAt when an older response omits updatedAt', async () => {
+    server.use(
+      http.get(`${TEST_API_BASE}workspaces/mine`, () => HttpResponse.json([{
+        id: 1,
+        title: 'W',
+        createdAt: '2026-01-15T12:00:00.000Z'
+      }]))
+    );
+
+    const [workspace] = await makeClient().getMyWorkspaces();
+
+    expect(workspace!.updatedAt).toEqual(workspace!.createdAt);
   });
 
   // Regression: the API sends `tdeiMetadata` inconsistently — sometimes a
@@ -95,5 +112,31 @@ describe('WorkspacesClient.getWorkspaceBbox', () => {
     );
 
     await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toBeUndefined();
+  });
+});
+
+describe('WorkspacesClient.getWorkspaceJobs', () => {
+  it('returns workspace jobs from the jobs endpoint in API order', async () => {
+    const jobs = [{
+      id: 2,
+      workspace_id: 1769,
+      job_type: 'workspace-import',
+      request: {},
+      current_task: 'Create Changeset',
+      response: {
+        message: 'Create Changeset step failed',
+        success: false,
+        messageCode: 'STEP_EXECUTION_FAILED'
+      },
+      created_at: '2026-08-14T05:44:15.816029',
+      updated_at: '2026-08-14T10:02:42.972197',
+      status: 'completed',
+      current_task_status: null
+    }];
+    server.use(
+      http.get(`${TEST_API_BASE}workspaces/1769/jobs`, () => HttpResponse.json(jobs))
+    );
+
+    await expect(makeClient().getWorkspaceJobs(1769)).resolves.toEqual(jobs);
   });
 });

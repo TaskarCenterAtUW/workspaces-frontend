@@ -130,21 +130,34 @@
       >
         <header class="dashboard-workspace-header">
           <div class="dashboard-workspace-heading">
-            <h2 id="dashboard-workspace-title">{{ currentWorkspace.title }}</h2>
+            <h2 id="dashboard-workspace-title">
+              <span class="dashboard-workspace-title-text">{{ currentWorkspace.title }}</span>
+              <dashboard-workspace-import-status-badge
+                v-if="currentWorkspace.importStatus
+                  && currentWorkspace.importStatus !== 'empty'"
+                :status="currentWorkspace.importStatus"
+                :interactive="currentWorkspace.importStatus === 'failed'"
+                @click="showJobFailure(currentWorkspace.id)"
+              />
+            </h2>
             <div class="dashboard-workspace-heading-meta">
               <span class="dashboard-workspace-badge">{{ workspaceTypeLabel }}</span>
               <span class="dashboard-workspace-badge">{{ workspaceRoleLabel }}</span>
-              <span class="dashboard-workspace-created">
+              <span class="dashboard-workspace-updated">
                 <img
                   :src="timelineIcon"
                   alt=""
                 >
-                Created {{ workspaceCreatedTime }}
+                Updated {{ workspaceUpdatedTime }}
               </span>
             </div>
           </div>
 
-          <dashboard-toolbar :workspace="currentWorkspace" />
+          <dashboard-toolbar
+            :workspace="currentWorkspace"
+            :refreshing="refreshingWorkspaces"
+            @refresh="refreshWorkspaces"
+          />
         </header>
 
         <div class="dashboard-details-content">
@@ -161,7 +174,38 @@
           />
         </div>
       </section>
+
+      <section
+        v-else
+        class="dashboard-workspace-details dashboard-workspace-unavailable"
+        aria-live="polite"
+      >
+        <app-icon
+          variant="hourglass_empty"
+          size="30"
+          no-margin
+        />
+        <h2>No workspace available to open</h2>
+        <p>
+          Workspaces still being imported cannot be opened. Use Refresh to check their latest status.
+        </p>
+        <button
+          class="btn btn-outline-secondary"
+          type="button"
+          :disabled="refreshingWorkspaces"
+          @click="refreshWorkspaces"
+        >
+          <app-icon
+            variant="refresh"
+            size="20"
+            no-margin
+          />
+          Refresh
+        </button>
+      </section>
     </section>
+
+    <dashboard-workspace-job-failure-dialog ref="jobFailureDialog" />
   </app-page>
 </template>
 
@@ -171,34 +215,42 @@ import { tdeiUserClient, workspacesClient } from '~/services/index';
 import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 import { formatElapsed } from '~/util/time';
 import { ROLE_LABELS } from '~/util/roles';
+import { toast } from 'vue3-toastify';
+import 'vue3-toastify/dist/index.css';
 
 import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
+
+type JobFailureDialog = {
+  show: (workspaceId: number) => Promise<void>;
+};
 
 const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
 const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
 const route = useRoute();
 
-const [workspaces, { items: myProjectGroups }] = await Promise.all([
+const [initialWorkspaces, { items: myProjectGroups }] = await Promise.all([
   workspacesClient.getMyWorkspaces().then(items => items.sort(compareWorkspaceCreatedAtDesc)),
   tdeiUserClient.getMyProjectGroups(1, '', 10000)
 ]);
+const workspaces = ref<Workspace[]>(initialWorkspaces);
 
 const rolesByProjectGroup = new Map(
   myProjectGroups.map(projectGroup => [projectGroup.tdei_project_group_id, projectGroup.roles])
 );
-const workspacesByProjectGroup = Map.groupBy(
-  workspaces,
-  workspace => workspace.tdeiProjectGroupId
+const workspacesByProjectGroup = computed(() =>
+  Map.groupBy(workspaces.value, workspace => workspace.tdeiProjectGroupId)
 );
 
 const currentProjectGroup = ref<string | null>(getLastProjectGroupId());
 const currentWorkspace = ref<Workspace>();
 const workspaceSearch = ref('');
+const refreshingWorkspaces = ref(false);
+const jobFailureDialog = useTemplateRef<JobFailureDialog>('jobFailureDialog');
 
 const currentWorkspaces = computed<Workspace[]>(() =>
   currentProjectGroup.value
-    ? workspacesByProjectGroup.get(currentProjectGroup.value) ?? []
-    : [],
+    ? workspacesByProjectGroup.value.get(currentProjectGroup.value) ?? []
+    : []
 );
 const workspaceListItems = computed<Workspace[]>(() => {
   const normalizedSearch = workspaceSearch.value.toLocaleLowerCase();
@@ -214,18 +266,20 @@ const workspaceListItems = computed<Workspace[]>(() => {
 const currentWorkspaceTdeiRoles = computed<string[]>(() =>
   currentWorkspace.value
     ? rolesByProjectGroup.get(currentWorkspace.value.tdeiProjectGroupId) ?? []
-    : [],
+    : []
 );
 const workspaceListSummary = computed(() =>
-  `${workspaceListItems.value.length} of ${currentWorkspaces.value.length} workspaces shown.`,
+  `${workspaceListItems.value.length} of ${currentWorkspaces.value.length} workspaces shown.`
 );
 const workspaceTypeLabel = computed(() => currentWorkspace.value?.type.toUpperCase() ?? '');
 const workspaceRoleLabel = computed(() => {
   const role = currentWorkspace.value?.role;
   return role ? ROLE_LABELS[role] : 'Member';
 });
-const workspaceCreatedTime = computed(() =>
-  currentWorkspace.value ? formatElapsed(currentWorkspace.value.createdAt) : '',
+const workspaceUpdatedTime = computed(() =>
+  currentWorkspace.value
+    ? formatElapsed(currentWorkspace.value.updatedAt ?? currentWorkspace.value.createdAt)
+    : ''
 );
 watch(currentWorkspace, (workspace) => {
   if (workspace) {
@@ -249,13 +303,11 @@ function syncSelectedWorkspace(availableWorkspaces: Workspace[]): void {
     return;
   }
 
-  const selectionStillAvailable = availableWorkspaces.some(
+  const selectedWorkspace = availableWorkspaces.find(
     workspace => workspace.id === currentWorkspace.value?.id
   );
 
-  if (!selectionStillAvailable) {
-    selectWorkspace(availableWorkspaces[0]!);
-  }
+  selectWorkspace(selectedWorkspace ?? availableWorkspaces[0]!);
 }
 
 function autoSelectPreferredWorkspace(): void {
@@ -268,7 +320,7 @@ function autoSelectPreferredWorkspace(): void {
     return;
   }
 
-  const workspace = workspaces.find(item => item.id === preferredWorkspaceId);
+  const workspace = workspaces.value.find(item => item.id === preferredWorkspaceId);
   if (workspace) {
     currentProjectGroup.value = workspace.tdeiProjectGroupId;
     selectWorkspace(workspace);
@@ -277,6 +329,40 @@ function autoSelectPreferredWorkspace(): void {
 
 function selectWorkspace(workspace: Workspace): void {
   currentWorkspace.value = workspace;
+}
+
+function showJobFailure(workspaceId: number): void {
+  void jobFailureDialog.value?.show(workspaceId);
+}
+
+async function refreshWorkspaces(): Promise<void> {
+  if (refreshingWorkspaces.value) {
+    return;
+  }
+
+  refreshingWorkspaces.value = true;
+
+  try {
+    const refreshedWorkspaces = await workspacesClient.getMyWorkspaces();
+    const existingWorkspaces = new Map(
+      workspaces.value.map(workspace => [workspace.id, workspace])
+    );
+
+    workspaces.value = refreshedWorkspaces
+      .map((workspace) => {
+        const existingWorkspace = existingWorkspaces.get(workspace.id);
+        return existingWorkspace?.center
+          ? { ...workspace, center: existingWorkspace.center }
+          : workspace;
+      })
+      .sort(compareWorkspaceCreatedAtDesc);
+  }
+  catch (error: unknown) {
+    toast.error(error instanceof Error ? error.message : 'Failed to refresh workspaces.');
+  }
+  finally {
+    refreshingWorkspaces.value = false;
+  }
 }
 
 function onCenterLoaded(center: WorkspaceCenter): void {
@@ -536,6 +622,23 @@ $dashboard-create-button-radius: 0.375rem;
   overflow: hidden;
 }
 
+.dashboard-workspace-unavailable {
+  min-height: 20rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 2rem;
+  color: $text-secondary;
+  text-align: center;
+}
+
+.dashboard-workspace-unavailable h2,
+.dashboard-workspace-unavailable p {
+  margin: 0;
+}
+
 .dashboard-workspace-header {
   min-height: $dashboard-header-height;
   flex: 0 0 auto;
@@ -556,13 +659,22 @@ $dashboard-create-button-radius: 0.375rem;
 }
 
 .dashboard-workspace-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
   margin: 0;
-  overflow: hidden;
   color: $text-navy;
   font-family: var(--primary-font-family);
   font-size: $dashboard-details-title-size;
   font-weight: $font-weight-bold;
   line-height: 1.25;
+  white-space: nowrap;
+}
+
+.dashboard-workspace-title-text {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -584,7 +696,7 @@ $dashboard-create-button-radius: 0.375rem;
   border-radius: $border-radius;
 }
 
-.dashboard-workspace-created {
+.dashboard-workspace-updated {
   padding-left: 0.75rem;
   display: inline-flex;
   align-items: center;
@@ -592,7 +704,7 @@ $dashboard-create-button-radius: 0.375rem;
   border-left: $border-width solid rgba($text-secondary, 0.25);
 }
 
-.dashboard-workspace-created img {
+.dashboard-workspace-updated img {
   width: 1rem;
   height: 1rem;
 }
@@ -632,6 +744,21 @@ $dashboard-create-button-radius: 0.375rem;
 }
 
 @include media-breakpoint-down(md) {
+  .dashboard-topbar,
+  .dashboard-project-group-control {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-project-group-control {
+    gap: 0.5rem;
+  }
+
+  .dashboard-project-group-control :deep(.project-group-picker),
+  .dashboard-create-button {
+    width: 100%;
+  }
+
   .dashboard-shell {
     height: auto;
     grid-template-columns: 1fr;
@@ -654,27 +781,16 @@ $dashboard-create-button-radius: 0.375rem;
     height: auto;
     grid-template-rows: auto;
   }
+
+  .dashboard-workspace-header {
+    min-height: 0;
+  }
 }
 
 @include media-breakpoint-down(sm) {
   .dashboard-page {
     padding-right: 0.75rem;
     padding-left: 0.75rem;
-  }
-
-  .dashboard-topbar,
-  .dashboard-project-group-control {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .dashboard-project-group-control {
-    gap: 0.5rem;
-  }
-
-  .dashboard-project-group-control :deep(.project-group-picker),
-  .dashboard-create-button {
-    width: 100%;
   }
 
   .dashboard-create-button {
@@ -686,7 +802,7 @@ $dashboard-create-button-radius: 0.375rem;
     border-radius: 0;
   }
 
-  .dashboard-workspace-heading h2 {
+  .dashboard-workspace-title-text {
     white-space: normal;
   }
 

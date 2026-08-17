@@ -1,9 +1,11 @@
 <template>
   <button
     class="workspace-card"
-    :class="{ 'workspace-card-selected': selected }"
+    :class="{
+      'workspace-card-selected': selected
+    }"
     type="button"
-    :aria-label="`Select workspace ${workspace.title}, ID ${workspace.id}`"
+    :aria-label="workspaceAriaLabel"
     :aria-pressed="selected"
   >
     <span class="workspace-card-heading">
@@ -19,13 +21,18 @@
 
       <span class="workspace-card-copy">
         <strong :title="workspace.title">{{ workspace.title }}</strong>
-        <span>Created {{ createdTime }}</span>
+        <span class="workspace-card-updated">Updated {{ updatedTime }}</span>
       </span>
 
       <span
         v-if="selected"
         class="workspace-card-selected-icon"
         aria-hidden="true"
+      />
+      <dashboard-workspace-import-status-badge
+        v-else-if="isImporting"
+        class="workspace-card-import-status"
+        status="in-progress"
       />
     </span>
 
@@ -68,10 +75,18 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  selected: false,
+  selected: false
 });
 
-const createdTime = computed(() => formatElapsed(props.workspace.createdAt));
+const updatedTime = computed(() => formatElapsed(
+  props.workspace.updatedAt ?? props.workspace.createdAt
+));
+const isImporting = computed(() => props.workspace.importStatus === 'in-progress');
+const workspaceAriaLabel = computed(() =>
+  `Select workspace ${props.workspace.title}, ID ${props.workspace.id}${
+    isImporting.value ? ', import in progress' : ''
+  }`
+);
 const typeLabel = computed(() => props.workspace.type.toUpperCase());
 const projectLabel = computed(() => {
   if (props.workspace.projectsCount == null) {
@@ -130,7 +145,7 @@ $workspace-card-meta-icon-height: 0.85rem;
   min-width: 0;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
   gap: $workspace-card-gap;
 }
 
@@ -141,6 +156,11 @@ $workspace-card-meta-icon-height: 0.85rem;
   align-items: center;
   justify-content: center;
   border-radius: $workspace-card-radius;
+}
+
+.workspace-card-selected-icon,
+.workspace-card-import-status {
+  align-self: center;
 }
 
 .workspace-card-icon img {
@@ -165,7 +185,11 @@ $workspace-card-meta-icon-height: 0.85rem;
   white-space: nowrap;
 }
 
-.workspace-card-copy span,
+.workspace-card-import-status {
+  max-width: 100%;
+}
+
+.workspace-card-updated,
 .workspace-card-meta {
   color: $text-secondary;
   font-family: var(--primary-font-family);
@@ -205,5 +229,26 @@ $workspace-card-meta-icon-height: 0.85rem;
 
 .workspace-card-chevron {
   margin-left: auto;
+}
+
+@include media-breakpoint-down(sm) {
+  .workspace-card {
+    min-height: 0;
+  }
+
+  .workspace-card-heading {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .workspace-card-selected-icon,
+  .workspace-card-import-status {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .workspace-card-meta {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
 }
 </style>

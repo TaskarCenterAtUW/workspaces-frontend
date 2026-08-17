@@ -20,6 +20,7 @@ import type {
   Workspace,
   WorkspaceCreation,
   WorkspaceId,
+  WorkspaceJob,
   WorkspaceMember,
   WorkspacePatch,
   WorkspaceRole,
@@ -48,10 +49,20 @@ function parseTdeiMetadata(value: Workspace['tdeiMetadata']): unknown {
   }
 }
 
+function parseWorkspaceTimestamp(value: Date | string): Date {
+  if (value instanceof Date) {
+    return value;
+  }
+
+  const hasTimezone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(value);
+  return new Date(hasTimezone ? value : `${value}Z`);
+}
+
 function normalizeWorkspace(workspace: Workspace): Workspace {
   return {
     ...workspace,
-    createdAt: new Date(workspace.createdAt),
+    createdAt: parseWorkspaceTimestamp(workspace.createdAt),
+    updatedAt: parseWorkspaceTimestamp(workspace.updatedAt ?? workspace.createdAt),
     tdeiMetadata: parseTdeiMetadata(workspace.tdeiMetadata) as Workspace['tdeiMetadata'],
   };
 }
@@ -138,13 +149,18 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     }
   }
 
+  async getWorkspaceJobs(id: WorkspaceId): Promise<WorkspaceJob[]> {
+    const response = await this._get(`workspaces/${id}/jobs`);
+
+    return (await response.json()) ?? [];
+  }
+
   async createWorkspace(workspace: WorkspaceCreation): Promise<WorkspaceId> {
     workspace.createdBy = this.#tdeiClient.auth.subject;
     workspace.createdByName = this.#tdeiClient.auth.displayName;
 
     const workspaceResponse = await this._post('workspaces', workspace);
     const workspaceId = (await workspaceResponse.json()).workspaceId;
-    await this.#osmClient.createWorkspace(workspaceId);
 
     return workspaceId;
   }
