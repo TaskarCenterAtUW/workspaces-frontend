@@ -84,7 +84,7 @@ const updatedTime = computed(() => formatElapsed(
 const isImporting = computed(() => props.workspace.importStatus === 'in-progress');
 const workspaceAriaLabel = computed(() =>
   `Select workspace ${props.workspace.title}, ID ${props.workspace.id}${
-    isImporting.value ? ', import in progress' : ''
+    isImporting.value ? ', setup in progress' : ''
   }`
 );
 const typeLabel = computed(() => props.workspace.type.toUpperCase());

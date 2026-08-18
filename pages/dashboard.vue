@@ -187,7 +187,7 @@
         />
         <h2>No workspace available to open</h2>
         <p>
-          Workspaces still being imported cannot be opened. Use Refresh to check their latest status.
+          Workspaces still being set up cannot be opened. Use Refresh to check their latest status.
         </p>
         <button
           class="btn btn-outline-secondary"
