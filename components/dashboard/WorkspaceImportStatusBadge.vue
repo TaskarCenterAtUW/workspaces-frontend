@@ -26,12 +26,9 @@
     ref="badgeEl"
     class="workspace-import-status-badge"
     :class="`workspace-import-status-badge-${statusDetails.variant}`"
-    tabindex="0"
-    :aria-describedby="tooltipId"
+    :aria-label="statusDetails.title"
     @pointerenter="showTooltip"
     @pointerleave="hideTooltip"
-    @focus="showTooltip"
-    @blur="hideTooltip"
   >
     <app-icon
       :variant="statusDetails.icon"

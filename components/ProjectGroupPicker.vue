@@ -342,6 +342,14 @@ onMounted(async () => {
   if (selectedOption) {
     searchText.value = selectedOption.name;
     selectedGroupName.value = selectedOption.name;
+  } else if (props.options && model.value) {
+    //  clear stale selection
+    const first = projectGroups.value[0];
+    if (first) {
+      model.value = first.tdei_project_group_id;
+      searchText.value = first.name;
+      selectedGroupName.value = first.name;
+    }
   } else if (props.rememberSelection && model.value && loadCachedName(model.value as string)) {
     applyCachedName();
   }
