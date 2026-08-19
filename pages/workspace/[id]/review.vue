@@ -26,11 +26,11 @@
         ref="map"
         v-model:loading="loadingMap"
         v-model:empty-changeset="emptyChangeset"
+        v-model:map-error="mapError"
         v-model:current-diff="currentDiff"
         :workspace-id="workspaceId"
         :item="currentItem"
       />
-      v-model:current-diff="currentDiff" :workspace-id="workspaceId" :item="currentItem" />
       <transition name="fade">
         <div
           v-show="loadingMap"
@@ -48,6 +48,18 @@
         >
           <p class="d-flex h-100 align-items-center justify-content-center mb-0">
             This changeset contains no changes.
+          </p>
+        </div>
+      </transition>
+
+      <transition name="fade">
+        <div
+          v-show="mapError && !loadingMap"
+          class="review-notice review-notice-error"
+          role="alert"
+        >
+          <p class="d-flex h-100 align-items-center justify-content-center mb-0 text-center px-3">
+            {{ mapError }}
           </p>
         </div>
       </transition>
@@ -106,6 +118,7 @@ const imageViewer = useTemplateRef<InstanceType<typeof AppImageViewer>>('imageVi
 const loading = ref(false);
 const loadingMap = ref(false);
 const emptyChangeset = ref(false);
+const mapError = ref<string | null>(null);
 const currentItem = ref<ReviewListItem | undefined>();
 const currentDiff = ref<AdiffAction | undefined>();
 
@@ -208,6 +221,11 @@ async function openEditor() {
 
   .review-notice {
     background-color: var(--bs-body-bg);
+  }
+
+  .review-notice-error {
+    background-color: var(--bs-body-bg);
+    color: $danger-red;
   }
 
   @include media-breakpoint-down(md) {

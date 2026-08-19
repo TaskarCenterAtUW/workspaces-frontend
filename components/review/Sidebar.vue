@@ -29,6 +29,12 @@
       class="list-group"
     >
       <app-spinner v-if="loading" />
+      <p
+        v-else-if="!items.length"
+        class="review-sidebar-empty"
+      >
+        No items to review.
+      </p>
       <review-item
         v-for="item in items"
         :key="item.key"
@@ -142,6 +148,14 @@ function refresh() {
       right: 0;
       margin: 0 auto;
     }
+  }
+
+  .review-sidebar-empty {
+    padding: 1.5rem 1rem;
+    margin: 0;
+    color: var(--bs-secondary-color);
+    font-size: 0.875rem;
+    text-align: center;
   }
 
   .list-group-item:first-child {

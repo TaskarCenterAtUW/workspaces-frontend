@@ -85,6 +85,9 @@ let resizeObserver: ResizeObserver | undefined;
 const emptyChangeset = defineModel<boolean>('emptyChangeset', {
   default: false
 });
+const mapError = defineModel<string | null>('mapError', {
+  default: null
+});
 
 onMounted(() => {
   initMap();
@@ -128,12 +131,16 @@ function getLatLonZoom() {
   return { lat, lon: lng, zoom };
 }
 
+let drawGeneration = 0;
+
 async function drawItem(item: ReviewListItem | undefined) {
   emptyChangeset.value = false;
+  mapError.value = null;
   if (!item) {
     return;
   }
 
+  const generation = ++drawGeneration;
   loading.value = true;
   try {
     if (item.isChangeset) {
@@ -141,22 +148,36 @@ async function drawItem(item: ReviewListItem | undefined) {
         await item.oscPromise;
       }
 
-      await drawChangeset(item.data as OsmChangeset);
+      await drawChangeset(item.data as OsmChangeset, generation);
     }
     else if (item.isFeedback) {
-      drawFeedback(item.data as TdeiFeedback);
+      if (generation === drawGeneration) drawFeedback(item.data as TdeiFeedback);
     }
     else if (item.isNote) {
-      drawNote(item.data as OsmNote);
+      if (generation === drawGeneration) drawNote(item.data as OsmNote);
+    }
+  }
+  catch {
+    // Discard result if the user already selected a different changeset.
+    if (generation === drawGeneration) {
+      mapError.value = 'Could not load changeset data. The server may be unavailable or took too long to respond. Try again or select a different changeset.';
     }
   }
   finally {
-    loading.value = false;
+    if (generation === drawGeneration) {
+      loading.value = false;
+    }
   }
 }
 
-async function drawChangeset(changeset: OsmChangeset) {
+async function drawChangeset(changeset: OsmChangeset, generation: number) {
   const adiff = await changesetManager.getAdiff(props.workspaceId, changeset);
+
+  // Discard result if the user already selected a different changeset.
+  if (generation !== drawGeneration) {
+    return;
+  }
+
   resetMap();
   const hasChanges = adiff.actions.some(action =>
     action.type === 'create'
