@@ -82,6 +82,12 @@ let reviewMap: maplibregl.Map;
 let adiffViewer: typeof MapLibreAugmentedDiffViewer;
 let popup: maplibregl.Popup;
 let resizeObserver: ResizeObserver | undefined;
+const emptyChangeset = defineModel<boolean>('emptyChangeset', {
+  default: false
+});
+const mapError = defineModel<string | null>('mapError', {
+  default: null
+});
 
 onMounted(() => {
   initMap();
@@ -125,33 +131,64 @@ function getLatLonZoom() {
   return { lat, lon: lng, zoom };
 }
 
+let drawGeneration = 0;
+
 async function drawItem(item: ReviewListItem | undefined) {
+  emptyChangeset.value = false;
+  mapError.value = null;
+  const generation = ++drawGeneration;
   if (!item) {
+    loading.value = false;
     return;
   }
 
   loading.value = true;
+  try {
+    if (item.isChangeset) {
+      if (item.loadingChangeset) {
+        await item.oscPromise;
+      }
 
-  if (item.isChangeset) {
-    if (item.loadingChangeset) {
-      await item.oscPromise;
+      await drawChangeset(item.data as OsmChangeset, generation);
     }
-
-    await drawChangeset(item.data as OsmChangeset);
+    else if (item.isFeedback) {
+      if (generation === drawGeneration) drawFeedback(item.data as TdeiFeedback);
+    }
+    else if (item.isNote) {
+      if (generation === drawGeneration) drawNote(item.data as OsmNote);
+    }
   }
-  else if (item.isFeedback) {
-    drawFeedback(item.data as TdeiFeedback);
+  catch {
+    // Discard result if the user already selected a different changeset.
+    if (generation === drawGeneration) {
+      mapError.value = 'Could not load changeset data. The server may be unavailable or took too long to respond. Try again or select a different changeset.';
+    }
   }
-  else if (item.isNote) {
-    drawNote(item.data as OsmNote);
+  finally {
+    if (generation === drawGeneration) {
+      loading.value = false;
+    }
   }
-
-  loading.value = false;
 }
 
-async function drawChangeset(changeset: OsmChangeset) {
+async function drawChangeset(changeset: OsmChangeset, generation: number) {
   const adiff = await changesetManager.getAdiff(props.workspaceId, changeset);
+
+  // Discard result if the user already selected a different changeset.
+  if (generation !== drawGeneration) {
+    return;
+  }
+
   resetMap();
+  const hasChanges = adiff.actions.some(action =>
+    action.type === 'create'
+    || action.type === 'modify'
+    || action.type === 'delete'
+  );
+  if (!hasChanges) {
+    emptyChangeset.value = true;
+    return;
+  }
 
   adiffViewer = new MapLibreAugmentedDiffViewer(adiff, {
     onClick: onAdiffClick,
