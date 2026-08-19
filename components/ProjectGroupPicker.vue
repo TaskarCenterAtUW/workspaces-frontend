@@ -232,6 +232,9 @@ function syncDisplayName(): void {
       return;
     }
   }
+
+  searchText.value = '';
+  selectedGroupName.value = '';
 }
 
 watch(
@@ -347,25 +350,30 @@ watch(
 )
 
 onMounted(async () => {
-  syncDisplayName()
-
   if (!props.options) {
     await loadGroups(true)
 
     if (fetchedGroups.value.length > 0) {
       if (!model.value) {
-        const first = fetchedGroups.value[0]!
-        model.value = first.tdei_project_group_id
+        const first = fetchedGroups.value[0]!;
+        model.value = first.tdei_project_group_id;
       }
       syncDisplayName()
 
       if (model.value && !projectGroups.value.some(pg => pg.tdei_project_group_id === model.value)) {
-        while (hasMore.value) {
-          await loadGroups()
-          const found = fetchedGroups.value.find(pg => pg.tdei_project_group_id === model.value)
+        let attempts = 0;
+        const maxAttempts = 50;
+        while (hasMore.value && attempts < maxAttempts) {
+          attempts++;
+          const prevLength = fetchedGroups.value.length;
+          await loadGroups();
+          if (fetchedGroups.value.length === prevLength) {
+            break;
+          }
+          const found = fetchedGroups.value.find(pg => pg.tdei_project_group_id === model.value);
           if (found) {
-            syncDisplayName()
-            break
+            syncDisplayName();
+            break;
           }
         }
       }
@@ -390,7 +398,7 @@ onUnmounted(() => {
   border-radius: 0.375rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   overflow: hidden;
-  z-index: 1000;
+  z-index: $zindex-popover;
 }
 .pg-header {
   display: flex;

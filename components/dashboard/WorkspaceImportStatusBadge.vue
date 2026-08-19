@@ -6,7 +6,7 @@
     :class="`workspace-import-status-badge-${statusDetails.variant}`"
     type="button"
     aria-label="View import failure details"
-    :aria-describedby="tooltipId"
+    :aria-describedby="tooltipVisible ? tooltipId : undefined"
     @pointerenter="showTooltip"
     @pointerleave="hideTooltip"
     @focus="showTooltip"

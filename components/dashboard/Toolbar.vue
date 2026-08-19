@@ -247,10 +247,10 @@ $dashboard-toolbar-button-padding: 0.45rem 1rem;
 }
 
 .dashboard-toolbar-refresh-button {
+  flex: 0 0 auto;
   width: $dashboard-toolbar-control-height;
   justify-content: center;
   padding: 0;
-  flex-shrink: 0;
 }
 
 .dashboard-toolbar-refreshing :deep(.material-icons) {
@@ -327,6 +327,10 @@ $dashboard-toolbar-button-padding: 0.45rem 1rem;
   .dashboard-editor-dropdown {
     flex: 1 1 auto;
   }
+
+  .dashboard-toolbar-refresh-button {
+    flex: 0 0 auto;
+  }
 }
 
 @include media-breakpoint-down(sm) {
@@ -339,6 +343,11 @@ $dashboard-toolbar-button-padding: 0.45rem 1rem;
   .dashboard-toolbar-button {
     font-size: 0.85rem;
     padding: 0.45rem 0.65rem;
+  }
+
+  .dashboard-toolbar-refresh-button {
+    flex: 0 0 auto;
+    padding: 0;
   }
 
   .dashboard-more-dropdown :deep(.dashboard-more-toggle) {

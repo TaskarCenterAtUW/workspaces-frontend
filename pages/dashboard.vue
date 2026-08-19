@@ -457,6 +457,8 @@ $dashboard-create-button-radius: 0.375rem;
 }
 
 .dashboard-topbar {
+  position: relative;
+  z-index: $zindex-sticky;
   margin-bottom: $dashboard-topbar-spacing;
   display: flex;
   align-items: center;
