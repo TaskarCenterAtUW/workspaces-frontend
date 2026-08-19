@@ -7,12 +7,12 @@ import type { WorkspaceImportStatus } from '~/types/workspaces';
 
 describe('WorkspaceImportStatusBadge', () => {
   it.each<[WorkspaceImportStatus | null, string, string]>([
-    ['NA', 'Not applicable', 'md-remove_circle_outline'],
-    ['failed', 'Failed', 'md-error_outline'],
-    ['in-progress', 'In progress', 'md-hourglass_empty'],
-    ['completed', 'Completed', 'md-check_circle_outline'],
-    ['empty', 'Unknown', 'md-help_outline'],
-    [null, 'Unknown', 'md-help_outline']
+    ['NA', 'Ready', 'md-edit_note'],
+    ['failed', 'Setup failed. Select to view details', 'md-error_outline'],
+    ['in-progress', 'Setting up…', 'md-hourglass_empty'],
+    ['completed', 'Ready', 'md-check_circle_outline'],
+    ['empty', 'Status unavailable', 'md-help_outline'],
+    [null, 'Ready', 'md-edit_note']
   ])('renders %s as %s with its icon', (status, label, iconClass) => {
     const wrapper = mount(WorkspaceImportStatusBadge, {
       props: { status },
@@ -21,7 +21,7 @@ describe('WorkspaceImportStatusBadge', () => {
       }
     });
 
-    expect(wrapper.text()).toContain(label);
+    expect(wrapper.find('.workspace-import-status-badge').text()).toContain(label);
     expect(wrapper.find('.material-icons').classes()).toContain(iconClass);
   });
 
@@ -33,8 +33,9 @@ describe('WorkspaceImportStatusBadge', () => {
       }
     });
 
-    expect(wrapper.element.tagName).toBe('BUTTON');
-    await wrapper.trigger('click');
+    const badge = wrapper.find('.workspace-import-status-badge');
+    expect(badge.element.tagName).toBe('BUTTON');
+    await badge.trigger('click');
     expect(wrapper.emitted('click')).toHaveLength(1);
   });
 
@@ -46,6 +47,7 @@ describe('WorkspaceImportStatusBadge', () => {
       }
     });
 
-    expect(wrapper.element.tagName).toBe('SPAN');
+    const badge = wrapper.find('.workspace-import-status-badge');
+    expect(badge.element.tagName).toBe('SPAN');
   });
 });
