@@ -187,7 +187,7 @@
         />
         <h2>No workspace available to open</h2>
         <p>
-          Workspaces still being imported cannot be opened. Use Refresh to check their latest status.
+          Workspaces still being set up cannot be opened. Use Refresh to check their latest status.
         </p>
         <button
           class="btn btn-outline-secondary"
@@ -241,7 +241,9 @@ const workspacesByProjectGroup = computed(() =>
   Map.groupBy(workspaces.value, workspace => workspace.tdeiProjectGroupId)
 );
 
-const currentProjectGroup = ref<string | null>(getLastProjectGroupId());
+const currentProjectGroup = ref<string | null>(
+  getLastProjectGroupId() ?? myProjectGroups[0]?.tdei_project_group_id ?? null
+);
 const currentWorkspace = ref<Workspace>();
 const workspaceSearch = ref('');
 const refreshingWorkspaces = ref(false);
@@ -455,6 +457,8 @@ $dashboard-create-button-radius: 0.375rem;
 }
 
 .dashboard-topbar {
+  position: relative;
+  z-index: $zindex-sticky;
   margin-bottom: $dashboard-topbar-spacing;
   display: flex;
   align-items: center;
@@ -661,6 +665,7 @@ $dashboard-create-button-radius: 0.375rem;
 .dashboard-workspace-heading h2 {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.6rem;
   min-width: 0;
   margin: 0;
@@ -669,14 +674,13 @@ $dashboard-create-button-radius: 0.375rem;
   font-size: $dashboard-details-title-size;
   font-weight: $font-weight-bold;
   line-height: 1.25;
-  white-space: nowrap;
 }
 
 .dashboard-workspace-title-text {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .dashboard-workspace-heading-meta {
@@ -771,6 +775,7 @@ $dashboard-create-button-radius: 0.375rem;
 
   .dashboard-workspace-details {
     display: block;
+    overflow: visible;
   }
 
   .dashboard-workspace-list {
@@ -780,6 +785,10 @@ $dashboard-create-button-radius: 0.375rem;
   .dashboard-details-content {
     height: auto;
     grid-template-rows: auto;
+  }
+
+  .dashboard-map-frame {
+    min-height: 18rem;
   }
 
   .dashboard-workspace-header {
@@ -801,10 +810,5 @@ $dashboard-create-button-radius: 0.375rem;
     padding: $dashboard-panel-padding;
     border-radius: 0;
   }
-
-  .dashboard-workspace-title-text {
-    white-space: normal;
-  }
-
 }
 </style>

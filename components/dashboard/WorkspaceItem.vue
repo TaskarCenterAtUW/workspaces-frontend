@@ -84,7 +84,7 @@ const updatedTime = computed(() => formatElapsed(
 const isImporting = computed(() => props.workspace.importStatus === 'in-progress');
 const workspaceAriaLabel = computed(() =>
   `Select workspace ${props.workspace.title}, ID ${props.workspace.id}${
-    isImporting.value ? ', import in progress' : ''
+    isImporting.value ? ', setup in progress' : ''
   }`
 );
 const typeLabel = computed(() => props.workspace.type.toUpperCase());
@@ -101,21 +101,23 @@ const projectLabel = computed(() => {
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
-$workspace-card-padding: 0.8rem;
-$workspace-card-gap: 0.7rem;
-$workspace-card-min-height: 7.85rem;
+$workspace-card-padding: 0.75rem;
+$workspace-card-gap: 0.5rem;
+$workspace-card-min-height: 6.85rem;
 $workspace-card-icon-size: 2.1rem;
 $workspace-card-radius: 0.625rem;
-$workspace-card-title-size: 1rem;
-$workspace-card-copy-size: 0.9rem;
+$workspace-card-title-size: 0.9375rem;
+$workspace-card-copy-size: 0.8125rem;
 $workspace-card-meta-size: 0.75rem;
-$workspace-card-selected-icon-size: 1.3rem;
+$workspace-card-selected-icon-size: 1.25rem;
 $workspace-card-meta-icon-height: 0.85rem;
 
 .workspace-card {
   width: 100%;
   min-height: $workspace-card-min-height;
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   gap: $workspace-card-gap;
   padding: $workspace-card-padding;
   color: $text-navy;
@@ -180,7 +182,7 @@ $workspace-card-meta-icon-height: 0.85rem;
   font-family: var(--primary-font-family);
   font-size: $workspace-card-title-size;
   font-weight: $font-weight-bold;
-  line-height: 1.5;
+  line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -195,7 +197,7 @@ $workspace-card-meta-icon-height: 0.85rem;
   font-family: var(--primary-font-family);
   font-size: $workspace-card-copy-size;
   font-weight: 500;
-  line-height: 1.4444;
+  line-height: 1.4;
 }
 
 .workspace-card-selected-icon {
@@ -207,10 +209,11 @@ $workspace-card-meta-icon-height: 0.85rem;
 }
 
 .workspace-card-meta {
+  margin-top: auto;
   display: flex;
   align-items: center;
   gap: $spacer;
-  padding-top: 0.6rem;
+  padding-top: 0.5rem;
   font-size: $workspace-card-meta-size;
   line-height: 1.25;
   border-top: $border-width dashed rgba($secondary, 0.2);
@@ -232,20 +235,6 @@ $workspace-card-meta-icon-height: 0.85rem;
 }
 
 @include media-breakpoint-down(sm) {
-  .workspace-card {
-    min-height: 0;
-  }
-
-  .workspace-card-heading {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .workspace-card-selected-icon,
-  .workspace-card-import-status {
-    grid-column: 2;
-    justify-self: start;
-  }
-
   .workspace-card-meta {
     flex-wrap: wrap;
     row-gap: 0.5rem;

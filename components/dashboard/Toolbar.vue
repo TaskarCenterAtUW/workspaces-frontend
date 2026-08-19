@@ -213,9 +213,9 @@ function workspacePath(page: string): string {
 @import "~/assets/scss/theme.scss";
 
 $dashboard-toolbar-gap: 0.5rem;
-$dashboard-toolbar-control-height: 2.35rem;
+$dashboard-toolbar-control-height: 2.5rem;
 $dashboard-toolbar-radius: 0.375rem;
-$dashboard-toolbar-button-padding: 0.4rem 0.75rem;
+$dashboard-toolbar-button-padding: 0.45rem 1rem;
 
 .dashboard-toolbar {
   display: flex;
@@ -229,7 +229,8 @@ $dashboard-toolbar-button-padding: 0.4rem 0.75rem;
   min-height: $dashboard-toolbar-control-height;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  justify-content: center;
+  gap: 0.5rem;
   padding: $dashboard-toolbar-button-padding;
   color: $secondary;
   background: $white;
@@ -237,6 +238,7 @@ $dashboard-toolbar-button-padding: 0.4rem 0.75rem;
   border-radius: $dashboard-toolbar-radius;
   box-shadow: $control-shadow;
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .dashboard-toolbar-icon {
@@ -245,6 +247,7 @@ $dashboard-toolbar-button-padding: 0.4rem 0.75rem;
 }
 
 .dashboard-toolbar-refresh-button {
+  flex: 0 0 auto;
   width: $dashboard-toolbar-control-height;
   justify-content: center;
   padding: 0;
@@ -279,14 +282,17 @@ $dashboard-toolbar-button-padding: 0.4rem 0.75rem;
   border-color: $border-control-muted;
   box-shadow: $control-shadow;
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .dashboard-editor-dropdown :deep(.btn:first-child) {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  justify-content: center;
+  gap: 0.5rem;
   padding: $dashboard-toolbar-button-padding;
   border-radius: $dashboard-toolbar-radius 0 0 $dashboard-toolbar-radius;
+  white-space: nowrap;
 }
 
 .dashboard-editor-dropdown :deep(.dropdown-toggle-split) {
@@ -321,6 +327,10 @@ $dashboard-toolbar-button-padding: 0.4rem 0.75rem;
   .dashboard-editor-dropdown {
     flex: 1 1 auto;
   }
+
+  .dashboard-toolbar-refresh-button {
+    flex: 0 0 auto;
+  }
 }
 
 @include media-breakpoint-down(sm) {
@@ -328,6 +338,16 @@ $dashboard-toolbar-button-padding: 0.4rem 0.75rem;
   .dashboard-editor-dropdown,
   .dashboard-more-dropdown {
     flex: 1 1 calc(50% - #{$dashboard-toolbar-gap});
+  }
+
+  .dashboard-toolbar-button {
+    font-size: 0.85rem;
+    padding: 0.45rem 0.65rem;
+  }
+
+  .dashboard-toolbar-refresh-button {
+    flex: 0 0 auto;
+    padding: 0;
   }
 
   .dashboard-more-dropdown :deep(.dashboard-more-toggle) {

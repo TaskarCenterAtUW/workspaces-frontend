@@ -11,20 +11,17 @@
       ref="creationInitiatedModal"
       title="Workspace creation initiated"
       centered
+      no-header-close
+      no-close-on-backdrop
+      no-close-on-esc
     >
       <p>
-        Your workspace is being created in the background. You can check its status on the
-        dashboard. Use the Refresh button there to get the latest status.
+        We’re setting up your workspace and loading your dataset. You can leave this page. It will
+        show as <strong>Ready</strong> when setup is complete. Use the Refresh button on the
+        dashboard to get the latest status.
       </p>
 
-      <template #footer="{ hide }">
-        <button
-          type="button"
-          class="btn btn-outline-secondary"
-          @click="hide()"
-        >
-          Stay on this page
-        </button>
+      <template #footer>
         <nuxt-link
           class="btn btn-primary"
           :to="`/dashboard?workspace=${createdWorkspaceId}`"

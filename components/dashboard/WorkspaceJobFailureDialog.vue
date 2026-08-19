@@ -5,6 +5,7 @@
     centered
     ok-only
     ok-title="Close"
+    @hidden="activeHelpTooltip = null"
   >
     <div
       v-if="loading"
@@ -33,19 +34,139 @@
 
       <dl>
         <div>
-          <dt>Failed step</dt>
+          <dt>
+            <span class="workspace-job-failure-help-wrapper">
+              <button
+                class="workspace-job-failure-help"
+                type="button"
+                aria-label="Failed step. Show explanation."
+                :aria-describedby="activeHelpTooltip === 'failed-step' ? 'workspace-job-failed-step-tooltip' : undefined"
+                @pointerenter="showHelpTooltip('failed-step')"
+                @pointerleave="hideHelpTooltip('failed-step')"
+                @focus="showHelpTooltip('failed-step')"
+                @blur="hideHelpTooltip('failed-step')"
+                @click="showHelpTooltip('failed-step')"
+              >
+                <span>Failed step</span>
+                <app-icon
+                  variant="info_outline"
+                  size="16"
+                  no-margin
+                  aria-hidden="true"
+                />
+              </button>
+              <span
+                v-if="activeHelpTooltip === 'failed-step'"
+                id="workspace-job-failed-step-tooltip"
+                class="workspace-job-failure-tooltip"
+                role="tooltip"
+              >
+                The part of workspace setup that did not finish.
+              </span>
+            </span>
+          </dt>
           <dd>{{ job.current_task ?? 'Unknown' }}</dd>
         </div>
         <div>
-          <dt>Error code</dt>
+          <dt>
+            <span class="workspace-job-failure-help-wrapper">
+              <button
+                class="workspace-job-failure-help"
+                type="button"
+                aria-label="Error code. Show explanation."
+                :aria-describedby="activeHelpTooltip === 'error-code' ? 'workspace-job-error-code-tooltip' : undefined"
+                @pointerenter="showHelpTooltip('error-code')"
+                @pointerleave="hideHelpTooltip('error-code')"
+                @focus="showHelpTooltip('error-code')"
+                @blur="hideHelpTooltip('error-code')"
+                @click="showHelpTooltip('error-code')"
+              >
+                <span>Error code</span>
+                <app-icon
+                  variant="info_outline"
+                  size="16"
+                  no-margin
+                  aria-hidden="true"
+                />
+              </button>
+              <span
+                v-if="activeHelpTooltip === 'error-code'"
+                id="workspace-job-error-code-tooltip"
+                class="workspace-job-failure-tooltip"
+                role="tooltip"
+              >
+                A code that identifies the type of problem. You can share it with support.
+              </span>
+            </span>
+          </dt>
           <dd>{{ job.response?.messageCode ?? 'Unknown' }}</dd>
         </div>
         <div>
-          <dt>Job type</dt>
+          <dt>
+            <span class="workspace-job-failure-help-wrapper">
+              <button
+                class="workspace-job-failure-help"
+                type="button"
+                aria-label="Job type. Show explanation."
+                :aria-describedby="activeHelpTooltip === 'job-type' ? 'workspace-job-type-tooltip' : undefined"
+                @pointerenter="showHelpTooltip('job-type')"
+                @pointerleave="hideHelpTooltip('job-type')"
+                @focus="showHelpTooltip('job-type')"
+                @blur="hideHelpTooltip('job-type')"
+                @click="showHelpTooltip('job-type')"
+              >
+                <span>Job type</span>
+                <app-icon
+                  variant="info_outline"
+                  size="16"
+                  no-margin
+                  aria-hidden="true"
+                />
+              </button>
+              <span
+                v-if="activeHelpTooltip === 'job-type'"
+                id="workspace-job-type-tooltip"
+                class="workspace-job-failure-tooltip"
+                role="tooltip"
+              >
+                The background task the system was performing when the problem occurred.
+              </span>
+            </span>
+          </dt>
           <dd>{{ job.job_type }}</dd>
         </div>
         <div>
-          <dt>Job ID</dt>
+          <dt>
+            <span class="workspace-job-failure-help-wrapper">
+              <button
+                class="workspace-job-failure-help"
+                type="button"
+                aria-label="Job ID. Show explanation."
+                :aria-describedby="activeHelpTooltip === 'job-id' ? 'workspace-job-id-tooltip' : undefined"
+                @pointerenter="showHelpTooltip('job-id')"
+                @pointerleave="hideHelpTooltip('job-id')"
+                @focus="showHelpTooltip('job-id')"
+                @blur="hideHelpTooltip('job-id')"
+                @click="showHelpTooltip('job-id')"
+              >
+                <span>Job ID</span>
+                <app-icon
+                  variant="info_outline"
+                  size="16"
+                  no-margin
+                  aria-hidden="true"
+                />
+              </button>
+              <span
+                v-if="activeHelpTooltip === 'job-id'"
+                id="workspace-job-id-tooltip"
+                class="workspace-job-failure-tooltip"
+                role="tooltip"
+              >
+                A unique reference for this setup attempt. Support can use it to investigate.
+              </span>
+            </span>
+          </dt>
           <dd>{{ job.id }}</dd>
         </div>
         <div>
@@ -73,10 +194,13 @@ import { resolveHttpErrorMessage } from '~/services/http';
 
 import type { WorkspaceId, WorkspaceJob } from '~/types/workspaces';
 
+type HelpTooltipId = 'failed-step' | 'error-code' | 'job-type' | 'job-id';
+
 const modal = useTemplateRef<ComponentExposed<typeof BModal>>('modal');
 const loading = ref(false);
 const job = ref<WorkspaceJob | null>(null);
 const errorMessage = ref('');
+const activeHelpTooltip = ref<HelpTooltipId | null>(null);
 let requestId = 0;
 
 defineExpose({ show });
@@ -85,6 +209,7 @@ async function show(workspaceId: WorkspaceId): Promise<void> {
   const activeRequestId = ++requestId;
   job.value = null;
   errorMessage.value = '';
+  activeHelpTooltip.value = null;
   loading.value = true;
   modal.value?.show();
 
@@ -106,6 +231,16 @@ async function show(workspaceId: WorkspaceId): Promise<void> {
     if (activeRequestId === requestId) {
       loading.value = false;
     }
+  }
+}
+
+function showHelpTooltip(tooltipId: HelpTooltipId): void {
+  activeHelpTooltip.value = tooltipId;
+}
+
+function hideHelpTooltip(tooltipId: HelpTooltipId): void {
+  if (activeHelpTooltip.value === tooltipId) {
+    activeHelpTooltip.value = null;
   }
 }
 
@@ -159,6 +294,63 @@ function formatTimestamp(value: string): string {
 .workspace-job-failure-details dt {
   color: $text-secondary;
   font-weight: 600;
+}
+
+.workspace-job-failure-help-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.workspace-job-failure-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.5rem;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  color: $text-secondary;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: help;
+}
+
+.workspace-job-failure-help:hover {
+  color: $text-navy;
+}
+
+.workspace-job-failure-help:focus-visible {
+  color: $text-navy;
+  outline: 0.125rem solid $primary;
+  outline-offset: 0.125rem;
+}
+
+.workspace-job-failure-tooltip {
+  position: absolute;
+  z-index: $zindex-tooltip;
+  bottom: calc(100% + 0.4rem);
+  left: 0;
+  width: max-content;
+  max-width: min(16rem, calc(100vw - 2rem));
+  padding: 0.35rem 0.5rem;
+  color: $text-tooltip;
+  background: $surface-tooltip;
+  border-radius: $border-radius;
+  box-shadow: $box-shadow-sm;
+  font-size: 0.75rem;
+  font-weight: $font-weight-normal;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.workspace-job-failure-tooltip::after {
+  position: absolute;
+  top: 100%;
+  left: 0.75rem;
+  border: 0.3rem solid transparent;
+  border-top-color: $surface-tooltip;
+  content: "";
 }
 
 .workspace-job-failure-details dd {
