@@ -136,11 +136,12 @@ let drawGeneration = 0;
 async function drawItem(item: ReviewListItem | undefined) {
   emptyChangeset.value = false;
   mapError.value = null;
+  const generation = ++drawGeneration;
   if (!item) {
+    loading.value = false;
     return;
   }
 
-  const generation = ++drawGeneration;
   loading.value = true;
   try {
     if (item.isChangeset) {
