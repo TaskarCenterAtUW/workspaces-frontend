@@ -27,8 +27,9 @@ export default defineVitestConfig({
     coverage: {
       provider: 'v8',
       // text -> printed to the CI log; json-summary -> parsed into the GitHub
-      // run summary; html -> uploaded as a browsable artifact.
-      reporter: ['text', 'text-summary', 'json-summary', 'html'],
+      // run summary; html -> browsable artifact; json -> coverage-final.json,
+      // merged with the Playwright e2e coverage by `npm run coverage:combine`.
+      reporter: ['text', 'text-summary', 'json-summary', 'json', 'html'],
       reportsDirectory: './coverage',
       // Scope to the code the unit suite actually exercises. Pages/components are
       // covered by the Playwright e2e suite (not instrumented here), so including

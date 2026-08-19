@@ -1,6 +1,31 @@
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { test as base, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { myWorkspaces, USER_ID, TEST_API_BASE } from '../mocks/fixtures';
+
+// nyc merges every istanbul JSON in this dir; coverage:combine folds the unit
+// (Vitest) coverage in here too before producing the combined report.
+const NYC_OUTPUT_DIR = resolve(process.cwd(), '.nyc_output');
+
+// Harvest the istanbul counters the instrumented bundle accumulates on
+// window.__coverage__. Present only when the dev server was started with
+// COVERAGE=true (vite-plugin-istanbul); a no-op otherwise, so plain e2e runs are
+// unaffected. Called at end of test while the page is still open.
+async function collectCoverage(page: Page) {
+  let coverage: unknown;
+  try {
+    coverage = await page.evaluate(() => (window as unknown as { __coverage__?: unknown }).__coverage__);
+  }
+  catch {
+    return; // page already closed or navigated away
+  }
+  if (!coverage) return;
+
+  if (!existsSync(NYC_OUTPUT_DIR)) mkdirSync(NYC_OUTPUT_DIR, { recursive: true });
+  writeFileSync(resolve(NYC_OUTPUT_DIR, `e2e-${randomUUID()}.json`), JSON.stringify(coverage));
+}
 
 // The display name shown in the navbar for the seeded session.
 export const TEST_USER = { subject: USER_ID, displayName: 'Tester' };
@@ -50,6 +75,9 @@ export const test = base.extend({
     // await page.route(`${TEST_API_BASE}workspaces/ws-1`, route => route.fulfill({ json: ... }))
 
     await use(page);
+
+    // Runs during fixture teardown, before Playwright closes the page.
+    await collectCoverage(page);
   }
 });
 
