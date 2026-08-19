@@ -206,13 +206,43 @@ const onInput = () => {
   }, 300)
 }
 
-watch(model, (newId) => {
-  const pg = projectGroups.value.find(p => p.tdei_project_group_id === newId)
-  if (pg && !isOpen.value) {
-    searchText.value = pg.name
-    selectedGroupName.value = pg.name
+function syncDisplayName(): void {
+  const currentId = model.value;
+  if (!currentId) {
+    searchText.value = '';
+    selectedGroupName.value = '';
+    return;
   }
-})
+
+  const pg = projectGroups.value.find(p => p.tdei_project_group_id === currentId);
+  if (pg) {
+    searchText.value = pg.name;
+    selectedGroupName.value = pg.name;
+    if (props.rememberSelection) {
+      persistCachedName(pg.tdei_project_group_id, pg.name);
+    }
+    return;
+  }
+
+  if (props.rememberSelection) {
+    const cached = loadCachedName(currentId);
+    if (cached) {
+      searchText.value = cached;
+      selectedGroupName.value = cached;
+      return;
+    }
+  }
+}
+
+watch(
+  model,
+  () => {
+    if (!isOpen.value) {
+      syncDisplayName();
+    }
+  },
+  { immediate: true }
+);
 
 const onScroll = (e: Event) => {
   const target = e.target as HTMLElement
@@ -224,14 +254,7 @@ const onScroll = (e: Event) => {
 const selectGroup = (id: string) => {
   model.value = id
   isOpen.value = false
-  const pg = projectGroups.value.find(p => p.tdei_project_group_id === id)
-  if (pg) {
-    searchText.value = pg.name
-    selectedGroupName.value = pg.name
-    if (props.rememberSelection) {
-      persistCachedName(pg.tdei_project_group_id, pg.name)
-    }
-  }
+  syncDisplayName()
 }
 
 const onFocus = (e: Event) => {
@@ -296,18 +319,9 @@ const onKeydown = (e: KeyboardEvent) => {
   }
 }
 
-const applyCachedName = () => {
-  const cached = loadCachedName(model.value as string) ?? ''
-  searchText.value = cached
-  selectedGroupName.value = cached
-}
-
 const closeDropdown = () => {
   isOpen.value = false
-  const pg = projectGroups.value.find(p => p.tdei_project_group_id === model.value)
-  const name = pg?.name ?? selectedGroupName.value
-  searchText.value = name
-  if (pg) selectedGroupName.value = name
+  syncDisplayName()
 }
 
 const onFocusOut = (e: FocusEvent) => {
@@ -324,63 +338,36 @@ watch(
       if (!pgId || (props.options && !groups.some(pg => pg.tdei_project_group_id === pgId))) {
         model.value = groups[0]?.tdei_project_group_id
       }
-      const selected = groups.find(pg => pg.tdei_project_group_id === model.value)
-      if (selected && !isOpen.value) {
-        searchText.value = selected.name
-        selectedGroupName.value = selected.name
+      if (!isOpen.value) {
+        syncDisplayName()
       }
     }
   },
-  { immediate: true },
+  { immediate: true }
 )
 
 onMounted(async () => {
-  // Restore the selected group name from the supplied options before fetching.
-  const selectedOption = projectGroups.value.find(
-    group => group.tdei_project_group_id === model.value
-  );
-  if (selectedOption) {
-    searchText.value = selectedOption.name;
-    selectedGroupName.value = selectedOption.name;
-  } else if (props.options && model.value) {
-    //  clear stale selection
-    const first = projectGroups.value[0];
-    if (first) {
-      model.value = first.tdei_project_group_id;
-      searchText.value = first.name;
-      selectedGroupName.value = first.name;
-    }
-  } else if (props.rememberSelection && model.value && loadCachedName(model.value as string)) {
-    applyCachedName();
-  }
+  syncDisplayName()
 
   if (!props.options) {
     await loadGroups(true)
 
     if (fetchedGroups.value.length > 0) {
-      const selected = fetchedGroups.value.find(pg => pg.tdei_project_group_id === model.value)
-      if (selected) {
-        searchText.value = selected.name
-        selectedGroupName.value = selected.name
-      } else if (props.rememberSelection && model.value && loadCachedName(model.value as string)) {
-        // Group is beyond page 1 — use the cached name for display
-        applyCachedName()
-      } else if (model.value) {
-        // model is set but name is unknown — paginate until the group is found
+      if (!model.value) {
+        const first = fetchedGroups.value[0]!
+        model.value = first.tdei_project_group_id
+      }
+      syncDisplayName()
+
+      if (model.value && !projectGroups.value.some(pg => pg.tdei_project_group_id === model.value)) {
         while (hasMore.value) {
           await loadGroups()
           const found = fetchedGroups.value.find(pg => pg.tdei_project_group_id === model.value)
           if (found) {
-            searchText.value = found.name
-            selectedGroupName.value = found.name
+            syncDisplayName()
             break
           }
         }
-      } else if (!model.value) {
-        const first = fetchedGroups.value[0]!
-        model.value = first.tdei_project_group_id
-        searchText.value = first.name
-        selectedGroupName.value = first.name
       }
     }
   }

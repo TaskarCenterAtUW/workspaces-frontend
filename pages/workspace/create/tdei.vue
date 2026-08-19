@@ -16,7 +16,7 @@
       no-close-on-esc
     >
       <p>
-        We’re setting up your workspace and loading your dataset. You can leave this page—it will
+        We’re setting up your workspace and loading your dataset. You can leave this page.It will
         show as <strong>Ready</strong> when setup is complete. Use the Refresh button on the
         dashboard to get the latest status.
       </p>

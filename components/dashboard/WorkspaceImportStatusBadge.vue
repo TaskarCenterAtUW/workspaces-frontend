@@ -5,7 +5,7 @@
     class="workspace-import-status-badge"
     :class="`workspace-import-status-badge-${statusDetails.variant}`"
     type="button"
-    aria-label="Setup failed. View details."
+    aria-label="View import failure details"
     :aria-describedby="tooltipId"
     @pointerenter="showTooltip"
     @pointerleave="hideTooltip"

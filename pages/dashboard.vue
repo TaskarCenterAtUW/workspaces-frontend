@@ -241,7 +241,9 @@ const workspacesByProjectGroup = computed(() =>
   Map.groupBy(workspaces.value, workspace => workspace.tdeiProjectGroupId)
 );
 
-const currentProjectGroup = ref<string | null>(getLastProjectGroupId());
+const currentProjectGroup = ref<string | null>(
+  getLastProjectGroupId() ?? myProjectGroups[0]?.tdei_project_group_id ?? null
+);
 const currentWorkspace = ref<Workspace>();
 const workspaceSearch = ref('');
 const refreshingWorkspaces = ref(false);
