@@ -23,6 +23,17 @@ export default defineVitestConfig({
     environment: 'happy-dom',
     setupFiles: ['./test/setup.ts'],
     // Keep Playwright's *.spec.ts E2E files out of the Vitest run.
-    include: ['test/unit/**/*.{test,spec}.ts']
+    include: ['test/unit/**/*.{test,spec}.ts'],
+    coverage: {
+      provider: 'v8',
+      // text -> printed to the CI log; json-summary -> parsed into the GitHub
+      // run summary; html -> uploaded as a browsable artifact.
+      reporter: ['text', 'text-summary', 'json-summary', 'html'],
+      reportsDirectory: './coverage',
+      // Scope to the code the unit suite actually exercises. Pages/components are
+      // covered by the Playwright e2e suite (not instrumented here), so including
+      // them would report a misleadingly low unit-coverage number.
+      include: ['services/**', 'util/**']
+    }
   }
 });

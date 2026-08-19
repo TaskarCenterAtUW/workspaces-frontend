@@ -13,6 +13,7 @@
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -57,6 +58,7 @@
     "@types/dompurify": "^3.0.5",
     "@types/geojson": "^7946.0.16",
     "@types/papaparse": "^5.5.2",
+    "@vitest/coverage-v8": "^4.1.11",
     "@vue/test-utils": "^2.4.11",
     "eslint": "^9.39.2",
     "eslint-plugin-vue": "^10.6.2",
