@@ -1,3 +1,19 @@
+import istanbul from 'vite-plugin-istanbul';
+
+// Only instrument the client bundle for coverage when COVERAGE is set (the e2e
+// coverage run sets it via playwright.config.ts webServer env). Normal dev and
+// production builds never load this plugin, so no coverage counters ship.
+const coveragePlugins = process.env.COVERAGE
+  ? [istanbul({
+      include: ['components/**', 'pages/**', 'composables/**', 'services/**', 'util/**', 'middleware/**', 'plugins/**', 'layouts/**', 'app.vue'],
+      extension: ['.js', '.ts', '.vue'],
+      requireEnv: false,
+      // The e2e coverage run serves a production build (nuxt build && preview) so
+      // routes are pre-compiled; instrument that build, not just the dev server.
+      forceBuildInstrument: true
+    })]
+  : [];
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: [
@@ -50,6 +66,7 @@ export default defineNuxtConfig({
     },
   },
   vite: {
+    plugins: coveragePlugins,
     server: {
       allowedHosts: [
         '.local',

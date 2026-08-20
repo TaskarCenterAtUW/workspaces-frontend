@@ -13,7 +13,10 @@
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:coverage": "COVERAGE=true playwright test",
+    "coverage:combine": "mkdir -p .nyc_output && (cp coverage/coverage-final.json .nyc_output/unit.json 2>/dev/null || true) && nyc report --temp-dir .nyc_output --report-dir coverage/combined --extension .js --extension .ts --extension .vue --reporter text-summary --reporter json-summary --reporter lcov --reporter html"
   },
   "dependencies": {
     "@bootstrap-vue-next/nuxt": "^0.43.1",
@@ -57,14 +60,17 @@
     "@types/dompurify": "^3.0.5",
     "@types/geojson": "^7946.0.16",
     "@types/papaparse": "^5.5.2",
+    "@vitest/coverage-v8": "^4.1.11",
     "@vue/test-utils": "^2.4.11",
     "eslint": "^9.39.2",
     "eslint-plugin-vue": "^10.6.2",
     "happy-dom": "^20.10.4",
     "msw": "^2.14.6",
+    "nyc": "^18.0.0",
     "sass": "1.77.6",
     "sass-loader": "^14.1.0",
     "typescript": "^6.0.3",
+    "vite-plugin-istanbul": "^9.0.1",
     "vitest": "^4.1.9",
     "vue-component-type-helpers": "^3.2.4",
     "vue-tsc": "^3.3.5"
