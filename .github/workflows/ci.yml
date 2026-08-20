@@ -14,6 +14,9 @@ concurrency:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    # Guardrail: a stuck step (e.g. apt during a browser install) fails fast
+    # instead of running to GitHub's 6-hour default.
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -46,9 +49,22 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run test:coverage
 
+      # Cache the downloaded browser across runs, keyed on the lockfile (so a
+      # Playwright version bump invalidates it).
+      - name: Cache Playwright browser
+        if: ${{ !cancelled() }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # No `--with-deps`: GitHub-hosted ubuntu-latest already ships Chromium's
+      # system libraries, so we skip the slow (and here, hanging) apt-get step and
+      # only fetch the browser binary. timeout-minutes bounds a stalled download.
       - name: Install Playwright browser
         if: ${{ !cancelled() }}
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 8
+        run: npx --no-install playwright install chromium
 
       # Instrumented e2e run: COVERAGE=true makes nuxt.config.ts load
       # vite-plugin-istanbul, and the e2e fixture writes window.__coverage__ per
