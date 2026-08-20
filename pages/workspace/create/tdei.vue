@@ -187,6 +187,7 @@ import { tdeiClient, workspacesClient } from '~/services/index';
 import type { TdeiDatasetSummary } from '~/types/tdei';
 import { BModal } from 'bootstrap-vue-next/components/BModal';
 import type { ComponentExposed } from 'vue-component-type-helpers';
+import { OPENFREEMAP_STYLE_URL } from '~/util/map-style';
 
 declare const L: any;
 
@@ -281,13 +282,9 @@ function initMap() {
     map.value.remove()
   }
 
-  // TODO: use Mapbox
   map.value = L.map('dataset_map');
 
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-  }).addTo(map.value);
+  L.maplibreGL({ style: OPENFREEMAP_STYLE_URL }).addTo(map.value);
 
   if (record.metadata?.dataset_detail?.dataset_area) {
     const area = L.geoJSON(record.metadata.dataset_detail.dataset_area).addTo(map.value)

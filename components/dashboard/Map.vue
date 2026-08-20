@@ -31,6 +31,7 @@
 import { LoadingContext } from '~/services/loading';
 import { workspacesClient } from '~/services/index';
 import { isRecord, parseMetadata } from '~/util/metadata';
+import { OPENFREEMAP_STYLE_URL } from '~/util/map-style';
 
 import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
 
@@ -141,10 +142,7 @@ function initMap() {
 
   map.value = L.map(mapElement.value) as LeafletMap;
 
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-  }).addTo(map.value);
+  L.maplibreGL({ style: OPENFREEMAP_STYLE_URL }).addTo(map.value);
 }
 
 async function getWorkspacePolygon(

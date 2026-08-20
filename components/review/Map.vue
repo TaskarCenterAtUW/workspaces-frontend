@@ -19,25 +19,8 @@ import type { ReviewListItem } from '~/services/review';
 import type { AdiffAction } from '~/types/adiff';
 import type { OsmChangeset, OsmNote } from '~/types/osm';
 import type { TdeiFeedback } from '~/types/tdei';
-// const reviewMapStyle = {
-//   'version': 8,
-//  'sources': {
-//     'osm': {
-//      'type': 'raster',
-//      'tiles': ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
-//      'tileSize': 256,
-//       'attribution': '&copy; OpenStreetMap Contributors',
-//       'maxzoom': 19
-//     }
-//   },
-//   'layers': [
-//     {
-//       'id': 'osm',
-//       'type': 'raster',
-//       'source': 'osm'
-//     }
-//   ]
-// };
+// import { OPENFREEMAP_STYLE_URL } from '~/util/map-style';
+// const reviewMapStyle = OPENFREEMAP_STYLE_URL;
 
 const reviewMapStyle: StyleSpecification = {
   version: 8,

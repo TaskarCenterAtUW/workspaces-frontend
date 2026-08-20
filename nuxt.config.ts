@@ -32,9 +32,15 @@ export default defineNuxtConfig({
       link: [
         { rel: 'stylesheet', href: 'https://material-icons.github.io/material-icons-font/css/outline.css' },
         { rel: 'stylesheet', href: 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css' },
+        { rel: 'stylesheet', href: 'https://unpkg.com/maplibre-gl@5.10.0/dist/maplibre-gl.css' },
       ],
       script: [
         { src: 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js' },
+        // Leaflet's OSM tile layers are being replaced with OpenFreeMap's vector
+        // style; the Leaflet maps render it via this MapLibre GL + binding pair
+        // (loaded as globals like Leaflet itself, rather than bundled via npm).
+        { src: 'https://unpkg.com/maplibre-gl@5.10.0/dist/maplibre-gl.js' },
+        { src: 'https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js' },
       ],
     },
     pageTransition: { name: 'page', mode: 'out-in' },

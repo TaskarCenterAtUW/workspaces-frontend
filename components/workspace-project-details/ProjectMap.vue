@@ -86,7 +86,6 @@ import type {
   MapLayerMouseEvent,
   Marker,
   PaddingOptions,
-  StyleSpecification,
 } from 'maplibre-gl';
 
 import type {
@@ -97,6 +96,7 @@ import type {
   ProjectWizardGeneratedTaskFeatureCollection,
   ProjectWizardTaskPreviewFeatureCollection,
 } from '~/types/project-wizard';
+import { OPENFREEMAP_STYLE_URL } from '~/util/map-style';
 
 interface Props {
   aoi: WorkspaceProjectAoiFeature | null;
@@ -131,26 +131,6 @@ const DEFAULT_CENTER: [number, number] = [-122.3321, 47.6062];
  * (each corner is a valid `LngLatLike`) when handed to `fitBounds`.
  */
 type BoundsTuple = [[number, number], [number, number]];
-
-const baseMapStyle: StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '&copy; OpenStreetMap contributors',
-      maxzoom: 19,
-    },
-  },
-  layers: [
-    {
-      id: 'osm',
-      type: 'raster',
-      source: 'osm',
-    },
-  ],
-};
 
 const emptyCollection: FeatureCollection = {
   type: 'FeatureCollection',
@@ -245,7 +225,7 @@ onMounted(async () => {
 
   detailMap = new maplibregl.Map({
     container: mapRef.value,
-    style: baseMapStyle,
+    style: OPENFREEMAP_STYLE_URL,
     center: DEFAULT_CENTER,
     zoom: 9,
   });

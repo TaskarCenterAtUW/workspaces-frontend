@@ -10,7 +10,7 @@
 </template>
 
 <script lang="ts">
-import type { StyleSpecification,
+import type {
   CircleLayerSpecification,
   ExpressionSpecification,
   FillLayerSpecification,
@@ -19,7 +19,8 @@ import type { StyleSpecification,
   MapLayerMouseEvent,
   MapMouseEvent,
   PaddingOptions,
-  SymbolLayerSpecification } from 'maplibre-gl';
+  SymbolLayerSpecification
+} from 'maplibre-gl';
 </script>
 
 <script setup lang="ts">
@@ -42,6 +43,7 @@ import {
   getProjectWizardAoiBounds,
   getProjectWizardAoiVertices,
 } from '~/services/project-wizard-aoi';
+import { OPENFREEMAP_STYLE_URL } from '~/util/map-style';
 
 interface Props {
   aoi?: ProjectWizardAreaFeature | null;
@@ -84,26 +86,6 @@ const VIEWPORT_ZOOM_TOLERANCE = 0.01;
 
 const mapRef = useTemplateRef<HTMLDivElement>('mapRef');
 
-const baseMapStyle: StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '&copy; OpenStreetMap contributors',
-      maxzoom: 19,
-    },
-  },
-  layers: [
-    {
-      id: 'osm',
-      type: 'raster',
-      source: 'osm',
-    },
-  ],
-};
-
 const emptyCollection: FeatureCollection = {
   type: 'FeatureCollection',
   features: [],
@@ -130,7 +112,7 @@ onMounted(async () => {
 
   wizardMap = new maplibregl.Map({
     container: mapRef.value,
-    style: baseMapStyle,
+    style: OPENFREEMAP_STYLE_URL,
     center: DEFAULT_CENTER,
     zoom: 8,
   });
