@@ -9,6 +9,10 @@
 <template>
   <app-page class="create-file-page">
     <h1 class="mb-5 h2 text-lg-center">Create a Workspace from a File</h1>
+    <workspace-creation-modal
+      ref="creationInitiatedModal"
+      :workspace-id="createdWorkspaceId"
+    />
 
     <div class="row">
       <div class="col-xxl-7 mx-auto">
@@ -19,7 +23,7 @@
               <input
                 v-model.trim="workspaceTitle"
                 class="form-control"
-                :disabled="context.active"
+                :disabled="context.active || createdWorkspaceId !== undefined"
                 required
               >
             </label>
@@ -34,7 +38,7 @@
               <project-group-picker
                 id="create_file_project_group"
                 v-model="projectGroupId"
-                :disabled="context.active"
+                :disabled="context.active || createdWorkspaceId !== undefined"
                 required
               />
             </div>
@@ -43,7 +47,7 @@
             <dataset-type-radio
               v-model="datasetType"
               class="mb-3"
-              :disabled="context.active"
+              :disabled="context.active || createdWorkspaceId !== undefined"
               required
             />
 
@@ -53,7 +57,7 @@
                 type="file"
                 class="form-control"
                 accept=".zip"
-                :disabled="context.active"
+                :disabled="context.active || createdWorkspaceId !== undefined"
                 required
                 @change="onFileChange"
               >
@@ -97,13 +101,18 @@
 
 <script setup lang="ts">
 import { FileImporter, FileImporterContext } from '~/services/import/file';
-import { osmClient, tdeiClient, workspacesClient } from '~/services/index';
+import { workspacesClient } from '~/services/index';
+import type { WorkspaceCreationModal } from '#components';
 import type { WorkspaceType } from '~/types/workspaces';
+import type { ComponentExposed } from 'vue-component-type-helpers';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 
 const context = reactive(new FileImporterContext());
-const importer = new FileImporter(workspacesClient, tdeiClient, osmClient, context);
+const importer = new FileImporter(workspacesClient, context);
+
+const createdWorkspaceId = ref<number | undefined>();
+const creationInitiatedModal = useTemplateRef<ComponentExposed<typeof WorkspaceCreationModal>>('creationInitiatedModal');
 
 const workspaceTitle = ref('');
 const projectGroupId = ref<string | null>(null);
@@ -138,8 +147,10 @@ async function create() {
     tdeiProjectGroupId: projectGroupId.value!
   });
 
-  if (workspaceId) {
-    navigateTo('/dashboard?workspace=' + workspaceId);
+  if (workspaceId !== undefined) {
+    createdWorkspaceId.value = workspaceId;
+    await nextTick();
+    creationInitiatedModal.value?.show();
   }
 }
 </script>

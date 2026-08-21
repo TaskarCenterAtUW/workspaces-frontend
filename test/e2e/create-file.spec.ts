@@ -40,34 +40,22 @@ const NEW_WORKSPACE_ID = 123;
 // route extra headroom so first-paint (and hydration before interaction) is stable.
 const COLD_ROUTE_TIMEOUT = 30_000;
 
-// Stubs every endpoint the create-from-file pathways flow hits so nothing 500s.
-// `opts.failCreate` forces the new-API POST /workspaces to 500 for the error path.
+// Stubs every endpoint the create-from-file flow hits so nothing 500s.
+// `opts.failCreate` forces POST /workspaces/from-file to 500 for the error path.
 async function stubCreateFlow(page: import('@playwright/test').Page, opts: { failCreate?: boolean } = {}) {
   // Project group picker (TDEI user API).
   await page.route('**/project-group-roles/**', route =>
     route.fulfill({ json: projectGroups })
   );
 
-  // new-API: create the workspace row. Spec: 201 with { <name>: <integer> }.
-  await page.route('**/workspaces', (route) => {
+  // new-API: create the workspace from file. Spec: 201/200 with { workspaceId: <integer> }.
+  await page.route('**/workspaces/from-file', (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     if (opts.failCreate) {
       return route.fulfill({ status: 500, contentType: 'text/plain', body: 'boom' });
     }
     return route.fulfill({ status: 201, json: { workspaceId: NEW_WORKSPACE_ID } });
   });
-
-  // OSM API (base http://api.test/osm/api/0.6/): provision the workspace,
-  // open a changeset (returns its numeric id as text), then accept the upload.
-  await page.route('**/osm/api/0.6/workspaces/**', route =>
-    route.fulfill({ status: 200, contentType: 'text/plain', body: '' })
-  );
-  await page.route('**/osm/api/0.6/changeset/create', route =>
-    route.fulfill({ status: 200, contentType: 'text/plain', body: '987' })
-  );
-  await page.route('**/osm/api/0.6/changeset/*/upload', route =>
-    route.fulfill({ status: 200, contentType: 'application/xml', body: '<diffResult/>' })
-  );
 
   // Dashboard (post-create destination) reads workspaces/mine + project groups.
   await page.route('**/workspaces/mine', route => route.fulfill({ json: myWorkspaces }));
@@ -120,7 +108,12 @@ test.describe('create workspace from file', () => {
     await expect(create).toBeEnabled();
     await create.click();
 
-    // Submitting lands on the dashboard with the new workspace selected.
+    // Confirmation dialog is displayed
+    const confirmation = page.getByRole('dialog');
+    await expect(confirmation).toContainText('Workspace creation initiated');
+    await page.getByRole('link', { name: 'Go to Dashboard' }).click();
+
+    // Navigates to the dashboard with the new workspace selected.
     await expect(page).toHaveURL(new RegExp('/dashboard\\?workspace=' + NEW_WORKSPACE_ID));
   });
 
@@ -138,6 +131,10 @@ test.describe('create workspace from file', () => {
     const create = page.getByRole('button', { name: 'Create Workspace' });
     await expect(create).toBeEnabled();
     await create.click();
+
+    const confirmation = page.getByRole('dialog');
+    await expect(confirmation).toContainText('Workspace creation initiated');
+    await page.getByRole('link', { name: 'Go to Dashboard' }).click();
 
     await expect(page).toHaveURL(new RegExp('/dashboard\\?workspace=' + NEW_WORKSPACE_ID));
   });
@@ -181,6 +178,10 @@ test.describe('create workspace from file', () => {
     await page.goto('/workspace/create/file');
     await fillForm(page, VALID_ZIP_FILE);
     await page.getByRole('button', { name: 'Create Workspace' }).click();
+
+    const confirmation = page.getByRole('dialog');
+    await expect(confirmation).toContainText('Workspace creation initiated');
+    await page.getByRole('link', { name: 'Go to Dashboard' }).click();
 
     await expect(page).toHaveURL(new RegExp('/dashboard\\?workspace=' + NEW_WORKSPACE_ID));
 

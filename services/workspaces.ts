@@ -165,6 +165,22 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     return workspaceId;
   }
 
+  async createWorkspaceFromFile(file: Blob, workspace: WorkspaceCreation): Promise<WorkspaceId> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', workspace.type);
+    formData.append('title', workspace.title);
+    formData.append('tdeiProjectGroupId', workspace.tdeiProjectGroupId);
+    if (workspace.description) {
+      formData.append('description', workspace.description);
+    }
+
+    const workspaceResponse = await this._post('workspaces/from-file', formData);
+    const body = await workspaceResponse.json();
+
+    return body.workspaceId ?? body.id;
+  }
+
   async updateWorkspace(id: WorkspaceId, workspaceDetails: WorkspacePatch): Promise<void> {
     await this._patch(`workspaces/${id}`, workspaceDetails);
   }

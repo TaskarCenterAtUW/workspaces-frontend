@@ -7,29 +7,10 @@
   <app-page class="create-tdei-page">
     <h1 class="mb-4 h2">Create a Workspace from the TDEI</h1>
 
-    <b-modal
+    <workspace-creation-modal
       ref="creationInitiatedModal"
-      title="Workspace creation initiated"
-      centered
-      no-header-close
-      no-close-on-backdrop
-      no-close-on-esc
-    >
-      <p>
-        We’re setting up your workspace and loading your dataset. You can leave this page. It will
-        show as <strong>Ready</strong> when setup is complete. Use the Refresh button on the
-        dashboard to get the latest status.
-      </p>
-
-      <template #footer>
-        <nuxt-link
-          class="btn btn-primary"
-          :to="`/dashboard?workspace=${createdWorkspaceId}`"
-        >
-          Go to Dashboard
-        </nuxt-link>
-      </template>
-    </b-modal>
+      :workspace-id="createdWorkspaceId"
+    />
 
     <template v-if="loading.active">
       <app-spinner />
@@ -184,8 +165,8 @@
 import { LoadingContext } from '~/services/loading'
 import { TdeiImporter, TdeiImporterContext } from '~/services/import/tdei';
 import { tdeiClient, workspacesClient } from '~/services/index';
+import type { WorkspaceCreationModal } from '#components';
 import type { TdeiDatasetSummary } from '~/types/tdei';
-import { BModal } from 'bootstrap-vue-next/components/BModal';
 import type { ComponentExposed } from 'vue-component-type-helpers';
 
 declare const L: any;
@@ -201,8 +182,8 @@ const map = ref<any>({});
 const workspaceTitle = ref('');
 const projectGroupId = ref<string | null>(null);
 const datasetError = ref<string | null>(null);
-const createdWorkspaceId = ref<number>();
-const creationInitiatedModal = useTemplateRef<ComponentExposed<typeof BModal>>('creationInitiatedModal');
+const createdWorkspaceId = ref<number | undefined>();
+const creationInitiatedModal = useTemplateRef<ComponentExposed<typeof WorkspaceCreationModal>>('creationInitiatedModal');
 
 const selectedDataset = computed<TdeiDatasetSummary | undefined>(() => {
   const detail = record.metadata?.dataset_detail;
