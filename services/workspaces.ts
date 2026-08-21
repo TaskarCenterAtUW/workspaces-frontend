@@ -175,7 +175,14 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
       formData.append('description', workspace.description);
     }
 
-    const workspaceResponse = await this._post('workspaces/from-file', formData);
+    const newApiClient = new WorkspacesClient(
+      this.#newApiUrl,
+      this.#newApiUrl,
+      this.#tdeiClient,
+      this.#osmClient,
+      this._abortSignal
+    );
+    const workspaceResponse = await newApiClient._post('workspaces/from-file', formData);
     const body = await workspaceResponse.json();
 
     return body.workspaceId ?? body.id;

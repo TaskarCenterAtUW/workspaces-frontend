@@ -2,6 +2,11 @@ import { test, expect, seedAuthenticatedSession } from './fixtures';
 import { recordContract } from './contract';
 import { projectGroups } from '../mocks/fixtures';
 
+const PATHWAYS_ZIP = Buffer.from(
+  'UEsDBBQACAgIANmTFV0AAAAAAAAAAAAAAAAJAC0Ac3RvcHMudHh0VVQFAAEDTIhqCgAgAAAAAAABABgAUEELGG0x3QFQQQsYbTHdAVBBCxhtMd0BqwAAgxbcjAMAAAABAAAAUEsBAgADFAAICAgA2ZMVXYMW3IwDAAAAAQAAAAkALQAAAAAAAAAAAKQBAAAAAHN0b3BzLnR4dFVUBQABA0yIagoAIAAAAAAAAQAYAFBBCxhtMd0BUEELGG0x3QFQQQsYbTHdAVBLBQYAAAAAAQABAGQAAABjAAAAAAA=',
+  'base64'
+);
+
 // Generated from the @test outline in pages/workspace/create/index.vue.
 //
 // The create landing page (/workspace/create) is a static set of three cards,
@@ -173,14 +178,7 @@ test.describe('create landing page', () => {
     await page.getByLabel('Dataset File').setInputFiles({
       name: 'data.zip',
       mimeType: 'application/zip',
-      buffer: Buffer.from([
-        0x50, 0x4b, 0x05, 0x06,
-        0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00
-      ])
+      buffer: PATHWAYS_ZIP
     });
 
     const submit = page.getByRole('button', { name: 'Create Workspace' });
@@ -232,7 +230,7 @@ test.describe('create landing page', () => {
     await page.getByLabel('Dataset File').setInputFiles({
       name: 'data.zip',
       mimeType: 'application/zip',
-      buffer: Buffer.from('PK not-a-real-zip')
+      buffer: PATHWAYS_ZIP
     });
 
     await page.getByRole('button', { name: 'Create Workspace' }).click();

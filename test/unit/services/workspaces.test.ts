@@ -140,3 +140,46 @@ describe('WorkspacesClient.getWorkspaceJobs', () => {
     await expect(makeClient().getWorkspaceJobs(1769)).resolves.toEqual(jobs);
   });
 });
+
+describe('WorkspacesClient.createWorkspaceFromFile', () => {
+  const LEGACY_API_BASE = 'http://legacy-api.test/';
+  const NEW_API_BASE = 'http://new-api.test/';
+
+  it('posts multipart data to the new API without changing the shared legacy base', async () => {
+    let legacyUploadCalled = false;
+    let receivedBody: FormData | undefined;
+
+    server.use(
+      http.post(`${LEGACY_API_BASE}workspaces/from-file`, () => {
+        legacyUploadCalled = true;
+        return HttpResponse.json({ id: 999 });
+      }),
+      http.post(`${NEW_API_BASE}workspaces/from-file`, async ({ request }) => {
+        receivedBody = await request.formData();
+        return HttpResponse.json({ id: 456 }, { status: 201 });
+      }),
+      http.get(`${LEGACY_API_BASE}workspaces/mine`, () => HttpResponse.json([]))
+    );
+
+    const client = new WorkspacesClient(
+      LEGACY_API_BASE,
+      NEW_API_BASE,
+      tdeiClient,
+      osmClient
+    );
+    const workspaceId = await client.createWorkspaceFromFile(
+      new Blob(['dataset']),
+      {
+        title: 'Uploaded workspace',
+        type: 'pathways',
+        tdeiProjectGroupId: '11111111-1111-4111-8111-111111111111'
+      }
+    );
+
+    expect(workspaceId).toBe(456);
+    expect(legacyUploadCalled).toBe(false);
+    expect(receivedBody?.get('title')).toBe('Uploaded workspace');
+    expect(receivedBody?.get('type')).toBe('pathways');
+    await expect(client.getMyWorkspaces()).resolves.toEqual([]);
+  });
+});

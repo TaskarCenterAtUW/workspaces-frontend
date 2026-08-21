@@ -1,6 +1,52 @@
+import { BlobReader, ZipReader } from '@zip.js/zip.js';
 import { resolveHttpErrorMessage } from '~/services/http';
 import type { WorkspacesClient } from '~/services/workspaces';
-import type { WorkspaceCreation } from '~/types/workspaces';
+import type { WorkspaceCreation, WorkspaceType } from '~/types/workspaces';
+
+export interface DatasetArchiveInspection {
+  filenames: string[];
+  hasMetadata: boolean;
+}
+
+export async function inspectDatasetArchive(data: Blob): Promise<DatasetArchiveInspection> {
+  const reader = new ZipReader(new BlobReader(data));
+
+  try {
+    const entries = await reader.getEntries();
+    const filenames = entries
+      .filter(entry => !entry.directory)
+      .map(entry => entry.filename.toLowerCase());
+
+    return {
+      filenames,
+      hasMetadata: filenames.some((filename) => {
+        const basename = filename.split(/[\\/]/).at(-1);
+        return basename === 'metadata.json';
+      })
+    };
+  } finally {
+    await reader.close();
+  }
+}
+
+export function getDatasetArchiveWarning(
+  inspection: DatasetArchiveInspection,
+  datasetType: WorkspaceType | null
+): string | null {
+  if (inspection.hasMetadata) {
+    return 'This ZIP contains metadata.json and may be a direct TDEI dataset download. Upload the dataset ZIP contained inside it instead.';
+  }
+
+  if (datasetType === 'pathways' && !inspection.filenames.some(name => name.endsWith('.txt'))) {
+    return 'This ZIP does not contain any .txt files expected for a GTFS Pathways dataset.';
+  }
+
+  if (datasetType === 'osw' && !inspection.filenames.some(name => name.endsWith('.geojson'))) {
+    return 'This ZIP does not contain any .geojson files expected for an OpenSidewalks dataset.';
+  }
+
+  return null;
+}
 
 const status = {
   idle: 'Idle',

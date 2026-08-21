@@ -6,30 +6,22 @@ import { projectGroups, PROJECT_GROUP_ID, myWorkspaces } from '../mocks/fixtures
 //
 // The "create from file" form sets a title, project group, dataset type, and
 // uploads a file; submitting drives services/import/file.ts → FileImporter:
-//   1. (osw only) TDEI convert job  2. new-API POST /workspaces
-//   3. OSM PUT /workspaces/{id}     4. OSM PUT changeset/create
-//   5. OSM POST changeset/{id}/upload
-// then navigates to /dashboard?workspace={id}.
-//
-// We test the PATHWAYS (GTFS) path for the happy case because it skips the TDEI
-// convert+poll loop (status polling with 4s sleeps would make the e2e flaky/slow)
-// and parses the uploaded zip entirely client-side. A minimal valid (empty) zip
-// yields an empty changeset that still exercises the full create→upload→navigate
-// chain.
+//   1. inspect the ZIP central directory without extracting entries
+//   2. POST the archive and workspace fields to /workspaces/from-file
+//   3. show the creation confirmation and navigate to the selected workspace.
 
-// A valid, empty ZIP archive: just the End-Of-Central-Directory record (22 bytes).
-// zip.js reads zero entries from it, so openTdeiPathwaysArchive() returns an empty
-// dataset and pathways2osc() builds an empty (but valid) changeset.
-const EMPTY_ZIP = Buffer.from([
-  0x50, 0x4b, 0x05, 0x06,
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00
-]);
+// Small ZIP fixtures whose central directories identify the dataset contents.
+const PATHWAYS_ZIP = Buffer.from(
+  'UEsDBBQACAgIANmTFV0AAAAAAAAAAAAAAAAJAC0Ac3RvcHMudHh0VVQFAAEDTIhqCgAgAAAAAAABABgAUEELGG0x3QFQQQsYbTHdAVBBCxhtMd0BqwAAgxbcjAMAAAABAAAAUEsBAgADFAAICAgA2ZMVXYMW3IwDAAAAAQAAAAkALQAAAAAAAAAAAKQBAAAAAHN0b3BzLnR4dFVUBQABA0yIagoAIAAAAAAAAQAYAFBBCxhtMd0BUEELGG0x3QFQQQsYbTHdAVBLBQYAAAAAAQABAGQAAABjAAAAAAA=',
+  'base64'
+);
+const TDEI_DOWNLOAD_ZIP = Buffer.from(
+  'UEsDBBQACAgIANmTFV0AAAAAAAAAAAAAAAANAC0AbWV0YWRhdGEuanNvblVUBQABA0yIagoAIAAAAAAAAQAYAADvDBhtMd0BAO8MGG0x3QEA7wwYbTHdAauuBQBDv6ajBAAAAAIAAABQSwMEFAAICAgA2ZMVXQAAAAAAAAAAAAAAAAsALQBkYXRhc2V0LnppcFVUBQABA0yIagoAIAAAAAAAAQAYABAWDRhtMd0BEBYNGG0x3QEQFg0YbTHdAasAAIMW3IwDAAAAAQAAAFBLAQIAAxQACAgIANmTFV1Dv6ajBAAAAAIAAAANAC0AAAAAAAAAAACkAQAAAABtZXRhZGF0YS5qc29uVVQFAAEDTIhqCgAgAAAAAAABABgAAO8MGG0x3QEA7wwYbTHdAQDvDBhtMd0BUEsBAgADFAAICAgA2ZMVXYMW3IwDAAAAAQAAAAsALQAAAAAAAAAAAKQBaAAAAGRhdGFzZXQuemlwVVQFAAEDTIhqCgAgAAAAAAABABgAEBYNGG0x3QEQFg0YbTHdARAWDRhtMd0BUEsFBgAAAAACAAIAzgAAAM0AAAAAAA==',
+  'base64'
+);
 
-const VALID_ZIP_FILE = { name: 'pathways.zip', mimeType: 'application/zip', buffer: EMPTY_ZIP };
+const VALID_ZIP_FILE = { name: 'pathways.zip', mimeType: 'application/zip', buffer: PATHWAYS_ZIP };
+const TDEI_DOWNLOAD_FILE = { name: 'tdei-download.zip', mimeType: 'application/zip', buffer: TDEI_DOWNLOAD_ZIP };
 const INVALID_FILE = { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not a dataset') };
 
 const NEW_WORKSPACE_ID = 123;
@@ -164,6 +156,20 @@ test.describe('create workspace from file', () => {
     // Snapshot the rejected-file state of the card (the toast is volatile and
     // lives outside the card, so it isn't captured here).
     await expect(page.locator('.card')).toMatchAriaSnapshot();
+  });
+
+  test('a direct TDEI download is detected from metadata.json without extracting it', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
+    await stubCreateFlow(page);
+
+    await page.goto('/workspace/create/file');
+    await fillForm(page, TDEI_DOWNLOAD_FILE);
+
+    const warning = page.getByRole('alert');
+    await expect(warning).toContainText('direct TDEI dataset download');
+    await expect(warning).toContainText('dataset ZIP contained inside it');
+    await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeDisabled();
   });
 
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
