@@ -1624,7 +1624,9 @@ $project-edit-action-spacing: 30px;
   .project-edit-sidebar-footer {
     padding-top: 1rem;
     position: fixed;
-    bottom: 0px;
+    bottom: 0;
+    left: 0;
+    right: 0;
     width: 100%;
     background: #ffffff;
     z-index: 10;
@@ -1637,7 +1639,7 @@ $project-edit-action-spacing: 30px;
   .project-edit-content-inner {
     max-width: none;
     padding: 1.5rem;
-    margin-bottom: 80px;
+    margin-bottom: 12rem;
   }
 
   .project-edit-settings-row {
