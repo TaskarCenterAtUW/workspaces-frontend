@@ -180,6 +180,38 @@ describe('WorkspacesClient.createWorkspaceFromFile', () => {
     expect(legacyUploadCalled).toBe(false);
     expect(receivedBody?.get('title')).toBe('Uploaded workspace');
     expect(receivedBody?.get('type')).toBe('pathways');
+    expect(receivedBody?.get('tdeiProjectGroupId')).toBe('11111111-1111-4111-8111-111111111111');
+    const uploadedFile = receivedBody?.get('file');
+    expect(uploadedFile).toBeInstanceOf(Blob);
+    await expect((uploadedFile as Blob).text()).resolves.toBe('dataset');
     await expect(client.getMyWorkspaces()).resolves.toEqual([]);
+  });
+
+  it.each([
+    ['a missing ID', {}],
+    ['a string ID', { workspaceId: '456' }],
+    ['a non-integer ID', { id: 45.6 }]
+  ])('rejects %s in a successful response', async (_label, responseBody) => {
+    server.use(
+      http.post(`${NEW_API_BASE}workspaces/from-file`, () => {
+        return HttpResponse.json(responseBody, { status: 201 });
+      })
+    );
+
+    const client = new WorkspacesClient(
+      LEGACY_API_BASE,
+      NEW_API_BASE,
+      tdeiClient,
+      osmClient
+    );
+
+    await expect(client.createWorkspaceFromFile(
+      new Blob(['dataset']),
+      {
+        title: 'Uploaded workspace',
+        type: 'pathways',
+        tdeiProjectGroupId: '11111111-1111-4111-8111-111111111111'
+      }
+    )).rejects.toThrow('valid integer workspace ID');
   });
 });

@@ -183,9 +183,17 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
       this._abortSignal
     );
     const workspaceResponse = await newApiClient._post('workspaces/from-file', formData);
-    const body = await workspaceResponse.json();
+    const body: unknown = await workspaceResponse.json();
+    const responseBody = body !== null && typeof body === 'object'
+      ? body as Record<string, unknown>
+      : {};
+    const workspaceId = responseBody.workspaceId ?? responseBody.id;
 
-    return body.workspaceId ?? body.id;
+    if (typeof workspaceId !== 'number' || !Number.isInteger(workspaceId)) {
+      throw new Error('Workspace creation response did not include a valid integer workspace ID.');
+    }
+
+    return workspaceId;
   }
 
   async updateWorkspace(id: WorkspaceId, workspaceDetails: WorkspacePatch): Promise<void> {

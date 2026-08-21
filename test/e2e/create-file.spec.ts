@@ -1,6 +1,6 @@
 import { test, expect, seedAuthenticatedSession, seedProjectGroupSelection } from './fixtures';
 import { recordContract } from './contract';
-import { projectGroups, PROJECT_GROUP_ID, myWorkspaces } from '../mocks/fixtures';
+import { projectGroups, PROJECT_GROUP_ID, myWorkspaces, TEST_API_BASE } from '../mocks/fixtures';
 
 // Generated from the @test outline in pages/workspace/create/file.vue.
 //
@@ -41,7 +41,7 @@ async function stubCreateFlow(page: import('@playwright/test').Page, opts: { fai
   );
 
   // new-API: create the workspace from file. Spec: 201/200 with { workspaceId: <integer> }.
-  await page.route('**/workspaces/from-file', (route) => {
+  await page.route(`${TEST_API_BASE}workspaces/from-file`, (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     if (opts.failCreate) {
       return route.fulfill({ status: 500, contentType: 'text/plain', body: 'boom' });
