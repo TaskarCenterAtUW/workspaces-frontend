@@ -11,6 +11,7 @@ import { resolveHttpErrorMessage } from '~/services/http';
 
 interface UseProjectWizardSettingsOptions {
   currentStep: Ref<ProjectWizardStepId>;
+  currentUserId: string | null;
   draft: ProjectWizardDraft;
   projectGroupId: string;
 }
@@ -55,6 +56,12 @@ export function useProjectWizardSettings(options: UseProjectWizardSettingsOption
 
     return workspaceUsers.value.filter((user) => {
       if (selectedValidatorIds.value.has(user.authUid)) {
+        return false;
+      }
+
+      // Exclude the current user from assignable list
+      // Backend automatically assigns the project creator as lead.
+      if (options.currentUserId && user.authUid === options.currentUserId) {
         return false;
       }
 

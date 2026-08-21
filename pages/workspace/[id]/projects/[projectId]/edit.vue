@@ -38,33 +38,51 @@
               @click="openSection(section.id)"
             >
               {{ section.label }}
+              <app-icon
+                v-if="section.id === 'imagery' && imageryError"
+                variant="error"
+                size="16"
+                no-margin
+                class="project-edit-nav-item-error-icon"
+                aria-label="Imagery has an error"
+              />
             </button>
           </nav>
 
           <footer class="project-edit-sidebar-footer">
-            <button
-              class="btn btn-link project-edit-cancel"
-              type="button"
-              :disabled="saving || mutatingMemberId !== null"
-              @click="handleCancel"
+            <p
+              v-if="imageryError"
+              class="project-edit-save-warning"
+              role="alert"
             >
-              Cancel
-            </button>
+              Imagery error is blocking save. Go to the Imagery tab to fix it.
+            </p>
 
-            <button
-              class="btn project-edit-save"
-              type="button"
-              :disabled="!canSave"
-              @click="handleSave"
-            >
-              <app-spinner
-                v-if="saving"
-                size="sm"
-              />
-              <template v-else>
-                Save
-              </template>
-            </button>
+            <div class="project-edit-sidebar-footer-actions">
+              <button
+                class="btn btn-link project-edit-cancel"
+                type="button"
+                :disabled="saving || mutatingMemberId !== null"
+                @click="handleCancel"
+              >
+                Cancel
+              </button>
+
+              <button
+                class="btn project-edit-save"
+                type="button"
+                :disabled="!canSave"
+                @click="handleSave"
+              >
+                <app-spinner
+                  v-if="saving"
+                  size="sm"
+                />
+                <template v-else>
+                  Save
+                </template>
+              </button>
+            </div>
           </footer>
         </aside>
 
@@ -1001,11 +1019,28 @@ $project-edit-action-spacing: 30px;
 .project-edit-sidebar-footer {
   flex-shrink: 0;
   display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: $project-edit-footer-padding;
+  border-top: 1px solid rgba($text-navy, 0.08);
+}
+
+.project-edit-sidebar-footer-actions {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: $project-edit-footer-padding;
-  border-top: 1px solid rgba($text-navy, 0.08);
+}
+
+.project-edit-save-warning {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  color: $danger-red;
+  font-size: 0.82rem;
+  font-weight: 500;
+  background: rgba($danger-red, 0.06);
+  border: 1px solid rgba($danger-red, 0.2);
+  border-radius: 0.4rem;
 }
 
 .project-edit-cancel {
@@ -1589,7 +1624,9 @@ $project-edit-action-spacing: 30px;
   .project-edit-sidebar-footer {
     padding-top: 1rem;
     position: fixed;
-    bottom: 0px;
+    bottom: 0;
+    left: 0;
+    right: 0;
     width: 100%;
     background: #ffffff;
     z-index: 10;
@@ -1602,7 +1639,7 @@ $project-edit-action-spacing: 30px;
   .project-edit-content-inner {
     max-width: none;
     padding: 1.5rem;
-    margin-bottom: 80px;
+    margin-bottom: 12rem;
   }
 
   .project-edit-settings-row {

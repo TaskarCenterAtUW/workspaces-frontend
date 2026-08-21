@@ -327,6 +327,7 @@ const {
   retryLoadWorkspaceUsers,
 } = useProjectWizardSettings({
   currentStep,
+  currentUserId: projectWizardClient.auth.subject || null,
   draft,
   projectGroupId: workspace.tdeiProjectGroupId,
 });
