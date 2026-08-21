@@ -1,6 +1,32 @@
 import { workspaceProjectsClient } from '~/services/index';
+import type { MaybeRefOrGetter } from 'vue';
 import type { WorkspaceProjectContributorRole } from '~/types/projects';
 import type { WorkspaceRole } from '~/types/workspaces';
+
+/**
+ * Resolves workspace-level project permissions shared by project navigation and management routes.
+ * A TDEI POC is scoped to the owning project group, so callers must supply the roles for that
+ * project group rather than the user's roles from an unrelated group.
+ */
+export function useWorkspaceProjectPermissions(
+  workspaceRole: MaybeRefOrGetter<WorkspaceRole | undefined>,
+  myTdeiRoles: MaybeRefOrGetter<readonly string[]>,
+) {
+  const isWorkspaceLead = computed(() => toValue(workspaceRole) === 'lead');
+  const isPoc = computed(() => toValue(myTdeiRoles).includes('poc'));
+  const hasWorkspaceLeadPrivileges = computed(() =>
+    isWorkspaceLead.value || isPoc.value,
+  );
+
+  return {
+    canCreateProject: hasWorkspaceLeadPrivileges,
+    canDeleteProject: hasWorkspaceLeadPrivileges,
+    canEditProjectMetadata: hasWorkspaceLeadPrivileges,
+    canManageProjectLifecycle: hasWorkspaceLeadPrivileges,
+    isPoc,
+    isWorkspaceLead,
+  };
+}
 
 /**
  * Resolves the current user's effective role for a project.
@@ -19,6 +45,7 @@ export function useProjectRole(
 ) {
   // Fetch the user's explicit project-level role. Returns null if none is assigned (404).
   const projectRole = ref<WorkspaceProjectContributorRole | null>(null);
+  const roleLoadError = ref<unknown>(null);
 
   /**
    * The effective role is the highest-privilege role the user holds.
@@ -61,7 +88,7 @@ export function useProjectRole(
   const isExplicitProjectLead = computed(() => projectRole.value === 'lead');
 
   const promise = (async () => {
-    if (currentUserId) {
+    if (currentUserId && workspaceRole !== 'lead') {
       try {
         projectRole.value = await workspaceProjectsClient.getWorkspaceProjectUserRole(
           workspaceId,
@@ -69,7 +96,8 @@ export function useProjectRole(
           currentUserId,
         );
       }
-      catch {
+      catch (error) {
+        roleLoadError.value = error;
         projectRole.value = null;
       }
     }
@@ -84,5 +112,6 @@ export function useProjectRole(
     canMap,
     canManageContributors,
     promise,
+    roleLoadError,
   };
 }

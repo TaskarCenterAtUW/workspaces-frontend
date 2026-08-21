@@ -19,6 +19,7 @@ import type {
   WorkspaceProjectTaskListItem,
   WorkspaceProjectTaskSubmitPayload,
   WorkspaceProjectTasksApiResponse,
+  WorkspaceProjectUpdatePayload,
   WorkspaceProjectsApiResponse,
   WorkspaceProjectsQuery,
   WorkspaceProjectsResult,
@@ -27,6 +28,8 @@ import type {
 import type { WorkspaceId } from '~/types/workspaces';
 
 const PAGE_SIZE_DEFAULT = 10;
+const TASK_PAGE_SIZE_MAXIMUM = 1000;
+const TASK_PAGE_REQUEST_CONCURRENCY = 4;
 const USE_MOCK_WORKSPACE_PROJECTS = import.meta.env.VITE_USE_MOCK_WORKSPACE_PROJECTS === 'true';
 
 function normalizeStatus(status: WorkspaceProjectApiItem['status']): WorkspaceProject['status'] {
@@ -46,15 +49,15 @@ function normalizeStatus(status: WorkspaceProjectApiItem['status']): WorkspacePr
 function normalizeTaskStatus(status: WorkspaceProjectTaskApiItem['status']): WorkspaceProjectTaskListItem['status'] {
   switch (status) {
     case 'to_validate':
+    case 'to_review':
       return 'ready_for_validation';
     case 'more_mapping_needed':
+    case 'to_remap':
       return 'needs_more_mapping';
     case 'done':
       return 'completed';
     case 'completed':
       return 'completed';
-    case 'to_review':
-      return 'ready_for_validation'
     case 'to_map':
     default:
       return 'ready_for_mapping';
@@ -69,7 +72,8 @@ function normalizeProject(
     id: project.id,
     workspaceId,
     name: project.name,
-    summary: undefined,
+    summary: project.description ?? undefined,
+    description: project.description ?? undefined,
     status: normalizeStatus(project.status),
     taskCount: project.task_count,
     percentCompleted: project.percent_completed,
@@ -88,7 +92,8 @@ function normalizeProjectDetail(
     id: project.id,
     workspaceId,
     name: project.name,
-    summary: undefined,
+    summary: project.description ?? undefined,
+    description: project.description ?? undefined,
     status: normalizeStatus(project.status),
     taskCount: project.task_count,
     percentCompleted: project.percent_completed ?? 0,
@@ -96,7 +101,8 @@ function normalizeProjectDetail(
     createdByName: project.created_by_name ?? '',
     createdAt: new Date(project.created_at),
     updatedAt: new Date(project.updated_at),
-    instructions: project.instructions,
+    instructions: project.instructions ?? '',
+    customImagery: project.custom_imagery ?? null,
     reviewRequired: project.review_required,
     lockTimeoutHours: project.lock_timeout_hours,
     taskBoundaryType: project.task_boundary_type,
@@ -145,6 +151,8 @@ function normalizeProjectTask(task: WorkspaceProjectTaskApiItem): WorkspaceProje
     updatedAt: formatProjectTaskDate(task.updated_at),
     lock: task.lock,
     locked: task.lock !== null,
+    lastMapperId: task.last_mapper?.user_id ?? null,
+    apiStatus: task.status,
   };
 }
 
@@ -261,6 +269,53 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     return normalizeProjectDetail(workspaceId, body);
   }
 
+  async updateWorkspaceProject(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+    payload: WorkspaceProjectUpdatePayload,
+  ): Promise<WorkspaceProjectDetail> {
+    await this._patch(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}`,
+      {
+        custom_imagery: payload.customImagery,
+        description: payload.description,
+        instructions: payload.instructions,
+        lock_timeout_hours: payload.lockTimeoutHours,
+        name: payload.name,
+        review_required: payload.reviewRequired,
+      },
+    );
+
+    return await this.getWorkspaceProjectDetail(workspaceId, projectId);
+  }
+
+  async closeWorkspaceProject(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+  ): Promise<void> {
+    await this._post(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/close`,
+    );
+  }
+
+  async resetWorkspaceProject(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+  ): Promise<void> {
+    await this._post(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}/reset`,
+    );
+  }
+
+  async deleteWorkspaceProject(
+    workspaceId: WorkspaceId,
+    projectId: number | string,
+  ): Promise<void> {
+    await this._delete(
+      `workspaces/${workspaceId}/tasking/projects/${projectId}`,
+    );
+  }
+
   async getWorkspaceProjectAoi(
     workspaceId: WorkspaceId,
     projectId: number | string,
@@ -279,18 +334,50 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
 
   async getWorkspaceProjectTasks(
     workspaceId: WorkspaceId,
-    projectId: number | string,
+    projectId: number | string
   ): Promise<WorkspaceProjectTaskListItem[]> {
-    const params = new URLSearchParams({
-      page: '1',
-      page_size: '200',
-    });
-    const response = await this._get(
-      `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks?${params.toString()}`,
-    );
-    const body = await response.json() as WorkspaceProjectTasksApiResponse;
+    const fetchPage = async (page: number): Promise<WorkspaceProjectTasksApiResponse> => {
+      const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(TASK_PAGE_SIZE_MAXIMUM)
+      });
+      const response = await this._get(
+        `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks?${params.toString()}`
+      );
 
-    return body.tasks.map(normalizeProjectTask);
+      return await response.json() as WorkspaceProjectTasksApiResponse;
+    };
+
+    const firstPage = await fetchPage(1);
+    const totalPages = Math.ceil(
+      firstPage.pagination.total / TASK_PAGE_SIZE_MAXIMUM
+    );
+    const remainingPages: WorkspaceProjectTasksApiResponse[] = [];
+
+    // The UI filters and sorts the complete task collection locally. Fetch every API page in
+    // bounded batches so large projects do not exceed the API's page-size limit or create an
+    // unbounded burst of simultaneous requests.
+    for (
+      let firstPageInBatch = 2;
+      firstPageInBatch <= totalPages;
+      firstPageInBatch += TASK_PAGE_REQUEST_CONCURRENCY
+    ) {
+      const lastPageInBatch = Math.min(
+        totalPages,
+        firstPageInBatch + TASK_PAGE_REQUEST_CONCURRENCY - 1
+      );
+      const batch = await Promise.all(
+        Array.from(
+          { length: lastPageInBatch - firstPageInBatch + 1 },
+          (_, index) => fetchPage(firstPageInBatch + index)
+        )
+      );
+      remainingPages.push(...batch);
+    }
+
+    return [firstPage, ...remainingPages]
+      .flatMap(page => page.tasks)
+      .map(normalizeProjectTask);
   }
 
   async getWorkspaceProjectRoles(
@@ -321,9 +408,15 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
       const body = await response.json() as WorkspaceProjectRoleApiItem;
       return body.role as WorkspaceProjectContributorRole;
     }
-    catch {
-      // 404 or network error → user has no explicit project role; treat as null.
-      return null;
+    catch (error) {
+      if (
+        error instanceof WorkspaceProjectsClientError
+        && error.response.status === 404
+      ) {
+        return null;
+      }
+
+      throw error;
     }
   }
 

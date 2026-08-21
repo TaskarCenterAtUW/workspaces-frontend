@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="14" viewBox="0 0 20 14">
+  <g id="list" transform="translate(1 1)">
+    <line id="Line_260" data-name="Line 260" x2="13" transform="translate(5)" fill="none" stroke="#5a607b" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+    <line id="Line_261" data-name="Line 261" x2="13" transform="translate(5 6)" fill="none" stroke="#5a607b" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+    <line id="Line_262" data-name="Line 262" x2="13" transform="translate(5 12)" fill="none" stroke="#5a607b" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+    <line id="Line_263" data-name="Line 263" x2="0.01" fill="none" stroke="#5a607b" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+    <line id="Line_264" data-name="Line 264" x2="0.01" transform="translate(0 6)" fill="none" stroke="#5a607b" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+    <line id="Line_265" data-name="Line 265" x2="0.01" transform="translate(0 12)" fill="none" stroke="#5a607b" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+  </g>
+</svg>

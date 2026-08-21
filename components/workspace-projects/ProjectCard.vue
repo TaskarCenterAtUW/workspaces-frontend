@@ -2,11 +2,8 @@
   <!--
     Project card — used in the grid view on the workspace projects page.
 
-    ACCESSIBILITY NOTE: The entire card is clickable but contains a nested action button.
-    We use Bootstrap's "stretched-link" technique: the <nuxt-link> gets `position: absolute; inset: 0`
-    (via the `project-card-link` class) making the whole card's surface area clickable,
-    while the action button sits above it using `position: relative; z-index: 1`.
-    This avoids the anti-pattern of putting @click on a non-interactive <article> element.
+    The entire card is clickable using a stretched <nuxt-link>. This avoids the anti-pattern
+    of putting @click on a non-interactive <article> element.
   -->
   <article class="project-card">
     <div class="project-card-top">
@@ -16,24 +13,6 @@
         :src="projectIcon"
         :alt="''"
       >
-
-      <!--
-        Three-dot action button. `position: relative` + `z-index: 1` lets it receive clicks
-        even though the stretched-link overlay sits beneath the whole card.
-        `@click.stop` prevents the card-level navigation from also firing.
-      -->
-      <button
-        class="project-card-menu btn btn-link"
-        type="button"
-        aria-label="Project actions"
-        @click.stop
-      >
-        <app-icon
-          variant="more_vert"
-          size="22"
-          no-margin
-        />
-      </button>
     </div>
 
     <div class="project-card-body">
@@ -55,21 +34,23 @@
       <workspace-projects-status-badge :status="project.status" />
 
       <!-- Task completion progress bar — values come from useProjectDisplay composable -->
-      <div class="project-progress-copy">
-        <strong>{{ taskSummary }}</strong>
-        <span>{{ progressPercent }}%</span>
-      </div>
-      <div
-        class="progress project-progress-bar"
-        role="progressbar"
-        :aria-valuenow="progressPercent"
-        aria-valuemin="0"
-        aria-valuemax="100"
-      >
+      <div class="project-progress">
+        <div class="project-progress-copy">
+          <strong>{{ taskSummary }}</strong>
+          <span>{{ progressPercent }}%</span>
+        </div>
         <div
-          class="progress-bar"
-          :style="{ width: `${progressPercent}%` }"
-        />
+          class="progress project-progress-bar"
+          role="progressbar"
+          :aria-valuenow="progressPercent"
+          aria-valuemin="0"
+          aria-valuemax="100"
+        >
+          <div
+            class="progress-bar"
+            :style="{ width: `${progressPercent}%` }"
+          />
+        </div>
       </div>
     </div>
 
@@ -87,7 +68,7 @@
     <!--
       Stretched link: covers the full card area via `position: absolute; inset: 0`.
       Screen readers announce this as the card's navigation target.
-      Placed last in the DOM so the action button's z-index stacks above it without any hacks.
+      Placed last in the DOM so the card content remains the accessible link target.
     -->
     <nuxt-link
       :to="projectRoute"
@@ -129,10 +110,10 @@ const projectRoute = computed(
   flex-direction: column;
   height: 100%;
   cursor: pointer;
-  background-color: #ffffff;
-  border: 1px solid rgba($text-navy, 0.1);
-  border-radius: 0.8rem;
-  box-shadow: 0 0.35rem 0.9rem rgba($text-navy, 0.08);
+  background-color: $surface-card;
+  box-shadow: 0 0.1875rem 0.375rem rgba($black, 0.05);
+  border: 1px solid $border-card;
+  border-radius: 0.625rem;
   transition:
     transform 160ms ease,
     box-shadow 160ms ease,
@@ -144,7 +125,7 @@ const projectRoute = computed(
 .project-card:focus-within {
   border-color: rgba($text-navy, 0.18);
   box-shadow: 0 0.85rem 1.8rem rgba($text-navy, 0.12);
-  transform: translateY(-2px);
+  transform: translateY(-0.125rem);
 }
 
 /* Stretched-link overlay — makes the whole card surface clickable via the <nuxt-link>. */
@@ -159,16 +140,9 @@ const projectRoute = computed(
   color: transparent;
 }
 
-/* Keep the action button above the stretched-link overlay so it remains independently clickable. */
-.project-card-menu {
-  position: relative;
-  z-index: 1;
-}
-
 .project-card-top {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
   padding: 1.2rem 1.2rem 0;
 }
 
@@ -179,18 +153,11 @@ const projectRoute = computed(
   flex-shrink: 0;
 }
 
-.project-card-menu {
-  padding: 0;
-  color: #8b92ab;
-  opacity: 1;
-  text-decoration: none;
-}
-
 .project-card-body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
   padding: 0.9rem 1.2rem 1.3rem;
 }
 
@@ -198,8 +165,7 @@ const projectRoute = computed(
   display: -webkit-box;
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 700;
   line-height: 1.5;
   overflow: hidden;
@@ -221,27 +187,31 @@ const projectRoute = computed(
   line-clamp: 3;
 }
 
+.project-progress {
+  display: grid;
+  gap: 0.625rem;
+}
+
 .project-progress-copy {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  color: rgba($secondary, 0.95);
-  font-size: 0.95rem;
+  color: $text-secondary;
+  font-size: 0.875rem;
 }
 
 .project-progress-copy strong {
   font-weight: 600;
-  color: $text-navy;
 }
 
 .project-progress-bar {
   height: 0.35rem;
-  background-color: #e5e8f3;
+  background-color: $progress-track;
 }
 
 .project-progress-bar .progress-bar {
-  background-color: #4e5fe0;
+  background-color: $progress-fill;
   border-radius: 999px;
 }
 
@@ -266,8 +236,8 @@ const projectRoute = computed(
   display: block;
   min-width: 0;
   color: $text-navy;
-  font-size: 0.95rem;
-  font-weight: 400;
+  font-size: 0.875rem;
+  font-weight: 500;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -275,7 +245,7 @@ const projectRoute = computed(
 .project-card-label {
   display: block;
   margin-bottom: 0.1rem;
-  color: rgba($secondary, 0.92);
-  font-size: 0.85rem;
+  color: $text-secondary;
+  font-size: 0.875rem;
 }
 </style>

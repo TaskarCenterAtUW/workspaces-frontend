@@ -63,7 +63,7 @@
         class="project-detail-task-list"
       >
         <li
-          v-for="task in paginatedTasks"
+          v-for="{ statusLabel, task } in displayedTasks"
           :key="task.id"
           class="project-detail-task-item"
           :class="{ 'project-detail-task-item-selected': task.id === selectedTaskId }"
@@ -96,7 +96,7 @@
                 class="project-detail-task-status-swatch"
                 :class="`project-detail-task-status-${task.status}`"
               />
-              {{ formatTaskStatus(task) }}
+              {{ statusLabel }}
             </span>
           </div>
 
@@ -193,15 +193,13 @@
  *
  * Emits `select-task` when a task row is clicked, so the parent page can highlight it on the map.
  */
+import { usePagination } from '~/composables/usePagination';
 import type { WorkspaceProjectTaskListItem, WorkspaceProjectTaskStatus } from '~/types/projects';
 import type { WorkspaceRole } from '~/types/workspaces';
 import { resolveWorkspaceProjectTaskStatusLabel } from '~/util/task-status';
 
 type TaskSortOption = 'latest' | 'oldest' | 'task_asc' | 'task_desc';
 type TaskStatusFilter = WorkspaceProjectTaskStatus | 'all';
-type PaginationItem
-  = | { type: 'page'; key: string; page: number }
-    | { type: 'ellipsis'; key: string };
 
 interface SelectOption {
   label: string;
@@ -229,26 +227,23 @@ const emit = defineEmits<{
 
 /** Keep the page short enough to fit the panel while matching the requested 6-row layout. */
 const pageSize = 6;
-/** Limit how many numbered pagination buttons we render before collapsing with ellipses. */
-const maxVisiblePaginationButtons = 7;
 const searchQuery = ref('');
 const selectedStatus = ref<TaskStatusFilter>('all');
 const sortBy = ref<TaskSortOption>('latest');
-const currentPage = ref(1);
 
 const statusOptions: SelectOption[] = [
   { label: 'All', value: 'all' },
   { label: 'Ready for mapping', value: 'ready_for_mapping' },
   { label: 'Ready for validation', value: 'ready_for_validation' },
-  { label: 'More mapping needed', value: 'needs_more_mapping' },
-  { label: 'Completed', value: 'completed' },
+  { label: 'More mapping required', value: 'needs_more_mapping' },
+  { label: 'Completed', value: 'completed' }
 ];
 
 const sortOptions: SelectOption[] = [
   { label: 'Latest', value: 'latest' },
   { label: 'Oldest', value: 'oldest' },
-  { label: 'Task ID A-Z', value: 'task_asc' },
-  { label: 'Task ID Z-A', value: 'task_desc' },
+  { label: 'Task # Low to High', value: 'task_asc' },
+  { label: 'Task # High to Low', value: 'task_desc' },
 ];
 
 /**
@@ -293,16 +288,17 @@ const sortedTasks = computed(() => {
   }
 });
 
-/** `Math.max(1, ...)` ensures totalPages is always at least 1, so the pagination never shows "0 pages". */
-const totalPages = computed(() => Math.max(1, Math.ceil(sortedTasks.value.length / pageSize)));
+const { currentPage, totalPages, paginatedItems: paginatedTasks, visiblePaginationItems } = usePagination(
+  () => sortedTasks.value,
+  () => pageSize
+);
+const displayedTasks = computed(() =>
+  paginatedTasks.value.map(task => ({
+    statusLabel: resolveWorkspaceProjectTaskStatusLabel(task, props.viewerProjectRole),
+    task,
+  })),
+);
 
-/** Step 3 — Paginate: slice the sorted list down to the current page window. */
-const paginatedTasks = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  return sortedTasks.value.slice(start, start + pageSize);
-});
-
-/** Human-readable "Showing X to Y of Z entries" summary shown in the footer. */
 const paginationSummary = computed(() => {
   if (sortedTasks.value.length === 0) {
     return 'Showing 0 entries';
@@ -314,92 +310,16 @@ const paginationSummary = computed(() => {
   return `Showing ${start} to ${end} of ${sortedTasks.value.length} entries`;
 });
 
-/**
- * Compress long pagination runs so the footer stays readable:
- *   1 ... 7 8 9 ... 17
- * instead of rendering every page button in a single line.
- */
-const visiblePaginationItems = computed<PaginationItem[]>(() => {
-  const pages = totalPages.value;
-
-  if (pages <= maxVisiblePaginationButtons) {
-    return Array.from({ length: pages }, (_, index) => ({
-      type: 'page' as const,
-      key: `page-${index + 1}`,
-      page: index + 1,
-    }));
-  }
-
-  const firstPage = 1;
-  const lastPage = pages;
-  const current = currentPage.value;
-  const interiorSlots = maxVisiblePaginationButtons - 2;
-  let windowStart = Math.max(firstPage + 1, current - Math.floor(interiorSlots / 2));
-  let windowEnd = windowStart + interiorSlots - 1;
-
-  if (windowEnd >= lastPage) {
-    windowEnd = lastPage - 1;
-    windowStart = windowEnd - interiorSlots + 1;
-  }
-
-  const items: PaginationItem[] = [
-    { type: 'page', key: `page-${firstPage}`, page: firstPage },
-  ];
-
-  if (windowStart > firstPage + 1) {
-    items.push({ type: 'ellipsis', key: 'ellipsis-start' });
-  }
-
-  for (let page = windowStart; page <= windowEnd; page += 1) {
-    items.push({ type: 'page', key: `page-${page}`, page });
-  }
-
-  if (windowEnd < lastPage - 1) {
-    items.push({ type: 'ellipsis', key: 'ellipsis-end' });
-  }
-
-  items.push({ type: 'page', key: `page-${lastPage}`, page: lastPage });
-
-  return items;
-});
-
-/**
- * Reset to page 1 whenever the user changes the search, status filter, or sort.
- * Without this, the user could be on page 3 and change the filter to show only 2 tasks,
- * resulting in an empty list with no navigation back.
- */
 watch([searchQuery, selectedStatus, sortBy], () => {
   currentPage.value = 1;
 });
-
-/**
- * If the total number of pages shrinks (e.g. user deletes tasks), snap back to the last
- * valid page so we don't show an empty list with no indication of why.
- */
-watch(totalPages, (pageCount) => {
-  if (currentPage.value > pageCount) {
-    currentPage.value = pageCount;
-  }
-});
-
-/**
- * Convert the internal API status string to a display-friendly label.
- * If you add a new status value to `WorkspaceProjectTaskStatus`, add a case here too.
- */
-function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
-  return resolveWorkspaceProjectTaskStatusLabel(task, props.viewerProjectRole);
-}
 </script>
 
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
 .project-detail-card {
-  padding: 1.5rem;
-  background: #ffffff;
-  border: 1px solid rgba($text-navy, 0.1);
-  border-radius: 1rem;
-  box-shadow: 0 0.75rem 2rem rgba($text-navy, 0.08);
+  background: $surface-card;
 }
 
 .project-detail-task-card {
@@ -419,15 +339,14 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 }
 
 .project-detail-task-search .form-control {
-  min-height: 2.85rem;
-  padding-right: 2.9rem;
+  border-radius: 0.375rem;
 }
 
 .project-detail-task-search-icon {
   position: absolute;
   right: 0.9rem;
   top: 50%;
-  color: #858cab;
+  color: $text-secondary;
   transform: translateY(-50%);
 }
 
@@ -437,14 +356,14 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 }
 
 .project-detail-task-filter span {
-  color: #1a1e3d;
+  color: $text-navy;
   font-size: 0.9rem;
   font-weight: 600;
 }
 
 .project-detail-card :deep(.tdei-select-toggle),
 .project-detail-card :deep(.tdei-select-menu) {
-  border-radius: 0.75rem;
+  border-radius: 0.375rem;
 }
 
 .project-detail-task-list-wrap {
@@ -452,7 +371,7 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   display: grid;
   gap: 0;
   border: 1px solid rgba($text-navy, 0.08);
-  border-radius: 0.85rem;
+  border-radius: 0.625rem;
   overflow: visible;
 }
 
@@ -465,10 +384,11 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 
 .project-detail-task-list-header {
   padding: 1rem 1.35rem 0.95rem;
-  color: #6e7490;
+  color: $text-secondary;
   font-size: 0.88rem;
   font-weight: 700;
-  background: #f7f8fc;
+  background: $surface-subtle;
+  border-radius: 0.625rem 0.625rem 0.25rem 0.25rem;
 }
 
 .project-detail-task-list {
@@ -481,8 +401,12 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 .project-detail-task-item {
   align-items: center;
   padding: 1.1rem 1.35rem;
-  background: #ffffff;
+  background: $surface-card;
   border-top: 1px solid rgba($text-navy, 0.08);
+}
+
+.project-detail-task-item:last-child {
+  border-radius: 0 0 0.625rem 0.625rem;
 }
 
 .project-detail-task-item-selected {
@@ -506,11 +430,11 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 
 .project-detail-task-select:hover strong,
 .project-detail-task-select:focus-visible strong {
-  color: #214d85;
+  color: $link-text;
 }
 
 .project-detail-task-cell-id strong {
-  color: #1a1e3d;
+  color: $text-navy;
   font-size: 0.95rem;
   font-weight: 700;
 }
@@ -525,44 +449,48 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  color: #37405d;
+  color: $text-navy;
   line-height: 1.35;
+  font-weight: 500;
+  font-size: 0.9375rem;
 }
 
 .project-detail-task-status-swatch {
   width: 0.95rem;
   height: 0.95rem;
   flex-shrink: 0;
-  border: 1px solid rgba(90, 96, 123, 0.12);
+  border: 1px solid rgba($text-secondary, 0.12);
 }
 
 .project-detail-task-status-ready_for_mapping {
-  background: #fde9aa;
+  background: $task-ready-mapping;
 }
 
 .project-detail-task-status-ready_for_validation {
-  background: #a8d8f8;
+  background: $task-ready-validation;
 }
 
 .project-detail-task-status-needs_more_mapping {
-  background: #f8be90;
+  background: $task-remap;
 }
 
 .project-detail-task-status-completed {
-  background: #aae8cd;
+  background: $task-completed;
 }
 
 .project-detail-task-value {
   display: inline-block;
-  color: #37405d;
+  color: $text-navy;
   line-height: 1.35;
   word-break: break-word;
+  font-weight: 500;
+  font-size: 0.9375rem;
 }
 
 .project-detail-task-mobile-label {
   display: none;
   margin-bottom: 0.28rem;
-  color: #6e7490;
+  color: $text-secondary;
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -572,7 +500,7 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 .project-detail-task-empty {
   margin: 0;
   padding: 1.25rem;
-  color: #5a607b;
+  color: $text-secondary;
   text-align: center;
 }
 
@@ -587,7 +515,7 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
 
 .project-detail-task-footer p {
   margin: 0;
-  color: #5a607b;
+  color: $text-secondary;
   font-size: 0.95rem;
   flex: 0 1 auto;
 }
@@ -608,15 +536,15 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #59607a;
+  color: $text-secondary;
   background: transparent;
   border: 0;
   border-radius: 0.45rem;
 }
 
-.project-detail-task-pagination-active {
-  color: #ffffff !important;
-  background: $primary !important;
+.project-detail-task-pagination .project-detail-task-pagination-active {
+  color: $white;
+  background: $primary;
 }
 
 .project-detail-task-pagination-ellipsis {
@@ -624,7 +552,7 @@ function formatTaskStatus(task: WorkspaceProjectTaskListItem) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #7b819c;
+  color: $text-secondary;
   font-size: 1rem;
 }
 

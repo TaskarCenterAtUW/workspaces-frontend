@@ -1,3 +1,5 @@
+<!-- Instructions HTML is sanitized by buildProjectWizardReviewSummary before rendering. -->
+<!-- eslint-disable vue/no-v-html -->
 <template>
   <section class="project-wizard-step project-wizard-step-review">
     <header class="project-wizard-step-header">
@@ -38,6 +40,11 @@
       </div>
 
       <div class="project-wizard-review-item">
+        <h3>Area of Interest</h3>
+        <p>{{ summary.aoiAreaLabel }}</p>
+      </div>
+
+      <div class="project-wizard-review-item">
         <h3>Lock Timeout</h3>
         <p>{{ summary.lockTimeoutLabel }}</p>
       </div>
@@ -54,7 +61,7 @@
         <h3>Project Validators</h3>
         <div class="project-wizard-review-validator-list">
           <div
-            v-for="validator in summary.selectedValidators"
+            v-for="validator in displayValidators"
             :key="validator.authUid"
             class="project-wizard-review-validator"
           >
@@ -67,7 +74,7 @@
             </span>
             <span>{{ validator.displayName }}</span>
             <span class="project-wizard-review-validator-role">
-              {{ formatRole(validator.role) }}
+              {{ validator.roleLabel }}
             </span>
           </div>
         </div>
@@ -96,9 +103,16 @@ interface Props {
   summary: ProjectWizardReviewSummary;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
-function formatRole(role: WorkspaceRole) {
+const displayValidators = computed(() =>
+  props.summary.selectedValidators.map(validator => ({
+    ...validator,
+    roleLabel: formatRole(validator.role)
+  }))
+);
+
+function formatRole(role: WorkspaceRole): string {
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
 </script>
@@ -119,7 +133,6 @@ function formatRole(role: WorkspaceRole) {
 .project-wizard-step-title {
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.15;
@@ -135,7 +148,7 @@ function formatRole(role: WorkspaceRole) {
 
 .project-wizard-review-group {
   display: grid;
-  gap: 1.25rem;
+  gap: 1.5625rem;
 }
 
 .project-wizard-review-item {
@@ -146,26 +159,25 @@ function formatRole(role: WorkspaceRole) {
 .project-wizard-review-item h3 {
   margin: 0;
   text-align: left;
-  font-family: Lato, var(--primary-font-family), sans-serif;
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-style: normal;
   font-weight: 600;
   line-height: 1.375rem;
   letter-spacing: 0;
-  color: #1a1e3d;
+  color: $text-navy;
   opacity: 1;
 }
 
 .project-wizard-review-item p {
   margin: 0;
   text-align: left;
-  font-family: Lato, var(--primary-font-family), sans-serif;
-  font-size: 1.125rem;
+  font-family: var(--primary-font-family);
+  font-size: 1rem;
   font-style: normal;
   font-weight: 400;
   line-height: 1.625rem;
   letter-spacing: 0;
-  color: #5a607b;
+  color: $text-secondary;
   opacity: 1;
 }
 
@@ -174,14 +186,18 @@ function formatRole(role: WorkspaceRole) {
   align-items: center;
   gap: 0.35rem;
   text-align: left;
-  font-family: Lato, var(--primary-font-family), sans-serif;
+  font-family: var(--primary-font-family);
   font-size: 1.125rem;
   font-style: normal;
   font-weight: 400;
   line-height: 1.625rem;
   letter-spacing: 0;
-  color: #5a607b;
+  color: $text-secondary;
   opacity: 1;
+}
+
+.project-wizard-review-status span {
+  font-size: 1rem;
 }
 
 .project-wizard-review-validator-list {
@@ -194,8 +210,8 @@ function formatRole(role: WorkspaceRole) {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.55rem;
-  color: #5a607b;
-  font-family: Lato, var(--primary-font-family), sans-serif;
+  color: $text-secondary;
+  font-family: var(--primary-font-family);
   font-size: 1.125rem;
   font-style: normal;
   font-weight: 400;
@@ -225,9 +241,8 @@ function formatRole(role: WorkspaceRole) {
 }
 
 .project-wizard-review-instructions {
-  color: #5a607b;
-  font-family: Lato, var(--primary-font-family), sans-serif;
-  font-size: 1.125rem;
+  color: $text-secondary;
+  font-size: 1rem;
   font-style: normal;
   font-weight: 400;
   line-height: 1.625rem;
