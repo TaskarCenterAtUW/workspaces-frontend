@@ -187,9 +187,11 @@ import { tdeiClient, workspacesClient } from '~/services/index';
 import type { TdeiDatasetSummary } from '~/types/tdei';
 import { BModal } from 'bootstrap-vue-next/components/BModal';
 import type { ComponentExposed } from 'vue-component-type-helpers';
-import { OPENFREEMAP_STYLE_URL } from '~/util/map-style';
+import { createMaplibreMap } from '~/util/map-style';
+import { getGeoJsonBounds } from '~/util/geojson';
 
-declare const L: any;
+const DATASET_AREA_SOURCE_ID = 'dataset-area';
+const DATASET_AREA_COLOR = '#3388ff';
 
 const context = reactive(new TdeiImporterContext());
 const importer = new TdeiImporter(workspacesClient, context);
@@ -198,7 +200,8 @@ const loading = reactive(new LoadingContext());
 const route = useRoute();
 const tdeiRecordId = ref<string | null>(null);
 const record = reactive<Record<string, any>>({});
-const map = ref<any>({});
+let map: import('maplibre-gl').Map | null = null;
+let mapInitId = 0;
 const workspaceTitle = ref('');
 const projectGroupId = ref<string | null>(null);
 const datasetError = ref<string | null>(null);
@@ -270,29 +273,61 @@ async function getDatasetInfo(id: string | null) {
   workspaceTitle.value = record.metadata?.dataset_detail?.name ?? ''
   tdeiRecordId.value = record.tdei_dataset_id
 
-  initMap();
+  void initMap();
 }
 
 onMounted(async () => {
   tdeiRecordId.value = route.query.tdeiRecordId?.toString() || null;
 })
 
-function initMap() {
-  if (map.value && map.value.remove) {
-    map.value.remove()
+async function initMap() {
+  const initId = ++mapInitId
+
+  if (map) {
+    map.remove()
+    map = null
   }
 
-  map.value = L.map('dataset_map');
+  const handle = await createMaplibreMap('dataset_map', { center: [0, 0], zoom: 0 })
 
-  L.maplibreGL({ style: OPENFREEMAP_STYLE_URL }).addTo(map.value);
+  // A newer dataset selection already handled map creation while this one
+  // was still loading the module.
+  if (initId !== mapInitId) {
+    handle.map.remove()
+    return
+  }
 
-  if (record.metadata?.dataset_detail?.dataset_area) {
-    const area = L.geoJSON(record.metadata.dataset_detail.dataset_area).addTo(map.value)
-    const bounds = area.getBounds()
+  map = handle.map
 
-    if (bounds.isValid()) {
-      map.value.fitBounds(bounds)
-    }
+  const datasetArea = record.metadata?.dataset_detail?.dataset_area
+  const bounds = datasetArea ? getGeoJsonBounds(datasetArea) : null
+
+  await handle.ready
+
+  if (initId !== mapInitId) {
+    handle.map.remove()
+    return
+  }
+
+  handle.map.addSource(DATASET_AREA_SOURCE_ID, {
+    type: 'geojson',
+    data: datasetArea ?? { type: 'FeatureCollection', features: [] },
+  })
+  handle.map.addLayer({
+    id: `${DATASET_AREA_SOURCE_ID}-fill`,
+    type: 'fill',
+    source: DATASET_AREA_SOURCE_ID,
+    paint: { 'fill-color': DATASET_AREA_COLOR, 'fill-opacity': 0.2 },
+  })
+  handle.map.addLayer({
+    id: `${DATASET_AREA_SOURCE_ID}-line`,
+    type: 'line',
+    source: DATASET_AREA_SOURCE_ID,
+    paint: { 'line-color': DATASET_AREA_COLOR, 'line-width': 3 },
+  })
+
+  if (bounds) {
+    handle.map.fitBounds(bounds)
   }
 }
 

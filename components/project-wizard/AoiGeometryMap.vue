@@ -43,7 +43,7 @@ import {
   getProjectWizardAoiBounds,
   getProjectWizardAoiVertices,
 } from '~/services/project-wizard-aoi';
-import { OPENFREEMAP_STYLE_URL } from '~/util/map-style';
+import { createMaplibreMap } from '~/util/map-style';
 
 interface Props {
   aoi?: ProjectWizardAreaFeature | null;
@@ -93,7 +93,6 @@ const emptyCollection: FeatureCollection = {
 
 type VertexFeature = Feature<Point, { vertexIndex: number }>;
 
-let maplibregl: typeof import('maplibre-gl') | null = null;
 let wizardMap: import('maplibre-gl').Map | null = null;
 let isDraggingVertex = false;
 let activeVertexIndex: number | null = null;
@@ -108,25 +107,18 @@ onMounted(async () => {
     return;
   }
 
-  maplibregl = await import('maplibre-gl');
+  const handle = await createMaplibreMap(mapRef.value, { center: DEFAULT_CENTER, zoom: 8 });
 
-  wizardMap = new maplibregl.Map({
-    container: mapRef.value,
-    style: OPENFREEMAP_STYLE_URL,
-    center: DEFAULT_CENTER,
-    zoom: 8,
-  });
+  wizardMap = handle.map;
 
-  wizardMap.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+  await handle.ready;
 
-  wizardMap.on('load', () => {
-    ensureLayers();
-    bindInteractionHandlers();
-    isMapStyleLoaded.value = true;
-    syncSources();
-    syncInteractionState();
-    applyViewport();
-  });
+  ensureLayers();
+  bindInteractionHandlers();
+  isMapStyleLoaded.value = true;
+  syncSources();
+  syncInteractionState();
+  applyViewport();
 });
 
 watch(

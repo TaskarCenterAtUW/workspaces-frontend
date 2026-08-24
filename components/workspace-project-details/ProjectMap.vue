@@ -96,7 +96,7 @@ import type {
   ProjectWizardGeneratedTaskFeatureCollection,
   ProjectWizardTaskPreviewFeatureCollection,
 } from '~/types/project-wizard';
-import { OPENFREEMAP_STYLE_URL } from '~/util/map-style';
+import { createMaplibreMap } from '~/util/map-style';
 
 interface Props {
   aoi: WorkspaceProjectAoiFeature | null;
@@ -221,30 +221,10 @@ onMounted(async () => {
     return;
   }
 
-  maplibregl = await import('maplibre-gl');
+  const handle = await createMaplibreMap(mapRef.value, { center: DEFAULT_CENTER, zoom: 9, controlPosition: 'bottom-right' });
 
-  detailMap = new maplibregl.Map({
-    container: mapRef.value,
-    style: OPENFREEMAP_STYLE_URL,
-    center: DEFAULT_CENTER,
-    zoom: 9,
-  });
-
-  detailMap.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
-
-  detailMap.on('load', () => {
-    detailMap?.resize();
-    ensureLayers();
-    bindInteractionHandlers();
-    syncSources();
-    fitMapToData();
-    mapReady.value = true;
-    setTimeout(() => {
-      if (!detailMap) return;
-      syncSources();
-      fitMapToData();
-    }, 300);
-  });
+  maplibregl = handle.maplibregl;
+  detailMap = handle.map;
 
   mapResizeObserver = new ResizeObserver(() => {
     if (!detailMap) return;
@@ -255,6 +235,20 @@ onMounted(async () => {
     }
   });
   mapResizeObserver.observe(mapRef.value);
+
+  await handle.ready;
+
+  detailMap.resize();
+  ensureLayers();
+  bindInteractionHandlers();
+  syncSources();
+  fitMapToData();
+  mapReady.value = true;
+  setTimeout(() => {
+    if (!detailMap) return;
+    syncSources();
+    fitMapToData();
+  }, 300);
 });
 
 /**
