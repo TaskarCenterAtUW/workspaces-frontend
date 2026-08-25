@@ -31,6 +31,8 @@
 import { LoadingContext } from '~/services/loading';
 import { workspacesClient } from '~/services/index';
 import { isRecord, parseMetadata } from '~/util/metadata';
+import { createMaplibreMap } from '~/util/map-style';
+import { bboxToPolygon, getGeoJsonBounds } from '~/util/geojson';
 
 import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
 
@@ -38,25 +40,20 @@ interface Props {
   workspace: Workspace;
 }
 
-interface LeafletBounds {
-  getCenter: () => { lat: number; lng: number };
-  isValid: () => boolean;
-}
-
-interface LeafletMap {
-  fitBounds: (bounds: LeafletBounds) => void;
-  getBoundsZoom: (bounds: LeafletBounds) => number;
-  invalidateSize: (options?: { animate?: boolean; pan?: boolean }) => void;
-  remove: () => void;
-}
-
-interface LeafletPolygon {
-  addTo: (map: LeafletMap) => void;
-  getBounds: () => LeafletBounds;
-  remove: () => void;
-}
-
 type MapState = 'loading' | 'ready' | 'empty' | 'error';
+type Bounds = [[number, number], [number, number]];
+
+interface WorkspaceArea {
+  geojson: unknown;
+  bounds: Bounds;
+}
+
+const AREA_SOURCE_ID = 'workspace-preview-area';
+const AREA_FILL_ID = 'workspace-preview-area-fill';
+const AREA_LINE_ID = 'workspace-preview-area-line';
+const AREA_COLOR = '#3388ff';
+const AREA_PADDING = 24;
+const emptyCollection = { type: 'FeatureCollection', features: [] };
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
@@ -65,10 +62,12 @@ const emit = defineEmits<{
 
 const loadingBbox = reactive(new LoadingContext());
 const mapElement = ref<HTMLElement | null>(null);
-const map = ref<LeafletMap | null>(null);
-const workspaceAreaPolygon = ref<LeafletPolygon | null>(null);
 const mapState = ref<MapState>('loading');
 
+let maplibregl: typeof import('maplibre-gl') | null = null;
+let map: import('maplibre-gl').Map | null = null;
+let mapReadyPromise: Promise<void> | null = null;
+let currentAreaBounds: Bounds | null = null;
 let mapRequestId = 0;
 let resizeObserver: ResizeObserver | undefined;
 let resizeFrame: number | undefined;
@@ -81,30 +80,64 @@ function resizeMap() {
   resizeFrame = requestAnimationFrame(() => {
     resizeFrame = undefined;
 
-    if (
-      mapState.value !== 'ready'
-      || !map.value
-      || !workspaceAreaPolygon.value
-    ) {
+    if (mapState.value !== 'ready' || !map || !maplibregl || !currentAreaBounds) {
       return;
     }
 
-    const bounds = workspaceAreaPolygon.value.getBounds();
+    map.resize();
 
-    map.value.invalidateSize({
-      animate: false,
-      pan: false
-    });
-    map.value.fitBounds(bounds);
+    const camera = map.cameraForBounds(currentAreaBounds, { padding: AREA_PADDING });
 
-    const zoom = map.value.getBoundsZoom(bounds);
-    const center = bounds.getCenter();
+    if (!camera?.center || camera.zoom === undefined) {
+      return;
+    }
+
+    map.jumpTo(camera);
+
+    const center = maplibregl.LngLat.convert(camera.center);
 
     emit('centerLoaded', {
-      zoom,
+      zoom: camera.zoom,
       latitude: center.lat,
       longitude: center.lng
     });
+  });
+}
+
+// Memoized so concurrent workspace switches share one in-flight init instead
+// of racing to create duplicate maplibregl.Map instances.
+function ensureMap(): Promise<void> {
+  if (!mapReadyPromise) {
+    mapReadyPromise = initMap();
+  }
+
+  return mapReadyPromise;
+}
+
+async function initMap(): Promise<void> {
+  if (!mapElement.value) {
+    return;
+  }
+
+  const handle = await createMaplibreMap(mapElement.value, { center: [0, 0], zoom: 0 });
+
+  maplibregl = handle.maplibregl;
+  map = handle.map;
+
+  await handle.ready;
+
+  map.addSource(AREA_SOURCE_ID, { type: 'geojson', data: emptyCollection as any });
+  map.addLayer({
+    id: AREA_FILL_ID,
+    type: 'fill',
+    source: AREA_SOURCE_ID,
+    paint: { 'fill-color': AREA_COLOR, 'fill-opacity': 0.2 },
+  });
+  map.addLayer({
+    id: AREA_LINE_ID,
+    type: 'line',
+    source: AREA_SOURCE_ID,
+    paint: { 'line-color': AREA_COLOR, 'line-width': 3 },
   });
 }
 
@@ -130,37 +163,20 @@ onBeforeUnmount(() => {
     cancelAnimationFrame(resizeFrame);
   }
 
-  workspaceAreaPolygon.value?.remove();
-  map.value?.remove();
+  map?.remove();
+  map = null;
+  mapReadyPromise = null;
 });
 
-function initMap() {
-  if (!mapElement.value) {
-    return;
-  }
-
-  map.value = L.map(mapElement.value) as LeafletMap;
-
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-  }).addTo(map.value);
-}
-
-async function getWorkspacePolygon(
-  workspace: Workspace
-): Promise<LeafletPolygon | null> {
+async function getWorkspaceArea(workspace: Workspace): Promise<WorkspaceArea | null> {
   const metadataArea = getMetadataArea(parseMetadata(workspace.tdeiMetadata));
+  const metadataBounds = metadataArea ? getGeoJsonBounds(metadataArea) : null;
 
-  if (metadataArea) {
-    const polygon = L.geoJSON(metadataArea) as LeafletPolygon;
-
-    if (polygon.getBounds().isValid()) {
-      return polygon;
-    }
+  if (metadataArea && metadataBounds) {
+    return { geojson: metadataArea, bounds: metadataBounds };
   }
 
-  let polygon: LeafletPolygon | null = null;
+  let area: WorkspaceArea | null = null;
 
   await loadingBbox.cancelable(workspacesClient, async (client) => {
     const bbox = await client.getWorkspaceBbox(workspace.id);
@@ -169,13 +185,13 @@ async function getWorkspacePolygon(
       return;
     }
 
-    polygon = L.rectangle([
-      [bbox.min_lat, bbox.min_lon],
-      [bbox.max_lat, bbox.max_lon]
-    ]) as LeafletPolygon;
+    area = {
+      geojson: bboxToPolygon(bbox.min_lat, bbox.min_lon, bbox.max_lat, bbox.max_lon),
+      bounds: [[bbox.min_lon, bbox.min_lat], [bbox.max_lon, bbox.max_lat]],
+    };
   });
 
-  return polygon;
+  return area;
 }
 
 async function updateMapPreview(workspace: Workspace) {
@@ -184,31 +200,22 @@ async function updateMapPreview(workspace: Workspace) {
   // Cancel a previous bbox request even if this workspace uses metadata.
   loadingBbox.abort();
 
-  workspaceAreaPolygon.value?.remove();
-  workspaceAreaPolygon.value = null;
+  currentAreaBounds = null;
   mapState.value = 'loading';
 
   try {
-    const polygon = await getWorkspacePolygon(workspace);
+    const area = await getWorkspaceArea(workspace);
 
     // The user selected another workspace while this one was loading.
     if (requestId !== mapRequestId) {
       return;
     }
 
-    if (!polygon) {
+    if (!area) {
       mapState.value = 'empty';
       return;
     }
 
-    const bounds = polygon.getBounds();
-
-    if (!bounds.isValid()) {
-      mapState.value = 'error';
-      return;
-    }
-
-    workspaceAreaPolygon.value = polygon;
     mapState.value = 'ready';
 
     // Wait until v-show makes the map surface visible.
@@ -218,16 +225,20 @@ async function updateMapPreview(workspace: Workspace) {
       return;
     }
 
-    if (!map.value) {
-      initMap();
+    await ensureMap();
+
+    if (requestId !== mapRequestId) {
+      return;
     }
 
-    if (!map.value) {
+    if (!map) {
       mapState.value = 'error';
       return;
     }
 
-    polygon.addTo(map.value);
+    const source = map.getSource(AREA_SOURCE_ID) as import('maplibre-gl').GeoJSONSource | undefined;
+    source?.setData(area.geojson as any);
+    currentAreaBounds = area.bounds;
     resizeMap();
   }
   catch (error: unknown) {
