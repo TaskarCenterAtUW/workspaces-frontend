@@ -289,11 +289,11 @@ function onTaskAreaInput(event: Event) {
 .project-task-setup-card {
   display: grid;
   gap: 1.55rem;
-  padding: 1.55rem 1.65rem 1.7rem;
+  padding: 30px;
   background: #ffffff;
-  border: 1px solid rgba(172, 184, 215, 0.28);
+  border: 1px solid #dfe2ef;
   border-radius: 1rem;
-  box-shadow: 0 1rem 2.2rem rgba($text-navy, 0.04);
+  // box-shadow: 0 1rem 2.2rem rgba($text-navy, 0.04);
 }
 
 .project-task-setup-hero {
@@ -304,18 +304,15 @@ function onTaskAreaInput(event: Event) {
 .project-task-setup-hero h2 {
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
-  font-size: 1.95rem;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1.04;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
 }
 
 .project-task-setup-hero p {
   margin: 0;
-  color: #667091;
-  font-size: 1.05rem;
+  color: $text-secondary;
+  font-size: 16px;
   line-height: 1.45;
 }
 
@@ -327,6 +324,7 @@ function onTaskAreaInput(event: Event) {
   border: 1px solid rgba(204, 214, 239, 0.8);
   border-left-width: 0.35rem;
   border-radius: 0.75rem;
+  align-items: center;
 }
 
 .project-task-setup-callout strong,
@@ -371,7 +369,7 @@ function onTaskAreaInput(event: Event) {
 
 .project-task-setup-range-block {
   display: grid;
-  gap: 0.95rem;
+  gap: 15px;
 }
 
 .project-task-setup-range-header {
@@ -383,8 +381,8 @@ function onTaskAreaInput(event: Event) {
 
 .project-task-setup-label {
   color: $text-navy;
-  font-size: 1.05rem;
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .project-task-setup-range-value {
@@ -548,7 +546,7 @@ function onTaskAreaInput(event: Event) {
 
 .project-task-setup-save-copy p {
   margin: 0;
-  color: #667091;
+  color: $text-secondary;
   line-height: 1.45;
 }
 

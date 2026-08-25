@@ -1,203 +1,243 @@
 <template>
   <button
-    :class="getClasses()"
-    :aria-label="`Select workspace ${workspace.title}, ID ${workspace.id}`"
+    class="workspace-card"
+    :class="{
+      'workspace-card-selected': selected
+    }"
+    type="button"
+    :aria-label="workspaceAriaLabel"
+    :aria-pressed="selected"
   >
-    <div class="workspace-card-main">
-      <div class="workspace-names">
+    <span class="workspace-card-heading">
+      <span
+        class="workspace-card-icon"
+        aria-hidden="true"
+      >
         <img
-          class="workspace-type-icon"
-          :src="typeIconSrc"
+          :src="workspaceIcon"
           alt=""
         >
+      </span>
 
-        <div class="workspace-copy">
-          <div class="workspace-meta-row">
-            <span class="workspace-type">{{ formatTypeLabel(workspace.type) }}</span>
+      <span class="workspace-card-copy">
+        <strong :title="workspace.title">{{ workspace.title }}</strong>
+        <span class="workspace-card-updated">Updated {{ updatedTime }}</span>
+      </span>
 
-            <span
-              v-if="workspace.externalAppAccess > 0"
-              class="workspace-status workspace-status-success"
-            >
-              <app-icon variant="lock" /> App Access
-            </span>
+      <span
+        v-if="selected"
+        class="workspace-card-selected-icon"
+        aria-hidden="true"
+      />
+      <dashboard-workspace-import-status-badge
+        v-else-if="isImporting"
+        class="workspace-card-import-status"
+        status="in-progress"
+      />
+    </span>
 
-            <span
-              v-if="workspace.role === 'lead'"
-              class="workspace-status"
-            >
-              <app-icon variant="star" /> {{ ROLE_LABELS.lead }}
-            </span>
-            <span
-              v-else-if="workspace.role === 'validator'"
-              class="workspace-status"
-            >
-              <app-icon variant="task_alt" /> {{ ROLE_LABELS.validator }}
-            </span>
-          </div>
-
-          <div
-            class="workspace-title"
-            :title="workspace.title"
-          >
-            <span>{{ workspace.title }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <span class="workspace-card-meta">
+      <span>
+        <img
+          :src="dataTypeIcon"
+          alt=""
+        >
+        {{ typeLabel }}
+      </span>
+      <span>
+        <img
+          :src="listProjectsIcon"
+          alt=""
+        >
+        {{ projectLabel }}
+      </span>
+      <app-icon
+        class="workspace-card-chevron"
+        variant="chevron_right"
+        size="22"
+        no-margin
+      />
+    </span>
   </button>
 </template>
 
 <script setup lang="ts">
-import flexTypeIcon from '~/assets/img/flex-type.svg'
-import oswTypeIcon from '~/assets/img/osw-type.svg'
-import pathwaysTypeIcon from '~/assets/img/pathways-type.svg'
-import { ROLE_LABELS } from '~/util/roles';
+import dataTypeIcon from '~/assets/img/data-type.svg';
+import listProjectsIcon from '~/assets/img/list-projects.svg';
+import workspaceIcon from '~/assets/img/project.svg';
+import { formatElapsed } from '~/util/time';
 
-const props = defineProps({
-  workspace: {
-    type: Object,
-    required: true
-  },
-  selected: {
-    type: Boolean,
-    default: false
-  }
+import type { Workspace } from '~/types/workspaces';
+
+interface Props {
+  selected?: boolean;
+  workspace: Workspace;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  selected: false
 });
 
-const typeIconSrc = computed(() => {
-  const iconMap: Record<string, string> = {
-    osw: oswTypeIcon,
-    pathways: pathwaysTypeIcon,
-    flex: flexTypeIcon,
+const updatedTime = computed(() => formatElapsed(
+  props.workspace.updatedAt ?? props.workspace.createdAt
+));
+const isImporting = computed(() => props.workspace.importStatus === 'in-progress');
+const workspaceAriaLabel = computed(() =>
+  `Select workspace ${props.workspace.title}, ID ${props.workspace.id}${
+    isImporting.value ? ', setup in progress' : ''
+  }`
+);
+const typeLabel = computed(() => props.workspace.type.toUpperCase());
+const projectLabel = computed(() => {
+  if (props.workspace.projectsCount == null) {
+    return 'Projects';
   }
 
-  return iconMap[props.workspace.type] ?? oswTypeIcon
-})
-
-function getClasses() {
-  return {
-    'workspace-card': true,
-    'workspace-card-selected': props.selected,
-  };
-}
-
-function formatTypeLabel(type: string) {
-  return type.toUpperCase();
-}
+  const count = props.workspace.projectsCount;
+  return `${count} ${count === 1 ? 'Project' : 'Projects'}`;
+});
 </script>
 
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
+
+$workspace-card-padding: 0.75rem;
+$workspace-card-gap: 0.5rem;
+$workspace-card-min-height: 6.85rem;
+$workspace-card-icon-size: 2.1rem;
+$workspace-card-radius: 0.625rem;
+$workspace-card-title-size: 0.9375rem;
+$workspace-card-copy-size: 0.8125rem;
+$workspace-card-meta-size: 0.75rem;
+$workspace-card-selected-icon-size: 1.25rem;
+$workspace-card-meta-icon-height: 0.85rem;
+
 .workspace-card {
   width: 100%;
-  display: block;
-  padding: 0;
+  min-height: $workspace-card-min-height;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: $workspace-card-gap;
+  padding: $workspace-card-padding;
+  color: $text-navy;
   text-align: left;
-  background: #ffffff;
-  border: 1px solid #ddd;
-  box-shadow: 0 1px 6px #33333314;
-  border-radius: 5px;
-  margin-bottom: 20px;
-  border-left: 8px solid var(--tdei-blue);
-  overflow: hidden;
+  background: $surface-card;
+  border: $border-width solid $border-strong;
+  border-radius: $workspace-card-radius;
   cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.workspace-card:hover,
+.workspace-card:focus-visible {
+  border-color: rgba($primary, 0.35);
+  box-shadow: 0 0.5rem 1.25rem rgba($primary, 0.1);
 }
 
 .workspace-card-selected {
-  border-left-color: var(--bs-primary);
-  box-shadow: 0 8px 24px rgba(50, 0, 110, 0.14);
   position: sticky;
-  top: 1rem;
-  bottom: 1rem;
+  top: 0;
+  z-index: 1;
+  background: $purple-background-subtle;
+  border-color: $border-strong;
 }
 
-.workspace-card-main {
-  padding: 20px 25px;
-}
-
-.workspace-names {
-  display: flex;
-  align-items: center;
-}
-
-.workspace-type-icon {
-  height: 55px;
-  margin-right: 15px;
-}
-
-.workspace-copy {
+.workspace-card-heading {
   min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: $workspace-card-gap;
 }
 
-.workspace-meta-row {
-  display: flex;
+.workspace-card-icon {
+  width: $workspace-card-icon-size;
+  height: $workspace-card-icon-size;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 6px;
+  justify-content: center;
+  border-radius: $workspace-card-radius;
 }
 
-.workspace-type,
-.workspace-status {
-  font-size: 14px;
-  font-weight: 400;
-  background-color: #f2f2f2;
-  display: inline-block;
-  padding: 0 8px;
-  border-radius: 4px;
-  color: #333;
+.workspace-card-selected-icon,
+.workspace-card-import-status {
+  align-self: center;
 }
 
-.workspace-status {
-  font-weight: 600;
-  text-transform: capitalize;
+.workspace-card-icon img {
+  width: 100%;
+  height: 100%;
 }
 
-.workspace-status-success {
-  background-color: #e8f4e0;
-  color: #2d6a39;
-}
-
-.workspace-title {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  flex-wrap: wrap;
-  font-size: 16px;
-  font-weight: 700;
-  color: #21335b;
-}
-
-.workspace-title > span:first-child {
+.workspace-card-copy {
   min-width: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.workspace-card-copy strong {
   overflow: hidden;
+  color: $text-navy;
+  font-family: var(--primary-font-family);
+  font-size: $workspace-card-title-size;
+  font-weight: $font-weight-bold;
+  line-height: 1.4;
   text-overflow: ellipsis;
-}
-
-.workspace-id-inline {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--secondary-color);
   white-space: nowrap;
 }
 
-@include media-breakpoint-down(md) {
-  .workspace-card {
-    border-top: 5px solid var(--tdei-blue);
-    border-left: 1px solid #ddd;
-  }
+.workspace-card-import-status {
+  max-width: 100%;
+}
 
-  .workspace-card-selected {
-    border-top-color: var(--bs-primary);
-  }
+.workspace-card-updated,
+.workspace-card-meta {
+  color: $text-secondary;
+  font-family: var(--primary-font-family);
+  font-size: $workspace-card-copy-size;
+  font-weight: 500;
+  line-height: 1.4;
+}
 
-  .workspace-card-main {
-    padding: 15px;
-  }
+.workspace-card-selected-icon {
+  width: $workspace-card-selected-icon-size;
+  height: $workspace-card-selected-icon-size;
+  color: $primary;
+  background-color: currentColor;
+  mask: url("~/assets/img/selected-workspace.svg") center / contain no-repeat;
+}
 
-  .workspace-names {
-    align-items: flex-start;
+.workspace-card-meta {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: $spacer;
+  padding-top: 0.5rem;
+  font-size: $workspace-card-meta-size;
+  line-height: 1.25;
+  border-top: $border-width dashed rgba($secondary, 0.2);
+}
+
+.workspace-card-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.workspace-card-meta img {
+  width: auto;
+  height: $workspace-card-meta-icon-height;
+}
+
+.workspace-card-chevron {
+  margin-left: auto;
+}
+
+@include media-breakpoint-down(sm) {
+  .workspace-card-meta {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
   }
 }
 </style>

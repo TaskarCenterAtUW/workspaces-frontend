@@ -269,12 +269,13 @@ function selectUser(userId: string) {
 
 .project-detail-add-contributor-search-input {
   padding-right: 2.5rem;
+  border-radius: 4px;
 }
 
 .project-detail-add-contributor-results {
   min-height: 8rem;
   border: 1px solid rgba($text-navy, 0.12);
-  border-radius: 0.75rem;
+  border-radius: 8px;
   background: #ffffff;
   overflow: hidden;
 }
@@ -342,8 +343,8 @@ function selectUser(userId: string) {
 
 .project-detail-add-contributor-user-copy strong {
   color: $text-navy;
-  font-size: 0.96rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
   line-height: 1.25;
 }
 

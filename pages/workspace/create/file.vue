@@ -9,6 +9,10 @@
 <template>
   <app-page class="create-file-page">
     <h1 class="mb-5 h2 text-lg-center">Create a Workspace from a File</h1>
+    <workspace-creation-modal
+      ref="creationInitiatedModal"
+      :workspace-id="createdWorkspaceId"
+    />
 
     <div class="row">
       <div class="col-xxl-7 mx-auto">
@@ -19,7 +23,7 @@
               <input
                 v-model.trim="workspaceTitle"
                 class="form-control"
-                :disabled="context.active"
+                :disabled="context.active || createdWorkspaceId !== undefined"
                 required
               >
             </label>
@@ -34,7 +38,7 @@
               <project-group-picker
                 id="create_file_project_group"
                 v-model="projectGroupId"
-                :disabled="context.active"
+                :disabled="context.active || createdWorkspaceId !== undefined"
                 required
               />
             </div>
@@ -43,7 +47,7 @@
             <dataset-type-radio
               v-model="datasetType"
               class="mb-3"
-              :disabled="context.active"
+              :disabled="context.active || createdWorkspaceId !== undefined"
               required
             />
 
@@ -53,11 +57,25 @@
                 type="file"
                 class="form-control"
                 accept=".zip"
-                :disabled="context.active"
+                :disabled="context.active || createdWorkspaceId !== undefined"
                 required
                 @change="onFileChange"
               >
             </label>
+            <p
+              v-if="archiveChecking"
+              class="text-secondary mt-2 mb-0"
+              role="status"
+            >
+              Checking ZIP contents...
+            </p>
+            <div
+              v-else-if="archiveWarning"
+              class="alert alert-warning mt-2 mb-0"
+              role="alert"
+            >
+              {{ archiveWarning }}
+            </div>
           </div><!-- .card-body -->
 
           <div class="card-footer">
@@ -96,39 +114,99 @@
 </template>
 
 <script setup lang="ts">
-import { FileImporter, FileImporterContext } from '~/services/import/file';
-import { osmClient, tdeiClient, workspacesClient } from '~/services/index';
+import {
+  FileImporter,
+  FileImporterContext,
+  getDatasetArchiveWarning,
+  inspectDatasetArchive
+} from '~/services/import/file';
+import { workspacesClient } from '~/services/index';
+import type { WorkspaceCreationModal } from '#components';
+import type { DatasetArchiveInspection } from '~/services/import/file';
 import type { WorkspaceType } from '~/types/workspaces';
+import type { ComponentExposed } from 'vue-component-type-helpers';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 
 const context = reactive(new FileImporterContext());
-const importer = new FileImporter(workspacesClient, tdeiClient, osmClient, context);
+const importer = new FileImporter(workspacesClient, context);
+
+const createdWorkspaceId = ref<number | undefined>();
+const creationInitiatedModal = useTemplateRef<ComponentExposed<typeof WorkspaceCreationModal>>('creationInitiatedModal');
 
 const workspaceTitle = ref('');
 const projectGroupId = ref<string | null>(null);
 const datasetType = ref<string | null>(null);
 const datasetFile = ref<File | null>(null);
+const archiveInspection = ref<DatasetArchiveInspection | null>(null);
+const archiveChecking = ref(false);
+const archiveReadError = ref<string | null>(null);
+let archiveInspectionId = 0;
+
+const archiveWarning = computed(() => {
+  if (archiveReadError.value) {
+    return archiveReadError.value;
+  }
+
+  if (!archiveInspection.value) {
+    return null;
+  }
+
+  return getDatasetArchiveWarning(
+    archiveInspection.value,
+    datasetType.value as WorkspaceType | null
+  );
+});
 
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
   && projectGroupId.value != null
   && datasetType.value !== null
   && datasetFile.value instanceof File
-  && datasetFile.value.name.endsWith('.zip')
+  && datasetFile.value.name.toLowerCase().endsWith('.zip')
+  && archiveInspection.value !== null
+  && !archiveChecking.value
+  && archiveWarning.value === null
 );
 
-function onFileChange(e: any) {
-  const file = e.target.files[0];
+async function onFileChange(event: Event) {
+  const input = event.currentTarget as HTMLInputElement;
+  const file = input.files?.[0] ?? null;
+  const inspectionId = ++archiveInspectionId;
 
-  if (file && !file.name.endsWith('.zip')) {
+  archiveInspection.value = null;
+  archiveReadError.value = null;
+  archiveChecking.value = false;
+
+  if (file && !file.name.toLowerCase().endsWith('.zip')) {
     toast.error('Only .zip files are supported. Please choose a .zip file.');
-    e.target.value = '';
+    input.value = '';
     datasetFile.value = null;
     return;
   }
 
   datasetFile.value = file;
+
+  if (!file) {
+    return;
+  }
+
+  archiveChecking.value = true;
+
+  try {
+    const inspection = await inspectDatasetArchive(file);
+    if (inspectionId === archiveInspectionId) {
+      archiveInspection.value = inspection;
+    }
+  } catch {
+    if (inspectionId === archiveInspectionId) {
+      archiveReadError.value = 'This file is not a valid ZIP archive.';
+    }
+  } finally {
+    if (inspectionId === archiveInspectionId) {
+      archiveChecking.value = false;
+    }
+  }
 }
 
 async function create() {
@@ -138,8 +216,10 @@ async function create() {
     tdeiProjectGroupId: projectGroupId.value!
   });
 
-  if (workspaceId) {
-    navigateTo('/dashboard?workspace=' + workspaceId);
+  if (workspaceId !== undefined) {
+    createdWorkspaceId.value = workspaceId;
+    await nextTick();
+    creationInitiatedModal.value?.show();
   }
 }
 </script>

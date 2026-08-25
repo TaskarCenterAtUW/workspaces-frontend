@@ -23,6 +23,10 @@ logs
 .env.*
 !.env.example
 
+# Coverage (Vitest unit + Playwright e2e istanbul output)
+/coverage/
+/.nyc_output/
+
 # Playwright
 /test-results/
 /playwright-report/

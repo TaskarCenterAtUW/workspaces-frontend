@@ -1,21 +1,56 @@
-import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
-
-import type { OsmApiClient } from '~/services/osm';
-import { OsmApiClientError, osm2osc } from '~/services/osm';
-import { openTdeiPathwaysArchive, pathways2osc } from '~/services/pathways';
-import type { TdeiClient } from '~/services/tdei';
-import { TdeiClientError, TdeiConversionError } from '~/services/tdei';
+import { BlobReader, ZipReader } from '@zip.js/zip.js';
+import { resolveHttpErrorMessage } from '~/services/http';
 import type { WorkspacesClient } from '~/services/workspaces';
-import { WorkspacesClientError } from '~/services/workspaces';
-import type { WorkspaceCreation } from '~/types/workspaces';
+import type { WorkspaceCreation, WorkspaceType } from '~/types/workspaces';
+
+export interface DatasetArchiveInspection {
+  filenames: string[];
+  hasMetadata: boolean;
+}
+
+export async function inspectDatasetArchive(data: Blob): Promise<DatasetArchiveInspection> {
+  const reader = new ZipReader(new BlobReader(data));
+
+  try {
+    const entries = await reader.getEntries();
+    const filenames = entries
+      .filter(entry => !entry.directory)
+      .map(entry => entry.filename.toLowerCase());
+
+    return {
+      filenames,
+      hasMetadata: filenames.some((filename) => {
+        const basename = filename.split(/[\\/]/).at(-1);
+        return basename === 'metadata.json';
+      })
+    };
+  } finally {
+    await reader.close();
+  }
+}
+
+export function getDatasetArchiveWarning(
+  inspection: DatasetArchiveInspection,
+  datasetType: WorkspaceType | null
+): string | null {
+  if (inspection.hasMetadata) {
+    return 'This ZIP contains metadata.json and may be a direct TDEI dataset download. Upload the dataset ZIP contained inside it instead.';
+  }
+
+  if (datasetType === 'pathways' && !inspection.filenames.some(name => name.endsWith('.txt'))) {
+    return 'This ZIP does not contain any .txt files expected for a GTFS Pathways dataset.';
+  }
+
+  if (datasetType === 'osw' && !inspection.filenames.some(name => name.endsWith('.geojson'))) {
+    return 'This ZIP does not contain any .geojson files expected for an OpenSidewalks dataset.';
+  }
+
+  return null;
+}
 
 const status = {
   idle: 'Idle',
-  convertOsm: 'Converting dataset...',
-  createWorkspace: 'Initializing workspace...',
-  createChangeset: 'Creating changeset...',
-  buildOsc: 'Building upload...',
-  import: 'Importing dataset to workspace...',
+  uploading: 'Creating workspace and uploading dataset...',
   complete: 'Import complete.'
 };
 
@@ -41,19 +76,13 @@ export class FileImporterContext {
 
 export class FileImporter {
   private _workspacesClient: WorkspacesClient;
-  private _tdeiClient: TdeiClient;
-  private _osmClient: OsmApiClient;
   private _context: FileImporterContext;
 
   constructor(
     workspacesClient: WorkspacesClient,
-    tdeiClient: TdeiClient,
-    osmClient: OsmApiClient,
-    context: FileImporterContext
+    context?: FileImporterContext
   ) {
     this._workspacesClient = workspacesClient;
-    this._tdeiClient = tdeiClient;
-    this._osmClient = osmClient;
     this._context = context ?? new FileImporterContext();
   }
 
@@ -67,7 +96,7 @@ export class FileImporter {
 
     try {
       return await this._run(data, workspace);
-    } catch (e: any) {
+    } catch (e: unknown) {
       await this._handleError(e);
     } finally {
       this._context.active = false;
@@ -75,61 +104,14 @@ export class FileImporter {
   }
 
   async _run(data: Blob, workspace: WorkspaceCreation): Promise<number> {
-    if (workspace.type === 'osw') {
-      this._context.status = status.convertOsm;
-      data = await this._tdeiClient.convertDataset(data, 'osw', 'osm', workspace.tdeiProjectGroupId);
-      data = await this._unwrapConvertedDataset(data);
-    }
+    this._context.status = status.uploading;
+    const workspaceId = await this._workspacesClient.createWorkspaceFromFile(data, workspace);
+    this._context.status = status.complete;
 
-    this._context.status = status.createWorkspace;
-    const workspaceId = await this._workspacesClient.createWorkspace(workspace);
-
-    this._context.status = status.createChangeset;
-    const changesetId = await this._osmClient.createChangeset(workspaceId);
-
-    this._context.status = status.buildOsc;
-    const changesetXml = workspace.type === 'osw'
-      ? osm2osc(changesetId, await data.text())
-      : pathways2osc(changesetId, await openTdeiPathwaysArchive(data));
-
-    this._context.status = status.import;
-    await this._osmClient.uploadChangeset(workspaceId, changesetId, changesetXml);
-
-    return workspaceId
+    return workspaceId;
   }
 
-  async _unwrapConvertedDataset(zip: Blob): Promise<Blob> {
-    const zipReader = new ZipReader(new BlobReader(zip));
-    const entries = await zipReader.getEntries();
-    const entry = entries[0];
-
-    if (!entry || entry.directory) {
-      throw new Error('Converted dataset archive contained no file entry');
-    }
-
-    const out = await entry.getData(new BlobWriter());
-
-    await zipReader.close();
-
-    return out;
-  }
-
-  async _handleError(e: any) {
-    if (this._context.status === status.convertOsm) {
-      this._context.error = 'Conversion job failed: ';
-    } else {
-      this._context.error = 'Unexpected error: ';
-    }
-
-    if (e instanceof TdeiClientError
-      || e instanceof OsmApiClientError
-      || e instanceof WorkspacesClientError
-    ) {
-      this._context.error += await e.response.text();
-    } else if (e instanceof TdeiConversionError) {
-      this._context.error += e.job.message;
-    } else {
-      this._context.error += e.toString();
-    }
+  async _handleError(e: unknown) {
+    this._context.error = await resolveHttpErrorMessage(e, 'Failed to create workspace from file.');
   }
 }

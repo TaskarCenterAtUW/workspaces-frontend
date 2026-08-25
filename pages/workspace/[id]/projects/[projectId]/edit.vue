@@ -38,33 +38,51 @@
               @click="openSection(section.id)"
             >
               {{ section.label }}
+              <app-icon
+                v-if="section.id === 'imagery' && imageryError"
+                variant="error"
+                size="16"
+                no-margin
+                class="project-edit-nav-item-error-icon"
+                aria-label="Imagery has an error"
+              />
             </button>
           </nav>
 
           <footer class="project-edit-sidebar-footer">
-            <button
-              class="btn btn-link project-edit-cancel"
-              type="button"
-              :disabled="saving || mutatingMemberId !== null"
-              @click="handleCancel"
+            <p
+              v-if="imageryError"
+              class="project-edit-save-warning"
+              role="alert"
             >
-              Cancel
-            </button>
+              Imagery error is blocking save. Go to the Imagery tab to fix it.
+            </p>
 
-            <button
-              class="btn project-edit-save"
-              type="button"
-              :disabled="!canSave"
-              @click="handleSave"
-            >
-              <app-spinner
-                v-if="saving"
-                size="sm"
-              />
-              <template v-else>
-                Save
-              </template>
-            </button>
+            <div class="project-edit-sidebar-footer-actions">
+              <button
+                class="btn btn-link project-edit-cancel"
+                type="button"
+                :disabled="saving || mutatingMemberId !== null"
+                @click="handleCancel"
+              >
+                Cancel
+              </button>
+
+              <button
+                class="btn project-edit-save"
+                type="button"
+                :disabled="!canSave"
+                @click="handleSave"
+              >
+                <app-spinner
+                  v-if="saving"
+                  size="sm"
+                />
+                <template v-else>
+                  Save
+                </template>
+              </button>
+            </div>
           </footer>
         </aside>
 
@@ -749,7 +767,7 @@ async function confirmDiscardProjectEdits() {
     okTitle: 'Discard',
     okVariant: 'danger',
     cancelTitle: 'Continue Editing',
-    cancelClass: 'btn-link p-0',
+    cancelClass: 'btn-link',
     cancelVariant: null,
   }).show();
 
@@ -877,7 +895,7 @@ function getInitial(value: string) {
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
-$project-edit-header-padding: 1.25rem 1.75rem 1.2rem;
+$project-edit-header-padding: 25px 30px;
 $project-edit-header-padding-mobile: 1.25rem 1rem;
 $project-edit-breadcrumb-gap: 0.45rem;
 $project-edit-breadcrumb-spacing: 0.75rem;
@@ -904,24 +922,25 @@ $project-edit-control-font-size: 0.95rem;
 $project-edit-small-font-size: 0.9rem;
 $project-edit-nav-radius: 0.7rem;
 $project-edit-card-radius: 0.75rem;
-$project-edit-panel-gap: 1.25rem;
+$project-edit-panel-gap: 25px;
 $project-edit-field-gap: 0.55rem;
 $project-edit-row-gap: 0.75rem;
-$project-edit-action-gap: 0.9rem;
-$project-edit-action-spacing: 1.5rem;
+$project-edit-action-gap: 20px;
+$project-edit-action-spacing: 30px;
 
 .project-edit-page {
   height: calc(100vh - #{$navbar-height});
   overflow: hidden;
+  padding: 0px 0px !important;
 }
 
 .project-edit-shell {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
-  border: 1px solid rgba($text-navy, 0.1);
-  border-radius: 1rem;
+  // background: #ffffff;
+  // border: 1px solid rgba($text-navy, 0.1);
+  // border-radius: 1rem;
   overflow: hidden;
 }
 
@@ -935,8 +954,9 @@ $project-edit-action-spacing: 1.5rem;
   flex-wrap: wrap;
   gap: $project-edit-breadcrumb-gap;
   margin-bottom: $project-edit-breadcrumb-spacing;
-  color: #757d98;
-  font-size: $project-edit-small-font-size;
+  color: $text-secondary;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .project-edit-breadcrumbs a {
@@ -947,11 +967,9 @@ $project-edit-action-spacing: 1.5rem;
 .project-edit-title {
   margin: 0;
   color: #1a1e3d;
-  font-family: var(--secondary-font-family);
   font-size: $project-edit-title-font-size;
   font-weight: 600;
   line-height: 1.15;
-  letter-spacing: -0.03em;
 }
 
 .project-edit-body {
@@ -1001,11 +1019,28 @@ $project-edit-action-spacing: 1.5rem;
 .project-edit-sidebar-footer {
   flex-shrink: 0;
   display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: $project-edit-footer-padding;
+  border-top: 1px solid rgba($text-navy, 0.08);
+}
+
+.project-edit-sidebar-footer-actions {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: $project-edit-footer-padding;
-  border-top: 1px solid rgba($text-navy, 0.08);
+}
+
+.project-edit-save-warning {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  color: $danger-red;
+  font-size: 0.82rem;
+  font-weight: 500;
+  background: rgba($danger-red, 0.06);
+  border: 1px solid rgba($danger-red, 0.2);
+  border-radius: 0.4rem;
 }
 
 .project-edit-cancel {
@@ -1162,6 +1197,7 @@ $project-edit-action-spacing: 1.5rem;
 .project-edit-search-input {
   min-height: 3rem;
   padding-right: 3rem;
+  border-radius: 6px;
 }
 
 .project-edit-search-result-actions :deep(.tdei-select-toggle),
@@ -1185,7 +1221,7 @@ $project-edit-action-spacing: 1.5rem;
 .project-edit-search-results,
 .project-edit-members-list {
   border: 1px solid rgba($text-navy, 0.1);
-  border-radius: 1rem;
+  border-radius: 8px;
   background: #ffffff;
 }
 
@@ -1203,8 +1239,7 @@ $project-edit-action-spacing: 1.5rem;
   display: grid;
   align-items: center;
   gap: $project-edit-row-gap;
-  padding: $project-edit-row-padding;
-  background: #ffffff;
+  padding: 18px 15px;
 }
 
 .project-edit-search-result {
@@ -1276,16 +1311,16 @@ $project-edit-action-spacing: 1.5rem;
 }
 
 .project-edit-member-role-readonly {
-  min-width: 11rem;
-  min-height: 3rem;
+  min-width: 8rem;
+  min-height: 2.9rem;
   display: inline-flex;
   align-items: center;
-  padding: 0.75rem 0.9rem;
+  padding: 5px 10px;
   color: $text-secondary;
-  font-weight: 600;
+  font-weight: 500;
   background: $surface-card;
   border: 1px solid $border-subtle;
-  border-radius: 0.8rem;
+  border-radius: 8px;
 }
 
 .project-edit-member-copy {
@@ -1295,7 +1330,7 @@ $project-edit-action-spacing: 1.5rem;
 }
 
 .project-edit-member-copy strong {
-  color: #273156;
+  color: $text-navy;
   font-size: 1rem;
   font-weight: 700;
 }
@@ -1329,7 +1364,7 @@ $project-edit-action-spacing: 1.5rem;
   font-weight: 700;
   background: rgba($primary, 0.08);
   border: 1px solid rgba($primary, 0.18);
-  border-radius: 0.8rem;
+  border-radius: 8px;
 }
 
 .project-edit-search-add:hover,
@@ -1347,8 +1382,8 @@ $project-edit-action-spacing: 1.5rem;
   justify-content: center;
   color: #e14646;
   background: #ffffff;
-  border: 1px solid rgba(225, 70, 70, 0.24);
-  border-radius: 0.65rem;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
 }
 
 .project-edit-member-remove:hover:not(:disabled),
@@ -1544,7 +1579,7 @@ $project-edit-action-spacing: 1.5rem;
 .project-edit-content :deep(.tdei-select-toggle) {
   min-width: 8rem;
   min-height: 2.9rem;
-  border-radius: 0.65rem;
+  border-radius: 8px;
 }
 
 @include media-breakpoint-down(lg) {
@@ -1579,6 +1614,7 @@ $project-edit-action-spacing: 1.5rem;
 
   .project-edit-nav {
     padding-bottom: 1rem;
+    display: block;
   }
 
   .project-edit-nav-item {
@@ -1587,6 +1623,13 @@ $project-edit-action-spacing: 1.5rem;
 
   .project-edit-sidebar-footer {
     padding-top: 1rem;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    background: #ffffff;
+    z-index: 10;
   }
 
   .project-edit-content {
@@ -1596,6 +1639,7 @@ $project-edit-action-spacing: 1.5rem;
   .project-edit-content-inner {
     max-width: none;
     padding: 1.5rem;
+    margin-bottom: 12rem;
   }
 
   .project-edit-settings-row {
@@ -1627,6 +1671,7 @@ $project-edit-action-spacing: 1.5rem;
 
   .project-edit-member-item {
     display: grid;
+    gap: 25px;
   }
 
   .project-edit-member-actions {

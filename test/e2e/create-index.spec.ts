@@ -2,6 +2,11 @@ import { test, expect, seedAuthenticatedSession } from './fixtures';
 import { recordContract } from './contract';
 import { projectGroups } from '../mocks/fixtures';
 
+const PATHWAYS_ZIP = Buffer.from(
+  'UEsDBBQACAgIANmTFV0AAAAAAAAAAAAAAAAJAC0Ac3RvcHMudHh0VVQFAAEDTIhqCgAgAAAAAAABABgAUEELGG0x3QFQQQsYbTHdAVBBCxhtMd0BqwAAgxbcjAMAAAABAAAAUEsBAgADFAAICAgA2ZMVXYMW3IwDAAAAAQAAAAkALQAAAAAAAAAAAKQBAAAAAHN0b3BzLnR4dFVUBQABA0yIagoAIAAAAAAAAQAYAFBBCxhtMd0BUEELGG0x3QFQQQsYbTHdAVBLBQYAAAAAAQABAGQAAABjAAAAAAA=',
+  'base64'
+);
+
 // Generated from the @test outline in pages/workspace/create/index.vue.
 //
 // The create landing page (/workspace/create) is a static set of three cards,
@@ -13,9 +18,8 @@ import { projectGroups } from '../mocks/fixtures';
 // Stubs the forms need:
 //   - GET tdei-user/project-group-roles/{subject}  -> projectGroups (ProjectGroupPicker)
 //   - POST workspaces                              -> { workspaceId: <int> } (createWorkspace)
-//   - PUT osm/workspaces/{id}                      -> 200 (osmClient.createWorkspace)
-//   - PUT osm/changeset/create                     -> changeset id (file flow only)
-//   - POST osm/changeset/{id}/upload               -> 200 (file flow only)
+//   - POST workspaces/from-file                    -> { workspaceId: <int> } (file import)
+//   - PUT osm/workspaces/{id}                      -> 200 (blank workspace provisioning)
 
 // Fulfils GET project-group-roles with the canned project groups so the
 // ProjectGroupPicker mounts, auto-selects "Puget Sound", and shows its name.
@@ -30,6 +34,15 @@ async function stubProjectGroups(page: import('@playwright/test').Page) {
 // conforms.
 async function stubCreateWorkspaceOk(page: import('@playwright/test').Page, id = 123) {
   await page.route('**/api.test/workspaces', (route) => {
+    if (route.request().method() === 'POST') {
+      return route.fulfill({ status: 201, json: { workspaceId: id } });
+    }
+    return route.continue();
+  });
+}
+
+async function stubCreateWorkspaceFromFileOk(page: import('@playwright/test').Page, id = 456) {
+  await page.route('**/api.test/workspaces/from-file', (route) => {
     if (route.request().method() === 'POST') {
       return route.fulfill({ status: 201, json: { workspaceId: id } });
     }
@@ -142,9 +155,7 @@ test.describe('create landing page', () => {
   test('the "from file" button opens the file form, uploads + creates a workspace, and redirects to the dashboard (snapshot)', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await stubProjectGroups(page);
-    await page.route('**/osm/api/0.6/workspaces/**', route => route.fulfill({ status: 200, body: '' }));
-    await page.route('**/osm/api/0.6/changeset/create', route => route.fulfill({ status: 200, body: '1' }));
-    await page.route('**/osm/api/0.6/changeset/*/upload', route => route.fulfill({ status: 200, body: '' }));
+    await stubCreateWorkspaceFromFileOk(page);
 
     await page.goto('/workspace/create');
     await page.getByRole('link').filter({ hasText: 'Start' }).nth(2).click();
@@ -162,23 +173,12 @@ test.describe('create landing page', () => {
     await expect(page.locator('.create-file-page .card')).toMatchAriaSnapshot();
 
     await page.getByLabel('Workspace Title').fill('My File Workspace');
-    // Use the pathways type so the import path skips the TDEI OSW conversion job.
+    // Select the dataset type included in the multipart upload.
     await page.getByText('GTFS Pathways').click();
-    // The pathways import parses the uploaded zip client-side via zip.js, so the
-    // upload must be a structurally valid archive. A bare End-Of-Central-Directory
-    // record (22 bytes) is the minimal empty-but-valid ZIP; a junk buffer makes
-    // ZipReader.getEntries() throw and the create never completes (no redirect).
     await page.getByLabel('Dataset File').setInputFiles({
       name: 'data.zip',
       mimeType: 'application/zip',
-      buffer: Buffer.from([
-        0x50, 0x4b, 0x05, 0x06,
-        0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00
-      ])
+      buffer: PATHWAYS_ZIP
     });
 
     const submit = page.getByRole('button', { name: 'Create Workspace' });
@@ -189,7 +189,7 @@ test.describe('create landing page', () => {
     const gate = new Promise<void>((r) => {
       release = r;
     });
-    await page.route('**/api.test/workspaces', async (route) => {
+    await page.route('**/api.test/workspaces/from-file', async (route) => {
       if (route.request().method() === 'POST') {
         await gate;
         return route.fulfill({ status: 201, json: { workspaceId: 456 } });
@@ -203,6 +203,9 @@ test.describe('create landing page', () => {
     await expect(page.locator('.create-file-page .card-footer')).toMatchAriaSnapshot();
 
     release();
+    const confirmation = page.getByRole('dialog');
+    await expect(confirmation).toContainText('Workspace creation initiated');
+    await page.getByRole('link', { name: 'Go to Dashboard' }).click();
     await expect(page).toHaveURL(/\/dashboard/);
   });
 
@@ -212,7 +215,7 @@ test.describe('create landing page', () => {
     await seedAuthenticatedSession(page);
     await stubProjectGroups(page);
     // Fail the workspace creation.
-    await page.route('**/api.test/workspaces', (route) => {
+    await page.route('**/api.test/workspaces/from-file', (route) => {
       if (route.request().method() === 'POST') {
         return route.fulfill({ status: 500, body: 'boom' });
       }
@@ -227,7 +230,7 @@ test.describe('create landing page', () => {
     await page.getByLabel('Dataset File').setInputFiles({
       name: 'data.zip',
       mimeType: 'application/zip',
-      buffer: Buffer.from('PK not-a-real-zip')
+      buffer: PATHWAYS_ZIP
     });
 
     await page.getByRole('button', { name: 'Create Workspace' }).click();

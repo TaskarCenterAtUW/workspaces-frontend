@@ -22,22 +22,24 @@
 
     <div class="task-editor-sidebar-scroll">
       <header class="task-editor-sidebar-hero">
-        <button
-          class="btn btn-link task-editor-back"
-          type="button"
-          @click="emit('back')"
-        >
-          <app-icon
-            variant="chevron_left"
-            size="20"
-            no-margin
-          />
-          Go back
-        </button>
+        <div class="task-editor-heading">
+          <button
+            class="btn btn-link task-editor-back"
+            type="button"
+            @click="emit('back')"
+          >
+            <app-icon
+              variant="chevron_left"
+              size="20"
+              no-margin
+            />
+            Go back
+          </button>
 
-        <h1 class="task-editor-title">
-          {{ projectName }}
-        </h1>
+          <h1 class="task-editor-title">
+            {{ projectName }}
+          </h1>
+        </div>
 
         <div class="task-editor-task-summary">
           <strong>{{ taskLabel }}</strong>
@@ -47,11 +49,11 @@
               v-if="lockTimeRemaining"
               class="task-editor-lock-time"
             >
-              <app-icon
-                variant="schedule"
-                size="17"
-                no-margin
-              />
+              <img
+                :src="timerIcon"
+                :alt="'Lock time remaining'"
+                class="task-editor-lock-time-icon"
+              >
               {{ lockTimeRemaining }}
             </span>
           </div>
@@ -89,7 +91,7 @@
               />
             </span>
             <div>
-              <h2>Task status</h2>
+              <h2>Task Status</h2>
               <p>{{ taskStatusHelpText }}</p>
             </div>
           </div>
@@ -111,13 +113,28 @@
           title="Instructions"
           title-link-class="task-editor-tab"
         >
-          <div class="task-editor-section-heading">
-            <h2>Instructions</h2>
-          </div>
           <workspace-project-details-rich-text-content
             class="task-editor-rich-copy"
             :html="instructions"
           />
+        </b-tab>
+
+        <b-tab
+          id="task-editor-feedback-panel"
+          button-id="task-editor-feedback-tab"
+          class="task-editor-tab-panel"
+          title-link-class="task-editor-tab"
+        >
+          <template #title>
+            <span class="task-editor-feedback-tab-title">
+              Feedback
+              <span
+                v-if="feedback.length"
+                class="task-editor-feedback-count"
+              >{{ feedback.length }}</span>
+            </span>
+          </template>
+          <task-editor-feedback-panel :feedback="feedback" />
         </b-tab>
       </b-tabs>
     </div>
@@ -169,14 +186,19 @@ import type {
   TaskFeedbackReasonOption,
   TaskReviewDecision,
 } from '~/composables/useTaskEditorContext';
-import type { WorkspaceProjectTaskFeedbackReasonCategory } from '~/types/projects';
+import type {
+  WorkspaceProjectTaskFeedback,
+  WorkspaceProjectTaskFeedbackReasonCategory,
+} from '~/types/projects';
 import type { TaskEditorAction, TaskEditorActionId } from '~/types/task-editor';
+import timerIcon from '~/assets/img/timer_icon.svg';
 
 interface Props {
   actionStatusBlocked: boolean;
   actionStatusMessage: string;
   actions: TaskEditorAction[];
   editorLoadErrorMessage: string;
+  feedback: WorkspaceProjectTaskFeedback[];
   feedbackReasonOptions: TaskFeedbackReasonOption[];
   instructions: string;
   lockTimeRemaining: string;
@@ -209,6 +231,8 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
+$task-editor-sidebar-handle-top: 4rem;
+
 .task-editor-sidebar {
   min-height: 0;
   position: relative;
@@ -232,7 +256,7 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 }
 
 .task-editor-load-error {
-  margin: 0.85rem 0 0;
+  margin: 0;
   padding: 0.75rem;
   color: $danger-red;
   font-size: 0.9rem;
@@ -273,18 +297,18 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 
 .task-editor-sidebar-handle {
   position: absolute;
-  top: 2rem;
+  top: $task-editor-sidebar-handle-top;
   left: 0.9rem;
   z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.35rem;
-  height: 3.15rem;
+  width: 30px;
+  height: 30px;
   color: $text-navy;
   background: $white;
-  border: 1px solid rgba($text-navy, 0.14);
-  border-radius: 0.65rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 50px;
   box-shadow: $box-shadow;
   transition:
     background-color 0.2s ease,
@@ -314,16 +338,23 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 
 .task-editor-sidebar-hero {
   display: grid;
-  gap: 1.25rem;
-  padding: 1.75rem;
-  background: $purple-background-light;
+  gap: 0.85rem;
+  padding: 1.25rem 1.75rem 1.5rem;
+  background: transparent linear-gradient(285deg, #EEEAFF 0%, #F9F4FF 100%) 0% 0% no-repeat padding-box;
+}
+
+.task-editor-heading {
+  display: grid;
+  justify-items: start;
+  gap: 20px;
+  min-width: 0;
+  margin-bottom: 5px;
 }
 
 .task-editor-title {
   margin: 0;
   color: $text-navy;
-  font-family: var(--secondary-font-family);
-  font-size: 1.65rem;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1.3;
 }
@@ -331,11 +362,17 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 .task-editor-task-summary {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 1rem;
-  padding-top: 1rem;
-  color: $secondary;
+  padding-top: 15px;
+  color: $text-secondary;
   border-top: 1px dashed rgba($text-navy, 0.25);
+}
+
+.task-editor-task-summary > strong {
+  flex: none;
+  white-space: nowrap;
 }
 
 .task-editor-task-badges {
@@ -349,11 +386,10 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 .task-editor-status {
   width: fit-content;
   margin: 0;
-  padding: 0.35rem 0.6rem;
+  padding: 5px 12px;
   color: $primary;
   font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  font-weight: 600;
   background: rgba($primary, 0.08);
   border-radius: 999px;
 }
@@ -362,13 +398,16 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.35rem 0.65rem;
+  padding: 5px 12px;
   color: $status-warning-text;
   font-size: 0.82rem;
   font-weight: 600;
   background: $status-warning-surface;
   border: 1px solid $status-warning-border;
   border-radius: 999px;
+}
+.task-editor-lock-time-icon {
+  height: 16px;
 }
 
 .task-editor-tabs {
@@ -377,7 +416,8 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 
 .task-editor-tabs :deep(.task-editor-tab-list) {
   display: flex;
-  gap: 1.75rem;
+  flex-wrap: wrap;
+  gap: 25px;
   margin: 0;
   padding: 1.25rem 1.75rem 0;
   list-style: none;
@@ -385,8 +425,16 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
   border-bottom: 0.25rem solid rgba($primary, 0.08);
 }
 
+// .task-editor-tabs :deep(.task-editor-tab-list > li) {
+//   flex: 1 1 0;
+//   min-width: 0;
+// }
+
 .task-editor-tabs :deep(.task-editor-tab) {
   position: relative;
+  display: flex;
+  justify-content: center;
+  width: 100%;
   padding: 0 0 0.75rem;
   color: $secondary;
   font-size: 1rem;
@@ -416,11 +464,32 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
   background: $text-navy;
 }
 
+.task-editor-feedback-tab-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.task-editor-feedback-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding-inline: 0.35rem;
+  color: $white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  background: $primary;
+  border-radius: 999px;
+}
+
 .task-editor-tabs :deep(.task-editor-tab-panel) {
   display: grid;
   align-content: start;
   gap: 1.75rem;
-  padding: 1.5rem 1.75rem 2rem;
+  padding: 2.5rem 1.75rem 2.5rem;
 }
 
 .task-editor-tabs :deep(.task-editor-tab-panel:not(.active)) {
@@ -431,7 +500,7 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0.85rem;
-  padding: 1rem;
+  padding: 15px;
   background: $surface-subtle;
   border: 1px solid rgba($text-navy, 0.1);
   border-radius: 0.8rem;
@@ -450,8 +519,8 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 
 .task-editor-info-card p {
   margin-top: 0.25rem;
-  color: $secondary;
-  font-size: 0.93rem;
+  color: $text-secondary;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -461,8 +530,8 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
   justify-content: center;
   width: 2.75rem;
   height: 2.75rem;
-  color: $secondary;
-  background: $purple-background-light;
+  color: $text-secondary;
+  background: #f0f2f8;
   border-radius: 50%;
 }
 
@@ -484,7 +553,7 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 }
 
 .task-editor-rich-copy {
-  color: $secondary;
+  color: $text-navy;
   font-size: 1rem;
   line-height: 1.55;
 }
@@ -506,26 +575,27 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 .task-editor-action-status {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
+  align-items: flex-start;
   gap: 0.6rem;
   margin: 0;
-  padding: 0.85rem 0.9rem;
-  color: $tdei-green;
+  padding: 10px 10px;
+  color: $text-navy;
   font-size: 0.92rem;
   line-height: 1.45;
   background: rgba($white, 0.92);
-  border: 1px solid rgba($tdei-green, 0.24);
-  border-radius: 0.85rem;
+  border: 1px solid rgba($text-navy, 0.24);
+  border-radius: 6px;
 }
 
 .task-editor-action-status :deep(.material-icons) {
-  margin-top: 0;
+  margin-top: 3px;
 }
 
 .task-editor-action-status-blocked {
   color: $text-navy;
-  background: $purple-background-medium;
-  border-color: rgba($primary, 0.18);
+  background: #fbfcff;
+  border-color: rgba(26, 30, 61, 0.1);
+  border-left: 4px solid #5a607b;
 }
 
 .task-editor-action-list {
@@ -563,13 +633,14 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 5px;
   padding: 0;
-  color: $secondary;
-  font-weight: 700;
+  color: $text-secondary;
+  font-weight: 500;
   text-decoration: none;
   background: transparent;
   border: 0;
+  margin-left: -8px;
 }
 
 .task-editor-back:hover,
@@ -590,6 +661,22 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
   .task-editor-tabs :deep(.task-editor-tab-list),
   .task-editor-tabs :deep(.task-editor-tab-panel) {
     padding-inline: 1rem;
+  }
+
+  .task-editor-tabs :deep(.task-editor-tab) {
+    padding-inline: 0.2rem;
+    font-size: 0.82rem;
+  }
+
+  .task-editor-feedback-tab-title {
+    gap: 0.2rem;
+  }
+
+  .task-editor-feedback-count {
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding-inline: 0.25rem;
+    font-size: 0.68rem;
   }
 
   .task-editor-task-summary {

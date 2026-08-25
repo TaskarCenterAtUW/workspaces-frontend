@@ -131,6 +131,7 @@ export interface TdeiDatasetSummary {
   id: string;
   name: string;
   version?: string;
+  projectGroupName?: string;
 }
 
 export interface TdeiUserItem {

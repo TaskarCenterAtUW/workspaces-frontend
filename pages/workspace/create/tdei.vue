@@ -1,12 +1,16 @@
 // Test outline
-// @test e2e: submitting the form with valid values shows a loading state, then redirects to the dashboard with the
-//            new workspace selected (playwright snapshot the loading state)
+// @test e2e: submitting the form with valid values confirms that workspace creation was initiated and links to the dashboard
 // @test e2e: submitting the form with an API error shows an error message
 // @test e2e: if an API error occurs when creating a workspace from either form, an error message is shown
 
 <template>
   <app-page class="create-tdei-page">
     <h1 class="mb-4 h2">Create a Workspace from the TDEI</h1>
+
+    <workspace-creation-modal
+      ref="creationInitiatedModal"
+      :workspace-id="createdWorkspaceId"
+    />
 
     <template v-if="loading.active">
       <app-spinner />
@@ -24,7 +28,7 @@
               <input
                 v-model.trim="workspaceTitle"
                 class="form-control"
-                :disabled="context.active"
+                :disabled="context.active || createdWorkspaceId !== undefined"
                 required
               >
             </label>
@@ -39,7 +43,7 @@
               <project-group-picker
                 id="create_tdei_project_group"
                 v-model="projectGroupId"
-                :disabled="context.active"
+                :disabled="context.active || createdWorkspaceId !== undefined"
                 required
               />
             </div>
@@ -51,8 +55,8 @@
               Dataset
               <dataset-picker
                 v-model="tdeiRecordId"
-                :project-group-id="projectGroupId ?? ''"
-                :disabled="context.active"
+                :disabled="context.active || createdWorkspaceId !== undefined"
+                :selected-dataset="selectedDataset"
                 required
               />
             </label>
@@ -66,12 +70,8 @@
           </div><!-- .card-body -->
 
           <div class="card-footer">
-            <template v-if="context.active">
-              <app-spinner size="sm" />
-              {{ context.status }}
-            </template>
             <section
-              v-else-if="context.error"
+              v-if="context.error"
               class="alert alert-danger m-0"
               role="alert"
             >
@@ -85,13 +85,13 @@
               </button>
             </section>
             <button
-              v-else-if="!context.complete"
+              v-else
               type="submit"
               class="btn btn-primary"
-              :disabled="!complete || context.active"
+              :disabled="!complete || context.active || createdWorkspaceId !== undefined"
               @click.prevent="create"
             >
-              Create Workspace
+              {{ createButtonLabel }}
             </button>
           </div><!-- .card-footer -->
         </div><!-- .card -->
@@ -164,21 +164,42 @@
 <script setup lang="ts">
 import { LoadingContext } from '~/services/loading'
 import { TdeiImporter, TdeiImporterContext } from '~/services/import/tdei';
-import { osmClient, tdeiClient, workspacesClient } from '~/services/index';
+import { tdeiClient, workspacesClient } from '~/services/index';
+import type { WorkspaceCreationModal } from '#components';
+import type { TdeiDatasetSummary } from '~/types/tdei';
+import type { ComponentExposed } from 'vue-component-type-helpers';
+import { createMaplibreMap } from '~/util/map-style';
+import { getGeoJsonBounds } from '~/util/geojson';
 
-declare const L: any;
+const DATASET_AREA_SOURCE_ID = 'dataset-area';
+const DATASET_AREA_COLOR = '#3388ff';
 
 const context = reactive(new TdeiImporterContext());
-const importer = new TdeiImporter(workspacesClient, tdeiClient, osmClient, context);
+const importer = new TdeiImporter(workspacesClient, context);
 
 const loading = reactive(new LoadingContext());
 const route = useRoute();
 const tdeiRecordId = ref<string | null>(null);
 const record = reactive<Record<string, any>>({});
-const map = ref<any>({});
+let map: import('maplibre-gl').Map | null = null;
+let mapInitId = 0;
 const workspaceTitle = ref('');
 const projectGroupId = ref<string | null>(null);
 const datasetError = ref<string | null>(null);
+const createdWorkspaceId = ref<number | undefined>();
+const creationInitiatedModal = useTemplateRef<ComponentExposed<typeof WorkspaceCreationModal>>('creationInitiatedModal');
+
+const selectedDataset = computed<TdeiDatasetSummary | undefined>(() => {
+  const detail = record.metadata?.dataset_detail;
+  if (!tdeiRecordId.value || !detail?.name) return undefined;
+
+  return {
+    id: tdeiRecordId.value,
+    name: detail.name,
+    version: detail.version,
+    projectGroupName: record.project_group?.name
+  };
+});
 
 watch(tdeiRecordId, val => getDatasetInfo(val));
 
@@ -188,8 +209,14 @@ const complete = computed(() =>
   && tdeiRecordId.value !== null
   && datasetError.value === null,
 );
+const createButtonLabel = computed(() => {
+  if (createdWorkspaceId.value !== undefined) return 'Creation initiated';
+  return context.active ? 'Initiating...' : 'Create Workspace';
+});
 
+let datasetInfoSequence = 0;
 async function getDatasetInfo(id: string | null) {
+  const requestId = ++datasetInfoSequence;
   datasetError.value = null
 
   if (id === null) {
@@ -203,7 +230,7 @@ async function getDatasetInfo(id: string | null) {
 
   await loading.wrap(tdeiClient, async (client) => {
     const info = await client.getDatasetInfo(id);
-
+    if (requestId !== datasetInfoSequence) return;
     if (!info) return
 
     // Clear stale keys from any previously loaded dataset before merging,
@@ -217,42 +244,71 @@ async function getDatasetInfo(id: string | null) {
 
   await nextTick();
 
+  if (requestId !== datasetInfoSequence) return;
+
   if (!record.project_group?.tdei_project_group_id || !record.tdei_dataset_id) {
     datasetError.value = 'The selected dataset returned incomplete data. Please try a different dataset or contact support.'
     return
   }
 
   workspaceTitle.value = record.metadata?.dataset_detail?.name ?? ''
-  projectGroupId.value = record.project_group.tdei_project_group_id
   tdeiRecordId.value = record.tdei_dataset_id
 
-  initMap();
+  void initMap();
 }
 
 onMounted(async () => {
   tdeiRecordId.value = route.query.tdeiRecordId?.toString() || null;
 })
 
-function initMap() {
-  if (map.value && map.value.remove) {
-    map.value.remove()
+async function initMap() {
+  const initId = ++mapInitId
+
+  if (map) {
+    map.remove()
+    map = null
   }
 
-  // TODO: use Mapbox
-  map.value = L.map('dataset_map');
+  const handle = await createMaplibreMap('dataset_map', { center: [0, 0], zoom: 0 })
 
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-  }).addTo(map.value);
+  // A newer dataset selection already handled map creation while this one
+  // was still loading the module.
+  if (initId !== mapInitId) {
+    handle.map.remove()
+    return
+  }
 
-  if (record.metadata?.dataset_detail?.dataset_area) {
-    const area = L.geoJSON(record.metadata.dataset_detail.dataset_area).addTo(map.value)
-    const bounds = area.getBounds()
+  map = handle.map
 
-    if (bounds.isValid()) {
-      map.value.fitBounds(bounds)
-    }
+  const datasetArea = record.metadata?.dataset_detail?.dataset_area
+  const bounds = datasetArea ? getGeoJsonBounds(datasetArea) : null
+
+  await handle.ready
+
+  if (initId !== mapInitId) {
+    handle.map.remove()
+    return
+  }
+
+  handle.map.addSource(DATASET_AREA_SOURCE_ID, {
+    type: 'geojson',
+    data: datasetArea ?? { type: 'FeatureCollection', features: [] },
+  })
+  handle.map.addLayer({
+    id: `${DATASET_AREA_SOURCE_ID}-fill`,
+    type: 'fill',
+    source: DATASET_AREA_SOURCE_ID,
+    paint: { 'fill-color': DATASET_AREA_COLOR, 'fill-opacity': 0.2 },
+  })
+  handle.map.addLayer({
+    id: `${DATASET_AREA_SOURCE_ID}-line`,
+    type: 'line',
+    source: DATASET_AREA_SOURCE_ID,
+    paint: { 'line-color': DATASET_AREA_COLOR, 'line-width': 3 },
+  })
+
+  if (bounds) {
+    handle.map.fitBounds(bounds)
   }
 }
 
@@ -266,8 +322,10 @@ async function create() {
     tdeiMetadata: JSON.stringify(record),
   });
 
-  if (workspaceId) {
-    navigateTo('/dashboard?workspace=' + workspaceId);
+  if (workspaceId !== undefined) {
+    createdWorkspaceId.value = workspaceId;
+    await nextTick();
+    creationInitiatedModal.value?.show();
   }
 }
 </script>

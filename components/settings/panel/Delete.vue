@@ -40,10 +40,20 @@
 
         <button
           class="btn btn-danger"
-          :disabled="!isLead || attestation !== 'delete'"
+          :disabled="!isLead || attestation !== 'delete' || isDeleting"
+          :aria-busy="isDeleting"
           @click="submitDelete"
         >
-          Delete this workspace
+          <template v-if="isDeleting">
+            <span
+              class="spinner-border spinner-border-sm me-2"
+              aria-hidden="true"
+            />
+            Deleting&hellip;
+          </template>
+          <template v-else>
+            Delete this workspace
+          </template>
         </button>
       </template>
     </div>
@@ -53,6 +63,7 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from 'vue3-toastify';
 import { workspacesClient } from '~/services/index';
 
 import type { Workspace } from '~/types/workspaces';
@@ -62,6 +73,7 @@ const { isLead } = useWorkspaceRole();
 
 const accepted = ref(false);
 const attestation = ref('');
+const isDeleting = ref(false);
 const input = useTemplateRef<HTMLInputElement>('input');
 
 async function acceptDelete() {
@@ -75,11 +87,23 @@ async function acceptDelete() {
 }
 
 async function submitDelete() {
-  if (!isLead.value) {
+  if (!isLead.value || attestation.value !== 'delete' || isDeleting.value) {
     return;
   }
 
-  await workspacesClient.deleteWorkspace(workspace.id);
-  navigateTo('/dashboard');
+  isDeleting.value = true;
+
+  try {
+    await workspacesClient.deleteWorkspace(workspace.id);
+    await navigateTo('/dashboard');
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'unexpected error';
+    toast.error('Failed to delete workspace: ' + errorMessage);
+    return;
+  }
+  finally {
+    isDeleting.value = false;
+  }
 }
 </script>

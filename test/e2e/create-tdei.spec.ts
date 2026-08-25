@@ -6,10 +6,9 @@ import type { Page, Route } from '@playwright/test';
 // Generated from the @test outline in pages/workspace/create/tdei.vue.
 //
 // The page sets a workspace title + picks a TDEI dataset, then submits. On
-// submit it runs the TdeiImporter chain (POST new-API /workspaces, PUT
-// osm/workspaces/{id}, download+unzip the TDEI dataset, create+upload an OSM
-// changeset) while showing a loading/status state, and on success redirects to
-// /dashboard?workspace={id}. API errors surface an error message + a "Try
+// submit it initiates workspace creation through the new API. On success it
+// shows a confirmation with a link to the dashboard, where the user can refresh
+// to check the import status. API errors surface an error message + a "Try
 // again" button that resets the form.
 
 // The spec requires uuid format for tdeiRecordId / tdeiServiceId / project
@@ -162,19 +161,41 @@ async function fillForm(page: Page) {
   await pgInput.click();
   await page.getByRole('listitem').filter({ hasText: 'Puget Sound' }).first().click();
 
-  // Choose the dataset; this fires getDatasetInfo which auto-fills the title.
-  // DatasetPicker is a native <select> whose option values are dataset ids and
-  // whose display text is "{name} (version {v})"; select the first real option
-  // (index 1, after the disabled placeholder at index 0).
-  await page.getByLabel('Dataset Selection').selectOption({ index: 1 });
+  await page.getByRole('combobox', { name: 'Dataset Selection' }).click();
+  await page.getByRole('option', { name: /Downtown Sidewalks/ }).click();
 
   await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeEnabled();
 }
 
 test.describe('create workspace from TDEI', () => {
-  // @test e2e: submitting the form with valid values shows a loading state, then redirects to the dashboard with the
-  //            new workspace selected (playwright snapshot the loading state)
-  test('valid submit shows a loading state then redirects to the dashboard with the new workspace', async ({ page }) => {
+  test('dataset picker is accessible and requests all datasets', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubHappyPath(page);
+
+    let listRequestUrl = '';
+    await page.route('**/tdei/datasets**', (route) => {
+      const url = new URL(route.request().url());
+      if (!url.searchParams.has('tdei_dataset_id')) {
+        listRequestUrl = url.toString();
+      }
+      return route.fulfill({ json: [TDEI_DATASET] });
+    });
+
+    await page.goto('/workspace/create/tdei');
+
+    const datasetPicker = page.getByRole('combobox', { name: 'Dataset Selection' });
+    await expect(datasetPicker).toHaveAttribute('required', '');
+    await datasetPicker.click();
+    await expect(page.getByRole('option', { name: /Downtown Sidewalks/ })).toBeVisible();
+    await expect.poll(() => listRequestUrl
+      ? new URL(listRequestUrl).searchParams.get('status')
+      : null).toBe('All');
+
+    await datasetPicker.press('ArrowDown');
+    await expect(datasetPicker).toHaveAttribute('aria-activedescendant', /-option-0$/);
+  });
+
+  test('valid submit shows that workspace creation was initiated', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await stubHappyPath(page);
 
@@ -195,14 +216,15 @@ test.describe('create workspace from TDEI', () => {
 
     await page.getByRole('button', { name: 'Create Workspace' }).click();
 
-    // Loading/status state: the card footer shows a spinner + a status message.
-    const statusRegion = page.locator('.card-footer');
-    await expect(statusRegion.locator('.spinner-border, [role="status"], .spinner')).toBeVisible();
-    await expect(statusRegion).toMatchAriaSnapshot();
+    await expect(page.getByRole('button', { name: 'Initiating...' })).toBeDisabled();
 
     releaseCreate();
 
-    await expect(page).toHaveURL(new RegExp(`/dashboard\\?workspace=${NEW_WORKSPACE_ID}`));
+    const confirmation = page.getByRole('dialog');
+    await expect(confirmation).toContainText('Workspace creation initiated');
+    await expect(confirmation).toContainText('Use the Refresh button');
+    await expect(page.getByRole('link', { name: 'Go to Dashboard' }))
+      .toHaveAttribute('href', `/dashboard?workspace=${NEW_WORKSPACE_ID}`);
   });
 
   // @test e2e: submitting the form with an API error shows an error message and a "try again" button, and
@@ -242,7 +264,7 @@ test.describe('create workspace from TDEI', () => {
     await fillForm(page);
     await page.getByRole('button', { name: 'Create Workspace' }).click();
 
-    await expect(page).toHaveURL(new RegExp(`/dashboard\\?workspace=${NEW_WORKSPACE_ID}`));
+    await expect(page.getByRole('dialog')).toContainText('Workspace creation initiated');
 
     expect(contract.violations()).toEqual([]);
   });

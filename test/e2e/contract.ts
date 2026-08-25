@@ -29,7 +29,14 @@ function pathToRegex(p: string): RegExp {
   const re = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\{[^/]+?\\\}/g, '[^/]+');
   return new RegExp(`^${re}$`);
 }
-const PATH_MATCHERS = SPEC_PATHS.map(p => ({ key: p, re: pathToRegex(p) }));
+const PATH_MATCHERS = SPEC_PATHS
+  .sort((a, b) => {
+    const aParameters = (a.match(/\{/g) ?? []).length;
+    const bParameters = (b.match(/\{/g) ?? []).length;
+    return aParameters - bParameters || b.length - a.length;
+  })
+  .map(p => ({ key: p, re: pathToRegex(p) }));
+const STATIC_SCHEMA_PATHS = new Set(['/imagery-schema.json', '/quest-schema.json']);
 
 const validatorCache = new Map<string, ReturnType<typeof ajv.compile>>();
 function validatorFor(subSchema: object, cacheKey: string) {
@@ -63,7 +70,8 @@ interface RecordedCall {
 function isNewApiRequest(req: Request): boolean {
   try {
     const url = new URL(req.url());
-    return url.hostname === 'api.test' && !url.pathname.startsWith('/tdei')
+    return url.hostname === 'api.test' && !STATIC_SCHEMA_PATHS.has(url.pathname)
+      && !url.pathname.startsWith('/tdei')
       && !url.pathname.startsWith('/osm') && !url.pathname.startsWith('/rapid')
       && !url.pathname.startsWith('/pathways');
   }

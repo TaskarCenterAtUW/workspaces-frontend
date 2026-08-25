@@ -51,7 +51,72 @@ test.describe('dashboard', () => {
 
     await page.goto('/dashboard');
 
+    await expect(page.getByLabel('Project Group')).toHaveValue('Puget Sound');
     await expect(page.getByText('No workspaces exist in the selected project group.')).toBeVisible();
+  });
+
+  test('clicking a failed import status loads the latest job and shows its failure response', async ({ page }) => {
+    const failedWorkspace = {
+      id: 1769,
+      type: 'osw',
+      title: 'Failed import',
+      description: null,
+      tdeiProjectGroupId: PROJECT_GROUP_ID,
+      tdeiRecordId: null,
+      tdeiServiceId: null,
+      tdeiMetadata: null,
+      createdAt: '2026-08-14T05:44:15.816029Z',
+      updatedAt: '2026-08-14T10:02:42.972197Z',
+      createdBy: '22222222-2222-2222-2222-222222222222',
+      createdByName: 'Tester',
+      externalAppAccess: 0,
+      kartaViewToken: null,
+      role: 'lead',
+      importStatus: 'failed'
+    };
+    const failureMessage = 'Step \'Create Changeset\' failed: no input file was found';
+    let jobsRequestCount = 0;
+
+    await seedAuthenticatedSession(page);
+    await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
+    await page.route('**/workspaces/mine', route => route.fulfill({ json: [failedWorkspace] }));
+    await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
+    await page.route('**/workspaces/1769/bbox', route => route.fulfill({ status: 204 }));
+    await page.route('**/workspaces/1769/jobs', (route) => {
+      jobsRequestCount++;
+      return route.fulfill({
+        json: [{
+          id: 2,
+          workspace_id: 1769,
+          job_type: 'workspace-import',
+          request: { tdei_token: 'must-not-be-rendered' },
+          current_task: 'Create Changeset',
+          response: {
+            message: failureMessage,
+            success: false,
+            messageCode: 'STEP_EXECUTION_FAILED'
+          },
+          created_at: '2026-08-14T05:44:15.816029',
+          updated_at: '2026-08-14T10:02:42.972197',
+          status: 'completed',
+          current_task_status: null
+        }]
+      });
+    });
+
+    await page.goto('/dashboard');
+    await expect(page.locator('.workspace-card-updated')).toContainText('Updated');
+    await expect(page.locator('.dashboard-workspace-updated')).toContainText('Updated');
+    await expect(page.getByText('Updated At', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'View import failure details' }).click();
+
+    const dialog = page.getByRole('dialog', { name: 'Workspace import failed' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText(failureMessage);
+    await expect(dialog).toContainText('STEP_EXECUTION_FAILED');
+    await expect(dialog).toContainText('Create Changeset');
+    await expect(dialog).not.toContainText('must-not-be-rendered');
+    expect(jobsRequestCount).toBe(1);
   });
 
   // @test e2e: clicking on a dataset updates the metadata panel on the right and shows the data extent in the map
