@@ -67,14 +67,11 @@ describe('RapidManager subscriptions', () => {
     const initialHashParams = new Map<string, string>([
       ['hashtags', '#tm-39-1'],
     ]);
-    const manager = new RapidManager(
-      '/rapid/',
-      'https://www.openstreetmap.org/',
-      { ok: true } as TdeiAuthStore,
-    );
-    manager.rapidContext = {
-      initAsync: vi.fn().mockResolvedValue(undefined),
-      resetAsync: vi.fn().mockResolvedValue(undefined),
+    const rapidContext = {
+      initAsync: vi.fn(),
+      resetAsync: vi.fn().mockImplementation(async () => {
+        initialHashParams.delete('hashtags');
+      }),
       services: {
         osm: {
           _oauth: {
@@ -84,15 +81,27 @@ describe('RapidManager subscriptions', () => {
           userDetails: vi.fn(),
         },
       },
-      systems: {
+      systems: {} as Record<string, unknown>,
+    };
+
+    rapidContext.initAsync.mockImplementation(async () => {
+      await Promise.resolve();
+      rapidContext.systems = {
         urlhash: { initialHashParams },
         editor: {
           changes: () => ({ created: [], deleted: [], modified: [] }),
           on: vi.fn(),
         },
         uploader: { on: vi.fn() },
-      },
-    };
+      };
+    });
+
+    const manager = new RapidManager(
+      '/rapid/',
+      'https://www.openstreetmap.org/',
+      { ok: true } as TdeiAuthStore,
+    );
+    manager.rapidContext = rapidContext;
 
     await manager.init(1763, null, '#tm-39-2');
 

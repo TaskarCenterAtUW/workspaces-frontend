@@ -106,6 +106,8 @@ export class RapidManager {
     this.#patchRapidAuth();
     await initPromise;
 
+    // Set it again after Rapid is ready in case it was not available earlier.
+    this.#setInitialChangesetHashtags(changesetHashtags);
     this.#addCustomImagerySource(customImagerySource);
     this.#bindRapidEvents();
   }
@@ -142,6 +144,8 @@ export class RapidManager {
     }));
 
     await this.rapidContext.resetAsync();
+    // A reset starts a new upload, so add the task hashtag again.
+    this.#setInitialChangesetHashtags(changesetHashtags);
     this.#addCustomImagerySource(customImagerySource);
   }
 
@@ -161,14 +165,14 @@ export class RapidManager {
   }
 
   #onLoaded() {
-    this.loaded.value = true;
-
     this.rapidContext = new Rapid.Context();
     this.rapidContext.embed(true);
     this.rapidContext.containerNode = this.containerNode;
     this.rapidContext.assetPath = this.#baseUrl;
 
     console.log('Rapid loaded', this.rapidContext);
+    // Mark Rapid as loaded only after the context is ready to use.
+    this.loaded.value = true;
   }
 
   #patchRapidAuth() {

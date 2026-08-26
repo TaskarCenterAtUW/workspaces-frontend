@@ -144,11 +144,9 @@
                 <h2>Detailed Task Instructions</h2>
               </header>
 
-              <client-only fallback-tag="div">
-                <project-wizard-rich-text-editor
-                  v-model="form.instructions"
-                />
-              </client-only>
+              <project-wizard-rich-text-editor
+                v-model="form.instructions"
+              />
             </section>
 
             <section

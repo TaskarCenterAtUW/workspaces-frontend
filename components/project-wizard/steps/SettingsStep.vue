@@ -79,11 +79,9 @@
         <h3 class="project-wizard-settings-heading">Instructions</h3>
       </div>
 
-      <client-only fallback-tag="div">
-        <project-wizard-rich-text-editor
-          v-model="instructionsModel"
-        />
-      </client-only>
+      <project-wizard-rich-text-editor
+        v-model="instructionsModel"
+      />
     </section>
   </section>
 </template>

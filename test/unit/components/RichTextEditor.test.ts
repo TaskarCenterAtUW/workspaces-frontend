@@ -25,7 +25,8 @@ describe('RichTextEditor', () => {
     expect(editor.isEditable).toBe(true);
     expect(wrapper.get('[contenteditable="true"]').attributes('contenteditable')).toBe('true');
 
-    editor.commands.focus();
+    await wrapper.get('.project-wizard-rich-text-editor-content').trigger('click');
+    await flushPromises();
     editor.commands.insertContent('Editable instructions');
     await flushPromises();
 
@@ -64,6 +65,28 @@ describe('RichTextEditor', () => {
     await flushPromises();
 
     expect(editor.getText()).toBe('Replacement');
+    wrapper.unmount();
+  });
+
+  it('rebuilds a stale editor without requiring a page refresh', async () => {
+    const wrapper = mount(RichTextEditor, {
+      props: { modelValue: '<p>Saved draft</p>' },
+      global: { stubs: { AppIcon: true } },
+    });
+
+    await flushPromises();
+
+    const staleEditor = wrapper.findComponent(EditorContent).props('editor') as Editor;
+    staleEditor.destroy();
+
+    await wrapper.get('.project-wizard-rich-text-editor-content').trigger('click');
+    await flushPromises();
+
+    const recoveredEditor = wrapper.findComponent(EditorContent).props('editor') as Editor;
+    expect(recoveredEditor).not.toBe(staleEditor);
+    expect(recoveredEditor.isEditable).toBe(true);
+    expect(recoveredEditor.getText()).toBe('Saved draft');
+
     wrapper.unmount();
   });
 

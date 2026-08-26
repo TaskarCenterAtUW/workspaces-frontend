@@ -24,15 +24,17 @@
     </div>
 
     <editor-content
+      :key="editorVersion"
       :editor="editor"
       class="project-wizard-rich-text-editor-content"
+      @click="ensureEditorIsReady"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import type { Editor } from '@tiptap/core';
-import { EditorContent, useEditor } from '@tiptap/vue-3';
+import type { Editor as CoreEditor, EditorOptions } from '@tiptap/core';
+import { Editor, EditorContent } from '@tiptap/vue-3';
 import { Image } from '@tiptap/extension-image';
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
 import { StarterKit } from '@tiptap/starter-kit';
@@ -70,6 +72,8 @@ const ACTIVE_TOOL_NAMES: Partial<Record<RichTextToolId, string>> = {
   'quote': 'blockquote'
 };
 const activeToolIds = ref<Set<RichTextToolId>>(new Set());
+const editor = shallowRef<Editor>();
+const editorVersion = ref(0);
 const lastEditorModelValue = ref(model.value);
 const tools = computed(() =>
   TOOL_DEFINITIONS.map(tool => ({
@@ -78,8 +82,7 @@ const tools = computed(() =>
   }))
 );
 
-const editor = useEditor({
-  content: model.value || '<p></p>',
+const editorOptions: Partial<EditorOptions> = {
   editable: true,
   extensions: [
     StarterKit.configure({
@@ -113,6 +116,17 @@ const editor = useEditor({
   onTransaction({ editor: currentEditor }) {
     updateActiveTools(currentEditor);
   }
+};
+
+onMounted(createEditor);
+
+onActivated(() => {
+  ensureEditorIsReady(false);
+});
+
+onBeforeUnmount(() => {
+  editor.value?.destroy();
+  editor.value = undefined;
 });
 
 watch(
@@ -121,6 +135,7 @@ watch(
     const currentEditor = editor.value;
 
     if (!currentEditor) {
+      lastEditorModelValue.value = value;
       return;
     }
 
@@ -138,7 +153,7 @@ watch(
   }
 );
 
-function updateActiveTools(currentEditor: Editor) {
+function updateActiveTools(currentEditor: CoreEditor) {
   activeToolIds.value = new Set(
     TOOL_DEFINITIONS
       .filter(({ id }) => {
@@ -149,7 +164,32 @@ function updateActiveTools(currentEditor: Editor) {
   );
 }
 
+function createEditor() {
+  editor.value?.destroy();
+  editor.value = new Editor({
+    ...editorOptions,
+    content: model.value || '<p></p>'
+  });
+  editorVersion.value += 1;
+  lastEditorModelValue.value = model.value;
+}
+
+function ensureEditorIsReady(focus = true) {
+  // Rebuild a stale editor if it has been destroyed or is not editable (e.g. after a page transition).
+  if (!editor.value || editor.value.isDestroyed) {
+    createEditor();
+  } else if (!editor.value.isEditable) {
+    editor.value.setEditable(true);
+  }
+
+  const currentEditor = editor.value;
+  if (focus && currentEditor && !currentEditor.isFocused) {
+    currentEditor.commands.focus();
+  }
+}
+
 function applyTool(toolId: RichTextToolId) {
+  ensureEditorIsReady(false);
   const currentEditor = editor.value;
 
   if (!currentEditor) {
@@ -214,10 +254,6 @@ function applyTool(toolId: RichTextToolId) {
       currentEditor.chain().focus().toggleBlockquote().run();
   }
 }
-
-onBeforeUnmount(() => {
-  editor.value?.destroy();
-});
 </script>
 
 <style lang="scss" scoped>
