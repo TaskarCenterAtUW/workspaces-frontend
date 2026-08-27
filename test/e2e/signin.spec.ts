@@ -101,9 +101,9 @@ test.describe('signin form', () => {
   test('links to the TDEI Portal account pages', async ({ page }) => {
     await page.goto('/signin');
 
-    await expect(page.getByRole('link', { name: 'Register', exact: true }))
+    await expect(page.getByRole('link', { name: 'Register Now', exact: true }))
       .toHaveAttribute('href', 'https://portal.test/register');
-    await expect(page.getByRole('link', { name: 'Forgot Password', exact: true }))
+    await expect(page.getByRole('link', { name: 'Forgot Password?', exact: true }))
       .toHaveAttribute('href', 'https://portal.test/ForgotPassword');
   });
 });

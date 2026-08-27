@@ -88,9 +88,9 @@
       >
         <p class="signin-register-prompt">
           New to TDEI?
-          <a :href="registerUrl">Register</a>
+          <a :href="registerUrl">Register Now</a>
         </p>
-        <a :href="forgotPasswordUrl">Forgot Password</a>
+        <a :href="forgotPasswordUrl">Forgot Password?</a>
       </nav>
     </form>
   </div>
@@ -290,9 +290,11 @@ async function signIn() {
   a {
     color: $primary;
     font-weight: 600;
+    text-decoration: none;
 
     &:hover {
       color: $primary-hover;
+      text-decoration: none;
     }
   }
 }
