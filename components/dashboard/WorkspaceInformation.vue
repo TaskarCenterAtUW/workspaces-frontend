@@ -4,7 +4,7 @@
     aria-labelledby="workspace-information-title"
   >
     <header class="workspace-information-header">
-      <h2 id="workspace-information-title">Workspace Information</h2> 
+      <h2 id="workspace-information-title">Workspace Information</h2>
     </header>
 
     <div class="workspace-info-primary-section">
