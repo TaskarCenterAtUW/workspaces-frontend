@@ -429,8 +429,8 @@ $dashboard-page-inline-padding: 2rem;
 $dashboard-topbar-gap: 1.5rem;
 $dashboard-topbar-spacing: 1.25rem;
 $dashboard-control-height: 2.5rem;
-$dashboard-shell-height: calc(100vh - #{$navbar-height} - 8.5rem);
-$dashboard-sidebar-width: minmax(18rem, 29%);
+$dashboard-shell-height: calc(100vh - #{$navbar-height} - 100px);
+$dashboard-sidebar-width: minmax(18rem, 32%);
 $dashboard-shell-radius: 0.75rem;
 $dashboard-panel-padding: 1rem;
 $dashboard-panel-gap: 1rem;
@@ -490,8 +490,8 @@ $dashboard-create-button-radius: 0.375rem;
 }
 
 .dashboard-create-button {
-  width: $dashboard-create-button-width;
-  height: $dashboard-create-button-height;
+  // width: $dashboard-create-button-width;
+  // height: $dashboard-create-button-height;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -646,7 +646,7 @@ $dashboard-create-button-radius: 0.375rem;
 .dashboard-workspace-header {
   min-height: $dashboard-header-height;
   flex: 0 0 auto;
-  padding: $dashboard-header-padding;
+  padding: 20px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -659,20 +659,19 @@ $dashboard-create-button-radius: 0.375rem;
 .dashboard-workspace-heading {
   min-width: 0;
   display: grid;
-  gap: $dashboard-heading-gap;
+  gap: 12px;
 }
 
 .dashboard-workspace-heading h2 {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: 12px;
   min-width: 0;
   margin: 0;
   color: $text-navy;
-  font-family: var(--primary-font-family);
-  font-size: $dashboard-details-title-size;
-  font-weight: $font-weight-bold;
+  font-size: 18px;
+  font-weight: 700;
   line-height: 1.25;
 }
 
@@ -687,30 +686,32 @@ $dashboard-create-button-radius: 0.375rem;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.55rem;
-  color: $text-secondary;
-  font-size: $dashboard-copy-size;
+  gap: 10px;
+  color: #333;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .dashboard-workspace-badge {
-  padding: $dashboard-badge-padding;
+  padding: 5px 10px;
   line-height: 1;
-  background: $surface-badge-muted;
-  border: $border-width solid $border-badge-muted;
-  border-radius: $border-radius;
+  background: #e9cffe;
+  border-radius: 4px;
+  text-transform: uppercase;
 }
 
 .dashboard-workspace-updated {
-  padding-left: 0.75rem;
+  padding-left: 10px;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   border-left: $border-width solid rgba($text-secondary, 0.25);
+  color: $text-secondary;
 }
 
 .dashboard-workspace-updated img {
-  width: 1rem;
-  height: 1rem;
+  width: 14px;
+  height: 14px;
 }
 
 .dashboard-details-content {
@@ -720,7 +721,7 @@ $dashboard-create-button-radius: 0.375rem;
   max-width: $dashboard-details-max-width;
   padding: $dashboard-details-padding;
   display: grid;
-  grid-template-rows: minmax(10rem, 1fr) auto;
+  grid-template-rows: minmax(10rem, 60%) auto;
   gap: $dashboard-details-gap;
 }
 
