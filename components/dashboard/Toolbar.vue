@@ -265,7 +265,7 @@ $dashboard-toolbar-button-padding: 0.45rem 1rem;
 
 .dashboard-toolbar-rapid-icon {
   width: 1rem;
-  height: 1.25rem;
+  height: 18px;
 }
 
 .dashboard-editor-dropdown,

@@ -4,7 +4,10 @@
     aria-labelledby="workspace-information-title"
   >
     <header class="workspace-information-header">
-      <h2 id="workspace-information-title">Workspace Information</h2>
+      <h2 id="workspace-information-title">Workspace Information</h2> 
+    </header>
+
+    <div class="workspace-info-primary-section">
       <div
         class="workspace-information-project-count"
         role="status"
@@ -23,7 +26,7 @@
         <span>TDEI Dataset Version</span>
         <strong>{{ datasetVersion }}</strong>
       </div>
-    </header>
+    </div>
 
     <dl class="workspace-information-grid">
       <div
@@ -154,7 +157,7 @@ $workspace-information-title-size: 0.975rem;
 $workspace-information-meta-size: 0.875rem;
 
 .workspace-information {
-  padding: $workspace-information-padding;
+  padding: 12px 12px;
   border: $border-width solid $border-color;
   border-radius: $workspace-information-radius;
 }
@@ -176,6 +179,15 @@ $workspace-information-meta-size: 0.875rem;
   line-height: 1.2222;
 }
 
+.workspace-info-primary-section {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  border-bottom: 1px dashed #dee2e6;
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+}
+
 .workspace-information-project-count {
   display: inline-flex;
   align-items: center;
@@ -184,6 +196,7 @@ $workspace-information-meta-size: 0.875rem;
   font-family: var(--primary-font-family);
   font-size: $workspace-information-meta-size;
   line-height: 1.25;
+  font-weight: 500;
 }
 
 .workspace-information-project-count img {
@@ -197,9 +210,9 @@ $workspace-information-meta-size: 0.875rem;
   font-weight: $font-weight-semibold;
 }
 
-.workspace-information-project-count span {
-  font-weight: $font-weight-normal;
-}
+// .workspace-information-project-count span {
+//   font-weight: $font-weight-normal;
+// }
 
 .workspace-information-version {
   padding-left: 0.75rem;
@@ -211,11 +224,12 @@ $workspace-information-meta-size: 0.875rem;
   font-size: $workspace-information-meta-size;
   line-height: 1.25;
   border-left: $border-width solid $border-subtle;
+  font-weight: 500;
 }
 
-.workspace-information-version span {
-  font-weight: $font-weight-normal;
-}
+// .workspace-information-version span {
+//   font-weight: $font-weight-normal;
+// }
 
 .workspace-information-version strong {
   color: $text-navy;
@@ -233,26 +247,22 @@ $workspace-information-meta-size: 0.875rem;
   min-width: 0;
   display: grid;
   align-content: start;
-  gap: 0.75rem;
+  gap: 15px;
 }
 
 .workspace-information-item dt {
-  margin-bottom: 0.25rem;
+  margin-bottom: 2px;
   color: $text-navy;
-  font-family: var(--primary-font-family);
-  font-size: $workspace-information-text-size;
+  font-size: 14px;
   font-weight: $font-weight-semibold;
-  line-height: 1.2222;
 }
 
 .workspace-information-item dd {
   margin: 0;
   overflow: hidden;
   color: $text-secondary;
-  font-family: var(--primary-font-family);
-  font-size: $workspace-information-text-size;
-  font-weight: $font-weight-normal;
-  line-height: 1.2222;
+  font-size: 14px;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
