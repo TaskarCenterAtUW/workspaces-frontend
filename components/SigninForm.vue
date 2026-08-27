@@ -106,8 +106,9 @@ const username = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const disabled = computed(() => loading.active || !username.value.length || !password.value.length)
-const registerUrl = import.meta.env.VITE_TDEI_REGISTER_URL
-const forgotPasswordUrl = import.meta.env.VITE_TDEI_FORGOT_PASSWORD_URL
+const tdeiPortalUrl = import.meta.env.VITE_TDEI_PORTAL_URL
+const registerUrl = new URL('/register', tdeiPortalUrl).toString()
+const forgotPasswordUrl = new URL('/ForgotPassword', tdeiPortalUrl).toString()
 
 async function submit() {
   error.value = ''
