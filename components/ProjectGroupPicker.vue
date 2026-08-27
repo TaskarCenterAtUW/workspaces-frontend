@@ -124,7 +124,20 @@ const pickerRef = ref<HTMLElement | null>(null)
 const listRef = ref<HTMLElement | null>(null)
 const activeIndex = ref(-1)
 
-const projectGroups = computed(() => props.options ?? fetchedGroups.value)
+const allProjectGroups = computed(() => props.options ?? fetchedGroups.value)
+const projectGroups = computed(() => {
+  if (!props.options) return fetchedGroups.value
+
+  const query = searchText.value.trim().toLocaleLowerCase()
+  const selectedName = selectedGroupName.value.trim().toLocaleLowerCase()
+
+  // Show all groups until the user types a different name to search.
+  if (!query || query === selectedName) return props.options
+
+  return props.options.filter(group =>
+    group.name.toLocaleLowerCase().includes(query)
+  )
+})
 const showScrollHint = computed(() => !props.options && hasMore.value)
 
 let pageNo = 1
@@ -200,6 +213,10 @@ const onInputClick = () => {
 
 const onInput = () => {
   isOpen.value = true
+  activeIndex.value = -1
+
+  if (props.options) return
+
   clearTimeout(timeoutId)
   timeoutId = setTimeout(() => {
     loadGroups(true)
@@ -214,7 +231,7 @@ function syncDisplayName(): void {
     return;
   }
 
-  const pg = projectGroups.value.find(p => p.tdei_project_group_id === currentId);
+  const pg = allProjectGroups.value.find(p => p.tdei_project_group_id === currentId);
   if (pg) {
     searchText.value = pg.name;
     selectedGroupName.value = pg.name;
@@ -334,7 +351,7 @@ const onFocusOut = (e: FocusEvent) => {
 }
 
 watch(
-  projectGroups,
+  allProjectGroups,
   (groups) => {
     if (groups.length > 0) {
       const pgId = model.value as string | undefined
@@ -360,7 +377,7 @@ onMounted(async () => {
       }
       syncDisplayName()
 
-      if (model.value && !projectGroups.value.some(pg => pg.tdei_project_group_id === model.value)) {
+      if (model.value && !allProjectGroups.value.some(pg => pg.tdei_project_group_id === model.value)) {
         let attempts = 0;
         const maxAttempts = 50;
         while (hasMore.value && attempts < maxAttempts) {
