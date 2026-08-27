@@ -97,7 +97,7 @@
             </template>
             <b-dropdown-item
               to="/"
-              @click="auth.clear()"
+              @click="tdeiClient.logout()"
             >
               <app-icon variant="logout" />
               Logout
@@ -166,7 +166,7 @@ function closeOnMobile() {
 
 function logoutFromMobileMenu() {
   mobileMenuOpen.value = false
-  auth.clear()
+  tdeiClient.logout()
   navigateTo('/')
 }
 
