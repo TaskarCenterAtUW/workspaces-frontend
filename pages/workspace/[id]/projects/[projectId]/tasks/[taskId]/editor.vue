@@ -426,11 +426,12 @@ function generateInitialHash() {
   ).toString();
   const dataUrl = boundaryUrl;
   const customImagerySource = project.customImagery || null;
+  const hashtagParam = `hashtags=${encodeURIComponent(changesetTag)}`;
   if (customImagerySource) {
-    return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}&background=${customImagerySource.id}`;
+    return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}&background=${customImagerySource.id}&${hashtagParam}`;
   }
 
-  return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}`;
+  return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}&${hashtagParam}`;
 }
 
 function syncTaskHash() {
