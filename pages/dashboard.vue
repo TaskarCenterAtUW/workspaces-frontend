@@ -651,7 +651,7 @@ $dashboard-create-button-radius: 0.375rem;
   align-items: center;
   justify-content: space-between;
   gap: $dashboard-panel-gap;
-  background: $purple-background-subtle;
+  background: linear-gradient(283deg, #eeeaff 0%, #f9f4ff 100%);
   border-bottom: $border-width solid $border-color;
   border-radius: 0 $dashboard-header-radius 0 0;
 }

@@ -7,18 +7,31 @@
 // @test e2e: if an API error occurs when creating a workspace from either form, an error message is shown
 
 <template>
-  <app-page class="create-file-page">
-    <h1 class="mb-5 h2 text-lg-center">Create a Workspace from a File</h1>
+  <app-page class="create-workspace-file-page">
     <workspace-creation-modal
       ref="creationInitiatedModal"
       :workspace-id="createdWorkspaceId"
     />
-
-    <div class="row">
-      <div class="col-xxl-7 mx-auto">
-        <div class="card mb-3">
+    <button
+      class="btn btn-link btn-back-to-workspace"
+      type="button"
+      @click="handleCancel"
+    >
+      <app-icon
+        class="create-workspace-chevron"
+        variant="chevron_left"
+        no-margin
+      />
+      Back to workspaces
+    </button>
+    <div class="create-workspace-card-container">
+        <div class="card create-workspace-card">
+          <div class="creat-workspace-card-header">
+            <h1 class="create-workspace-card-title">Create a Workspace from a File</h1>
+            <p class="create-workspace-card-desc">Create a workspace from an OpenSidewalks data file on your computer.</p>
+          </div>
           <div class="card-body">
-            <label class="d-block mb-3">
+            <label class="d-block mb-3 input-label">
               Workspace Title
               <input
                 v-model.trim="workspaceTitle"
@@ -30,7 +43,7 @@
 
             <div class="mb-3">
               <label
-                class="d-block"
+                class="d-block input-label"
                 for="create_file_project_group"
               >
                 Project Group
@@ -43,7 +56,7 @@
               />
             </div>
 
-            <div>Dataset Type</div>
+            <div class="input-label">Dataset Type</div>
             <dataset-type-radio
               v-model="datasetType"
               class="mb-3"
@@ -51,7 +64,7 @@
               required
             />
 
-            <label class="d-block">
+            <label class="d-block input-label">
               Dataset File
               <input
                 type="file"
@@ -77,8 +90,14 @@
               {{ archiveWarning }}
             </div>
           </div><!-- .card-body -->
-
           <div class="card-footer">
+            <button
+              class="btn btn-link create-workspace-cancel-btn"
+              type="button"
+              @click="handleCancel"
+            >
+              Cancel
+            </button>
             <template v-if="context.active">
               <app-spinner size="sm" />
               {{ context.status }}
@@ -108,7 +127,6 @@
             </button>
           </div><!-- .card-footer -->
         </div><!-- .card -->
-      </div><!-- .col -->
     </div><!-- .row -->
   </app-page>
 </template>
@@ -209,6 +227,10 @@ async function onFileChange(event: Event) {
   }
 }
 
+async function handleCancel() {
+  await navigateTo('/dashboard');
+}
+
 async function create() {
   const workspaceId = await importer.import(datasetFile.value!, {
     title: workspaceTitle.value,
@@ -223,3 +245,95 @@ async function create() {
   }
 }
 </script>
+
+<style lang="scss" scoped>
+@import "~/assets/scss/theme.scss";
+.create-workspace-file-page {
+  background-color: #F5F5F5;
+  max-width: 100%;
+  height: 100%;
+  position: relative;
+}
+.create-workspace-card-container {
+  height: 100%;
+  padding: 10px 0px;
+  .input-label {
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: $text-navy;
+  }
+}
+.create-workspace-card {
+  max-width: 620px;
+  width: 100%;
+  margin: 0 auto;
+  border-radius: 15px;
+  overflow: auto;
+}
+.creat-workspace-card-header {
+  padding: 20px 15px;
+  border-bottom: 1px solid #D6D6D6;
+  background: #eeeaff;
+}
+.create-workspace-card-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: $text-navy;
+  margin-bottom: 5px;
+}
+.create-workspace-card-desc {
+  font-size: 14px;
+  color: $text-secondary;
+  font-weight: 500;
+  margin-bottom: 0px;
+}
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 15px 20px;
+  background-color: #ffffff;
+  border-radius: 0px 0px 15px 15px;
+}
+.create-workspace-cancel-btn {
+  color: $text-secondary;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0px;
+}
+.btn-back-to-workspace {
+  position: absolute;
+  top: 20px;
+  font-weight: 600;
+  font-size: 16px;
+  text-decoration: none;
+  color: $text-secondary;
+  display: flex;
+  align-items: center;
+}
+.create-workspace-chevron {
+  font-size: 26px;
+}
+.info-what-next-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 8px;
+  margin-top: 25px;
+  border: 1px solid #e5e6e7;
+}
+.info-what-next-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.info-what-next-card-desc {
+  font-size: 14px;
+  font-weight: 400;
+  color: $text-secondary;
+}
+.info-what-next-card-icon {
+  height: 40px;
+}
+
+</style>
