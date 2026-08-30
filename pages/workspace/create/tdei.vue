@@ -117,8 +117,6 @@
             </button>
           </div><!-- .card-footer -->
         </div><!-- .card -->
-
-        
       </div><!-- .col -->
 
       <div class="col-md d-flex flex-column">
@@ -132,7 +130,6 @@
             <h2>Workspace Information</h2>
 
             <div class="workspace-grid">
-
               <div class="info-item">
                 <div class="label">Name</div>
                 <div class="value">{{ record.metadata?.dataset_detail?.name }}</div>
@@ -187,7 +184,6 @@
                 <div class="label">OSW Schema Version</div>
                 <div class="value">{{ record.metadata?.dataset_detail?.schema_version }}</div>
               </div>
-
             </div>
           </div><!-- .card-body -->
         </div><!-- .card -->
@@ -491,5 +487,4 @@ async function create() {
     row-gap: 24px;
   }
 }
-
 </style>

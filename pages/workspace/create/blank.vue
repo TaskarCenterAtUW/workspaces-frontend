@@ -53,17 +53,17 @@
             class="mb-3"
           />
 
-            <div class="info-what-next-card">
-              <img
-                :src="infoIcon"
-                class="info-what-next-card-icon"
-                alt=""
-              >
-              <div class="info-what-next-card-content">
-                <div class="info-what-next-card-title">What's next?</div>
-                <div class="info-what-next-card-desc">You can create projects, tasks, add team members, add additional settings after creating your workspace.</div>
-              </div>
+          <div class="info-what-next-card">
+            <img
+              :src="infoIcon"
+              class="info-what-next-card-icon"
+              alt=""
+            >
+            <div class="info-what-next-card-content">
+              <div class="info-what-next-card-title">What's next?</div>
+              <div class="info-what-next-card-desc">You can create projects, tasks, add team members, add additional settings after creating your workspace.</div>
             </div>
+          </div>
         </div><!-- .card-body -->
         <div class="card-footer">
           <button
@@ -225,5 +225,4 @@ async function create() {
 .info-what-next-card-icon {
   height: 40px;
 }
-
 </style>

@@ -25,108 +25,108 @@
       Back to workspaces
     </button>
     <div class="create-workspace-card-container">
-        <div class="card create-workspace-card">
-          <div class="creat-workspace-card-header">
-            <h1 class="create-workspace-card-title">Create a Workspace from a File</h1>
-            <p class="create-workspace-card-desc">Create a workspace from an OpenSidewalks data file on your computer.</p>
-          </div>
-          <div class="card-body">
-            <label class="d-block mb-3 input-label">
-              Workspace Title
-              <input
-                v-model.trim="workspaceTitle"
-                class="form-control"
-                :disabled="context.active || createdWorkspaceId !== undefined"
-                required
-              >
+      <div class="card create-workspace-card">
+        <div class="creat-workspace-card-header">
+          <h1 class="create-workspace-card-title">Create a Workspace from a File</h1>
+          <p class="create-workspace-card-desc">Create a workspace from an OpenSidewalks data file on your computer.</p>
+        </div>
+        <div class="card-body">
+          <label class="d-block mb-3 input-label">
+            Workspace Title
+            <input
+              v-model.trim="workspaceTitle"
+              class="form-control"
+              :disabled="context.active || createdWorkspaceId !== undefined"
+              required
+            >
+          </label>
+
+          <div class="mb-3">
+            <label
+              class="d-block input-label"
+              for="create_file_project_group"
+            >
+              Project Group
             </label>
-
-            <div class="mb-3">
-              <label
-                class="d-block input-label"
-                for="create_file_project_group"
-              >
-                Project Group
-              </label>
-              <project-group-picker
-                id="create_file_project_group"
-                v-model="projectGroupId"
-                :disabled="context.active || createdWorkspaceId !== undefined"
-                required
-              />
-            </div>
-
-            <div class="input-label">Dataset Type</div>
-            <dataset-type-radio
-              v-model="datasetType"
-              class="mb-3"
+            <project-group-picker
+              id="create_file_project_group"
+              v-model="projectGroupId"
               :disabled="context.active || createdWorkspaceId !== undefined"
               required
             />
+          </div>
 
-            <label class="d-block input-label">
-              Dataset File
-              <input
-                type="file"
-                class="form-control"
-                accept=".zip"
-                :disabled="context.active || createdWorkspaceId !== undefined"
-                required
-                @change="onFileChange"
-              >
-            </label>
-            <p
-              v-if="archiveChecking"
-              class="text-secondary mt-2 mb-0"
-              role="status"
+          <div class="input-label">Dataset Type</div>
+          <dataset-type-radio
+            v-model="datasetType"
+            class="mb-3"
+            :disabled="context.active || createdWorkspaceId !== undefined"
+            required
+          />
+
+          <label class="d-block input-label">
+            Dataset File
+            <input
+              type="file"
+              class="form-control"
+              accept=".zip"
+              :disabled="context.active || createdWorkspaceId !== undefined"
+              required
+              @change="onFileChange"
             >
-              Checking ZIP contents...
-            </p>
-            <div
-              v-else-if="archiveWarning"
-              class="alert alert-warning mt-2 mb-0"
-              role="alert"
-            >
-              {{ archiveWarning }}
-            </div>
-          </div><!-- .card-body -->
-          <div class="card-footer">
+          </label>
+          <p
+            v-if="archiveChecking"
+            class="text-secondary mt-2 mb-0"
+            role="status"
+          >
+            Checking ZIP contents...
+          </p>
+          <div
+            v-else-if="archiveWarning"
+            class="alert alert-warning mt-2 mb-0"
+            role="alert"
+          >
+            {{ archiveWarning }}
+          </div>
+        </div><!-- .card-body -->
+        <div class="card-footer">
+          <button
+            class="btn btn-link create-workspace-cancel-btn"
+            type="button"
+            @click="handleCancel"
+          >
+            Cancel
+          </button>
+          <template v-if="context.active">
+            <app-spinner size="sm" />
+            {{ context.status }}
+          </template>
+          <section
+            v-else-if="context.error"
+            class="alert alert-danger m-0"
+            role="alert"
+          >
+            <h5><app-icon variant="info" />An error occurred:</h5>
+            <p class="mb-3">{{ context.error }}</p>
             <button
-              class="btn btn-link create-workspace-cancel-btn"
-              type="button"
-              @click="handleCancel"
-            >
-              Cancel
-            </button>
-            <template v-if="context.active">
-              <app-spinner size="sm" />
-              {{ context.status }}
-            </template>
-            <section
-              v-else-if="context.error"
-              class="alert alert-danger m-0"
-              role="alert"
-            >
-              <h5><app-icon variant="info" />An error occurred:</h5>
-              <p class="mb-3">{{ context.error }}</p>
-              <button
-                class="btn btn-primary"
-                @click="context.reset()"
-              >
-                Try again
-              </button>
-            </section>
-            <button
-              v-else-if="!context.complete"
-              type="submit"
               class="btn btn-primary"
-              :disabled="!complete || context.active"
-              @click.prevent="create"
+              @click="context.reset()"
             >
-              Create Workspace
+              Try again
             </button>
-          </div><!-- .card-footer -->
-        </div><!-- .card -->
+          </section>
+          <button
+            v-else-if="!context.complete"
+            type="submit"
+            class="btn btn-primary"
+            :disabled="!complete || context.active"
+            @click.prevent="create"
+          >
+            Create Workspace
+          </button>
+        </div><!-- .card-footer -->
+      </div><!-- .card -->
     </div><!-- .row -->
   </app-page>
 </template>
@@ -335,5 +335,4 @@ async function create() {
 .info-what-next-card-icon {
   height: 40px;
 }
-
 </style>
