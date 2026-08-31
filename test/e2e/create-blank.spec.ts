@@ -102,7 +102,7 @@ test.describe('create blank workspace', () => {
     // First paint of this cold route can be slow under parallel runs.
     await expect(page.getByRole('heading', { name: 'Create a Blank Workspace' }))
       .toBeVisible({ timeout: COLD_ROUTE_TIMEOUT });
-    const card = page.locator('.create-blank-page .card');
+    const card = page.locator('.create-workspace-blank-page .create-workspace-card');
     await expect(card).toMatchAriaSnapshot();
 
     await fillForm(page);
