@@ -12,6 +12,7 @@ const E2E_ENV = {
   VITE_NEW_API_URL: 'http://api.test/',
   VITE_TDEI_API_URL: 'http://api.test/tdei/',
   VITE_TDEI_USER_API_URL: 'http://api.test/tdei-user/',
+  VITE_TDEI_PORTAL_URL: 'https://portal.test',
   VITE_OSM_URL: 'http://api.test/osm/',
   VITE_RAPID_URL: 'http://api.test/rapid/',
   VITE_RAPID3_URL: 'http://api.test/rapid3/',

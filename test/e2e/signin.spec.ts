@@ -96,4 +96,14 @@ test.describe('signin form', () => {
     await page.getByRole('button', { name: 'Hide password' }).click();
     await expect(password).toHaveAttribute('type', 'password');
   });
+
+  // @test e2e: registration and password recovery link back to the configured TDEI Portal pages
+  test('links to the TDEI Portal account pages', async ({ page }) => {
+    await page.goto('/signin');
+
+    await expect(page.getByRole('link', { name: 'Register Now', exact: true }))
+      .toHaveAttribute('href', 'https://portal.test/register');
+    await expect(page.getByRole('link', { name: 'Forgot Password?', exact: true }))
+      .toHaveAttribute('href', 'https://portal.test/ForgotPassword');
+  });
 });

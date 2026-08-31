@@ -6,3 +6,10 @@
 - textbox "Password"
 - button "Show password": 
 - button "Sign In" [disabled]
+- navigation "TDEI account":
+  - paragraph:
+    - text: New to TDEI?
+    - link "Register Now":
+      - /url: /.+/
+  - link "Forgot Password?":
+    - /url: /.+/
