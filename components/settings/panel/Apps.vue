@@ -31,7 +31,7 @@
           Publish this workspace for external apps
         </label>
       </div>
-      
+
       <hr>
       <h4 class="h5">During conflicts</h4>
       <div class="form-check form-check-inline">
