@@ -6,6 +6,8 @@
 //            confirmation and sends the proper API call to the server (Swagger here: https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 // @test e2e: Under "External Apps", turning on "Publish this workspace" enables the other buttons and when clicking "Save" shows a confirmation and sends
 //            the proper API call.
+// @test e2e: Under "External Apps" > "During conflicts", choosing "Override" (vs. the default "Resolve") and clicking "Save" sends the proper
+//            API call with the chosen overrideConflicts value.
 // @test e2e: While External Apps settings are being saved, the Save button is disabled and displays "Saving..." to prevent duplicate submissions.
 // @test e2e: the "Custom Imagery" box is validated against the JSON schema here (https://raw.githubusercontent.com/TaskarCenterAtUW/asr-imagery-list/refs/heads/main/schema/schema.json),
 //            and a toast shown when it passes and the API call to set its value is successful on the backend.
