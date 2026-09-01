@@ -54,6 +54,7 @@ export function getSessionReturnRoute(value: unknown): string {
     typeof value === 'string'
     && value.startsWith('/')
     && !value.startsWith('//')
+    && !value.startsWith('/\\')
     && value !== SESSION_RECOVERY_ROUTE
   ) {
     return value;

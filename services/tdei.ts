@@ -541,6 +541,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     catch (error: unknown) {
       if (!this.#isUnauthorized(error)) {
         console.warn('Unable to refresh the TDEI session automatically.', error);
+        this.restartAutoAuthRefresh();
         return;
       }
 
