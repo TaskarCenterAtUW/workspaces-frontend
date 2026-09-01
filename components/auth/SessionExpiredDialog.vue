@@ -48,6 +48,13 @@
       </div>
 
       <p
+        class="visually-hidden"
+        role="status"
+      >
+        {{ authSessionState.loading ? 'Re-logging in...' : '' }}
+      </p>
+
+      <p
         v-if="authSessionState.errorMessage"
         class="text-danger mt-2 mb-0"
         role="alert"

@@ -2,18 +2,13 @@ import { tdeiClient } from '~/services/index'
 import { BaseHttpClientError } from '~/services/http';
 import {
   getSessionReturnRoute,
+  isAnonymousRoute,
   SESSION_EXIT_ROUTE,
   SESSION_RECOVERY_ROUTE,
 } from '~/services/auth-session';
 
-const ALLOW_ANONYMOUS = new Set([
-  '/',
-  '/help',
-  '/signin'
-]);
-
 export default defineNuxtRouteMiddleware(async (to, _from) => {
-  if (ALLOW_ANONYMOUS.has(to.path)) {
+  if (isAnonymousRoute(to.path)) {
     return;
   }
 

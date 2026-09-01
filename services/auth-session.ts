@@ -4,6 +4,16 @@ export const SESSION_EXIT_ROUTE = '/signin';
 export const SESSION_RECOVERY_ROUTE = '/session-expired';
 export const DEFAULT_SESSION_RETURN_ROUTE = '/dashboard';
 
+const ANONYMOUS_ROUTES = new Set([
+  '/',
+  '/help',
+  SESSION_EXIT_ROUTE
+]);
+
+export function isAnonymousRoute(path: string): boolean {
+  return ANONYMOUS_ROUTES.has(path);
+}
+
 export class SessionRecoveryCancelledError extends Error {
   constructor() {
     super('Session recovery was cancelled by the user.');

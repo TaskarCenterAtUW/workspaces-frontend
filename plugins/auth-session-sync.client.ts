@@ -4,16 +4,11 @@ import {
   completeSessionReauthentication,
   DEFAULT_SESSION_RETURN_ROUTE,
   getSessionReturnRoute,
+  isAnonymousRoute,
   SESSION_EXIT_ROUTE,
   SESSION_RECOVERY_ROUTE
 } from '~/services/auth-session';
 import { tdeiAuth, tdeiClient } from '~/services';
-
-const ALLOW_ANONYMOUS = new Set([
-  '/',
-  '/help',
-  '/signin'
-]);
 
 export default defineNuxtPlugin(() => {
   const router = useRouter();
@@ -57,7 +52,7 @@ export default defineNuxtPlugin(() => {
     const currentRoute = router.currentRoute.value;
     if (
       currentRoute.path !== SESSION_RECOVERY_ROUTE
-      && !ALLOW_ANONYMOUS.has(currentRoute.path)
+      && !isAnonymousRoute(currentRoute.path)
     ) {
       void router.replace({
         path: SESSION_RECOVERY_ROUTE,
