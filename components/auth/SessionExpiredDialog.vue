@@ -126,7 +126,7 @@ async function reauthenticate(): Promise<void> {
       password.value
     );
 
-    // Hard-refresh recovery uses a temporary route; return to the original page.
+    // Hard-refresh recovery uses a temporary route return to the original page.
     const returnTo = route.path === SESSION_RECOVERY_ROUTE
       ? getSessionReturnRoute(route.query.returnTo)
       : undefined;

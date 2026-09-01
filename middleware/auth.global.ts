@@ -13,7 +13,7 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
   }
 
   if (to.path === SESSION_RECOVERY_ROUTE) {
-    // This lightweight route lets the dialog render before protected pages load.
+    // This route lets the dialog render before protected pages load.
     if (tdeiClient.auth.ok) {
       return navigateTo(
         getSessionReturnRoute(to.query.returnTo),

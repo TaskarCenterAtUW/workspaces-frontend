@@ -27,6 +27,7 @@ import {
 
 const MIN_TOKEN_REFRESH_MS = 10 * 1000;
 
+// Check whether the saved tokens are still valid.
 function refreshTokenActive(refreshExpiresAt: Date) {
   return refreshExpiresAt > new Date(Date.now() + MIN_TOKEN_REFRESH_MS);
 }
@@ -74,6 +75,7 @@ export class TdeiAuthStore {
     return this.accessToken.length > 0;
   }
 
+  // The session can continue with either the access token or the refresh token.
   get ok() {
     return this.complete
       && (!this.accessTokenExpired || !this.refreshTokenExpired);
@@ -91,6 +93,7 @@ export class TdeiAuthStore {
     return this.accessTokenExpired && !this.refreshTokenExpired;
   }
 
+  // Refresh shortly before the access token expires.
   get nextRefreshMs(): number {
     if (!this.complete || this.refreshTokenExpired) {
       return 0;
@@ -154,7 +157,7 @@ export class TdeiAuthStore {
     this.refreshExpiresAt = new Date(String(auth.refreshExpiresAt ?? ''));
 
     if (!this.ok) {
-      // Neither token can continue the session; prepare for password recovery.
+      // Neither token works, so prepare for password recovery.
       this.expire();
       return;
     }
@@ -211,6 +214,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   #auth: TdeiAuthStore;
   #refreshTimer?: ReturnType<typeof setTimeout>;
   #refreshPromise?: Promise<void>;
+  // Changes whenever another tab updates the session or the user logs out.
   #sessionRevision = 0;
 
   constructor(gatewayUrl: string, auth: TdeiAuthStore, signal?: AbortSignal) {
@@ -231,6 +235,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     const sessionRevision = this.#sessionRevision;
     const response = await super._send('authenticate', 'POST', { username, password });
 
+    // Do not restore a session that changed while login was in progress.
     if (sessionRevision !== this.#sessionRevision) {
       throw new SessionRecoveryCancelledError();
     }
@@ -242,7 +247,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
 
   async refreshToken(): Promise<void> {
     if (this.#refreshPromise) {
-      // Requests failing together share the refresh already in progress.
+      // Reuse the refresh already started by another request in this tab.
       return this.#refreshPromise;
     }
 
@@ -289,6 +294,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   restartAutoAuthRefresh(): void {
+    // Keep only one refresh timer running.
     this.stopAutoAuthRefresh();
 
     if (!this.#auth.complete || this.#auth.refreshTokenExpired) {
@@ -307,7 +313,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   synchronizeAuthFromStorage(): void {
-    // Ignore auth requests that started before this storage update.
+    // Load the session saved by another tab.
     this.#sessionRevision += 1;
     this.stopAutoAuthRefresh();
     this.#auth.load();
@@ -518,6 +524,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   #setAuth(username: string, body: any) {
+    // Save the new tokens and user details after login or refresh.
     const jwt = getJwtBody(body.access_token);
 
     this.#auth.username = username;
@@ -539,6 +546,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
       this.restartAutoAuthRefresh();
     }
     catch (error: unknown) {
+      // Temporary errors are retried later. A 401 needs the user's password.
       if (!this.#isUnauthorized(error)) {
         console.warn('Unable to refresh the TDEI session automatically.', error);
         this.restartAutoAuthRefresh();
@@ -584,7 +592,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   async sendProtectedRequest(
     send: (accessToken: string) => Promise<Response>
   ): Promise<Response> {
-    // Make sure the first attempt starts with the best token currently available.
+    // Refresh first when the saved access token has expired.
     await this.#ensureSession();
 
     try {
@@ -597,7 +605,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     }
 
     if (!this.#auth.refreshTokenExpired) {
-      // A server-side 401 may happen before the local expiry time, so refresh once.
+      // The server may reject a token before its saved expiry time. Refresh once.
       try {
         await this.refreshToken();
 
@@ -619,7 +627,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
 
     await this.#requestPasswordReauthentication();
 
-    // Password re-login succeeded; retry once with the new access token.
+    // Re-login worked, so retry with the new token.
     return await this.#sendWithAccessToken(send);
   }
 
@@ -636,6 +644,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async #ensureSession(): Promise<void> {
+    // Use the current access token when it is still valid.
     if (this.#auth.complete && !this.#auth.accessTokenExpired) {
       return;
     }
@@ -675,6 +684,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   logout(): void {
+    // Stop refreshes before clearing the shared session.
     this.#sessionRevision += 1;
     this.stopAutoAuthRefresh();
     this.#auth.clear();
