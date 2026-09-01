@@ -148,11 +148,10 @@ const tooltipStyle = computed(() => ({
   align-items: center;
   gap: 0.25rem;
   width: fit-content;
-  padding: 0.16rem 0.45rem;
+  padding: 4px 6px;
   border: 1px solid currentColor;
   border-radius: 999px;
-  font-family: var(--primary-font-family);
-  font-size: 0.6875rem;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;

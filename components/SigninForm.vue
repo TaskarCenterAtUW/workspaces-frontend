@@ -3,6 +3,7 @@
   @test e2e: the Sign In button is disabled until both username and password are entered
   @test e2e: invalid credentials (401) surface "Incorrect TDEI username/password."
   @test e2e: the show/hide toggle switches the password field between hidden and visible text
+  @test e2e: registration and password recovery link back to the configured TDEI Portal pages
 -->
 <template>
   <div class="signin-card card">
@@ -80,6 +81,17 @@
       >
         {{ error }}
       </div>
+
+      <nav
+        class="signin-account-links"
+        aria-label="TDEI account"
+      >
+        <p class="signin-register-prompt">
+          New to TDEI?
+          <a :href="registerUrl">Register Now</a>
+        </p>
+        <a :href="forgotPasswordUrl">Forgot Password?</a>
+      </nav>
     </form>
   </div>
 </template>
@@ -94,6 +106,9 @@ const username = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const disabled = computed(() => loading.active || !username.value.length || !password.value.length)
+const tdeiPortalUrl = import.meta.env.VITE_TDEI_PORTAL_URL
+const registerUrl = new URL('/register', tdeiPortalUrl).toString()
+const forgotPasswordUrl = new URL('/ForgotPassword', tdeiPortalUrl).toString()
 
 async function submit() {
   error.value = ''
@@ -261,6 +276,32 @@ async function signIn() {
   margin-top: 0.75rem;
   font-size: 0.875rem;
   color: #cc2c47;
+}
+
+.signin-account-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: $text-navy;
+
+  a {
+    color: $primary;
+    font-weight: 600;
+    text-decoration: none;
+
+    &:hover {
+      color: $primary-hover;
+      text-decoration: none;
+    }
+  }
+}
+
+.signin-register-prompt {
+  margin: 0;
 }
 
 @include media-breakpoint-down(sm) {

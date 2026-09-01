@@ -114,12 +114,12 @@ $workspace-card-meta-icon-height: 0.85rem;
 
 .workspace-card {
   width: 100%;
-  min-height: $workspace-card-min-height;
+  // min-height: $workspace-card-min-height;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: $workspace-card-gap;
-  padding: $workspace-card-padding;
+  gap: 15px;
+  padding: 15px 15px;
   color: $text-navy;
   text-align: left;
   background: $surface-card;
@@ -173,14 +173,14 @@ $workspace-card-meta-icon-height: 0.85rem;
 .workspace-card-copy {
   min-width: 0;
   display: grid;
-  gap: 0.15rem;
+  gap: 4px;
 }
 
 .workspace-card-copy strong {
   overflow: hidden;
   color: $text-navy;
   font-family: var(--primary-font-family);
-  font-size: $workspace-card-title-size;
+  font-size: 1rem;
   font-weight: $font-weight-bold;
   line-height: 1.4;
   text-overflow: ellipsis;
@@ -194,8 +194,7 @@ $workspace-card-meta-icon-height: 0.85rem;
 .workspace-card-updated,
 .workspace-card-meta {
   color: $text-secondary;
-  font-family: var(--primary-font-family);
-  font-size: $workspace-card-copy-size;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1.4;
 }
@@ -213,8 +212,9 @@ $workspace-card-meta-icon-height: 0.85rem;
   display: flex;
   align-items: center;
   gap: $spacer;
-  padding-top: 0.5rem;
-  font-size: $workspace-card-meta-size;
+  padding-top: 15px;
+  font-size: 14px;
+  font-weight: 500;
   line-height: 1.25;
   border-top: $border-width dashed rgba($secondary, 0.2);
 }
@@ -222,12 +222,12 @@ $workspace-card-meta-icon-height: 0.85rem;
 .workspace-card-meta > span {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 4px;
 }
 
 .workspace-card-meta img {
   width: auto;
-  height: $workspace-card-meta-icon-height;
+  height: 14px;
 }
 
 .workspace-card-chevron {

@@ -106,6 +106,8 @@ export class RapidManager {
     this.#patchRapidAuth();
     await initPromise;
 
+    // Rapid creates its hash settings during init, so add the task hashtag again.
+    this.#setInitialChangesetHashtags(changesetHashtags);
     this.#addCustomImagerySource(customImagerySource);
     this.#bindRapidEvents();
   }
@@ -142,6 +144,8 @@ export class RapidManager {
     }));
 
     await this.rapidContext.resetAsync();
+    // Reset can clear the hashtag, so add it back for the current task.
+    this.#setInitialChangesetHashtags(changesetHashtags);
     this.#addCustomImagerySource(customImagerySource);
   }
 
@@ -161,14 +165,14 @@ export class RapidManager {
   }
 
   #onLoaded() {
-    this.loaded.value = true;
-
     this.rapidContext = new Rapid.Context();
     this.rapidContext.embed(true);
     this.rapidContext.containerNode = this.containerNode;
     this.rapidContext.assetPath = this.#baseUrl;
 
     console.log('Rapid loaded', this.rapidContext);
+    // Tell the page Rapid is loaded only after its context is ready.
+    this.loaded.value = true;
   }
 
   #patchRapidAuth() {

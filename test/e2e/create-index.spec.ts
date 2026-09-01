@@ -84,7 +84,7 @@ test.describe('create landing page', () => {
     await page.getByRole('link').filter({ hasText: 'Start' }).nth(1).click();
 
     await expect(page).toHaveURL(/\/workspace\/create\/tdei$/);
-    await expect(page.getByRole('heading', { name: 'Create a Workspace from the TDEI' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create a Workspace from TDEI' })).toBeVisible();
 
     // Title field present.
     await expect(page.getByText('Workspace Title')).toBeVisible();
@@ -121,7 +121,7 @@ test.describe('create landing page', () => {
 
     const submit = page.getByRole('button', { name: 'Create Workspace' });
     // Snapshot the completed form before submitting.
-    await expect(page.locator('.create-blank-page .card')).toMatchAriaSnapshot();
+    await expect(page.locator('.create-workspace-blank-page .create-workspace-card')).toMatchAriaSnapshot();
 
     await page.getByLabel('Workspace Title').fill('My Blank Workspace');
     await expect(submit).toBeEnabled();
@@ -141,8 +141,8 @@ test.describe('create landing page', () => {
 
     await submit.click();
     // Loading state: spinner shown inside the submit button.
-    await expect(page.locator('.create-blank-page .spinner-border, .create-blank-page [role="status"]')).toBeVisible();
-    await expect(page.locator('.create-blank-page .card-footer')).toMatchAriaSnapshot();
+    await expect(page.locator('.create-workspace-blank-page .spinner-border, .create-workspace-blank-page [role="status"]')).toBeVisible();
+    await expect(page.locator('.create-workspace-blank-page .card-footer')).toMatchAriaSnapshot();
 
     release();
     // Redirects to the dashboard with the new workspace selected.
@@ -170,7 +170,7 @@ test.describe('create landing page', () => {
     await expect(page.getByText('Dataset File')).toBeVisible();
 
     // Snapshot the empty form.
-    await expect(page.locator('.create-file-page .card')).toMatchAriaSnapshot();
+    await expect(page.locator('.create-workspace-file-page .create-workspace-card')).toMatchAriaSnapshot();
 
     await page.getByLabel('Workspace Title').fill('My File Workspace');
     // Select the dataset type included in the multipart upload.
@@ -199,8 +199,8 @@ test.describe('create landing page', () => {
 
     await submit.click();
     // Loading state: spinner + status text in the footer.
-    await expect(page.locator('.create-file-page .spinner-border, .create-file-page [role="status"]')).toBeVisible();
-    await expect(page.locator('.create-file-page .card-footer')).toMatchAriaSnapshot();
+    await expect(page.locator('.create-workspace-file-page .spinner-border, .create-workspace-file-page [role="status"]')).toBeVisible();
+    await expect(page.locator('.create-workspace-file-page .card-footer')).toMatchAriaSnapshot();
 
     release();
     const confirmation = page.getByRole('dialog');
@@ -243,7 +243,7 @@ test.describe('create landing page', () => {
     await expect(tryAgain).toBeVisible();
 
     // Snapshot the error state.
-    await expect(page.locator('.create-file-page .card-footer')).toMatchAriaSnapshot();
+    await expect(page.locator('.create-workspace-file-page .card-footer')).toMatchAriaSnapshot();
 
     // Clicking "Try again" resets the form back to the editable Create button.
     await tryAgain.click();
