@@ -92,6 +92,38 @@ describe('TdeiClient session recovery', () => {
     await rejection;
     client.logout();
   });
+
+  it('does not restore a session from a refresh that finishes after logout', async () => {
+    const auth = authenticatedStore();
+    const client = new TdeiClient(TDEI_API_URL, auth);
+    let releaseRefresh!: () => void;
+    const refreshGate = new Promise<void>((resolve) => {
+      releaseRefresh = resolve;
+    });
+    let refreshStarted = false;
+
+    server.use(
+      http.post(`${TDEI_API_URL}refresh-token`, async () => {
+        refreshStarted = true;
+        await refreshGate;
+        return HttpResponse.json({
+          access_token: accessToken('user-2'),
+          refresh_token: 'new-refresh-token',
+          expires_in: 3_600,
+          refresh_expires_in: 7_200,
+        });
+      })
+    );
+
+    const refresh = client.refreshToken();
+    await vi.waitFor(() => expect(refreshStarted).toBe(true));
+    client.logout();
+    releaseRefresh();
+
+    await expect(refresh).rejects.toBeInstanceOf(SessionRecoveryCancelledError);
+    expect(auth.complete).toBe(false);
+    expect(localStorage.getItem('tdei-auth-test')).toBeNull();
+  });
 });
 
 describe('TdeiAuthStore persistence', () => {

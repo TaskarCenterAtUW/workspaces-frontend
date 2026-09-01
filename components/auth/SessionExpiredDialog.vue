@@ -58,7 +58,7 @@
 
     <template #footer>
       <button
-        class="btn btn-link"
+        class="btn btn-link session-expired-logout"
         type="button"
         :disabled="authSessionState.loading"
         @click="logout"
@@ -157,3 +157,14 @@ async function logout(): Promise<void> {
   await navigateTo(SESSION_EXIT_ROUTE, { replace: true });
 }
 </script>
+
+<style scoped>
+.session-expired-logout {
+  text-decoration: none;
+}
+
+.session-expired-logout:hover,
+.session-expired-logout:focus-visible {
+  text-decoration: underline;
+}
+</style>

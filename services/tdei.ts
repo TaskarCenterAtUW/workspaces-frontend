@@ -109,10 +109,16 @@ export class TdeiAuthStore {
   expire(): void {
     const username = this.username;
 
-    // Remove unusable credentials but keep the username for password re-login.
+    // Keep only the username so this tab and other tabs can recover the session.
     this._resetAuth();
-    localStorage.removeItem(this._storageKey);
     this.username = username;
+
+    if (username) {
+      localStorage.setItem(this._storageKey, JSON.stringify({ username }));
+    }
+    else {
+      localStorage.removeItem(this._storageKey);
+    }
   }
 
   store() {
@@ -205,6 +211,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   #auth: TdeiAuthStore;
   #refreshTimer?: ReturnType<typeof setTimeout>;
   #refreshPromise?: Promise<void>;
+  #sessionRevision = 0;
 
   constructor(gatewayUrl: string, auth: TdeiAuthStore, signal?: AbortSignal) {
     super(gatewayUrl, signal);
@@ -221,7 +228,13 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async authenticate(username: string, password: string) {
+    const sessionRevision = this.#sessionRevision;
     const response = await super._send('authenticate', 'POST', { username, password });
+
+    if (sessionRevision !== this.#sessionRevision) {
+      throw new SessionRecoveryCancelledError();
+    }
+
     const body = await response.json();
 
     this.#setAuth(username, body);
@@ -234,13 +247,35 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     }
 
     const refreshToken = this.#auth.refreshToken;
+    const sessionRevision = this.#sessionRevision;
 
     this.#refreshPromise = (async () => {
-      const response = await super._send(
-        'refresh-token',
-        'POST',
-        refreshToken
-      );
+      let response: Response;
+
+      try {
+        response = await super._send(
+          'refresh-token',
+          'POST',
+          refreshToken
+        );
+      }
+      catch (error: unknown) {
+        // Ignore this result if another tab changed the session while we waited.
+        if (sessionRevision !== this.#sessionRevision) {
+          if (this.#auth.ok) {
+            return;
+          }
+          throw new SessionRecoveryCancelledError();
+        }
+        throw error;
+      }
+
+      if (sessionRevision !== this.#sessionRevision) {
+        if (this.#auth.ok) {
+          return;
+        }
+        throw new SessionRecoveryCancelledError();
+      }
 
       this.#setAuth(this.#auth.username, await response.json());
     })();
@@ -269,6 +304,17 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   stopAutoAuthRefresh() {
     clearTimeout(this.#refreshTimer);
     this.#refreshTimer = undefined;
+  }
+
+  synchronizeAuthFromStorage(): void {
+    // Ignore auth requests that started before this storage update.
+    this.#sessionRevision += 1;
+    this.stopAutoAuthRefresh();
+    this.#auth.load();
+
+    if (this.#auth.ok) {
+      this.restartAutoAuthRefresh();
+    }
   }
 
   async getDatasetInfo(tdeiRecordId: string): Promise<TdeiDatasetApiResponse | undefined> {
@@ -628,6 +674,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   logout(): void {
+    this.#sessionRevision += 1;
     this.stopAutoAuthRefresh();
     this.#auth.clear();
   }
