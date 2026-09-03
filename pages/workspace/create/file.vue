@@ -104,11 +104,12 @@
           </template>
           <section
             v-else-if="context.error"
-            class="alert alert-danger m-0"
-            role="alert"
+            class="error-block"
           >
-            <h5><app-icon variant="info" />An error occurred:</h5>
-            <p class="mb-3">{{ context.error }}</p>
+            <div class="alert alert-danger m-0 error-card" role="alert">
+              <h6><app-icon variant="info" />An error occurred:</h6>
+              <div>{{ context.error }}</div>
+            </div>
             <button
               class="btn btn-primary"
               @click="context.reset()"
@@ -334,5 +335,14 @@ async function create() {
 }
 .info-what-next-card-icon {
   height: 40px;
+}
+.error-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.error-card {
+  padding: 5px 10px;
+  font-size: 14px;
 }
 </style>
