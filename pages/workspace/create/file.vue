@@ -106,7 +106,10 @@
             v-else-if="context.error"
             class="error-block"
           >
-            <div class="alert alert-danger m-0 error-card" role="alert">
+            <div
+              class="alert alert-danger m-0 error-card"
+              role="alert"
+            >
               <h6><app-icon variant="info" />An error occurred:</h6>
               <div>{{ context.error }}</div>
             </div>
