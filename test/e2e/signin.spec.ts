@@ -56,45 +56,21 @@ test('shows the username in the toolbar only when logged in', async ({ page }) =
 
 // --- from components/SigninForm.vue -----------------------------------------
 test.describe('signin form', () => {
-  // @test e2e: the Sign In button is disabled until both username and password are entered
-  test('keeps the Sign In button disabled until both fields are filled', async ({ page }) => {
+  // @test e2e: an unauthenticated user starts TDEI SSO from the TDEI Login button
+  test('starts TDEI SSO from the TDEI Login button', async ({ page }) => {
+    await page.route('**/tdei/sso-redirect**', route => route.abort());
     await page.goto('/signin');
 
-    const submit = page.getByRole('button', { name: 'Sign In' });
-    await expect(submit).toBeDisabled();
+    await expect(page.getByLabel('TDEI Username')).toHaveCount(0);
+    await expect(page.locator('#password')).toHaveCount(0);
 
-    await page.getByLabel('TDEI Username').fill('tester');
-    await expect(submit).toBeDisabled();
+    const ssoRequest = page.waitForRequest('**/tdei/sso-redirect**');
+    await page.getByRole('button', { name: 'TDEI Login' }).click({ noWaitAfter: true });
 
-    await page.locator('#password').fill('hunter2');
-    await expect(submit).toBeEnabled();
-  });
-
-  // @test e2e: invalid credentials (401) surface "Incorrect TDEI username/password."
-  test('shows an error message when credentials are rejected', async ({ page }) => {
-    // The form POSTs to the TDEI gateway's `authenticate` endpoint; stub a 401.
-    await page.route('**/authenticate', route => route.fulfill({ status: 401 }));
-
-    await page.goto('/signin');
-    await page.getByLabel('TDEI Username').fill('tester');
-    await page.locator('#password').fill('wrong-password');
-    await page.getByRole('button', { name: 'Sign In' }).click();
-
-    await expect(page.getByText('Incorrect TDEI username/password.')).toBeVisible();
-  });
-
-  // @test e2e: the show/hide toggle switches the password field between hidden and visible text
-  test('toggles password visibility', async ({ page }) => {
-    await page.goto('/signin');
-
-    const password = page.locator('#password');
-    await expect(password).toHaveAttribute('type', 'password');
-
-    await page.getByRole('button', { name: 'Show password' }).click();
-    await expect(password).toHaveAttribute('type', 'text');
-
-    await page.getByRole('button', { name: 'Hide password' }).click();
-    await expect(password).toHaveAttribute('type', 'password');
+    const requestUrl = new URL((await ssoRequest).url());
+    expect(requestUrl.pathname).toBe('/tdei/sso-redirect');
+    expect(requestUrl.searchParams.get('redirect_uri'))
+      .toBe('http://localhost:3000/auth/callback');
   });
 
   // @test e2e: registration and password recovery link back to the configured TDEI Portal pages

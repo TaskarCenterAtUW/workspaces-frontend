@@ -1,9 +1,12 @@
 import { tdeiClient } from '~/services/index'
+import { startTdeiSsoLogin } from '~/services/sso'
 
 const ALLOW_ANONYMOUS = new Set([
   '/',
   '/help',
-  '/signin'
+  '/signin',
+  '/auth/callback',
+  '/logout/callback'
 ]);
 
 export default defineNuxtRouteMiddleware((to, _from) => {
@@ -12,6 +15,7 @@ export default defineNuxtRouteMiddleware((to, _from) => {
   }
 
   window.rememberRoute = to;
+  startTdeiSsoLogin(to.fullPath);
 
-  return navigateTo('/signin');
+  return abortNavigation();
 })

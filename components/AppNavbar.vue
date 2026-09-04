@@ -96,8 +96,7 @@
               </button>
             </template>
             <b-dropdown-item
-              to="/"
-              @click="auth.clear()"
+              @click="logout"
             >
               <app-icon variant="logout" />
               Logout
@@ -132,6 +131,7 @@
 
 <script setup lang="ts">
 import { tdeiClient } from '~/services/index'
+import { startTdeiSsoLogout } from '~/services/sso'
 
 const auth = tdeiClient.auth
 const mobileMenuOpen = ref(false)
@@ -166,8 +166,12 @@ function closeOnMobile() {
 
 function logoutFromMobileMenu() {
   mobileMenuOpen.value = false
-  auth.clear()
-  navigateTo('/')
+  logout()
+}
+
+function logout() {
+  tdeiClient.stopAutoAuthRefresh()
+  startTdeiSsoLogout()
 }
 
 onMounted(() => {

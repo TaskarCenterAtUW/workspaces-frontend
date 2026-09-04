@@ -189,9 +189,29 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     this.#setAuth(username, body);
   }
 
+  async completeSsoLogin(code: string, state: string, clientId?: string) {
+    const requestBody: { code: string; state: string; clientId?: string } = { code, state };
+    if (clientId) {
+      requestBody.clientId = clientId;
+    }
+
+    const response = await super._send('sso-login', 'POST', requestBody);
+    const body = await response.json();
+
+    this.#setAuth('', body);
+  }
+
   async refreshToken() {
     try {
-      const response = await super._send('refresh-token', 'POST', this.#auth.refreshToken);
+      const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID;
+      const requestBody: { refreshToken: string; clientId?: string } = {
+        refreshToken: this.#auth.refreshToken
+      };
+      if (clientId) {
+        requestBody.clientId = clientId;
+      }
+
+      const response = await super._send('refresh-token', 'POST', requestBody);
       this.#setAuth(this.#auth.username, await response.json());
     } catch (e: unknown) {
       if (e instanceof BaseHttpClientError && e.response.status === 401) {
@@ -228,6 +248,12 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   stopAutoAuthRefresh() {
     clearTimeout(this.#refreshTimer);
     this.#refreshTimer = undefined;
+  }
+
+  clearAuth() {
+    this.stopAutoAuthRefresh();
+    this.#auth.clear();
+    this.#setAuthHeader();
   }
 
   async getDatasetInfo(tdeiRecordId: string): Promise<TdeiDatasetApiResponse | undefined> {
@@ -433,7 +459,9 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   #setAuth(username: string, body: any) {
     const jwt = getJwtBody(body.access_token);
 
-    this.#auth.username = username;
+    this.#auth.username = username
+      || (typeof jwt.preferred_username === 'string' ? jwt.preferred_username : '')
+      || (typeof jwt.email === 'string' ? jwt.email : '');
     this.#auth.subject = typeof jwt.sub === 'string' ? jwt.sub : '';
     this.#auth.displayName = typeof jwt.name === 'string' ? jwt.name : '';
     this.#auth.email = typeof jwt.email === 'string' ? jwt.email : '';
@@ -453,6 +481,9 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   #setAuthHeader() {
     if (this.#auth.complete) {
       this._requestHeaders.Authorization = 'Bearer ' + this.#auth.accessToken;
+    }
+    else {
+      this._requestHeaders.Authorization = '';
     }
   }
 
