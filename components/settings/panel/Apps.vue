@@ -33,6 +33,35 @@
       </div>
 
       <hr>
+      <h4 class="h5">During conflicts</h4>
+      <div class="form-check form-check-inline">
+        <label class="form-check-label">
+          <input
+            v-model="workspaceOverrideConflicts"
+            class="form-check-input"
+            type="radio"
+            name="workspaceOverrideConflicts"
+            :value="false"
+            :disabled="appControlsDisabled"
+          >
+          Resolve
+        </label>
+      </div>
+      <div class="form-check form-check-inline">
+        <label class="form-check-label">
+          <input
+            v-model="workspaceOverrideConflicts"
+            class="form-check-input"
+            type="radio"
+            name="workspaceOverrideConflicts"
+            :value="true"
+            :disabled="appControlsDisabled"
+          >
+          Override
+        </label>
+      </div>
+
+      <hr>
 
       <h4 class="h5">
         AVIV ScoutRoute Long Form Quest Definitions
@@ -192,6 +221,7 @@ const longFormQuestSchema = ref<object | undefined>();
 const longFormQuestType = ref(longFormQuestSettings.type);
 const longFormQuestDef = ref(longFormQuestSettings.definition);
 const longFormQuestUrl = ref(longFormQuestSettings.url);
+const workspaceOverrideConflicts = ref(Boolean(workspace.overrideConflicts));
 const longFormQuestError = ref<string | null>(null);
 const isDraggingQuest = ref(false);
 
@@ -262,6 +292,7 @@ async function saveExternalAppConfiguration() {
     await Promise.all([
       workspacesClient.updateWorkspace(workspace.id, {
         externalAppAccess: workspace.externalAppAccess,
+        overrideConflicts: workspaceOverrideConflicts.value,
       }),
       workspacesClient.saveLongFormQuestSettings(workspace.id, {
         type,
