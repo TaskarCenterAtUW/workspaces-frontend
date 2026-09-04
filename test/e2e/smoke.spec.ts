@@ -2,14 +2,15 @@ import { test, expect } from './fixtures';
 import { myWorkspaces } from '../mocks/fixtures';
 
 test.describe('app smoke', () => {
-  test('redirects an unauthenticated visitor to the signin page', async ({ page }) => {
-    // /dashboard is not in auth.global.ts's ALLOW_ANONYMOUS set, so an
-    // unauthenticated visit bounces to /signin.
-    await page.goto('/dashboard');
+  test('starts SSO for an unauthenticated protected route', async ({ page }) => {
+    await page.route('**/tdei/sso-redirect**', route => route.abort());
+    const ssoRequest = page.waitForRequest('**/tdei/sso-redirect**');
 
-    await expect(page).toHaveURL(/\/signin/);
-    await expect(page.getByRole('heading', { name: 'Welcome!' })).toBeVisible();
-    await expect(page.getByLabel('TDEI Username')).toBeVisible();
+    await page.goto('/dashboard').catch(() => undefined);
+
+    const requestUrl = new URL((await ssoRequest).url());
+    expect(requestUrl.searchParams.get('redirect_uri'))
+      .toBe('http://localhost:3000/auth/callback');
   });
 
   // Proves the shared-fixture stubbing is wired through page.route: the browser

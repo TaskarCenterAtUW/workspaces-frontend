@@ -1,4 +1,4 @@
-import { BaseHttpClient, BaseHttpClientError, type FetchConfig, type HttpBody } from '~/services/http';
+import { BaseHttpClient, BaseHttpClientError, withBearerToken, type FetchConfig, type HttpBody } from '~/services/http';
 import { getMockWorkspaceProjectsResponse } from '~/services/mock-workspace-projects';
 
 import type { ICancelableClient } from '~/services/loading';
@@ -572,12 +572,6 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     return `workspaces/${workspaceId}/tasking/projects?${params.toString()}`;
   }
 
-  #setAuthHeader() {
-    if (this.#tdeiClient.auth.complete) {
-      this._requestHeaders.Authorization = 'Bearer ' + this.auth.accessToken;
-    }
-  }
-
   override async _send(
     url: string,
     method: string,
@@ -585,10 +579,9 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
     config?: FetchConfig,
   ): Promise<Response> {
     try {
-      await this.#tdeiClient.tryRefreshAuth();
-      this.#setAuthHeader();
-
-      return await super._send(url, method, body, config);
+      return await this.#tdeiClient.sendProtectedRequest(accessToken =>
+        super._send(url, method, body, withBearerToken(config, accessToken))
+      );
     } catch (e) {
       if (e instanceof BaseHttpClientError) {
         throw new WorkspaceProjectsClientError(e.response);
