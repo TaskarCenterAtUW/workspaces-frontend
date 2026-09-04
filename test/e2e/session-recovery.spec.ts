@@ -40,10 +40,29 @@ test('shows session recovery when the server rejects the refresh token', async (
 
 test('starts SSO recovery and preserves the protected return route', async ({ page }) => {
   await seedExpiredSession(page);
-  await page.route('**/sso-redirect**', route => route.abort());
+
+  // Listen for the return-to value as it gets saved to sessionStorage.
+  let capturedReturnTo: string | null = null;
+  await page.exposeFunction('__captureReturnTo', (val: string) => {
+    capturedReturnTo = val;
+  });
+
+  // Stub the SSO redirect so the browser stays on the page.
+  await page.route('**/sso-redirect**', route => route.fulfill({ status: 200, body: '' }));
 
   await page.goto('/dashboard');
   await expect(page.getByRole('dialog')).toBeVisible();
+
+  // Tap into sessionStorage writes to capture the return-to value as it's set.
+  await page.evaluate(() => {
+    const orig = sessionStorage.setItem.bind(sessionStorage);
+    sessionStorage.setItem = (key: string, value: string) => {
+      orig(key, value);
+      if (key === 'tdei-sso-return-to') {
+        (window as unknown as Record<string, (v: string) => void>).__captureReturnTo!(value);
+      }
+    };
+  });
 
   const ssoRequest = page.waitForRequest('**/sso-redirect**');
   await page.getByRole('button', { name: 'TDEI Login' }).click({ noWaitAfter: true });
@@ -51,8 +70,7 @@ test('starts SSO recovery and preserves the protected return route', async ({ pa
   const requestUrl = new URL((await ssoRequest).url());
   expect(requestUrl.searchParams.get('redirect_uri'))
     .toBe('http://localhost:3000/auth/callback');
-  expect(await page.evaluate(() => sessionStorage.getItem('tdei-sso-return-to')))
-    .toBe('/dashboard');
+  expect(capturedReturnTo).toBe('/dashboard');
 });
 
 test('synchronizes logout across open tabs', async ({ page, context }) => {
