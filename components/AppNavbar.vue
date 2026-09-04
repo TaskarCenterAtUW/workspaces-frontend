@@ -170,7 +170,7 @@ function logoutFromMobileMenu() {
 }
 
 function logout() {
-  tdeiClient.stopAutoAuthRefresh()
+  tdeiClient.logout()
   startTdeiSsoLogout()
 }
 
@@ -189,7 +189,8 @@ onBeforeUnmount(() => {
 <style lang="scss">
 @import "~/assets/scss/theme.scss";
 .app-navbar {
-  z-index: 900;
+  // Keep navbar menus above page-level sticky controls.
+  z-index: $zindex-fixed;
   position: sticky;
   top: 0;
   padding: 0;

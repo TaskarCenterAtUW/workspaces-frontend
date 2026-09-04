@@ -1,6 +1,7 @@
 import {
   BaseHttpClient,
   BaseHttpClientError,
+  withBearerToken,
   type FetchConfig,
   type HttpBody,
 } from '~/services/http';
@@ -325,12 +326,6 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     return await response.json();
   }
 
-  #setAuthHeader() {
-    if (this.#tdeiClient.auth.complete) {
-      this._requestHeaders.Authorization = 'Bearer ' + this.auth.accessToken;
-    }
-  }
-
   override async _send(
     url: string,
     method: string,
@@ -338,10 +333,9 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     config?: FetchConfig,
   ): Promise<Response> {
     try {
-      await this.#tdeiClient.tryRefreshAuth();
-      this.#setAuthHeader();
-
-      return await super._send(url, method, body, config);
+      return await this.#tdeiClient.sendProtectedRequest(accessToken =>
+        super._send(url, method, body, withBearerToken(config, accessToken))
+      );
     }
     catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {
