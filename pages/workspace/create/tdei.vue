@@ -94,11 +94,15 @@
             </button>
             <section
               v-if="context.error"
-              class="alert alert-danger m-0"
-              role="alert"
+              class="error-block"
             >
-              <h5><app-icon variant="info" />An error occurred:</h5>
-              <p class="mb-3">{{ context.error }}</p>
+              <div
+                class="alert alert-danger m-0 error-card"
+                role="alert"
+              >
+                <h6><app-icon variant="info" />An error occurred:</h6>
+                <div>{{ context.error }}</div>
+              </div>
               <button
                 class="btn btn-primary"
                 @click="context.reset()"
@@ -120,73 +124,91 @@
       </div><!-- .col -->
 
       <div class="col-md d-flex flex-column">
-        <div class="card mb-3 create-workspace-card">
-          <div class="card-body p-2">
-            <div id="dataset_map" />
+        <!-- Preview placeholder -->
+        <div
+          v-if="!tdeiRecordId"
+          class="card preview-placeholder-card"
+        >
+          <div class="preview-placeholder">
+            <img
+              :src="previewPlaceholderIcon"
+              class="preview-placeholder-icon"
+              alt=""
+            >
+            <div class="preview-title">Workspace Preview</div>
+            <div class="preview-desc">Please select a dataset to preview the map and workspace information.</div>
           </div>
-        </div><!-- .card -->
-        <div class="card create-workspace-card">
-          <div class="card-body">
-            <h2>Workspace Information</h2>
-
-            <div class="workspace-grid">
-              <div class="info-item">
-                <div class="label">Name</div>
-                <div class="value">{{ record.metadata?.dataset_detail?.name }}</div>
-              </div>
-
-              <div class="info-item">
-                <div class="label">Description</div>
-                <div class="value">{{ record.metadata?.dataset_detail?.description }}</div>
-              </div>
-
-              <div class="info-item">
-                <div class="label">Dataset Type</div>
-                <div class="value">{{ record.data_type }}</div>
-              </div>
-
-              <div class="info-item">
-                <div class="label">Status</div>
-                <div class="value">{{ record.status }}</div>
-              </div>
-
-              <div class="info-item">
-                <div class="label">TDEI Dataset ID</div>
-                <div class="value">{{ record.tdei_dataset_id }}</div>
-              </div>
-
-              <div class="info-item">
-                <div class="label">TDEI Project Group</div>
-                <div class="value">{{ record.project_group?.name }}</div>
-              </div>
-
-              <div class="info-item">
-                <div class="label">TDEI Service</div>
-                <div class="value">{{ record.service?.name }}</div>
-              </div>
-
-              <div class="info-item">
-                <div class="label">Collected By</div>
-                <div class="value">{{ record.metadata?.dataset_detail?.collected_by }}</div>
-              </div>
-
-              <div class="info-item">
-                <div class="label">Collection Date</div>
-                <div class="value">{{ record.metadata?.dataset_detail?.collection_date }}</div>
-              </div>
-
-              <div class="info-item">
-                <div class="label">Publication Date</div>
-                <div class="value">{{ record.metadata?.dataset_detail?.publication_date }}</div>
-              </div>
-
-              <div class="info-item">
-                <div class="label">OSW Schema Version</div>
-                <div class="value">{{ record.metadata?.dataset_detail?.schema_version }}</div>
-              </div>
+        </div>
+        <!-- Dataset preview -->
+        <template v-else>
+          <div class="card mb-3 create-workspace-card">
+            <div class="card-body p-2">
+              <div id="dataset_map" />
             </div>
-          </div><!-- .card-body -->
-        </div><!-- .card -->
+          </div><!-- .card -->
+          <div class="card create-workspace-card">
+            <div class="card-body">
+              <h2>Workspace Information</h2>
+
+              <div class="workspace-grid">
+                <div class="info-item">
+                  <div class="label">Name</div>
+                  <div class="value">{{ record.metadata?.dataset_detail?.name }}</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="label">Description</div>
+                  <div class="value">{{ record.metadata?.dataset_detail?.description }}</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="label">Dataset Type</div>
+                  <div class="value">{{ record.data_type }}</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="label">Status</div>
+                  <div class="value">{{ record.status }}</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="label">TDEI Dataset ID</div>
+                  <div class="value">{{ record.tdei_dataset_id }}</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="label">TDEI Project Group</div>
+                  <div class="value">{{ record.project_group?.name }}</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="label">TDEI Service</div>
+                  <div class="value">{{ record.service?.name }}</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="label">Collected By</div>
+                  <div class="value">{{ record.metadata?.dataset_detail?.collected_by }}</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="label">Collection Date</div>
+                  <div class="value">{{ record.metadata?.dataset_detail?.collection_date }}</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="label">Publication Date</div>
+                  <div class="value">{{ record.metadata?.dataset_detail?.publication_date }}</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="label">OSW Schema Version</div>
+                  <div class="value">{{ record.metadata?.dataset_detail?.schema_version }}</div>
+                </div>
+              </div>
+            </div><!-- .card-body -->
+          </div><!-- .card -->
+        </template>
       </div><!-- .col -->
     </div><!-- .row -->
   </app-page>
@@ -201,6 +223,7 @@ import type { TdeiDatasetSummary } from '~/types/tdei';
 import type { ComponentExposed } from 'vue-component-type-helpers';
 import { createMaplibreMap } from '~/util/map-style';
 import { getGeoJsonBounds } from '~/util/geojson';
+import previewPlaceholderIcon from '~/assets/img/preview_placeholder.png';
 
 const DATASET_AREA_SOURCE_ID = 'dataset-area';
 const DATASET_AREA_COLOR = '#3388ff';
@@ -394,6 +417,34 @@ async function create() {
     color: $text-navy;
   }
 }
+.preview-placeholder-card {
+  width: 100%;
+  border-radius: 10px;
+  overflow: auto;
+  // justify-content: center;
+  // align-items: center;
+  text-align: center;
+}
+.preview-placeholder {
+    padding: 40px;
+    margin-top: 40px;
+}
+.preview-placeholder-icon {
+    height: auto;
+    max-width: 60%;
+    margin-bottom: 0px;
+}
+.preview-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: $text-secondary;
+    margin-bottom: 5px;
+}
+.preview-desc {
+    font-size: 1rem;
+    font-weight: 400;
+    color: $text-secondary;
+}
 .creat-workspace-card-header {
   padding: 20px 15px;
   border-bottom: 1px solid #D6D6D6;
@@ -472,6 +523,15 @@ async function create() {
   font-weight: 500;
   line-height: 1.25;
   overflow-wrap: break-word;
+}
+.error-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.error-card {
+  padding: 5px 10px;
+  font-size: 14px;
 }
 
 @media (max-width: 800px) {
