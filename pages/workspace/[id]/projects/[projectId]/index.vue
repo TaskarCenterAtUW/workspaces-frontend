@@ -113,7 +113,9 @@
               <div class="project-detail-summary-grid">
                 <div class="project-detail-summary-item">
                   <span>Status</span>
-                  <workspace-projects-status-badge :status="project.status" />
+                  <div>
+                    <workspace-projects-status-badge :status="project.status" />
+                  </div>
                 </div>
 
                 <div class="project-detail-summary-item">
@@ -894,7 +896,7 @@ async function confirmRemoveContributor(contributor: WorkspaceProjectContributor
     okTitle: 'Remove',
     okVariant: 'danger',
     cancelTitle: 'Cancel',
-    cancelClass: 'btn-link p-0',
+    cancelClass: 'btn-link',
     cancelVariant: null,
   }).show();
 
@@ -1156,6 +1158,7 @@ function escapeHtml(value: string) {
   flex-direction: column;
   height: calc(100vh - #{$navbar-height});
   overflow: hidden;
+  padding: 0px 0px;
 }
 
 .project-detail-layout {
@@ -1366,18 +1369,18 @@ function escapeHtml(value: string) {
 .project-detail-summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.4rem 2rem;
+  gap: 20px 0px;
 }
 
 .project-detail-summary-item {
   display: flex;
-  gap: 0.9375rem;
   min-width: 0;
 }
 
-.project-detail-summary-item span {
+.project-detail-summary-item > span {
   font-size: 1rem;
   font-weight: 600;
+  color: $text-navy;
   min-width: 7.5rem;
 }
 

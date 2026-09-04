@@ -22,11 +22,13 @@ export const myWorkspaces = [
     tdeiServiceId: null,
     tdeiMetadata: null,
     createdAt: '2026-01-15T12:00:00.000Z',
+    updatedAt: '2026-02-18T05:10:00.583822Z',
     createdBy: USER_ID,
     createdByName: 'Ada Lovelace',
     externalAppAccess: 2,
     kartaViewToken: null,
-    role: 'lead'
+    role: 'lead',
+    importStatus: 'completed'
   },
   {
     id: 2,
@@ -38,11 +40,13 @@ export const myWorkspaces = [
     tdeiServiceId: null,
     tdeiMetadata: null,
     createdAt: '2026-02-20T09:30:00.000Z',
+    updatedAt: '2026-02-21T09:30:00.000Z',
     createdBy: USER_ID,
     createdByName: 'Ada Lovelace',
     externalAppAccess: 0,
     kartaViewToken: null,
-    role: 'lead'
+    role: 'lead',
+    importStatus: 'in-progress'
   }
 ];
 

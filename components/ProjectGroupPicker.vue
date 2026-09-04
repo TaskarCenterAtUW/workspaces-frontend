@@ -124,7 +124,20 @@ const pickerRef = ref<HTMLElement | null>(null)
 const listRef = ref<HTMLElement | null>(null)
 const activeIndex = ref(-1)
 
-const projectGroups = computed(() => props.options ?? fetchedGroups.value)
+const allProjectGroups = computed(() => props.options ?? fetchedGroups.value)
+const projectGroups = computed(() => {
+  if (!props.options) return fetchedGroups.value
+
+  const query = searchText.value.trim().toLocaleLowerCase()
+  const selectedName = selectedGroupName.value.trim().toLocaleLowerCase()
+
+  // Show all groups until the user types a different name to search.
+  if (!query || query === selectedName) return props.options
+
+  return props.options.filter(group =>
+    group.name.toLocaleLowerCase().includes(query)
+  )
+})
 const showScrollHint = computed(() => !props.options && hasMore.value)
 
 let pageNo = 1
@@ -200,19 +213,56 @@ const onInputClick = () => {
 
 const onInput = () => {
   isOpen.value = true
+  activeIndex.value = -1
+
+  if (props.options) return
+
   clearTimeout(timeoutId)
   timeoutId = setTimeout(() => {
     loadGroups(true)
   }, 300)
 }
 
-watch(model, (newId) => {
-  const pg = projectGroups.value.find(p => p.tdei_project_group_id === newId)
-  if (pg && !isOpen.value) {
-    searchText.value = pg.name
-    selectedGroupName.value = pg.name
+function syncDisplayName(): void {
+  const currentId = model.value;
+  if (!currentId) {
+    searchText.value = '';
+    selectedGroupName.value = '';
+    return;
   }
-})
+
+  const pg = allProjectGroups.value.find(p => p.tdei_project_group_id === currentId);
+  if (pg) {
+    searchText.value = pg.name;
+    selectedGroupName.value = pg.name;
+    if (props.rememberSelection) {
+      persistCachedName(pg.tdei_project_group_id, pg.name);
+    }
+    return;
+  }
+
+  if (props.rememberSelection) {
+    const cached = loadCachedName(currentId);
+    if (cached) {
+      searchText.value = cached;
+      selectedGroupName.value = cached;
+      return;
+    }
+  }
+
+  searchText.value = '';
+  selectedGroupName.value = '';
+}
+
+watch(
+  model,
+  () => {
+    if (!isOpen.value) {
+      syncDisplayName();
+    }
+  },
+  { immediate: true }
+);
 
 const onScroll = (e: Event) => {
   const target = e.target as HTMLElement
@@ -224,14 +274,7 @@ const onScroll = (e: Event) => {
 const selectGroup = (id: string) => {
   model.value = id
   isOpen.value = false
-  const pg = projectGroups.value.find(p => p.tdei_project_group_id === id)
-  if (pg) {
-    searchText.value = pg.name
-    selectedGroupName.value = pg.name
-    if (props.rememberSelection) {
-      persistCachedName(pg.tdei_project_group_id, pg.name)
-    }
-  }
+  syncDisplayName()
 }
 
 const onFocus = (e: Event) => {
@@ -296,18 +339,9 @@ const onKeydown = (e: KeyboardEvent) => {
   }
 }
 
-const applyCachedName = () => {
-  const cached = loadCachedName(model.value as string) ?? ''
-  searchText.value = cached
-  selectedGroupName.value = cached
-}
-
 const closeDropdown = () => {
   isOpen.value = false
-  const pg = projectGroups.value.find(p => p.tdei_project_group_id === model.value)
-  const name = pg?.name ?? selectedGroupName.value
-  searchText.value = name
-  if (pg) selectedGroupName.value = name
+  syncDisplayName()
 }
 
 const onFocusOut = (e: FocusEvent) => {
@@ -317,56 +351,48 @@ const onFocusOut = (e: FocusEvent) => {
 }
 
 watch(
-  projectGroups,
+  allProjectGroups,
   (groups) => {
     if (groups.length > 0) {
       const pgId = model.value as string | undefined
       if (!pgId || (props.options && !groups.some(pg => pg.tdei_project_group_id === pgId))) {
         model.value = groups[0]?.tdei_project_group_id
       }
-      const selected = groups.find(pg => pg.tdei_project_group_id === model.value)
-      if (selected && !isOpen.value) {
-        searchText.value = selected.name
-        selectedGroupName.value = selected.name
+      if (!isOpen.value) {
+        syncDisplayName()
       }
     }
   },
-  { immediate: true },
+  { immediate: true }
 )
 
 onMounted(async () => {
-  // Show cached name immediately before the API call completes
-  if (props.rememberSelection && model.value && loadCachedName(model.value as string)) {
-    applyCachedName()
-  }
-
   if (!props.options) {
     await loadGroups(true)
 
     if (fetchedGroups.value.length > 0) {
-      const selected = fetchedGroups.value.find(pg => pg.tdei_project_group_id === model.value)
-      if (selected) {
-        searchText.value = selected.name
-        selectedGroupName.value = selected.name
-      } else if (props.rememberSelection && model.value && loadCachedName(model.value as string)) {
-        // Group is beyond page 1 — use the cached name for display
-        applyCachedName()
-      } else if (model.value) {
-        // model is set but name is unknown — paginate until the group is found
-        while (hasMore.value) {
-          await loadGroups()
-          const found = fetchedGroups.value.find(pg => pg.tdei_project_group_id === model.value)
+      if (!model.value) {
+        const first = fetchedGroups.value[0]!;
+        model.value = first.tdei_project_group_id;
+      }
+      syncDisplayName()
+
+      if (model.value && !allProjectGroups.value.some(pg => pg.tdei_project_group_id === model.value)) {
+        let attempts = 0;
+        const maxAttempts = 50;
+        while (hasMore.value && attempts < maxAttempts) {
+          attempts++;
+          const prevLength = fetchedGroups.value.length;
+          await loadGroups();
+          if (fetchedGroups.value.length === prevLength) {
+            break;
+          }
+          const found = fetchedGroups.value.find(pg => pg.tdei_project_group_id === model.value);
           if (found) {
-            searchText.value = found.name
-            selectedGroupName.value = found.name
-            break
+            syncDisplayName();
+            break;
           }
         }
-      } else if (!model.value) {
-        const first = fetchedGroups.value[0]!
-        model.value = first.tdei_project_group_id
-        searchText.value = first.name
-        selectedGroupName.value = first.name
       }
     }
   }
@@ -389,7 +415,7 @@ onUnmounted(() => {
   border-radius: 0.375rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   overflow: hidden;
-  z-index: 1000;
+  z-index: $zindex-popover;
 }
 .pg-header {
   display: flex;

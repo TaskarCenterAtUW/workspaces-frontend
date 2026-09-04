@@ -49,6 +49,59 @@ export function polygonToBbox(polygonGeometry: any): [number, number, number, nu
   return [minLat, minLon, maxLat, maxLon]
 }
 
+function walkGeoJson(node: any, visitGeometry: (geometry: any) => void): void {
+  if (!node || typeof node !== 'object') return
+
+  switch (node.type) {
+    case 'FeatureCollection':
+      for (const feature of node.features ?? []) walkGeoJson(feature, visitGeometry)
+      return
+    case 'Feature':
+      walkGeoJson(node.geometry, visitGeometry)
+      return
+    case 'GeometryCollection':
+      for (const geometry of node.geometries ?? []) walkGeoJson(geometry, visitGeometry)
+      return
+    default:
+      if (Array.isArray(node.coordinates)) visitGeometry(node)
+  }
+}
+
+function extendBounds(bounds: [number, number, number, number], coordinates: any): void {
+  if (
+    Array.isArray(coordinates)
+    && coordinates.length >= 2
+    && typeof coordinates[0] === 'number'
+    && typeof coordinates[1] === 'number'
+  ) {
+    const [lon, lat] = coordinates
+    bounds[0] = Math.min(bounds[0], lon)
+    bounds[1] = Math.min(bounds[1], lat)
+    bounds[2] = Math.max(bounds[2], lon)
+    bounds[3] = Math.max(bounds[3], lat)
+    return
+  }
+
+  if (Array.isArray(coordinates)) {
+    for (const item of coordinates) extendBounds(bounds, item)
+  }
+}
+
+// Computes a [[minLng, minLat], [maxLng, maxLat]] bounding box for any GeoJSON
+// shape (Feature, FeatureCollection, GeometryCollection, or a bare geometry of
+// any type). Returns null if no coordinates are found.
+export function getGeoJsonBounds(geojson: any): [[number, number], [number, number]] | null {
+  const bounds: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity]
+
+  walkGeoJson(geojson, geometry => extendBounds(bounds, geometry.coordinates))
+
+  if (!Number.isFinite(bounds[0])) {
+    return null
+  }
+
+  return [[bounds[0], bounds[1]], [bounds[2], bounds[3]]]
+}
+
 export function shapeToCenter(shape: any) {
   if (shape.type === 'Polygon') {
     const bbox = polygonToBbox(shape)

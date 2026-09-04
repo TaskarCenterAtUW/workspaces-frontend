@@ -327,6 +327,7 @@ const {
   retryLoadWorkspaceUsers,
 } = useProjectWizardSettings({
   currentStep,
+  currentUserId: projectWizardClient.auth.subject || null,
   draft,
   projectGroupId: workspace.tdeiProjectGroupId,
 });
@@ -714,7 +715,7 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
 
 .project-create-page {
   height: 100%;
-  position: relative;
+  padding: 0px 0px;
   overflow: hidden;
 }
 
@@ -726,7 +727,8 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   background: $surface-card;
   overflow: hidden;
   width: 100%;
-  top: 0;
+  top: 0px;
+  z-index: 9999;
 }
 
 .project-create-header {
@@ -736,7 +738,7 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.9375rem 2.5rem;
+  padding: 15px 20px;
   background-color: $surface-card;
   box-shadow: $header-shadow;
 }
@@ -745,6 +747,7 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   display: flex;
   align-items: center;
   gap: 1.55rem;
+  flex-wrap: wrap;
 }
 
 .project-create-title {
@@ -785,9 +788,9 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
 
 .project-create-panel {
   position: absolute;
-  top: 2rem;
-  left: 2rem;
-  bottom: 2rem;
+  top: 1.2rem;
+  left: 1.2rem;
+  bottom: 1.2rem;
   z-index: 2;
   width: min(30.5rem, calc(100% - 4rem));
 }
@@ -896,20 +899,8 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
   }
 
   .project-create-shell {
-    position: relative;
     height: auto;
     min-height: calc(100vh - #{$navbar-height} - 2rem);
-  }
-
-  .project-create-header-copy {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.8rem;
-  }
-
-  .project-create-title {
-    padding-right: 0;
-    border-right: 0;
   }
 
   .project-create-body {
@@ -939,6 +930,17 @@ function formatProjectStatus(status: ProjectWizardCreateResult['status']) {
 
   .project-create-header {
     padding: 1rem 1.1rem;
+  }
+
+  .project-create-header-copy {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.8rem;
+  }
+
+  .project-create-title {
+    padding-right: 0;
+    border-right: 0;
   }
 
   .project-create-footer {

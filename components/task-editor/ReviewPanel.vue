@@ -34,38 +34,41 @@
       v-if="reviewDecision === 'remap'"
       class="task-editor-feedback-fields"
     >
-      <label
-        class="task-editor-field-label"
-        for="task-editor-feedback-reason"
-      >
-        Reason
-      </label>
-      <app-select
-        id="task-editor-feedback-reason"
-        v-model="feedbackReasonCategory"
-        class="task-editor-feedback-select"
-        :options="feedbackReasonOptions"
-        placeholder="Select a reason"
-        aria-label="Select a remap reason"
-      />
-
-      <label
-        class="task-editor-field-label"
-        for="task-editor-feedback-notes"
-      >
-        Notes
-      </label>
-      <textarea
-        id="task-editor-feedback-notes"
-        v-model="feedbackNotes"
-        class="form-control task-editor-field task-editor-feedback-notes"
-        rows="5"
-        placeholder="Describe what the mapper needs to fix"
-        required
-      />
-      <p class="task-editor-feedback-hint">
-        A reason and notes are required to request a remap.
-      </p>
+      <div>
+        <label
+          class="task-editor-field-label"
+          for="task-editor-feedback-reason"
+        >
+          Reason
+        </label>
+        <app-select
+          id="task-editor-feedback-reason"
+          v-model="feedbackReasonCategory"
+          class="task-editor-feedback-select"
+          :options="feedbackReasonOptions"
+          placeholder="Select a reason"
+          aria-label="Select a remap reason"
+        />
+      </div>
+      <div>
+        <label
+          class="task-editor-field-label"
+          for="task-editor-feedback-notes"
+        >
+          Notes
+        </label>
+        <textarea
+          id="task-editor-feedback-notes"
+          v-model="feedbackNotes"
+          class="form-control task-editor-field task-editor-feedback-notes"
+          rows="5"
+          placeholder="Describe what the mapper needs to fix"
+          required
+        />
+        <p class="task-editor-feedback-hint">
+          A reason and notes are required to request a remap.
+        </p>
+      </div>
     </div>
   </section>
 </template>
@@ -96,23 +99,23 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
 
 .task-editor-review-panel {
   display: grid;
-  gap: 0.9rem;
+  gap: 30px;
   padding-top: 1.5rem;
   border-top: 1px solid rgba($text-navy, 0.1);
 }
 
-.task-editor-feedback-fields,
-.task-editor-feedback-group {
+.task-editor-feedback-fields {
   display: grid;
-  gap: 0.75rem;
+  gap: 15px;
+  border-top: 1px dashed #bdbdbd;
+  padding-top: 20px;
 }
 
-.task-editor-field-label,
-.task-editor-feedback-legend {
-  margin: 0;
+.task-editor-field-label {
   color: $text-navy;
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 5px;
 }
 
 .task-editor-feedback-group {
@@ -122,19 +125,21 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
   padding: 0;
   margin: 0;
   border: 0;
+  gap: 15px;
 }
 
 .task-editor-feedback-legend {
   flex: 0 0 100%;
-  margin-bottom: 0.25rem;
-  font-size: 1.2rem;
+  margin-bottom: 8px;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .task-editor-field {
   color: $text-navy;
   background: $white;
   border-color: rgba($text-navy, 0.14);
-  border-radius: 0.85rem;
+  border-radius: 4px;
 }
 
 .task-editor-field:focus {
@@ -151,14 +156,13 @@ const reviewDecision = defineModel<TaskReviewDecision>('reviewDecision', { requi
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.75rem;
-  padding: 0.55rem 1.25rem;
-  color: $text-navy;
-  font-size: 0.95rem;
-  font-weight: 700;
+  padding: 12px 20px;
+  color: $text-secondary;
+  font-size: 16px;
+  font-weight: 600;
   line-height: 1;
   background: $white;
-  border: 1px solid $text-navy;
+  border: 1px solid #b5b8c4;
   border-radius: 999px;
   cursor: pointer;
 }

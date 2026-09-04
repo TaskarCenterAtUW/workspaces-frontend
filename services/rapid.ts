@@ -6,6 +6,17 @@ import { convertToRapidImagerySource } from '~/util/rapid-imagery';
 /** Global `Rapid` namespace injected by the Rapid script at runtime. */
 declare const Rapid: any;
 
+type RapidInitialHashParams = Pick<Map<string, string>, 'delete' | 'set'>;
+
+function isRapidInitialHashParams(value: unknown): value is RapidInitialHashParams {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.delete === 'function' && typeof candidate.set === 'function';
+}
+
 export class RapidManager {
   #baseUrl: string;
   #osmUrl: string;
@@ -85,14 +96,18 @@ export class RapidManager {
   async init(
     workspaceId: number,
     customImagerySource: ImagerySource | null = null,
-  ) {
+    changesetHashtags?: string,
+  ): Promise<void> {
     this.rapidContext.workspaceId = workspaceId;
     this.rapidContext.tdeiAuth = this.#tdeiAuth;
     this.rapidContext.preauth = { url: this.#osmUrl, apiUrl: this.#osmUrl };
+    this.#setInitialChangesetHashtags(changesetHashtags);
     const initPromise = this.rapidContext.initAsync();
     this.#patchRapidAuth();
     await initPromise;
 
+    // Rapid creates its hash settings during init, so add the task hashtag again.
+    this.#setInitialChangesetHashtags(changesetHashtags);
     this.#addCustomImagerySource(customImagerySource);
     this.#bindRapidEvents();
   }
@@ -116,9 +131,11 @@ export class RapidManager {
 
   async switchWorkspace(
     workspaceId: number,
-    customImagerySource: ImagerySource | null = null
-  ) {
+    customImagerySource: ImagerySource | null = null,
+    changesetHashtags?: string,
+  ): Promise<void> {
     this.rapidContext.workspaceId = workspaceId;
+    this.#setInitialChangesetHashtags(changesetHashtags);
 
     // Induce the editor to re-read the configuration from the URL hash:
     window.dispatchEvent(new HashChangeEvent('hashchange', {
@@ -127,18 +144,35 @@ export class RapidManager {
     }));
 
     await this.rapidContext.resetAsync();
+    // Reset can clear the hashtag, so add it back for the current task.
+    this.#setInitialChangesetHashtags(changesetHashtags);
     this.#addCustomImagerySource(customImagerySource);
   }
 
-  #onLoaded() {
-    this.loaded.value = true;
+  #setInitialChangesetHashtags(changesetHashtags?: string): void {
+    const initialHashParams: unknown = this.rapidContext.systems?.urlhash?.initialHashParams
+      ?? this.rapidContext.initialHashParams;
 
+    if (!isRapidInitialHashParams(initialHashParams)) {
+      return;
+    }
+
+    if (changesetHashtags) {
+      initialHashParams.set('hashtags', changesetHashtags);
+    } else {
+      initialHashParams.delete('hashtags');
+    }
+  }
+
+  #onLoaded() {
     this.rapidContext = new Rapid.Context();
     this.rapidContext.embed(true);
     this.rapidContext.containerNode = this.containerNode;
     this.rapidContext.assetPath = this.#baseUrl;
 
     console.log('Rapid loaded', this.rapidContext);
+    // Tell the page Rapid is loaded only after its context is ready.
+    this.loaded.value = true;
   }
 
   #patchRapidAuth() {

@@ -22,6 +22,7 @@
         :actions="taskActions"
         :editor-load-error-message="editorLoadErrorMessage"
         :feedback-reason-options="feedbackReasonOptions"
+        :feedback="task.feedback"
         :instructions="project.instructions"
         :lock-time-remaining="lockTimeRemaining"
         :open="isSidebarOpen"
@@ -84,6 +85,7 @@ const [project, task] = await Promise.all([
   loadProjectDetail(),
   loadTaskDetail(),
 ]);
+const changesetTag = `#tm-${projectId}-${task.taskNumber}`;
 
 const {
   buildFeedbackPayload,
@@ -221,7 +223,7 @@ onMounted(() => {
 
   editorContainer.value.appendChild(manager.containerNode);
   editorLoadErrorMessage.value = '';
-  void manager.switchWorkspace(workspaceId, project.customImagery)
+  void manager.switchWorkspace(workspaceId, project.customImagery, changesetTag)
     .catch(error => handleEditorLoadFailure('switch', error));
 });
 
@@ -424,10 +426,12 @@ function generateInitialHash() {
   ).toString();
   const dataUrl = boundaryUrl;
   const customImagerySource = project.customImagery || null;
+  const hashtagParam = `hashtags=${encodeURIComponent(changesetTag)}`;
   if (customImagerySource) {
-    return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}&background=${customImagerySource.id}`;
+    return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}&background=${customImagerySource.id}&${hashtagParam}`;
   }
-  return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}`;
+
+  return `#map=${zoom}/${lat}/${lon}&data=${dataUrl}&${hashtagParam}`;
 }
 
 function syncTaskHash() {
@@ -446,7 +450,7 @@ async function mountEditor() {
   }
 
   editorContainer.value.appendChild(manager.containerNode);
-  await manager.init(workspaceId, project.customImagery);
+  await manager.init(workspaceId, project.customImagery, changesetTag);
 }
 
 function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown) {
@@ -499,7 +503,7 @@ function handleEditorLoadFailure(action: 'initialize' | 'switch', error: unknown
   }
 }
 
-@include media-breakpoint-down(sm) {
+@include media-breakpoint-down(md) {
   .task-editor-shell {
     --task-editor-sidebar-width: min(25rem, calc(100vw - 3.25rem));
     --task-editor-sidebar-rail-width: 3.25rem;

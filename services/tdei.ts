@@ -236,11 +236,24 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     return (await response.json() as TdeiDatasetApiResponse[])[0];
   }
 
-  async getDatasetsByProjectGroupAndName(projectGroupId: string, name: string): Promise<TdeiDatasetSummary[]> {
-    const response = await this._get(`datasets?tdei_project_group_id=${projectGroupId}&name=${encodeURIComponent(name)}`);
+  async getAvailableDatasetsByName(name: string, pageNo = 1, pageSize = 10): Promise<TdeiDatasetSummary[]> {
+    const params = new URLSearchParams({
+      page_no: pageNo.toString(),
+      page_size: pageSize.toString(),
+      sort_field: 'uploaded_timestamp',
+      sort_order: 'DESC',
+      status: 'All',
+      name
+    });
+    const response = await this._get(`datasets?${params.toString()}`);
 
     return (await response.json() as TdeiDatasetApiResponse[])
-      .map(d => ({ id: d.tdei_dataset_id, name: d.metadata.dataset_detail.name, version: d.metadata.dataset_detail.version }));
+      .map(d => ({
+        id: d.tdei_dataset_id,
+        name: d.metadata?.dataset_detail?.name ?? d.tdei_dataset_id,
+        version: d.metadata?.dataset_detail?.version,
+        projectGroupName: d.project_group?.name
+      }));
   }
 
   async downloadOswDataset(tdeiRecordId: string, format: string = 'osw'): Promise<Blob> {

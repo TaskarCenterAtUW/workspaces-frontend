@@ -23,14 +23,31 @@ function makeClient() {
 }
 
 describe('WorkspacesClient.getMyWorkspaces', () => {
-  it('returns the workspaces and hydrates createdAt into a Date', async () => {
+  it('returns the workspaces and hydrates workspace timestamps into Dates', async () => {
     const workspaces = await makeClient().getMyWorkspaces();
 
     expect(workspaces).toHaveLength(2);
     expect(workspaces[0]!.id).toBe(1);
     expect(workspaces[0]!.title).toBe('Seattle Sidewalks');
+    expect(workspaces[0]!.importStatus).toBe('completed');
     expect(workspaces[0]!.createdAt).toBeInstanceOf(Date);
     expect(workspaces[0]!.createdAt.toISOString()).toBe('2026-01-15T12:00:00.000Z');
+    expect(workspaces[0]!.updatedAt).toBeInstanceOf(Date);
+    expect(workspaces[0]!.updatedAt!.toISOString()).toBe('2026-02-18T05:10:00.583Z');
+  });
+
+  it('falls back to createdAt when an older response omits updatedAt', async () => {
+    server.use(
+      http.get(`${TEST_API_BASE}workspaces/mine`, () => HttpResponse.json([{
+        id: 1,
+        title: 'W',
+        createdAt: '2026-01-15T12:00:00.000Z'
+      }]))
+    );
+
+    const [workspace] = await makeClient().getMyWorkspaces();
+
+    expect(workspace!.updatedAt).toEqual(workspace!.createdAt);
   });
 
   // Regression: the API sends `tdeiMetadata` inconsistently — sometimes a
@@ -95,5 +112,106 @@ describe('WorkspacesClient.getWorkspaceBbox', () => {
     );
 
     await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toBeUndefined();
+  });
+});
+
+describe('WorkspacesClient.getWorkspaceJobs', () => {
+  it('returns workspace jobs from the jobs endpoint in API order', async () => {
+    const jobs = [{
+      id: 2,
+      workspace_id: 1769,
+      job_type: 'workspace-import',
+      request: {},
+      current_task: 'Create Changeset',
+      response: {
+        message: 'Create Changeset step failed',
+        success: false,
+        messageCode: 'STEP_EXECUTION_FAILED'
+      },
+      created_at: '2026-08-14T05:44:15.816029',
+      updated_at: '2026-08-14T10:02:42.972197',
+      status: 'completed',
+      current_task_status: null
+    }];
+    server.use(
+      http.get(`${TEST_API_BASE}workspaces/1769/jobs`, () => HttpResponse.json(jobs))
+    );
+
+    await expect(makeClient().getWorkspaceJobs(1769)).resolves.toEqual(jobs);
+  });
+});
+
+describe('WorkspacesClient.createWorkspaceFromFile', () => {
+  const LEGACY_API_BASE = 'http://legacy-api.test/';
+  const NEW_API_BASE = 'http://new-api.test/';
+
+  it('posts multipart data to the new API without changing the shared legacy base', async () => {
+    let legacyUploadCalled = false;
+    let receivedBody: FormData | undefined;
+
+    server.use(
+      http.post(`${LEGACY_API_BASE}workspaces/from-file`, () => {
+        legacyUploadCalled = true;
+        return HttpResponse.json({ id: 999 });
+      }),
+      http.post(`${NEW_API_BASE}workspaces/from-file`, async ({ request }) => {
+        receivedBody = await request.formData();
+        return HttpResponse.json({ id: 456 }, { status: 201 });
+      }),
+      http.get(`${LEGACY_API_BASE}workspaces/mine`, () => HttpResponse.json([]))
+    );
+
+    const client = new WorkspacesClient(
+      LEGACY_API_BASE,
+      NEW_API_BASE,
+      tdeiClient,
+      osmClient
+    );
+    const workspaceId = await client.createWorkspaceFromFile(
+      new Blob(['dataset']),
+      {
+        title: 'Uploaded workspace',
+        type: 'pathways',
+        tdeiProjectGroupId: '11111111-1111-4111-8111-111111111111'
+      }
+    );
+
+    expect(workspaceId).toBe(456);
+    expect(legacyUploadCalled).toBe(false);
+    expect(receivedBody?.get('title')).toBe('Uploaded workspace');
+    expect(receivedBody?.get('type')).toBe('pathways');
+    expect(receivedBody?.get('tdeiProjectGroupId')).toBe('11111111-1111-4111-8111-111111111111');
+    const uploadedFile = receivedBody?.get('file');
+    expect(uploadedFile).toBeInstanceOf(Blob);
+    await expect((uploadedFile as Blob).text()).resolves.toBe('dataset');
+    await expect(client.getMyWorkspaces()).resolves.toEqual([]);
+  });
+
+  it.each([
+    ['a missing ID', {}],
+    ['a string ID', { workspaceId: '456' }],
+    ['a non-integer ID', { id: 45.6 }]
+  ])('rejects %s in a successful response', async (_label, responseBody) => {
+    server.use(
+      http.post(`${NEW_API_BASE}workspaces/from-file`, () => {
+        return HttpResponse.json(responseBody, { status: 201 });
+      })
+    );
+
+    const client = new WorkspacesClient(
+      LEGACY_API_BASE,
+      NEW_API_BASE,
+      tdeiClient,
+      osmClient
+    );
+
+    await expect(client.createWorkspaceFromFile(
+      new Blob(['dataset']),
+      {
+        title: 'Uploaded workspace',
+        type: 'pathways',
+        tdeiProjectGroupId: '11111111-1111-4111-8111-111111111111'
+      }
+    )).rejects.toThrow('valid integer workspace ID');
   });
 });

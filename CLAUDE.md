@@ -6,7 +6,7 @@ conventions established for it; see `README.md` for app setup.
 ## Project
 
 - **TDEI Workspaces frontend** — Nuxt 4 / Vue 3 **SPA** (`ssr: false`),
-  bootstrap-vue-next UI, maplibre-gl + Leaflet maps.
+  bootstrap-vue-next UI, maplibre-gl maps.
 - API access is via class-based HTTP clients in `services/` (all extend
   `BaseHttpClient` in [services/http.ts](services/http.ts), which wraps `fetch`).
   Clients are constructed in [services/index.ts](services/index.ts) from

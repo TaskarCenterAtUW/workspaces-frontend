@@ -83,6 +83,14 @@ export interface WorkspaceProjectTaskApiMapper {
   user_name: string;
 }
 
+export interface WorkspaceProjectTaskApiFeedback {
+  reason_category: WorkspaceProjectTaskFeedbackReasonCategory;
+  notes: string;
+  created_at: string;
+  created_by_user_id: string;
+  created_by_user_name: string;
+}
+
 export interface WorkspaceProjectTaskApiItem {
   id: number;
   task_number: number;
@@ -91,6 +99,7 @@ export interface WorkspaceProjectTaskApiItem {
   area_sqkm: number;
   lock: WorkspaceProjectTaskApiLock | null;
   last_mapper: WorkspaceProjectTaskApiMapper | null;
+  feedback?: WorkspaceProjectTaskApiFeedback[];
   created_at: string;
   updated_at: string;
 }
@@ -167,8 +176,17 @@ export interface WorkspaceProjectTaskListItem {
 export interface WorkspaceProjectTaskDetail extends WorkspaceProjectTaskListItem {
   areaSquareKilometers: number;
   createdAt: Date;
+  feedback: WorkspaceProjectTaskFeedback[];
   lastMapperName: string | null;
   updatedAtIso: string;
+}
+
+export interface WorkspaceProjectTaskFeedback {
+  reasonCategory: WorkspaceProjectTaskFeedbackReasonCategory;
+  notes: string;
+  createdAt: Date;
+  createdByUserId: string;
+  createdByUserName: string;
 }
 
 export interface WorkspaceProjectTaskSubmitFeedback {
