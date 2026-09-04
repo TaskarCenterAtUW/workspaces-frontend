@@ -46,6 +46,11 @@ export function prepareTdeiSsoLogin(returnTo: string = '/dashboard'): string {
   const redirectUrl = tdeiApiEndpoint('sso-redirect');
   redirectUrl.searchParams.set('redirect_uri', callbackUrl('/auth/callback'));
 
+  const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID;
+  if (clientId) {
+    redirectUrl.searchParams.set('client_id', clientId);
+  }
+
   return redirectUrl.toString();
 }
 
