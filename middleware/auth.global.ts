@@ -5,7 +5,7 @@ import {
   isAnonymousRoute,
   SESSION_RECOVERY_ROUTE
 } from '~/services/auth-session';
-import { startTdeiSsoLogin } from '~/services/sso';
+import { prepareTdeiSsoLogin } from '~/services/sso';
 
 export default defineNuxtRouteMiddleware(async (to, _from) => {
   if (isAnonymousRoute(to.path)) {
@@ -24,8 +24,10 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
       return;
     }
 
-    startTdeiSsoLogin(returnTo);
-    return abortNavigation();
+    return navigateTo(prepareTdeiSsoLogin(returnTo), {
+      external: true,
+      replace: true
+    });
   }
 
   if (tdeiClient.auth.needsRefresh) {
@@ -56,7 +58,8 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
   }
 
   window.rememberRoute = to;
-  startTdeiSsoLogin(to.fullPath);
-
-  return abortNavigation();
+  return navigateTo(prepareTdeiSsoLogin(to.fullPath), {
+    external: true,
+    replace: true
+  });
 });

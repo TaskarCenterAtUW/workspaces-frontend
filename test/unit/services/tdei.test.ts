@@ -42,10 +42,12 @@ describe('TdeiClient session recovery', () => {
     const originalAccessToken = auth.accessToken;
     const client = new TdeiClient(TDEI_API_URL, auth);
     let refreshCalls = 0;
+    let refreshBody: unknown;
 
     server.use(
-      http.post(`${TDEI_API_URL}refresh-token`, () => {
+      http.post(`${TDEI_API_URL}refresh-token`, async ({ request }) => {
         refreshCalls += 1;
+        refreshBody = await request.json();
         return HttpResponse.json({
           access_token: accessToken('user-2'),
           refresh_token: 'new-refresh-token',
@@ -67,13 +69,14 @@ describe('TdeiClient session recovery', () => {
     ]);
 
     expect(refreshCalls).toBe(1);
+    expect(refreshBody).toEqual({ refreshToken: 'refresh-token' });
     expect(send).toHaveBeenCalledTimes(6);
     expect(await Promise.all(responses.map(response => response.text())))
       .toEqual([auth.accessToken, auth.accessToken, auth.accessToken]);
     client.logout();
   });
 
-  it('opens password reauthentication when refreshing returns 401', async () => {
+  it('opens session reauthentication when refreshing returns 401', async () => {
     const auth = authenticatedStore({ accessExpired: true });
     const client = new TdeiClient(TDEI_API_URL, auth);
 

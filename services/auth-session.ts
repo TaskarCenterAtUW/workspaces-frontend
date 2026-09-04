@@ -7,7 +7,9 @@ export const DEFAULT_SESSION_RETURN_ROUTE = '/dashboard';
 const ANONYMOUS_ROUTES = new Set([
   '/',
   '/help',
-  SESSION_EXIT_ROUTE
+  SESSION_EXIT_ROUTE,
+  '/auth/callback',
+  '/logout/callback'
 ]);
 
 export function isAnonymousRoute(path: string): boolean {
@@ -27,7 +29,7 @@ export const authSessionState = reactive({
   username: ''
 });
 
-// Every blocked request waits on this promise, so one dialog recovers them all.
+// Every blocked request waits on this promise, so one SSO recovery handles them all.
 let recoveryPromise: Promise<void> | undefined;
 let resolveRecovery: (() => void) | undefined;
 let rejectRecovery: ((error: Error) => void) | undefined;

@@ -4,7 +4,7 @@
     aria-live="polite"
   >
     <p class="text-center text-muted">
-      Restoring your session...
+      Your TDEI session needs to be restored.
     </p>
   </section>
 </template>

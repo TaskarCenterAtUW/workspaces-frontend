@@ -8,60 +8,23 @@
     no-close-on-esc
   >
     <p>
-      Enter your password to continue your session.
+      Your TDEI session has expired. Sign in again to continue where you left off.
     </p>
 
-    <form
-      id="session-expired-form"
-      @submit.prevent="reauthenticate"
+    <p
+      v-if="authSessionState.errorMessage"
+      class="text-danger mb-0"
+      role="alert"
     >
-      <label
-        class="form-label"
-        for="session-expired-password"
-      >
-        Password
-      </label>
+      {{ authSessionState.errorMessage }}
+    </p>
 
-      <div class="input-group">
-        <input
-          id="session-expired-password"
-          ref="passwordInput"
-          v-model="password"
-          :type="showPassword ? 'text' : 'password'"
-          class="form-control"
-          autocomplete="current-password"
-          required
-        >
-
-        <button
-          class="btn btn-outline-secondary"
-          type="button"
-          :aria-label="showPassword ? 'Hide password' : 'Show password'"
-          @click="showPassword = !showPassword"
-        >
-          <app-icon
-            :variant="showPassword ? 'visibility_off' : 'visibility'"
-            size="20"
-            no-margin
-          />
-        </button>
-      </div>
-
-      <p
-        class="visually-hidden"
-        role="status"
-      >
-        {{ authSessionState.loading ? 'Re-logging in...' : '' }}
-      </p>
-
-      <p
-        v-if="authSessionState.errorMessage"
-        class="text-danger mt-2 mb-0"
-        role="alert"
-      >
-        {{ authSessionState.errorMessage }}
-      </p>
-    </form>
+    <p
+      class="visually-hidden"
+      role="status"
+    >
+      {{ authSessionState.loading ? 'Redirecting to TDEI Login...' : '' }}
+    </p>
 
     <template #footer>
       <button
@@ -75,93 +38,49 @@
 
       <button
         class="btn btn-primary"
-        type="submit"
-        form="session-expired-form"
-        :disabled="authSessionState.loading || !password"
+        type="button"
+        :disabled="authSessionState.loading"
+        @click="reauthenticate"
       >
-        {{ authSessionState.loading ? 'Re-logging in...' : 'Re-Login' }}
+        {{ authSessionState.loading ? 'Redirecting...' : 'TDEI Login' }}
       </button>
     </template>
   </b-modal>
 </template>
 
 <script setup lang="ts">
-import { BaseHttpClientError } from '~/services/http';
 import {
   authSessionState,
   cancelSessionReauthentication,
-  completeSessionReauthentication,
   getSessionReturnRoute,
-  SESSION_RECOVERY_ROUTE,
-  SESSION_EXIT_ROUTE
+  SESSION_RECOVERY_ROUTE
 } from '~/services/auth-session';
 import { tdeiClient } from '~/services';
+import { startTdeiSsoLogin, startTdeiSsoLogout } from '~/services/sso';
 
 const route = useRoute();
-const password = ref('');
-const showPassword = ref(false);
-const passwordInput = ref<HTMLInputElement | null>(null);
 
-watch(
-  () => authSessionState.dialogOpen,
-  async (open) => {
-    if (!open) {
-      password.value = '';
-      showPassword.value = false;
-      return;
-    }
-
-    await nextTick();
-    passwordInput.value?.focus();
-  }
-);
-
-async function reauthenticate(): Promise<void> {
+function reauthenticate(): void {
   authSessionState.loading = true;
   authSessionState.errorMessage = '';
 
   try {
-    await tdeiClient.authenticate(
-      authSessionState.username,
-      password.value
-    );
-
-    // Hard-refresh recovery uses a temporary route return to the original page.
     const returnTo = route.path === SESSION_RECOVERY_ROUTE
       ? getSessionReturnRoute(route.query.returnTo)
-      : undefined;
+      : route.fullPath;
 
-    password.value = '';
-    completeSessionReauthentication();
-
-    if (returnTo) {
-      await navigateTo(returnTo, { replace: true });
-    }
+    startTdeiSsoLogin(returnTo);
   }
-  catch (error: unknown) {
-    password.value = '';
-
-    authSessionState.errorMessage
-      = error instanceof BaseHttpClientError
-        && error.response.status === 401
-        ? 'Incorrect password. Please try again.'
-        : 'Unable to restore your session. Please try again.';
-  }
-  finally {
+  catch {
     authSessionState.loading = false;
-
-    if (authSessionState.dialogOpen) {
-      await nextTick();
-      passwordInput.value?.focus();
-    }
+    authSessionState.errorMessage = 'Unable to start TDEI Login. Please try again.';
   }
 }
 
-async function logout(): Promise<void> {
+function logout(): void {
   cancelSessionReauthentication();
   tdeiClient.logout();
-
-  await navigateTo(SESSION_EXIT_ROUTE, { replace: true });
+  startTdeiSsoLogout();
 }
 </script>
 

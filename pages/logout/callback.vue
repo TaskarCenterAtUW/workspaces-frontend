@@ -14,7 +14,7 @@
 import { tdeiClient } from '~/services/index';
 
 onMounted(() => {
-  tdeiClient.clearAuth();
+  tdeiClient.logout();
   window.location.replace('/signin');
 });
 </script>

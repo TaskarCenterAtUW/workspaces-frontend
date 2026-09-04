@@ -40,12 +40,18 @@ export function consumeSsoReturnTo(): string {
   return returnTo;
 }
 
-export function startTdeiSsoLogin(returnTo: string = '/dashboard'): void {
+export function prepareTdeiSsoLogin(returnTo: string = '/dashboard'): string {
   sessionStorage.setItem(SSO_RETURN_TO_KEY, safeReturnTo(returnTo));
 
   const redirectUrl = tdeiApiEndpoint('sso-redirect');
   redirectUrl.searchParams.set('redirect_uri', callbackUrl('/auth/callback'));
-  window.location.assign(redirectUrl.toString());
+
+  return redirectUrl.toString();
+}
+
+export function startTdeiSsoLogin(returnTo: string = '/dashboard'): void {
+  const redirectUrl = prepareTdeiSsoLogin(returnTo);
+  window.location.assign(redirectUrl);
 }
 
 export function startTdeiSsoLogout(): void {
