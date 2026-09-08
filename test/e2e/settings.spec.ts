@@ -62,6 +62,8 @@ const imagerySchema = {
   }
 };
 
+const questUrl = 'https://quests.example.test/definition.json';
+
 // A valid imagery definition (an array, matching ImagerySettingsPatch.definition).
 const validImageryDef = [
   {
@@ -300,6 +302,50 @@ test.describe('workspace settings', () => {
     await expect(successToast(page)).toBeVisible();
     // Proper API call: externalAppAccess turned on (enabled === 1).
     expect(patchBody).toEqual({ externalAppAccess: 1 });
+  });
+
+  test('rejects an external quest URL that does not contain JSON', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubSettings(page);
+
+    let questSettingsPatched = false;
+    await page.route('**/workspaces/1/quests/long/settings', (route) => {
+      if (route.request().method() === 'PATCH') {
+        questSettingsPatched = true;
+      }
+      return route.fallback();
+    });
+    await page.route(questUrl, route =>
+      route.fulfill({ contentType: 'text/html', body: '<!doctype html><h1>Not JSON</h1>' })
+    );
+
+    await page.goto('/workspace/1/settings');
+
+    const apps = page.locator('form.card', { hasText: 'External Apps' });
+    await apps.getByLabel('Load quest definitions from an external URL').check();
+    await apps.getByLabel('Quest Definition URL').fill(questUrl);
+    await apps.getByRole('button', { name: 'Save' }).click();
+
+    await expect(apps).toContainText('Long form quest definition is not valid JSON');
+    expect(questSettingsPatched).toBe(false);
+  });
+
+  test('keeps settings usable when loading an invalid persisted quest definition fails', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubSettings(page);
+
+    await page.route('**/workspaces/1/quests/long/settings', (route) => {
+      if (route.request().method() === 'GET') {
+        return route.fulfill({ status: 500, body: 'invalid quest definition' });
+      }
+      return route.fallback();
+    });
+
+    await page.goto('/workspace/1/settings');
+
+    await expect(page.getByRole('heading', { name: 'Workspace Settings' })).toBeVisible();
+    await expect(page.locator('form.card', { hasText: 'External Apps' })).toBeVisible();
+    await expect(errorToast(page)).toContainText('Failed to load the quest definition');
   });
 
   // @test e2e: the "Custom Imagery" box is validated against the JSON schema, and a toast shown

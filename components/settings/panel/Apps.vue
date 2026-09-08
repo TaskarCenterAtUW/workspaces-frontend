@@ -166,12 +166,12 @@
 
 <script setup lang="ts">
 import { workspacesClient } from '~/services/index';
-import { handleFileDrop, validateJson } from '~/util/schema';
+import { handleFileDrop, validateJson, validateJsonUrl } from '~/util/schema';
 import { isHttpUrl, normalizeUrl } from '~/util/url';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 
-import type { Workspace } from '~/types/workspaces';
+import type { QuestSettingsPatch, Workspace } from '~/types/workspaces';
 
 const longFormQuestSchemaUrl = import.meta.env.VITE_LONG_FORM_QUEST_SCHEMA;
 const longFormQuestExampleUrl = import.meta.env.VITE_LONG_FORM_QUEST_EXAMPLE_URL;
@@ -184,9 +184,18 @@ const isSaving = ref(false);
 // external apps, so they're disabled when "Publish" is off, while saving, or for non-leads.
 const appControlsDisabled = computed(() => !isLead.value || !workspace.externalAppAccess || isSaving.value);
 
-const [longFormQuestSettings] = await Promise.all([
-  workspacesClient.getLongFormQuestSettings(workspace.id),
-]);
+let longFormQuestSettings: QuestSettingsPatch = { type: 'NONE' };
+
+try {
+  longFormQuestSettings = await workspacesClient.getLongFormQuestSettings(workspace.id);
+}
+catch (e) {
+  const errorMessage = e instanceof Error ? e.message : 'unexpected error';
+  toast.error(
+    'Failed to load the quest definition. You can replace the invalid definition and save: '
+    + errorMessage,
+  );
+}
 
 const longFormQuestSchema = ref<object | undefined>();
 const longFormQuestType = ref(longFormQuestSettings.type);
@@ -256,6 +265,18 @@ async function saveExternalAppConfiguration() {
       }
       else {
         url = normalizeUrl(url);
+
+        const validationResult = await validateJsonUrl(
+          url,
+          longFormQuestSchemaUrl,
+          longFormQuestSchema,
+          'Long form quest definition',
+        );
+
+        if (validationResult.error) {
+          longFormQuestError.value = validationResult.error;
+          return;
+        }
       }
     }
 
