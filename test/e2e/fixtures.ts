@@ -48,6 +48,36 @@ export async function seedAuthenticatedSession(page: Page) {
   }, TEST_USER);
 }
 
+export async function seedExpiredSession(page: Page) {
+  await page.addInitScript((user) => {
+    localStorage.setItem('tdei-auth', JSON.stringify({
+      username: 'tester',
+      subject: user.subject,
+      email: 'tester@example.com',
+      displayName: user.displayName,
+      accessToken: 'expired-access-token',
+      refreshToken: 'expired-refresh-token',
+      expiresAt: '2000-01-01T00:00:00.000Z',
+      refreshExpiresAt: '2000-01-01T00:00:00.000Z'
+    }));
+  }, TEST_USER);
+}
+
+export async function seedRefreshableExpiredSession(page: Page) {
+  await page.addInitScript((user) => {
+    localStorage.setItem('tdei-auth', JSON.stringify({
+      username: 'tester',
+      subject: user.subject,
+      email: 'tester@example.com',
+      displayName: user.displayName,
+      accessToken: 'expired-access-token',
+      refreshToken: 'server-rejected-refresh-token',
+      expiresAt: '2000-01-01T00:00:00.000Z',
+      refreshExpiresAt: '2099-01-01T00:00:00.000Z'
+    }));
+  }, TEST_USER);
+}
+
 // Pre-selects a project group in sessionStorage so dashboard.vue's
 // getLastProjectGroupId() restores it on load (the dashboard reads this
 // synchronously during setup).

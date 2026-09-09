@@ -126,7 +126,7 @@ test.describe('workspace export landing page', () => {
 
     // Loading state: button shows the spinner + "Preparing Download..." text.
     await expect(page.getByText('Preparing Download...')).toBeVisible();
-    await expect(page.locator('.spinner-border, [role="status"]')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Preparing Download...' }).locator('.spinner-border')).toBeVisible();
     await expect(page.locator('.col').filter({ hasText: 'Download' }).locator('.card-footer')).toMatchAriaSnapshot();
 
     release();

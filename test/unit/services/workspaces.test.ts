@@ -13,7 +13,9 @@ import type { TdeiClient } from '~/services/tdei';
 // Authorization header. The real BaseHttpClient runs end to end — MSW
 // intercepts at fetch, so URL building and error mapping are exercised.
 const tdeiClient = {
-  tryRefreshAuth: async () => {},
+  sendProtectedRequest: async (
+    request: (accessToken: string) => Promise<Response>
+  ) => await request('test-access-token'),
   auth: { complete: false, accessToken: '' }
 } as unknown as TdeiClient;
 const osmClient = {} as unknown as OsmApiClient;

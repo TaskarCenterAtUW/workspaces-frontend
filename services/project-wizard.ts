@@ -1,4 +1,10 @@
-import { BaseHttpClient, BaseHttpClientError } from '~/services/http';
+import {
+  BaseHttpClient,
+  BaseHttpClientError,
+  type FetchConfig,
+  type HttpBody,
+  withBearerToken,
+} from '~/services/http';
 import { buildProjectWizardCreatePayload } from '~/services/project-wizard-payload';
 import {
   convertCellSizeMetersToSquareKilometers,
@@ -240,23 +246,21 @@ export class ProjectWizardClient extends BaseHttpClient implements ICancelableCl
     };
   }
 
-  #setAuthHeader() {
-    if (this.#tdeiClient.auth.complete) {
-      this._requestHeaders.Authorization = 'Bearer ' + this.auth.accessToken;
-    }
-  }
-
   override async _send(
     url: string,
     method: string,
-    body?: any,
-    config?: object,
+    body?: HttpBody,
+    config?: FetchConfig,
   ): Promise<Response> {
     try {
-      await this.#tdeiClient.tryRefreshAuth();
-      this.#setAuthHeader();
-
-      return await super._send(url, method, body, config);
+      return await this.#tdeiClient.sendProtectedRequest(accessToken =>
+        super._send(
+          url,
+          method,
+          body,
+          withBearerToken(config, accessToken),
+        )
+      );
     } catch (e) {
       if (e instanceof BaseHttpClientError) {
         throw e;

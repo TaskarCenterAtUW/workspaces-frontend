@@ -14,6 +14,7 @@ import maplibregl from 'maplibre-gl';
 import { MapLibreAugmentedDiffViewer } from '@osmcha/maplibre-adiff-viewer';
 
 import { changesetManager } from '~/services/index';
+import { prepareAdiffForMap } from '~/util/adiff';
 import type { ReviewListItem } from '~/services/review';
 
 import type { AdiffAction } from '~/types/adiff';
@@ -55,7 +56,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
-defineExpose({ getLatLonZoom });
+defineExpose({ getLatLonZoom, retry });
 
 const loading = defineModel<boolean>('loading');
 const currentDiff = defineModel<AdiffAction>('currentDiff');
@@ -81,7 +82,7 @@ onUnmounted(() => {
   reviewMap?.remove();
 });
 
-watch(() => props.item, drawItem);
+watch(() => props.item, item => void drawItem(item));
 
 function initMap() {
   if (reviewMap) {
@@ -99,11 +100,18 @@ function initMap() {
   }
 }
 
-function resetMap() {
-  reviewMap.setStyle(reviewMapStyle);
-
+async function resetMap(): Promise<void> {
   if (popup) {
     popup.remove();
+  }
+
+  reviewMap.setStyle(reviewMapStyle);
+
+  if (!reviewMap.isStyleLoaded()) {
+    // Sources and layers can only be added after MapLibre finishes resetting.
+    await new Promise<void>((resolve) => {
+      reviewMap.once('style.load', () => resolve());
+    });
   }
 }
 
@@ -116,7 +124,7 @@ function getLatLonZoom() {
 
 let drawGeneration = 0;
 
-async function drawItem(item: ReviewListItem | undefined) {
+async function drawItem(item: ReviewListItem | undefined, refreshAdiff: boolean = false) {
   emptyChangeset.value = false;
   mapError.value = null;
   const generation = ++drawGeneration;
@@ -132,19 +140,20 @@ async function drawItem(item: ReviewListItem | undefined) {
         await item.oscPromise;
       }
 
-      await drawChangeset(item.data as OsmChangeset, generation);
+      await drawChangeset(item.data as OsmChangeset, generation, refreshAdiff);
     }
     else if (item.isFeedback) {
-      if (generation === drawGeneration) drawFeedback(item.data as TdeiFeedback);
+      await drawFeedback(item.data as TdeiFeedback, generation);
     }
     else if (item.isNote) {
-      if (generation === drawGeneration) drawNote(item.data as OsmNote);
+      await drawNote(item.data as OsmNote, generation);
     }
   }
-  catch {
+  catch (error: unknown) {
     // Discard result if the user already selected a different changeset.
     if (generation === drawGeneration) {
-      mapError.value = 'Could not load changeset data. The server may be unavailable or took too long to respond. Try again or select a different changeset.';
+      mapError.value = 'Could not display changeset data. Try again or select a different changeset.';
+      console.error('Could not display changeset data on the review map.', error);
     }
   }
   finally {
@@ -154,15 +163,29 @@ async function drawItem(item: ReviewListItem | undefined) {
   }
 }
 
-async function drawChangeset(changeset: OsmChangeset, generation: number) {
-  const adiff = await changesetManager.getAdiff(props.workspaceId, changeset);
+async function retry(): Promise<void> {
+  // A retry asks the API for a fresh diff instead of reusing the cached copy.
+  await drawItem(props.item, true);
+}
+
+async function drawChangeset(
+  changeset: OsmChangeset,
+  generation: number,
+  refreshAdiff: boolean,
+) {
+  const adiff = await changesetManager.getAdiff(props.workspaceId, changeset, refreshAdiff);
 
   // Discard result if the user already selected a different changeset.
   if (generation !== drawGeneration) {
     return;
   }
 
-  resetMap();
+  await resetMap();
+
+  if (generation !== drawGeneration) {
+    return;
+  }
+
   const hasChanges = adiff.actions.some(action =>
     action.type === 'create'
     || action.type === 'modify'
@@ -173,7 +196,7 @@ async function drawChangeset(changeset: OsmChangeset, generation: number) {
     return;
   }
 
-  adiffViewer = new MapLibreAugmentedDiffViewer(adiff, {
+  adiffViewer = new MapLibreAugmentedDiffViewer(prepareAdiffForMap(adiff), {
     onClick: onAdiffClick,
     showElements: ['node', 'way', 'relation'],
     showActions: ['create', 'modify', 'delete', 'noop'],
@@ -191,8 +214,12 @@ async function drawChangeset(changeset: OsmChangeset, generation: number) {
   }
 }
 
-function drawFeedback(feedback: TdeiFeedback) {
-  resetMap();
+async function drawFeedback(feedback: TdeiFeedback, generation: number) {
+  await resetMap();
+
+  if (generation !== drawGeneration) {
+    return;
+  }
 
   popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false })
     .setLngLat([feedback.location_longitude, feedback.location_latitude])
@@ -205,8 +232,12 @@ function drawFeedback(feedback: TdeiFeedback) {
   });
 }
 
-function drawNote(note: OsmNote) {
-  resetMap();
+async function drawNote(note: OsmNote, generation: number) {
+  await resetMap();
+
+  if (generation !== drawGeneration) {
+    return;
+  }
 
   popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false })
     .setLngLat([note.lon, note.lat])

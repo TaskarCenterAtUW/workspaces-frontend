@@ -5,12 +5,11 @@ import { server } from '../../mocks/server';
 
 import type { TdeiClient } from '~/services/tdei';
 
-// getOsmChange only needs its tdei collaborator for auth: a no-op refresh and an
-// `auth` object whose `complete` flag gates the Authorization header. The real
-// BaseHttpClient runs end to end — MSW intercepts at fetch, so URL building and
-// the async XML parse are exercised.
+// Run protected requests with a test token while keeping the real HTTP client.
 const tdeiClient = {
-  tryRefreshAuth: async () => {},
+  sendProtectedRequest: async (
+    request: (accessToken: string) => Promise<Response>
+  ) => await request('test-access-token'),
   auth: { complete: false, accessToken: '' }
 } as unknown as TdeiClient;
 
