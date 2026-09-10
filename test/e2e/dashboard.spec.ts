@@ -1,6 +1,6 @@
 import { test, expect, seedAuthenticatedSession, seedProjectGroupSelection } from './fixtures';
 import { recordContract } from './contract';
-import { projectGroups, PROJECT_GROUP_ID, TEST_API_BASE } from '../mocks/fixtures';
+import { aWorkspace, projectGroups, PROJECT_GROUP_ID, TEST_API_BASE } from '../mocks/fixtures';
 
 // Generated from the @test outline in pages/dashboard.vue.
 //
@@ -53,6 +53,21 @@ test.describe('dashboard', () => {
 
     await expect(page.getByLabel('Project Group')).toHaveValue('Puget Sound');
     await expect(page.getByText('No workspaces exist in the selected project group.')).toBeVisible();
+  });
+
+  test('shows empty-workspace and missing-dataset-area notices', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
+    await page.route('**/workspaces/mine', route =>
+      route.fulfill({ json: [{ ...aWorkspace, tdeiMetadata: null }] })
+    );
+    await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
+    await page.route('**/workspaces/1/bbox', route => route.fulfill({ status: 204 }));
+
+    await page.goto('/dashboard');
+
+    await expect(page.getByText('This workspace is empty.')).toBeVisible();
+    await expect(page.getByText('No dataset area has been set for this workspace.')).toBeVisible();
   });
 
   test('clicking a failed import status loads the latest job and shows its failure response', async ({ page }) => {

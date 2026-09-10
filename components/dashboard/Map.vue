@@ -20,7 +20,7 @@
           The map preview could not be loaded.
         </div>
         <div v-else>
-          This workspace does not contain map data.
+          This workspace is empty.
         </div>
       </template>
     </div>
