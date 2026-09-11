@@ -40,6 +40,27 @@
               required
             >
           </label>
+          <div
+            v-if="checkingTitleAvailability"
+            class="text-secondary mb-3"
+            role="status"
+          >
+            Checking workspace title availability...
+          </div>
+          <div
+            v-else-if="titleAvailable === false"
+            class="alert alert-warning mb-3"
+            role="alert"
+          >
+            A workspace with this title already exists in the selected project group.
+          </div>
+          <div
+            v-else-if="titleAvailabilityError"
+            class="alert alert-secondary mb-3"
+            role="alert"
+          >
+            Unable to check workspace title availability. You can still create this workspace.
+          </div>
 
           <div class="mb-3">
             <label
@@ -159,6 +180,11 @@ const creationInitiatedModal = useTemplateRef<ComponentExposed<typeof WorkspaceC
 const workspaceTitle = ref('');
 const projectGroupId = ref<string | null>(null);
 const datasetType = ref<string | null>(null);
+const {
+  available: titleAvailable,
+  checking: checkingTitleAvailability,
+  error: titleAvailabilityError,
+} = useWorkspaceTitleAvailability(workspaceTitle, projectGroupId);
 const datasetFile = ref<File | null>(null);
 const archiveInspection = ref<DatasetArchiveInspection | null>(null);
 const archiveChecking = ref(false);

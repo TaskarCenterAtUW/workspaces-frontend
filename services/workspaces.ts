@@ -26,6 +26,8 @@ import type {
   WorkspacePatch,
   WorkspaceRole,
   WorkspaceTeam,
+  WorkspaceTitleAvailability,
+  WorkspaceTitleAvailabilityRequest,
 } from '~/types/workspaces';
 
 export function compareWorkspaceCreatedAtDesc(a: Workspace, b: Workspace) {
@@ -164,6 +166,21 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     const workspaceId = (await workspaceResponse.json()).workspaceId;
 
     return workspaceId;
+  }
+
+  async checkWorkspaceTitleAvailability(
+    request: WorkspaceTitleAvailabilityRequest
+  ): Promise<WorkspaceTitleAvailability> {
+    const originalBaseUrl = this._baseUrl;
+    this._baseUrl = this.#newApiUrl;
+
+    try {
+      const response = await this._post('workspaces/check', request);
+      return await response.json();
+    }
+    finally {
+      this._baseUrl = originalBaseUrl;
+    }
   }
 
   async createWorkspaceFromFile(file: Blob, workspace: WorkspaceCreation): Promise<WorkspaceId> {

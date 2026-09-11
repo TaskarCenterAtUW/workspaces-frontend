@@ -67,6 +67,15 @@ export interface WorkspaceCreation {
   createdByName?: string;
 }
 
+export interface WorkspaceTitleAvailabilityRequest {
+  title: string;
+  tdeiProjectGroupId: string;
+}
+
+export interface WorkspaceTitleAvailability {
+  available: boolean;
+}
+
 export interface WorkspacePatch {
   title?: string;
   description?: string;

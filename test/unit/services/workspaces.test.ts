@@ -117,6 +117,37 @@ describe('WorkspacesClient.getWorkspaceBbox', () => {
   });
 });
 
+describe('WorkspacesClient.checkWorkspaceTitleAvailability', () => {
+  const LEGACY_API_BASE = 'http://legacy-api.test/';
+  const NEW_API_BASE = 'http://new-api.test/';
+
+  it('posts the title and project group to the new API and returns availability', async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(`${NEW_API_BASE}workspaces/check`, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({ available: false });
+      })
+    );
+    const client = new WorkspacesClient(
+      LEGACY_API_BASE,
+      NEW_API_BASE,
+      tdeiClient,
+      osmClient
+    );
+
+    await expect(client.checkWorkspaceTitleAvailability({
+      title: 'Existing workspace',
+      tdeiProjectGroupId: '11111111-1111-4111-8111-111111111111',
+    })).resolves.toEqual({ available: false });
+
+    expect(receivedBody).toEqual({
+      title: 'Existing workspace',
+      tdeiProjectGroupId: '11111111-1111-4111-8111-111111111111',
+    });
+  });
+});
+
 describe('WorkspacesClient.getWorkspaceJobs', () => {
   it('returns workspace jobs from the jobs endpoint in API order', async () => {
     const jobs = [{
