@@ -34,10 +34,17 @@ const COLD_ROUTE_TIMEOUT = 30_000;
 
 // Stubs every endpoint the create-from-file flow hits so nothing 500s.
 // `opts.failCreate` forces POST /workspaces/from-file to 500 for the error path.
-async function stubCreateFlow(page: import('@playwright/test').Page, opts: { failCreate?: boolean } = {}) {
+async function stubCreateFlow(
+  page: import('@playwright/test').Page,
+  opts: { failCreate?: boolean; titleAvailable?: boolean } = {}
+) {
   // Project group picker (TDEI user API).
   await page.route('**/project-group-roles/**', route =>
     route.fulfill({ json: projectGroups })
+  );
+
+  await page.route('**/workspaces/check', route =>
+    route.fulfill({ status: 200, json: { available: opts.titleAvailable ?? true } })
   );
 
   // new-API: create the workspace from file. Spec: 201/200 with { workspaceId: <integer> }.
@@ -131,6 +138,20 @@ test.describe('create workspace from file', () => {
     await expect(page).toHaveURL(new RegExp('/dashboard\\?workspace=' + NEW_WORKSPACE_ID));
   });
 
+  test('warns when the title already exists in the selected project group', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
+    await stubCreateFlow(page, { titleAvailable: false });
+
+    await page.goto('/workspace/create/file');
+    await fillForm(page, VALID_ZIP_FILE);
+
+    await expect(page.getByRole('alert')).toContainText(
+      'A workspace with this title already exists in the selected project group.'
+    );
+    await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeEnabled();
+  });
+
   test('an invalid file type is rejected and surfaces an error', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
@@ -179,7 +200,7 @@ test.describe('create workspace from file', () => {
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
     await stubCreateFlow(page);
 
-    const contract = recordContract(page);
+    const contract = recordContract(page, { ignoredPaths: ['workspaces/check'] });
 
     await page.goto('/workspace/create/file');
     await fillForm(page, VALID_ZIP_FILE);
