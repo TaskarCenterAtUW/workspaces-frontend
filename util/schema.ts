@@ -104,3 +104,36 @@ export async function validateJson(
     return { data: null, error };
   }
 }
+
+export async function validateJsonUrl(
+  url: string,
+  schemaUrl: string,
+  cachedSchema: Ref<any>,
+  definitionName: string,
+): Promise<{ data: object | null; error: string | null }> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      return {
+        data: null,
+        error: `Could not fetch ${definitionName.toLowerCase()}: ${response.statusText}`,
+      };
+    }
+
+    return await validateJson(
+      await response.text(),
+      schemaUrl,
+      cachedSchema,
+      definitionName,
+    );
+  }
+  catch (e: unknown) {
+    let error = `Failed to fetch ${definitionName.toLowerCase()}`;
+
+    if (typeof e === 'object' && e && 'message' in e) {
+      error += `: ${e.message}`;
+    }
+
+    return { data: null, error };
+  }
+}
