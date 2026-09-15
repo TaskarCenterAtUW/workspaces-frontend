@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { WorkspacesClient, WorkspacesClientError } from '~/services/workspaces';
 import { server } from '../../mocks/server';
 import { TEST_API_BASE } from '../../mocks/fixtures';
@@ -114,6 +114,63 @@ describe('WorkspacesClient.getWorkspaceBbox', () => {
     );
 
     await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toBeUndefined();
+  });
+});
+
+describe('WorkspacesClient.createBlankWorkspace', () => {
+  it.each(['osw', 'pathways'] as const)(
+    'provisions an empty OSM store for a blank %s workspace',
+    async (type) => {
+      const createOsmWorkspace = vi.fn().mockResolvedValue(undefined);
+      const client = new WorkspacesClient(
+        TEST_API_BASE,
+        TEST_API_BASE,
+        tdeiClient,
+        { createWorkspace: createOsmWorkspace } as unknown as OsmApiClient
+      );
+      const workspace = {
+        title: 'Empty workspace',
+        type,
+        tdeiProjectGroupId: '11111111-1111-1111-1111-111111111111'
+      };
+
+      server.use(
+        http.post(`${TEST_API_BASE}workspaces`, () => {
+          expect(createOsmWorkspace).not.toHaveBeenCalled();
+          return HttpResponse.json({ workspaceId: 1909 }, { status: 201 });
+        })
+      );
+
+      await expect(client.createBlankWorkspace(workspace)).resolves.toBe(1909);
+      expect(createOsmWorkspace).toHaveBeenCalledOnce();
+      expect(createOsmWorkspace).toHaveBeenCalledWith(1909);
+    }
+  );
+
+  it('does not provision OSM when workspace record creation fails', async () => {
+    const createOsmWorkspace = vi.fn().mockResolvedValue(undefined);
+    const client = new WorkspacesClient(
+      TEST_API_BASE,
+      TEST_API_BASE,
+      tdeiClient,
+      { createWorkspace: createOsmWorkspace } as unknown as OsmApiClient
+    );
+    const workspace = {
+      title: 'Empty workspace',
+      type: 'pathways' as const,
+      tdeiProjectGroupId: '11111111-1111-1111-1111-111111111111'
+    };
+
+    server.use(
+      http.post(`${TEST_API_BASE}workspaces`, () => {
+        return new HttpResponse(null, { status: 500, statusText: 'Server Error' });
+      })
+    );
+
+    await expect(client.createBlankWorkspace(workspace)).rejects.toBeInstanceOf(
+      WorkspacesClientError
+    );
+    expect(createOsmWorkspace).not.toHaveBeenCalled();
   });
 });
 
