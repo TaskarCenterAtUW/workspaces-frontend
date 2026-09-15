@@ -271,7 +271,7 @@ test.describe('workspace review', () => {
         || !match
       ) return false;
 
-      const [zoom, lat, lon] = match.slice(1).map(Number);
+      const [zoom = NaN, lat = NaN, lon = NaN] = match.slice(1).map(Number);
       return Number.isFinite(zoom)
         && Number.isFinite(lat)
         && Number.isFinite(lon)
