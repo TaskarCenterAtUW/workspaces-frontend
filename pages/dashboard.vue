@@ -98,13 +98,54 @@
           v-if="workspaceListItems.length > 0"
           class="dashboard-workspace-list"
         >
-          <dashboard-workspace-item
-            v-for="workspace in workspaceListItems"
-            :key="workspace.id"
-            :workspace="workspace"
-            :selected="workspace.id === currentWorkspace?.id"
-            @click="selectWorkspace(workspace)"
+          <section
+            v-if="pinnedWorkspaceListItems.length > 0"
+            class="dashboard-workspace-group dashboard-pinned-workspaces"
+            aria-labelledby="pinned-workspaces-title"
+          >
+            <header class="dashboard-workspace-group-heading">
+              <h3 id="pinned-workspaces-title">Pinned Workspaces</h3>
+              <span aria-hidden="true">{{ pinnedWorkspaceListItems.length }}</span>
+            </header>
+
+            <dashboard-workspace-item
+              v-for="workspace in pinnedWorkspaceListItems"
+              :key="workspace.id"
+              :workspace="workspace"
+              :pinned="true"
+              :selected="workspace.id === currentWorkspace?.id"
+              @select="selectWorkspace(workspace)"
+              @toggle-pin="toggleWorkspacePin(workspace.id)"
+            />
+          </section>
+
+          <div
+            v-if="pinnedWorkspaceListItems.length > 0 && unpinnedWorkspaceListItems.length > 0"
+            class="dashboard-workspace-divider"
+            aria-hidden="true"
           />
+
+          <section
+            v-if="unpinnedWorkspaceListItems.length > 0"
+            class="dashboard-workspace-group"
+            :aria-labelledby="pinnedWorkspaceListItems.length > 0 ? 'all-workspaces-title' : undefined"
+          >
+            <header
+              v-if="pinnedWorkspaceListItems.length > 0"
+              class="dashboard-workspace-group-heading"
+            >
+              <h3 id="all-workspaces-title">All Workspaces</h3>
+            </header>
+
+            <dashboard-workspace-item
+              v-for="workspace in unpinnedWorkspaceListItems"
+              :key="workspace.id"
+              :workspace="workspace"
+              :selected="workspace.id === currentWorkspace?.id"
+              @select="selectWorkspace(workspace)"
+              @toggle-pin="toggleWorkspacePin(workspace.id)"
+            />
+          </section>
         </div>
 
         <div
@@ -211,10 +252,15 @@
 
 <script setup lang="ts">
 import timelineIcon from '~/assets/img/timeline.svg';
-import { tdeiUserClient, workspacesClient } from '~/services/index';
+import { tdeiAuth, tdeiUserClient, workspacesClient } from '~/services/index';
 import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 import { formatElapsed } from '~/util/time';
 import { ROLE_LABELS } from '~/util/roles';
+import {
+  readWorkspacePins,
+  removeUnavailableWorkspacePins,
+  writeWorkspacePins,
+} from '~/util/workspace-pins';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 
@@ -246,6 +292,7 @@ const currentProjectGroup = ref<string | null>(
 );
 const currentWorkspace = ref<Workspace>();
 const workspaceSearch = ref('');
+const pinnedWorkspaceIds = ref<Set<number>>(new Set());
 const refreshingWorkspaces = ref(false);
 const jobFailureDialog = useTemplateRef<JobFailureDialog>('jobFailureDialog');
 
@@ -258,13 +305,14 @@ const workspaceListItems = computed<Workspace[]>(() => {
   const normalizedSearch = workspaceSearch.value.toLocaleLowerCase();
 
   return currentWorkspaces.value
-    .filter(workspace => workspace.title.toLocaleLowerCase().includes(normalizedSearch))
-    .sort((firstWorkspace, secondWorkspace) => {
-      const selectedWorkspaceId = currentWorkspace.value?.id;
-      return Number(secondWorkspace.id === selectedWorkspaceId)
-        - Number(firstWorkspace.id === selectedWorkspaceId);
-    });
+    .filter(workspace => workspace.title.toLocaleLowerCase().includes(normalizedSearch));
 });
+const pinnedWorkspaceListItems = computed<Workspace[]>(() =>
+  workspaceListItems.value.filter(workspace => pinnedWorkspaceIds.value.has(workspace.id))
+);
+const unpinnedWorkspaceListItems = computed<Workspace[]>(() =>
+  workspaceListItems.value.filter(workspace => !pinnedWorkspaceIds.value.has(workspace.id))
+);
 const currentWorkspaceTdeiRoles = computed<string[]>(() =>
   currentWorkspace.value
     ? rolesByProjectGroup.get(currentWorkspace.value.tdeiProjectGroupId) ?? []
@@ -295,6 +343,7 @@ watch(currentWorkspaces, (nextWorkspaces) => {
 });
 
 onMounted(() => {
+  loadWorkspacePins();
   autoSelectPreferredWorkspace();
   syncSelectedWorkspace(currentWorkspaces.value);
 });
@@ -333,6 +382,33 @@ function selectWorkspace(workspace: Workspace): void {
   currentWorkspace.value = workspace;
 }
 
+function loadWorkspacePins(): void {
+  if (!tdeiAuth.subject) {
+    return;
+  }
+
+  const storedIds = readWorkspacePins(localStorage, tdeiAuth.subject);
+  const availableIds = workspaces.value.map(workspace => workspace.id);
+  const validIds = removeUnavailableWorkspacePins(storedIds, availableIds).slice(0, 1);
+  pinnedWorkspaceIds.value = new Set(validIds);
+
+  if (validIds.length !== storedIds.length || validIds[0] !== storedIds[0]) {
+    writeWorkspacePins(localStorage, tdeiAuth.subject, validIds);
+  }
+}
+
+function toggleWorkspacePin(workspaceId: number): void {
+  const nextPinnedIds = pinnedWorkspaceIds.value.has(workspaceId)
+    ? new Set<number>()
+    : new Set([workspaceId]);
+
+  pinnedWorkspaceIds.value = nextPinnedIds;
+
+  if (tdeiAuth.subject) {
+    writeWorkspacePins(localStorage, tdeiAuth.subject, nextPinnedIds);
+  }
+}
+
 function showJobFailure(workspaceId: number): void {
   void jobFailureDialog.value?.show(workspaceId);
 }
@@ -358,6 +434,15 @@ async function refreshWorkspaces(): Promise<void> {
           : workspace;
       })
       .sort(compareWorkspaceCreatedAtDesc);
+
+    const validPinnedIds = removeUnavailableWorkspacePins(
+      pinnedWorkspaceIds.value,
+      workspaces.value.map(workspace => workspace.id)
+    ).slice(0, 1);
+    pinnedWorkspaceIds.value = new Set(validPinnedIds);
+    if (tdeiAuth.subject) {
+      writeWorkspacePins(localStorage, tdeiAuth.subject, validPinnedIds);
+    }
   }
   catch (error: unknown) {
     toast.error(error instanceof Error ? error.message : 'Failed to refresh workspaces.');
@@ -606,6 +691,51 @@ $dashboard-create-button-radius: 0.375rem;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba($secondary, 0.3) transparent;
+}
+
+.dashboard-workspace-group {
+  display: grid;
+  gap: $dashboard-panel-gap;
+}
+
+.dashboard-pinned-workspaces {
+  padding: 0.85rem;
+  border: $border-width solid rgba($primary, 0.25);
+  border-radius: $dashboard-shell-radius;
+}
+
+.dashboard-workspace-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dashboard-workspace-group-heading h3 {
+  margin: 0;
+  color: $text-navy;
+  font-family: var(--primary-font-family);
+  font-size: 0.875rem;
+  font-weight: $font-weight-bold;
+  letter-spacing: 0.01em;
+}
+
+.dashboard-workspace-group-heading > span {
+  min-width: 1.5rem;
+  padding: 0.1rem 0.4rem;
+  color: $primary;
+  font-size: 0.75rem;
+  font-weight: $font-weight-bold;
+  text-align: center;
+  background: rgba($primary, 0.12);
+  border-radius: 999px;
+}
+
+.dashboard-workspace-divider {
+  height: 2px;
+  margin: 0.25rem 0;
+  background: rgba($secondary, 0.28);
+  border-radius: 999px;
 }
 
 .dashboard-search-empty {
