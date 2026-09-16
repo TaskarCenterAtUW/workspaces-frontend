@@ -100,12 +100,12 @@
         >
           <section
             v-if="pinnedWorkspaceListItems.length > 0"
-            class="dashboard-workspace-group dashboard-pinned-workspaces"
+            class="dashboard-workspace-group"
             aria-labelledby="pinned-workspaces-title"
           >
             <header class="dashboard-workspace-group-heading">
-              <h3 id="pinned-workspaces-title">Pinned Workspaces</h3>
-              <span aria-hidden="true">{{ pinnedWorkspaceListItems.length }}</span>
+              <h3 id="pinned-workspaces-title">Pinned Workspace</h3>
+              <!-- <span aria-hidden="true">{{ pinnedWorkspaceListItems.length }}</span> -->
             </header>
 
             <dashboard-workspace-item
@@ -684,7 +684,7 @@ $dashboard-create-button-radius: 0.375rem;
 .dashboard-workspace-list {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 0 $dashboard-panel-padding $dashboard-panel-padding;
+  padding: 5px $dashboard-panel-padding $dashboard-panel-padding;
   display: grid;
   align-content: start;
   gap: $dashboard-panel-gap;
@@ -732,10 +732,9 @@ $dashboard-create-button-radius: 0.375rem;
 }
 
 .dashboard-workspace-divider {
-  height: 2px;
-  margin: 0.25rem 0;
+  height: 1.5px;
+  margin: 15px 0;
   background: rgba($secondary, 0.28);
-  border-radius: 999px;
 }
 
 .dashboard-search-empty {

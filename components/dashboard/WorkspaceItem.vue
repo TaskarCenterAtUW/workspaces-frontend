@@ -269,8 +269,8 @@ $workspace-card-meta-icon-height: 0.85rem;
 }
 
 .workspace-card-pin img {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
 }
 
 .workspace-card-pin:hover,
