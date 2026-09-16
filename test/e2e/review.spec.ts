@@ -261,9 +261,26 @@ test.describe('workspace review', () => {
 
     // openEditor() navigates to /workspace/1/edit with a #map=zoom/lat/lon hash
     // derived from the map. The proper hash MUST be present.
-    await expect(page).toHaveURL(/\/workspace\/1\/edit/);
-    await expect(page).toHaveURL(/datatype=osw/);
-    await expect(page).toHaveURL(/#map=[-\d.]+\/[-\d.]+\/[-\d.]+/);
+    await expect.poll(() => {
+      const url = new URL(page.url());
+      const match = url.hash
+        .match(/^#map=([^/]+)\/([^/]+)\/([^/]+)$/);
+      if (
+        url.pathname !== '/workspace/1/edit'
+        || url.searchParams.get('datatype') !== 'osw'
+        || !match
+      ) return false;
+
+      const [zoom = NaN, lat = NaN, lon = NaN] = match.slice(1).map(Number);
+      return Number.isFinite(zoom)
+        && Number.isFinite(lat)
+        && Number.isFinite(lon)
+        && zoom >= 0
+        && lat >= -90
+        && lat <= 90
+        && lon >= -180
+        && lon <= 180;
+    }, { timeout: 30_000 }).toBe(true);
   });
 
   // @test e2e: while the data is loading on the map a spinner appears (assert() this is true)

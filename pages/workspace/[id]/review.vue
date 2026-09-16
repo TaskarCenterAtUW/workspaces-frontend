@@ -58,9 +58,16 @@
           class="review-notice review-notice-error"
           role="alert"
         >
-          <p class="d-flex h-100 align-items-center justify-content-center mb-0 text-center px-3">
+          <p class="mb-0 text-center px-3">
             {{ mapError }}
           </p>
+          <button
+            class="btn btn-outline-danger"
+            type="button"
+            @click="retryMap"
+          >
+            Try again
+          </button>
         </div>
       </transition>
 
@@ -138,6 +145,10 @@ function showImage() {
   if (currentImageUrl.value) {
     imageViewer.value?.show(currentImageUrl.value);
   }
+}
+
+function retryMap() {
+  void map.value?.retry();
 }
 
 async function refresh() {
@@ -224,6 +235,11 @@ async function openEditor() {
   }
 
   .review-notice-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
     background-color: var(--bs-body-bg);
     color: $danger-red;
   }
