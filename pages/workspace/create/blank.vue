@@ -147,7 +147,7 @@ async function create() {
 
   try {
     await creating.wrap(workspacesClient, async (client) => {
-      await client.createWorkspace({
+      await client.createBlankWorkspace({
         title: workspaceTitle.value,
         type: datasetType.value as WorkspaceType,
         tdeiProjectGroupId: projectGroupId.value!

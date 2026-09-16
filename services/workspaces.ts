@@ -168,6 +168,13 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     return workspaceId;
   }
 
+  /// Create a new workspace (Blank) and provision it in the OSM API.
+  async createBlankWorkspace(workspace: WorkspaceCreation): Promise<WorkspaceId> {
+    const workspaceId = await this.createWorkspace(workspace);
+    await this.#osmClient.createWorkspace(workspaceId);
+    return workspaceId;
+  }
+
   async checkWorkspaceTitleAvailability(
     request: WorkspaceTitleAvailabilityRequest
   ): Promise<WorkspaceTitleAvailability> {

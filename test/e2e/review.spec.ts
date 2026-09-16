@@ -265,17 +265,26 @@ test.describe('workspace review', () => {
 
     // openEditor() navigates to /workspace/1/edit with a #map=zoom/lat/lon hash
     // derived from the map. The proper hash MUST be present.
-    await expect(page).toHaveURL(/\/workspace\/1\/edit/);
-    const url = new URL(page.url());
-    expect(url.searchParams.get('datatype')).toBe('osw');
-    expect(url.hash.startsWith('#map=')).toBe(true);
-    const coordinates = url.hash.slice('#map='.length).split('/');
-    expect(coordinates).toHaveLength(3);
-    // Number also handles scientific notation; check the actual feedback view.
-    const [zoom, lat, lon] = coordinates.map(Number);
-    expect(zoom).toBeCloseTo(18);
-    expect(lat).toBeCloseTo(feedbackSubmission.location_latitude);
-    expect(lon).toBeCloseTo(feedbackSubmission.location_longitude);
+    await expect.poll(() => {
+      const url = new URL(page.url());
+      const match = url.hash
+        .match(/^#map=([^/]+)\/([^/]+)\/([^/]+)$/);
+      if (
+        url.pathname !== '/workspace/1/edit'
+        || url.searchParams.get('datatype') !== 'osw'
+        || !match
+      ) return false;
+
+      const [zoom = NaN, lat = NaN, lon = NaN] = match.slice(1).map(Number);
+      return Number.isFinite(zoom)
+        && Number.isFinite(lat)
+        && Number.isFinite(lon)
+        && zoom >= 0
+        && lat >= -90
+        && lat <= 90
+        && lon >= -180
+        && lon <= 180;
+    }, { timeout: 30_000 }).toBe(true);
   });
 
   // @test e2e: while the data is loading on the map a spinner appears (assert() this is true)

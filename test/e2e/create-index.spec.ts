@@ -17,7 +17,7 @@ const PATHWAYS_ZIP = Buffer.from(
 //
 // Stubs the forms need:
 //   - GET tdei-user/project-group-roles/{subject}  -> projectGroups (ProjectGroupPicker)
-//   - POST workspaces                              -> { workspaceId: <int> } (createWorkspace)
+//   - POST workspaces                              -> { workspaceId: <int> } (createBlankWorkspace)
 //   - POST workspaces/from-file                    -> { workspaceId: <int> } (file import)
 //   - PUT osm/workspaces/{id}                      -> 200 (blank workspace provisioning)
 
