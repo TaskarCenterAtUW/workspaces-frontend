@@ -1,12 +1,12 @@
 <template>
   <form
-    class="card mb-4"
+    class="card mb-4 setting-card-item"
     @submit.prevent="saveExternalAppConfiguration"
   >
     <div class="card-body border-bottom">
-      <h3 class="card-title mb-3">
+      <h2 class="card-title">
         External Apps
-      </h3>
+      </h2>
 
       <b-alert
         v-if="!isLead"
@@ -32,11 +32,11 @@
         </label>
       </div>
 
-      <hr>
+      <hr class="horizontal-separator">
 
-      <h4 class="h5">
+      <h3 class="label-secondary">
         AVIV ScoutRoute Long Form Quest Definitions
-      </h4>
+      </h3>
 
       <div class="form-check">
         <label class="form-check-label">
@@ -66,7 +66,7 @@
       </div>
 
       <template v-if="longFormQuestType === 'JSON'">
-        <label class="d-block form-label mt-3">
+        <label class="d-block form-label mt-4">
           JSON Quest Definition
           <textarea
             v-model.trim="longFormQuestDef"
@@ -103,7 +103,7 @@
       </template>
 
       <template v-else-if="longFormQuestType === 'URL'">
-        <label class="d-block form-label mt-3">
+        <label class="d-block form-label mt-4">
           Quest Definition URL
           <input
             v-model.trim="longFormQuestUrl"
@@ -142,7 +142,7 @@
         {{ longFormQuestError }}
       </div>
 
-      <hr>
+      <hr class="horizontal-separator">
       <button
         type="submit"
         class="btn btn-primary"
@@ -284,3 +284,24 @@ async function saveExternalAppConfiguration() {
   }
 }
 </script>
+
+<style lang="scss" scoped>
+.setting-card-item {
+  background-color: #FFFFFF;
+  border: 1px solid #D9D9D9;
+  border-radius: 10px;
+}
+.card-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+.horizontal-separator {
+  border-top: 1px dashed;
+}
+.label-secondary {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 15px;
+}
+</style>
