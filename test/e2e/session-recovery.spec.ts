@@ -100,6 +100,10 @@ test('redirects an open sign-in tab after another tab signs in', async ({ page, 
   await page.goto('/signin');
   await otherPage.goto('/signin');
 
+  // Wait for both apps and their storage listeners before sharing credentials.
+  await expect(page.getByRole('button', { name: 'TDEI Login', exact: true })).toBeVisible();
+  await expect(otherPage.getByRole('button', { name: 'TDEI Login', exact: true })).toBeVisible();
+
   await page.evaluate(() => {
     localStorage.setItem('tdei-auth', JSON.stringify({
       username: 'tester',
@@ -125,6 +129,10 @@ test('synchronizes renewed credentials and recoverable expiry across open tabs',
 
   await page.goto('/help');
   await otherPage.goto('/workspace/create');
+
+  await expect(page.locator('.user-profile')).toContainText('Tester');
+  await expect(otherPage.locator('.user-profile')).toContainText('Tester');
+  await expect(otherPage.getByRole('heading', { name: 'Create a Workspace', exact: true })).toBeVisible();
 
   await page.evaluate(() => {
     localStorage.setItem('tdei-auth', JSON.stringify({ username: 'tester' }));
