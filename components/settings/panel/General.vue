@@ -1,5 +1,5 @@
 <template>
-  <section class="card mb-4">
+  <section class="card mb-4 setting-card-item">
     <div class="card-body">
       <b-alert
         v-if="!isLead"
@@ -39,7 +39,7 @@
         </button>
       </form>
 
-      <hr>
+      <hr class="horizontal-separator">
 
       <div class="form-check form-switch">
         <input
@@ -114,3 +114,16 @@ async function saveAutoFlagReview() {
   }
 }
 </script>
+<style lang="scss" scoped>
+.setting-card-item {
+  background-color: #FFFFFF;
+  border: 1px solid #D9D9D9;
+  border-radius: 10px;
+}
+.form-check-label {
+  font-weight: 500;
+}
+.horizontal-separator {
+  border-top: 1px dashed;
+}
+</style>

@@ -1,12 +1,12 @@
 <template>
   <form
-    class="card mb-4"
+    class="card mb-4 setting-card-item"
     @submit.prevent="saveImageryConfiguration"
   >
     <div class="card-body">
-      <h3 class="card-title mb-3">
+      <h2 class="card-title">
         Custom Imagery
-      </h3>
+      </h2>
 
       <b-alert
         v-if="!isLead"
@@ -58,7 +58,7 @@
           {{ imageryError }}
         </div>
       </label>
-
+      <hr class="horizontal-separator">
       <button
         type="submit"
         class="btn btn-primary"
@@ -149,3 +149,18 @@ async function saveImageryConfiguration() {
   }
 }
 </script>
+<style lang="scss" scoped>
+.setting-card-item {
+  background-color: #FFFFFF;
+  border: 1px solid #D9D9D9;
+  border-radius: 10px;
+}
+.card-title {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+.horizontal-separator {
+  border-top: 1px dashed;
+}
+</style>
