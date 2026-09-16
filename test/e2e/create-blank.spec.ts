@@ -5,7 +5,7 @@ import { projectGroups, myWorkspaces, PROJECT_GROUP_ID } from '../mocks/fixtures
 // Generated from the @test outline in pages/workspace/create/blank.vue.
 //
 // The blank-create form (title + workspace type + project group) submits via
-// workspacesClient.createWorkspace, which:
+// workspacesClient.createBlankWorkspace, which:
 //   1) POST http://api.test/workspaces  (WorkspaceCreate body) -> { workspaceId }
 //   2) PUT  http://api.test/osm/workspaces/{id}  (provision)
 // then the page calls navigateTo('/dashboard').
