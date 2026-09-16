@@ -70,6 +70,27 @@ test.describe('dashboard', () => {
     await expect(page.getByText('No dataset area has been set for this workspace.')).toBeVisible();
   });
 
+  test('shows the empty-workspace notice when bbox returns HTTP 200 with null coordinates', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
+    await page.route('**/workspaces/mine', route =>
+      route.fulfill({ json: [{ ...aWorkspace, tdeiMetadata: null }] })
+    );
+    await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
+    await page.route('**/workspaces/1/bbox', route => route.fulfill({
+      status: 200,
+      json: { max_lat: null, max_lon: null, min_lat: null, min_lon: null }
+    }));
+
+    await page.goto('/dashboard');
+
+    await expect(page.getByText('This workspace is empty.', { exact: true })).toBeVisible();
+    await expect(page.locator('.workspace-map-surface')).toBeHidden();
+    await expect(page.getByText('The map preview could not be loaded.', { exact: true })).toBeHidden();
+    await expect(page.getByText('No dataset area has been set for this workspace.', { exact: true }))
+      .toBeVisible();
+  });
+
   test('clicking a failed import status loads the latest job and shows its failure response', async ({ page }) => {
     const failedWorkspace = {
       id: 1769,
