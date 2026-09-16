@@ -156,7 +156,7 @@ async function saveImageryConfiguration() {
   border-radius: 10px;
 }
 .card-title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 600;
   margin-bottom: 20px;
 }
