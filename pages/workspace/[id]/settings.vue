@@ -15,7 +15,10 @@
 //            and error states are handled properly with toasts (playwright snapshot these)
 
 <template>
-  <app-page fluid class="workspace-edit-page">
+  <app-page
+    fluid
+    class="workspace-edit-page"
+  >
     <div class="workspace-settings-header">
       <nav
         class="workspace-settings-breadcrumbs"

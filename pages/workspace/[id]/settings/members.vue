@@ -8,7 +8,10 @@
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 // @test e2e: validate that each member has a badge or clear role via being listed under a header that names the role
 <template>
-  <b-col lg="7" class="workspace-setting-tab-column-right">
+  <b-col
+    lg="7"
+    class="workspace-setting-tab-column-right"
+  >
     <b-alert
       v-if="accessDenied"
       variant="info"
@@ -325,6 +328,7 @@ async function setRole(member: MemberEntry, role?: WorkspaceRole) {
   }
 }
 </script>
+
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 .workspace-setting-tab-column-right {
@@ -423,5 +427,4 @@ async function setRole(member: MemberEntry, role?: WorkspaceRole) {
   background-color: #ffffff;
   border-radius: 5px;
 }
-
 </style>

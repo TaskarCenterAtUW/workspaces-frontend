@@ -114,6 +114,7 @@ async function saveAutoFlagReview() {
   }
 }
 </script>
+
 <style lang="scss" scoped>
 .setting-card-item {
   background-color: #FFFFFF;

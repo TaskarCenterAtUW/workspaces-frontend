@@ -14,13 +14,13 @@
   <app-page class="create-container">
     <div class="create-container-header">
       <img
-          :src="createIcon"
-          class="create-icon"
-          alt=""
-        >
-        <h1 class="create-heading">Create a Workspace</h1>
-        <p class="create-sub-heading">Choose how you want to create your workspace. Each option offers different ways to get started.</p>
-    </div> 
+        :src="createIcon"
+        class="create-icon"
+        alt=""
+      >
+      <h1 class="create-heading">Create a Workspace</h1>
+      <p class="create-sub-heading">Choose how you want to create your workspace. Each option offers different ways to get started.</p>
+    </div>
     <div class="row row-cols-1 row-cols-md-3 g-4">
       <div class="col">
         <div class="card create-category">
@@ -112,7 +112,6 @@ import createIcon from '~/assets/img/create-icon.svg';
 import createBlankIcon from '~/assets/img/create_blank.svg';
 import createTdeiIcon from '~/assets/img/create_tdei.svg';
 import createFileIcon from '~/assets/img/create_file.svg';
-
 </script>
 
 <style lang="scss" scoped>

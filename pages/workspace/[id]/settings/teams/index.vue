@@ -153,6 +153,7 @@ async function remove(team: WorkspaceTeam) {
   }
 }
 </script>
+
 <style lang="scss" scoped>
 .workspace-setting-tab-column-right {
   padding: 30px 30px;
