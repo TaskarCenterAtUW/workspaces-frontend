@@ -6,6 +6,8 @@ import {
   test,
 } from './fixtures';
 
+const COLD_ROUTE_TIMEOUT = 30_000;
+
 test('shows session recovery before loading a protected page', async ({ page }) => {
   await seedExpiredSession(page);
   await page.route('**/sso-logout**', route => route.abort());
@@ -100,6 +102,9 @@ test('redirects an open sign-in tab after another tab signs in', async ({ page, 
   await page.goto('/signin');
   await otherPage.goto('/signin');
 
+  await expect(otherPage.getByRole('button', { name: 'TDEI Login' }))
+    .toBeVisible({ timeout: COLD_ROUTE_TIMEOUT });
+
   await page.evaluate(() => {
     localStorage.setItem('tdei-auth', JSON.stringify({
       username: 'tester',
@@ -113,7 +118,9 @@ test('redirects an open sign-in tab after another tab signs in', async ({ page, 
     }));
   });
 
-  await expect(otherPage).toHaveURL(/\/dashboard$/);
+  await expect(otherPage).toHaveURL(/\/dashboard$/, {
+    timeout: COLD_ROUTE_TIMEOUT
+  });
   await expect(otherPage.locator('.user-profile')).toContainText('Tester');
   await expect(otherPage.getByRole('button', { name: 'TDEI Login' })).toHaveCount(0);
 });
@@ -126,11 +133,17 @@ test('synchronizes renewed credentials and recoverable expiry across open tabs',
   await page.goto('/help');
   await otherPage.goto('/workspace/create');
 
+  // Ensure the receiving tab has hydrated and subscribed to storage events.
+  await expect(otherPage.locator('.user-profile'))
+    .toContainText('Tester', { timeout: COLD_ROUTE_TIMEOUT });
+
   await page.evaluate(() => {
     localStorage.setItem('tdei-auth', JSON.stringify({ username: 'tester' }));
   });
 
-  await expect(otherPage).toHaveURL(/\/session-expired\?returnTo=\/workspace\/create$/);
+  await expect(otherPage).toHaveURL(/\/session-expired\?returnTo=\/workspace\/create$/, {
+    timeout: COLD_ROUTE_TIMEOUT
+  });
   await expect(otherPage.getByRole('dialog', { name: 'Session Expired' })).toBeVisible();
 
   await page.evaluate(() => {
@@ -146,7 +159,9 @@ test('synchronizes renewed credentials and recoverable expiry across open tabs',
     }));
   });
 
-  await expect(otherPage).toHaveURL(/\/workspace\/create$/);
+  await expect(otherPage).toHaveURL(/\/workspace\/create$/, {
+    timeout: COLD_ROUTE_TIMEOUT
+  });
   await expect(otherPage.getByRole('dialog', { name: 'Session Expired' })).toBeHidden();
   await expect(otherPage.locator('.user-profile')).toContainText('Renewed Tester');
 });

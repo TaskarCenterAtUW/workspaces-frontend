@@ -1,15 +1,9 @@
-- text: 
-- heading "Blank Workspace" [level=5]
-- paragraph: Create an empty workspace with no data.
-- link "Start ":
+- text: Blank Workspace Create an empty workspace with no data.
+- link "Create Blank Workspace ":
   - /url: /workspace/create/blank
-- text: 
-- heading "From TDEI" [level=5]
-- paragraph: Create a workspace by importing an asset stored in the TDEI.
-- link "Start ":
+- text: From TDEI Create a workspace by importing an asset stored in the TDEI.
+- link "Create From TDEI ":
   - /url: /workspace/create/tdei
-- text: 
-- heading "From File" [level=5]
-- paragraph: Create a workspace from an OpenSidewalks data file on your computer.
-- link "Start ":
+- text: From File Create a workspace from an OpenSidewalks data file on your computer.
+- link "Create From File ":
   - /url: /workspace/create/file

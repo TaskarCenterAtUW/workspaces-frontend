@@ -91,24 +91,23 @@ const notesGeoJson = {
 };
 
 // TDEI feedback list (array). Dates are ISO strings the client parses.
-const feedback = [
-  {
-    id: 555,
-    status: 'open',
-    location_latitude: 47.607,
-    location_longitude: -122.338,
-    customer_email: 'rider@example.com',
-    feedback_text: 'This crossing is hard to navigate in a wheelchair',
-    created_at: '2026-06-14T09:00:00.000Z',
-    updated_at: '2026-06-14T09:00:00.000Z',
-    due_date: '2099-06-14T09:00:00.000Z',
-    resolution_status: null,
-    resolution_description: null,
-    resolved_by: null,
-    project_group: { tdei_project_group_id: PROJECT_GROUP_ID, name: 'Puget Sound' },
-    dataset: { tdei_dataset_id: TDEI_RECORD_ID, name: 'Seattle Sidewalks' }
-  }
-];
+const feedbackSubmission = {
+  id: 555,
+  status: 'open',
+  location_latitude: 47.607,
+  location_longitude: -122.338,
+  customer_email: 'rider@example.com',
+  feedback_text: 'This crossing is hard to navigate in a wheelchair',
+  created_at: '2026-06-14T09:00:00.000Z',
+  updated_at: '2026-06-14T09:00:00.000Z',
+  due_date: '2099-06-14T09:00:00.000Z',
+  resolution_status: null,
+  resolution_description: null,
+  resolved_by: null,
+  project_group: { tdei_project_group_id: PROJECT_GROUP_ID, name: 'Puget Sound' },
+  dataset: { tdei_dataset_id: TDEI_RECORD_ID, name: 'Seattle Sidewalks' }
+};
+const feedback = [feedbackSubmission];
 
 // A minimal osmChange XML for the changeset download (getOsc, triggered when an
 // item scrolls into view). Keeps the OSC parser happy without driving the map.
@@ -246,6 +245,7 @@ test.describe('workspace review', () => {
   test('clicking edit opens the editor with a map-view hash in the URL', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await stubReviewApis(page);
+    await page.route('https://ecn.*.tiles.virtualearth.net/**', route => route.abort());
     // The editor page itself will fetch the workspace; stub already covers it.
 
     await page.goto('/workspace/1/review');
@@ -254,6 +254,10 @@ test.describe('workspace review', () => {
       .locator('.review-item', { hasText: 'This crossing is hard to navigate' });
     await feedbackItem.click();
 
+    // Selection shows the toolbar before the asynchronous map draw completes.
+    await expect(page.locator('.maplibregl-popup')).toContainText(feedbackSubmission.feedback_text);
+    await expect(page.locator('.map-loading-overlay')).toBeHidden();
+
     const editButton = page.locator('.review-toolbar')
       .getByRole('button', { name: /Edit Here/ });
     await expect(editButton).toBeVisible();
@@ -261,9 +265,26 @@ test.describe('workspace review', () => {
 
     // openEditor() navigates to /workspace/1/edit with a #map=zoom/lat/lon hash
     // derived from the map. The proper hash MUST be present.
-    await expect(page).toHaveURL(/\/workspace\/1\/edit/);
-    await expect(page).toHaveURL(/datatype=osw/);
-    await expect(page).toHaveURL(/#map=[-\d.]+\/[-\d.]+\/[-\d.]+/);
+    await expect.poll(() => {
+      const url = new URL(page.url());
+      const match = url.hash
+        .match(/^#map=([^/]+)\/([^/]+)\/([^/]+)$/);
+      if (
+        url.pathname !== '/workspace/1/edit'
+        || url.searchParams.get('datatype') !== 'osw'
+        || !match
+      ) return false;
+
+      const [zoom = NaN, lat = NaN, lon = NaN] = match.slice(1).map(Number);
+      return Number.isFinite(zoom)
+        && Number.isFinite(lat)
+        && Number.isFinite(lon)
+        && zoom >= 0
+        && lat >= -90
+        && lat <= 90
+        && lon >= -180
+        && lon <= 180;
+    }, { timeout: 30_000 }).toBe(true);
   });
 
   // @test e2e: while the data is loading on the map a spinner appears (assert() this is true)
