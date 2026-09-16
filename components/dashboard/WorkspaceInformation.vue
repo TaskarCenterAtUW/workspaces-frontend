@@ -26,6 +26,10 @@
         <span>TDEI Dataset Version</span>
         <strong>{{ datasetVersion }}</strong>
       </div>
+      <div class="workspace-information-version workspace-information-id">
+        <span>Workspace ID</span>
+        <strong>{{ props.workspace.id }}</strong>
+      </div>
     </div>
 
     <dl class="workspace-information-grid">

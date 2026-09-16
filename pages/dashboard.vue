@@ -1,205 +1,113 @@
 <template>
-  <app-page
-    fluid
-    class="dashboard-page"
-  >
+  <app-page fluid class="dashboard-page">
     <h1 class="visually-hidden">Dashboard</h1>
 
     <header class="dashboard-topbar">
       <div class="dashboard-project-group-control">
         <label for="ws_project_group_picker">Project Group</label>
-        <project-group-picker
-          id="ws_project_group_picker"
-          v-model="currentProjectGroup"
-          :options="myProjectGroups"
-          remember-selection
-        />
+        <project-group-picker id="ws_project_group_picker" v-model="currentProjectGroup" :options="myProjectGroups"
+          remember-selection />
       </div>
 
-      <nuxt-link
-        class="btn btn-primary dashboard-create-button"
-        to="/workspace/create"
-      >
-        <app-icon
-          variant="add"
-          size="22"
-          no-margin
-        />
+      <nuxt-link class="btn btn-primary dashboard-create-button" to="/workspace/create">
+        <app-icon variant="add" size="22" no-margin />
         Create Workspace
       </nuxt-link>
     </header>
+    <section v-if="requestedWorkspaceNotFound" class="dashboard-empty-state" role="alert">
+      <h2>Workspace not found</h2>
+      <p>
+        This workspace does not exist or you do not have permission to access it.
+      </p>
 
-    <section
-      v-if="currentWorkspaces.length === 0"
-      class="dashboard-empty-state"
-      aria-live="polite"
-    >
-      <span
-        class="dashboard-empty-icon"
-        aria-hidden="true"
-      >
-        <app-icon
-          variant="workspaces"
-          size="30"
-          no-margin
-        />
+      <nuxt-link class="btn btn-primary" to="/dashboard">
+        View my workspaces
+      </nuxt-link>
+    </section>
+    <section v-else-if="currentWorkspaces.length === 0" class="dashboard-empty-state" aria-live="polite">
+      <span class="dashboard-empty-icon" aria-hidden="true">
+        <app-icon variant="workspaces" size="30" no-margin />
       </span>
       <h2>No workspaces yet</h2>
       <p>No workspaces exist in the selected project group.</p>
-      <nuxt-link
-        class="btn btn-primary"
-        to="/workspace/create"
-      >
+      <nuxt-link class="btn btn-primary" to="/workspace/create">
         Create Workspace
       </nuxt-link>
     </section>
 
-    <section
-      v-else
-      class="dashboard-shell"
-    >
-      <aside
-        class="dashboard-workspace-panel"
-        aria-labelledby="workspace-list-title"
-      >
+    <section v-else class="dashboard-shell">
+      <aside class="dashboard-workspace-panel" aria-labelledby="workspace-list-title">
         <div class="dashboard-workspace-panel-header">
           <h2 id="workspace-list-title">Workspaces</h2>
 
           <div class="dashboard-workspace-search">
-            <label
-              class="visually-hidden"
-              for="dashboard-workspace-search"
-            >
+            <label class="visually-hidden" for="dashboard-workspace-search">
               Search workspaces
             </label>
-            <input
-              id="dashboard-workspace-search"
-              v-model.trim="workspaceSearch"
-              class="form-control"
-              type="search"
-              placeholder="Search Workspaces"
-            >
-            <app-icon
-              variant="search"
-              size="22"
-              no-margin
-            />
+            <input id="dashboard-workspace-search" v-model.trim="workspaceSearch" class="form-control" type="search"
+              placeholder="Search Workspaces">
+            <app-icon variant="search" size="22" no-margin />
           </div>
         </div>
 
-        <p
-          class="visually-hidden"
-          aria-live="polite"
-        >
+        <p class="visually-hidden" aria-live="polite">
           {{ workspaceListSummary }}
         </p>
 
-        <div
-          v-if="workspaceListItems.length > 0"
-          class="dashboard-workspace-list"
-        >
-          <dashboard-workspace-item
-            v-for="workspace in workspaceListItems"
-            :key="workspace.id"
-            :workspace="workspace"
-            :selected="workspace.id === currentWorkspace?.id"
-            @click="selectWorkspace(workspace)"
-          />
+        <div v-if="workspaceListItems.length > 0" class="dashboard-workspace-list">
+          <dashboard-workspace-item v-for="workspace in workspaceListItems" :key="workspace.id" :workspace="workspace"
+            :selected="workspace.id === currentWorkspace?.id" @click="selectWorkspace(workspace)" />
         </div>
 
-        <div
-          v-else
-          class="dashboard-search-empty"
-          aria-live="polite"
-        >
+        <div v-else class="dashboard-search-empty" aria-live="polite">
           <p>No workspaces match “{{ workspaceSearch }}”.</p>
-          <button
-            class="btn btn-link"
-            type="button"
-            @click="workspaceSearch = ''"
-          >
+          <button class="btn btn-link" type="button" @click="workspaceSearch = ''">
             Clear search
           </button>
         </div>
       </aside>
 
-      <section
-        v-if="currentWorkspace"
-        class="dashboard-workspace-details"
-        aria-labelledby="dashboard-workspace-title"
-      >
+      <section v-if="currentWorkspace" class="dashboard-workspace-details" aria-labelledby="dashboard-workspace-title">
         <header class="dashboard-workspace-header">
           <div class="dashboard-workspace-heading">
             <h2 id="dashboard-workspace-title">
               <span class="dashboard-workspace-title-text">{{ currentWorkspace.title }}</span>
-              <dashboard-workspace-import-status-badge
-                v-if="currentWorkspace.importStatus
-                  && currentWorkspace.importStatus !== 'empty'"
-                :status="currentWorkspace.importStatus"
+              <dashboard-workspace-import-status-badge v-if="currentWorkspace.importStatus
+                && currentWorkspace.importStatus !== 'empty'" :status="currentWorkspace.importStatus"
                 :interactive="currentWorkspace.importStatus === 'failed'"
-                @click="showJobFailure(currentWorkspace.id)"
-              />
+                @click="showJobFailure(currentWorkspace.id)" />
             </h2>
             <div class="dashboard-workspace-heading-meta">
               <span class="dashboard-workspace-badge">{{ workspaceTypeLabel }}</span>
               <span class="dashboard-workspace-badge">{{ workspaceRoleLabel }}</span>
               <span class="dashboard-workspace-updated">
-                <img
-                  :src="timelineIcon"
-                  alt=""
-                >
+                <img :src="timelineIcon" alt="">
                 Updated {{ workspaceUpdatedTime }}
               </span>
             </div>
           </div>
 
-          <dashboard-toolbar
-            :workspace="currentWorkspace"
-            :refreshing="refreshingWorkspaces"
-            @refresh="refreshWorkspaces"
-          />
+          <dashboard-toolbar :workspace="currentWorkspace" :refreshing="refreshingWorkspaces"
+            @refresh="refreshWorkspaces" />
         </header>
 
         <div class="dashboard-details-content">
           <div class="dashboard-map-frame">
-            <dashboard-map
-              :workspace="currentWorkspace"
-              @center-loaded="onCenterLoaded"
-            />
+            <dashboard-map :workspace="currentWorkspace" @center-loaded="onCenterLoaded" />
           </div>
 
-          <dashboard-workspace-information
-            :workspace="currentWorkspace"
-            :my-tdei-roles="currentWorkspaceTdeiRoles"
-          />
+          <dashboard-workspace-information :workspace="currentWorkspace" :my-tdei-roles="currentWorkspaceTdeiRoles" />
         </div>
       </section>
-
-      <section
-        v-else
-        class="dashboard-workspace-details dashboard-workspace-unavailable"
-        aria-live="polite"
-      >
-        <app-icon
-          variant="hourglass_empty"
-          size="30"
-          no-margin
-        />
+      <section v-else class="dashboard-workspace-details dashboard-workspace-unavailable" aria-live="polite">
+        <app-icon variant="hourglass_empty" size="30" no-margin />
         <h2>No workspace available to open</h2>
         <p>
           Workspaces still being set up cannot be opened. Use Refresh to check their latest status.
         </p>
-        <button
-          class="btn btn-outline-secondary"
-          type="button"
-          :disabled="refreshingWorkspaces"
-          @click="refreshWorkspaces"
-        >
-          <app-icon
-            variant="refresh"
-            size="20"
-            no-margin
-          />
+        <button class="btn btn-outline-secondary" type="button" :disabled="refreshingWorkspaces"
+          @click="refreshWorkspaces">
+          <app-icon variant="refresh" size="20" no-margin />
           Refresh
         </button>
       </section>
@@ -217,6 +125,7 @@ import { formatElapsed } from '~/util/time';
 import { ROLE_LABELS } from '~/util/roles';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
+import { parsePositiveIntegerQuery } from '~/util/route-query';
 
 import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
 
@@ -227,6 +136,8 @@ type JobFailureDialog = {
 const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
 const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
 const route = useRoute();
+const router = useRouter();
+const requestedWorkspaceNotFound = ref(false);
 
 const [initialWorkspaces, { items: myProjectGroups }] = await Promise.all([
   workspacesClient.getMyWorkspaces().then(items => items.sort(compareWorkspaceCreatedAtDesc)),
@@ -293,13 +204,31 @@ watch(currentWorkspaces, (nextWorkspaces) => {
   workspaceSearch.value = '';
   syncSelectedWorkspace(nextWorkspaces);
 });
+watch(
+  () => route.query.workspace,
+  () => {
+    applyWorkspaceFromRoute();
+
+    if (!requestedWorkspaceNotFound.value) {
+      syncSelectedWorkspace(currentWorkspaces.value);
+    }
+  }
+);
 
 onMounted(() => {
-  autoSelectPreferredWorkspace();
-  syncSelectedWorkspace(currentWorkspaces.value);
+  applyWorkspaceFromRoute();
+  if (!requestedWorkspaceNotFound.value) {
+    syncSelectedWorkspace(currentWorkspaces.value);
+  }
 });
 
-function syncSelectedWorkspace(availableWorkspaces: Workspace[]): void {
+function syncSelectedWorkspace(
+  availableWorkspaces: Workspace[]
+): void {
+  if (requestedWorkspaceNotFound.value) {
+    return;
+  }
+
   if (availableWorkspaces.length === 0) {
     currentWorkspace.value = undefined;
     return;
@@ -309,30 +238,57 @@ function syncSelectedWorkspace(availableWorkspaces: Workspace[]): void {
     workspace => workspace.id === currentWorkspace.value?.id
   );
 
-  selectWorkspace(selectedWorkspace ?? availableWorkspaces[0]!);
+  selectWorkspace(
+    selectedWorkspace ?? availableWorkspaces[0]!,
+    !route.query.workspace
+  );
 }
 
-function autoSelectPreferredWorkspace(): void {
-  const routeWorkspaceId = Number(route.query.workspace);
-  const preferredWorkspaceId = Number.isFinite(routeWorkspaceId) && routeWorkspaceId > 0
-    ? routeWorkspaceId
-    : getLastWorkspaceId();
+function applyWorkspaceFromRoute(): void {
+  const workspaceQueryValue = route.query.workspace;
+  const routeWorkspaceId = workspaceQueryValue == null
+    ? undefined
+    : parsePositiveIntegerQuery(workspaceQueryValue);
 
-  if (!preferredWorkspaceId) {
+  if (!routeWorkspaceId) {
+    requestedWorkspaceNotFound.value = false;
     return;
   }
 
-  const workspace = workspaces.value.find(item => item.id === preferredWorkspaceId);
-  if (workspace) {
-    currentProjectGroup.value = workspace.tdeiProjectGroupId;
-    selectWorkspace(workspace);
+  const workspace = workspaces.value.find(
+    item => item.id === routeWorkspaceId
+  );
+
+  if (!workspace) {
+    currentWorkspace.value = undefined;
+    requestedWorkspaceNotFound.value = true;
+    return;
+  }
+
+  requestedWorkspaceNotFound.value = false;
+  currentProjectGroup.value = workspace.tdeiProjectGroupId;
+  selectWorkspace(workspace, false);
+}
+
+function selectWorkspace(
+  workspace: Workspace,
+  updateRoute: boolean = true
+): void {
+  currentWorkspace.value = workspace;
+
+  if (
+    updateRoute
+    && String(route.query.workspace ?? '') !== String(workspace.id)
+  ) {
+    void router.push({
+      path: '/dashboard',
+      query: {
+        ...route.query,
+        workspace: String(workspace.id)
+      }
+    });
   }
 }
-
-function selectWorkspace(workspace: Workspace): void {
-  currentWorkspace.value = workspace;
-}
-
 function showJobFailure(workspaceId: number): void {
   void jobFailureDialog.value?.show(workspaceId);
 }
@@ -473,7 +429,7 @@ $dashboard-create-button-radius: 0.375rem;
   gap: $spacer;
 }
 
-.dashboard-project-group-control > label {
+.dashboard-project-group-control>label {
   margin: 0;
   flex-shrink: 0;
   color: $text-navy;
@@ -588,7 +544,7 @@ $dashboard-create-button-radius: 0.375rem;
   font-size: $dashboard-copy-size;
 }
 
-.dashboard-workspace-search > :deep(.material-icons) {
+.dashboard-workspace-search> :deep(.material-icons) {
   position: absolute;
   top: 50%;
   right: $spacer;
@@ -749,6 +705,7 @@ $dashboard-create-button-radius: 0.375rem;
 }
 
 @include media-breakpoint-down(md) {
+
   .dashboard-topbar,
   .dashboard-project-group-control {
     align-items: stretch;
