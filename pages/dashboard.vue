@@ -101,10 +101,10 @@
           <section
             v-if="pinnedWorkspaceListItems.length > 0"
             class="dashboard-workspace-group dashboard-pinned-workspaces"
-            aria-labelledby="pinned-workspaces-title"
+            aria-labelledby="pinned-workspace-title"
           >
             <header class="dashboard-workspace-group-heading">
-              <h3 id="pinned-workspaces-title">Pinned Workspace</h3>
+              <h3 id="pinned-workspace-title">Pinned Workspace</h3>
               <!-- <span aria-hidden="true">{{ pinnedWorkspaceListItems.length }}</span> -->
             </header>
 
