@@ -258,7 +258,7 @@ import { formatElapsed } from '~/util/time';
 import { ROLE_LABELS } from '~/util/roles';
 import {
   readWorkspacePins,
-  removeUnavailableWorkspacePins,
+  keepOnePinPerProjectGroup,
   writeWorkspacePins,
 } from '~/util/workspace-pins';
 import { toast } from 'vue3-toastify';
@@ -388,8 +388,7 @@ function loadWorkspacePins(): void {
   }
 
   const storedIds = readWorkspacePins(localStorage, tdeiAuth.subject);
-  const availableIds = workspaces.value.map(workspace => workspace.id);
-  const validIds = removeUnavailableWorkspacePins(storedIds, availableIds).slice(0, 1);
+  const validIds = keepOnePinPerProjectGroup(storedIds, workspaces.value);
   pinnedWorkspaceIds.value = new Set(validIds);
 
   if (validIds.length !== storedIds.length || validIds[0] !== storedIds[0]) {
@@ -398,9 +397,18 @@ function loadWorkspacePins(): void {
 }
 
 function toggleWorkspacePin(workspaceId: number): void {
-  const nextPinnedIds = pinnedWorkspaceIds.value.has(workspaceId)
-    ? new Set<number>()
-    : new Set([workspaceId]);
+  const workspace = currentWorkspaces.value.find(workspace => workspace.id === workspaceId);
+  if (!workspace) {
+    return;
+  }
+
+  const groupWorkspaceIds = new Set(currentWorkspaces.value.map(workspace => workspace.id));
+  const nextPinnedIds = new Set(
+    [...pinnedWorkspaceIds.value].filter(id => !groupWorkspaceIds.has(id))
+  );
+  if (!pinnedWorkspaceIds.value.has(workspaceId)) {
+    nextPinnedIds.add(workspaceId);
+  }
 
   pinnedWorkspaceIds.value = nextPinnedIds;
 
@@ -435,10 +443,10 @@ async function refreshWorkspaces(): Promise<void> {
       })
       .sort(compareWorkspaceCreatedAtDesc);
 
-    const validPinnedIds = removeUnavailableWorkspacePins(
+    const validPinnedIds = keepOnePinPerProjectGroup(
       pinnedWorkspaceIds.value,
-      workspaces.value.map(workspace => workspace.id)
-    ).slice(0, 1);
+      workspaces.value
+    );
     pinnedWorkspaceIds.value = new Set(validPinnedIds);
     if (tdeiAuth.subject) {
       writeWorkspacePins(localStorage, tdeiAuth.subject, validPinnedIds);

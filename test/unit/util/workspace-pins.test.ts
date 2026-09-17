@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   getWorkspacePinsStorageKey,
+  keepOnePinPerProjectGroup,
   readWorkspacePins,
   removeUnavailableWorkspacePins,
   writeWorkspacePins,
@@ -34,5 +35,13 @@ describe('workspace pin persistence', () => {
 
   it('removes workspaces that are no longer available', () => {
     expect(removeUnavailableWorkspacePins([1, 2, 3], [1, 3, 4])).toEqual([1, 3]);
+  });
+
+  it('keeps one available pin in each project group', () => {
+    expect(keepOnePinPerProjectGroup([1, 2, 3, 4], [
+      { id: 1, tdeiProjectGroupId: 'group-a' },
+      { id: 2, tdeiProjectGroupId: 'group-a' },
+      { id: 3, tdeiProjectGroupId: 'group-b' }
+    ])).toEqual([1, 3]);
   });
 });

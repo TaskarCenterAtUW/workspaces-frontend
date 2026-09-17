@@ -63,6 +63,7 @@ test.describe('dashboard', () => {
   });
 
   test('selection keeps list order while explicit pins persist in a prominent section', async ({ page }) => {
+    const otherGroupId = '33333333-3333-3333-3333-333333333333';
     const dashboardWorkspaces = [
       {
         ...myWorkspaces[0],
@@ -82,13 +83,22 @@ test.describe('dashboard', () => {
         title: 'Middle Workspace',
         createdAt: '2026-02-01T00:00:00.000Z',
         importStatus: 'in-progress'
+      },
+      {
+        ...myWorkspaces[0],
+        id: 4,
+        title: 'Other Group Workspace',
+        tdeiProjectGroupId: otherGroupId
       }
     ];
 
     await seedAuthenticatedSession(page);
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
     await page.route('**/workspaces/mine', route => route.fulfill({ json: dashboardWorkspaces }));
-    await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
+    await page.route('**/project-group-roles/**', route => route.fulfill({ json: [
+      ...projectGroups,
+      { ...projectGroups[0], tdei_project_group_id: otherGroupId, project_group_name: 'Other Group' }
+    ] }));
     await page.route('**/workspaces/*/bbox', route => route.fulfill({ status: 204 }));
 
     await page.goto('/dashboard');
@@ -141,6 +151,29 @@ test.describe('dashboard', () => {
     await expect(
       page.locator('.dashboard-pinned-workspaces .workspace-card-copy strong')
     ).toHaveText('New Workspace');
+
+    const groupPicker = page.getByLabel('Project Group');
+    await groupPicker.click();
+    await page.locator('.pg-dropdown li').filter({ hasText: 'Other Group' }).click();
+    await page.getByRole('button', { name: 'Pin workspace Other Group Workspace', exact: true }).click();
+    await expect(page.locator('.dashboard-pinned-workspaces .workspace-card-copy strong'))
+      .toHaveText('Other Group Workspace');
+
+    await page.reload();
+    await groupPicker.click();
+    await page.locator('.pg-dropdown li').filter({ hasText: 'Other Group' }).click();
+    await expect(page.locator('.dashboard-pinned-workspaces .workspace-card-copy strong'))
+      .toHaveText('Other Group Workspace');
+    await groupPicker.click();
+    await page.locator('.pg-dropdown li').filter({ hasText: 'Puget Sound' }).click();
+    await expect(page.locator('.dashboard-pinned-workspaces .workspace-card-copy strong'))
+      .toHaveText('New Workspace');
+    await page.getByRole('button', { name: 'Unpin workspace New Workspace', exact: true }).click();
+    await expect(page.locator('.dashboard-pinned-workspaces')).toBeHidden();
+    await groupPicker.click();
+    await page.locator('.pg-dropdown li').filter({ hasText: 'Other Group' }).click();
+    await expect(page.locator('.dashboard-pinned-workspaces .workspace-card-copy strong'))
+      .toHaveText('Other Group Workspace');
   });
 
   test('shows empty-workspace and missing-dataset-area notices', async ({ page }) => {

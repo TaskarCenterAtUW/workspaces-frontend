@@ -1,4 +1,4 @@
-import type { WorkspaceId } from '~/types/workspaces';
+import type { Workspace, WorkspaceId } from '~/types/workspaces';
 
 const STORAGE_KEY_PREFIX = 'tdei-pinned-workspaces';
 
@@ -48,4 +48,21 @@ export function removeUnavailableWorkspacePins(
 ): WorkspaceId[] {
   const availableIds = new Set(availableWorkspaceIds);
   return [...pinnedWorkspaceIds].filter(workspaceId => availableIds.has(workspaceId));
+}
+
+export function keepOnePinPerProjectGroup(
+  pinnedWorkspaceIds: Iterable<WorkspaceId>,
+  workspaces: Pick<Workspace, 'id' | 'tdeiProjectGroupId'>[]
+): WorkspaceId[] {
+  const groupsByWorkspace = new Map(workspaces.map(workspace => [workspace.id, workspace.tdeiProjectGroupId]));
+  const pinnedGroups = new Set<string>();
+
+  return [...pinnedWorkspaceIds].filter((workspaceId) => {
+    const groupId = groupsByWorkspace.get(workspaceId);
+    if (groupId === undefined || pinnedGroups.has(groupId)) {
+      return false;
+    }
+    pinnedGroups.add(groupId);
+    return true;
+  });
 }
