@@ -34,7 +34,7 @@
 
       <hr>
       <h4 class="h5">Edit Conflict Handling</h4>
-      
+
       <div
         id="conflict-handling-help"
         class="form-text"
