@@ -36,14 +36,14 @@
         No items to review.
       </p>
       <template v-if="changesetObserver">
-      <review-item
-        v-for="item in items"
-        :key="item.key"
-        :item="item"
-        :changeset-observer="changesetObserver"
-        :selected="item === currentItem"
-        @click="currentItem = item"
-      />
+        <review-item
+          v-for="item in items"
+          :key="item.key"
+          :item="item"
+          :changeset-observer="changesetObserver"
+          :selected="item === currentItem"
+          @click="currentItem = item"
+        />
       </template>
     </div>
   </section><!-- .review-sidebar -->

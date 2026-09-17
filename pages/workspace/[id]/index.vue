@@ -1,9 +1,15 @@
 <script setup lang="ts">
+import { parsePositiveIntegerQuery } from '~/util/route-query';
+
+definePageMeta({
+  alias: ['/dashboard/workspace/:id'],
+});
+
 const route = useRoute();
 
-const workspaceId = Number(route.params.id);
+const workspaceId = parsePositiveIntegerQuery(route.params.id ?? null);
 
-if (isNaN(workspaceId)) {
+if (workspaceId === undefined) {
   throw new Error(`Invalid workspace id: ${route.params.id}`);
 }
 

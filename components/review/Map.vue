@@ -141,6 +141,7 @@ async function drawItem(item: ReviewListItem | undefined, refreshAdiff: boolean 
   mapError.value = null;
   const generation = ++drawGeneration;
   if (!item) {
+    await resetMap();
     loading.value = false;
     return;
   }

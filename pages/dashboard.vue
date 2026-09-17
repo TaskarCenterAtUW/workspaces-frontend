@@ -401,10 +401,7 @@ function syncSelectedWorkspace(
     workspace => workspace.id === currentWorkspace.value?.id
   );
 
-  selectWorkspace(
-    selectedWorkspace ?? availableWorkspaces[0]!,
-    !route.query.workspace
-  );
+  selectWorkspace(selectedWorkspace ?? availableWorkspaces[0]!);
 }
 
 function applyWorkspaceFromRoute(): void {

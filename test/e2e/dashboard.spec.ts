@@ -42,12 +42,18 @@ test.describe('dashboard', () => {
     test.beforeEach(async ({ page }) => {
       await seedAuthenticatedSession(page);
       await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
-      await page.route('**/workspaces/mine', route => route.fulfill({ json: workspaces }));
-      await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
+      await page.route(`${TEST_API_BASE}workspaces/mine`, route => route.fulfill({ json: workspaces }));
+      await page.route(`${TEST_API_BASE}tdei-user/project-group-roles/**`, route => route.fulfill({ json: projectGroups }));
       // Empty map data keeps these metadata tests independent of WebGL.
-      await page.route(/\/workspaces\/(1926|2207)\/bbox(?:\?|$)/, route =>
+      await page.route(`${TEST_API_BASE}workspaces/{1926,2207}/bbox{,?*}`, route =>
         route.fulfill({ status: 204 })
       );
+    });
+
+    test('redirects a dashboard workspace URL to the selected workspace', async ({ page }) => {
+      await page.goto('/dashboard/workspace/1926');
+
+      await expect(page).toHaveURL('/dashboard?workspace=1926');
     });
 
     test('displays the selected workspace ID in the same row as TDEI Dataset Version', async ({ page }) => {

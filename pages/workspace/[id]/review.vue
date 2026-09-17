@@ -15,22 +15,43 @@ shows the proper details in the map and attribute diff panel (playwright snapsho
 (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
-  <section class="review-page" :class="{ 'detail-open': currentItem }">
-    <review-sidebar v-model:item="selectedItem" v-model:filter="filter" :review-list="reviewList" :loading="loading"
-      @refresh="refresh" />
+  <section
+    class="review-page"
+    :class="{ 'detail-open': currentItem }"
+  >
+    <review-sidebar
+      v-model:item="selectedItem"
+      v-model:filter="filter"
+      :review-list="reviewList"
+      :loading="loading"
+      @refresh="refresh"
+    />
 
     <section class="map-container">
-      <review-map ref="map" v-model:loading="loadingMap" v-model:empty-changeset="emptyChangeset"
-        v-model:map-error="mapError" v-model:current-diff="currentDiff" :workspace-id="workspaceId"
-        :item="currentItem" />
+      <review-map
+        ref="map"
+        v-model:loading="loadingMap"
+        v-model:empty-changeset="emptyChangeset"
+        v-model:map-error="mapError"
+        v-model:current-diff="currentDiff"
+        :workspace-id="workspaceId"
+        :item="currentItem"
+      />
       <transition name="fade">
-        <div v-show="loadingMap" class="map-loading-overlay">
+        <div
+          v-show="loadingMap"
+          class="map-loading-overlay"
+        >
           <app-spinner size="lg" />
         </div>
       </transition>
 
       <transition name="fade">
-        <div v-show="emptyChangeset && !loadingMap" class="review-notice" role="status">
+        <div
+          v-show="emptyChangeset && !loadingMap"
+          class="review-notice"
+          role="status"
+        >
           <p class="d-flex h-100 align-items-center justify-content-center mb-0">
             This changeset contains no changes.
           </p>
@@ -38,23 +59,52 @@ shows the proper details in the map and attribute diff panel (playwright snapsho
       </transition>
 
       <transition name="fade">
-        <div v-show="mapError && !loadingMap" class="review-notice review-notice-error" role="alert">
+        <div
+          v-show="mapError && !loadingMap"
+          class="review-notice review-notice-error"
+          role="alert"
+        >
           <p class="mb-0 text-center px-3">
             {{ mapError }}
           </p>
-          <button class="btn btn-outline-danger" type="button" @click="retryMap">
+          <button
+            class="btn btn-outline-danger"
+            type="button"
+            @click="retryMap"
+          >
             Try again
           </button>
         </div>
       </transition>
 
-      <review-overlay v-if="currentItem" :item="currentItem" @edit="openEditor" @resolve="resolveCurrentChangeset"
-        @back="selectedItem = undefined" />
-      <review-attribute-diff v-if="currentDiff && reviewList.workspace" :dataset-type="reviewList.workspace.type"
-        :diff="currentDiff" :image-url="currentImageUrl" @open-photo="showImage" />
-      <review-feature-image v-if="currentImageUrl" :image-url="currentImageUrl" @open="showImage" />
-      <app-image-viewer ref="imageViewer" title="Photo Submission" />
-      <div v-if="changesetNotFound" class="review-notice" role="alert">
+      <review-overlay
+        v-if="currentItem"
+        :item="currentItem"
+        @edit="openEditor"
+        @resolve="resolveCurrentChangeset"
+        @back="selectedItem = undefined"
+      />
+      <review-attribute-diff
+        v-if="currentDiff && reviewList.workspace"
+        :dataset-type="reviewList.workspace.type"
+        :diff="currentDiff"
+        :image-url="currentImageUrl"
+        @open-photo="showImage"
+      />
+      <review-feature-image
+        v-if="currentImageUrl"
+        :image-url="currentImageUrl"
+        @open="showImage"
+      />
+      <app-image-viewer
+        ref="imageViewer"
+        title="Photo Submission"
+      />
+      <div
+        v-if="changesetNotFound"
+        class="review-notice"
+        role="alert"
+      >
         <p class="mb-0 text-center px-3">
           Changeset #{{ getRequestedChangesetId() }} was not found in this workspace.
         </p>
