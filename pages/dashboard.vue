@@ -1,113 +1,261 @@
 <template>
-  <app-page fluid class="dashboard-page">
+  <app-page
+    fluid
+    class="dashboard-page"
+  >
     <h1 class="visually-hidden">Dashboard</h1>
 
     <header class="dashboard-topbar">
       <div class="dashboard-project-group-control">
         <label for="ws_project_group_picker">Project Group</label>
-        <project-group-picker id="ws_project_group_picker" v-model="currentProjectGroup" :options="myProjectGroups"
-          remember-selection />
+        <project-group-picker
+          id="ws_project_group_picker"
+          v-model="currentProjectGroup"
+          :options="myProjectGroups"
+          remember-selection
+        />
       </div>
 
-      <nuxt-link class="btn btn-primary dashboard-create-button" to="/workspace/create">
-        <app-icon variant="add" size="22" no-margin />
+      <nuxt-link
+        class="btn btn-primary dashboard-create-button"
+        to="/workspace/create"
+      >
+        <app-icon
+          variant="add"
+          size="22"
+          no-margin
+        />
         Create Workspace
       </nuxt-link>
     </header>
-    <section v-if="requestedWorkspaceNotFound" class="dashboard-empty-state" role="alert">
+    <section
+      v-if="requestedWorkspaceNotFound"
+      class="dashboard-empty-state"
+      role="alert"
+    >
       <h2>Workspace not found</h2>
       <p>
         This workspace does not exist or you do not have permission to access it.
       </p>
 
-      <nuxt-link class="btn btn-primary" to="/dashboard">
+      <nuxt-link
+        class="btn btn-primary"
+        to="/dashboard"
+      >
         View my workspaces
       </nuxt-link>
     </section>
-    <section v-else-if="currentWorkspaces.length === 0" class="dashboard-empty-state" aria-live="polite">
-      <span class="dashboard-empty-icon" aria-hidden="true">
-        <app-icon variant="workspaces" size="30" no-margin />
+    <section
+      v-else-if="currentWorkspaces.length === 0"
+      class="dashboard-empty-state"
+      aria-live="polite"
+    >
+      <span
+        class="dashboard-empty-icon"
+        aria-hidden="true"
+      >
+        <app-icon
+          variant="workspaces"
+          size="30"
+          no-margin
+        />
       </span>
       <h2>No workspaces yet</h2>
       <p>No workspaces exist in the selected project group.</p>
-      <nuxt-link class="btn btn-primary" to="/workspace/create">
+      <nuxt-link
+        class="btn btn-primary"
+        to="/workspace/create"
+      >
         Create Workspace
       </nuxt-link>
     </section>
 
-    <section v-else class="dashboard-shell">
-      <aside class="dashboard-workspace-panel" aria-labelledby="workspace-list-title">
+    <section
+      v-else
+      class="dashboard-shell"
+    >
+      <aside
+        class="dashboard-workspace-panel"
+        aria-labelledby="workspace-list-title"
+      >
         <div class="dashboard-workspace-panel-header">
           <h2 id="workspace-list-title">Workspaces</h2>
 
           <div class="dashboard-workspace-search">
-            <label class="visually-hidden" for="dashboard-workspace-search">
+            <label
+              class="visually-hidden"
+              for="dashboard-workspace-search"
+            >
               Search workspaces
             </label>
-            <input id="dashboard-workspace-search" v-model.trim="workspaceSearch" class="form-control" type="search"
-              placeholder="Search Workspaces">
-            <app-icon variant="search" size="22" no-margin />
+            <input
+              id="dashboard-workspace-search"
+              v-model.trim="workspaceSearch"
+              class="form-control"
+              type="search"
+              placeholder="Search Workspaces"
+            >
+            <app-icon
+              variant="search"
+              size="22"
+              no-margin
+            />
           </div>
         </div>
 
-        <p class="visually-hidden" aria-live="polite">
+        <p
+          class="visually-hidden"
+          aria-live="polite"
+        >
           {{ workspaceListSummary }}
         </p>
 
-        <div v-if="workspaceListItems.length > 0" class="dashboard-workspace-list">
-          <dashboard-workspace-item v-for="workspace in workspaceListItems" :key="workspace.id" :workspace="workspace"
-            :selected="workspace.id === currentWorkspace?.id" @click="selectWorkspace(workspace)" />
+        <div
+          v-if="workspaceListItems.length > 0"
+          class="dashboard-workspace-list"
+        >
+          <section
+            v-if="pinnedWorkspaceListItems.length > 0"
+            class="dashboard-workspace-group dashboard-pinned-workspaces"
+            aria-labelledby="pinned-workspace-title"
+          >
+            <header class="dashboard-workspace-group-heading">
+              <h3 id="pinned-workspace-title">Pinned Workspace</h3>
+              <!-- <span aria-hidden="true">{{ pinnedWorkspaceListItems.length }}</span> -->
+            </header>
+
+            <dashboard-workspace-item
+              v-for="workspace in pinnedWorkspaceListItems"
+              :key="workspace.id"
+              :workspace="workspace"
+              :pinned="true"
+              :selected="workspace.id === currentWorkspace?.id"
+              @select="selectWorkspace(workspace)"
+              @toggle-pin="toggleWorkspacePin(workspace.id)"
+            />
+          </section>
+
+          <div
+            v-if="pinnedWorkspaceListItems.length > 0 && unpinnedWorkspaceListItems.length > 0"
+            class="dashboard-workspace-divider"
+            aria-hidden="true"
+          />
+
+          <section
+            v-if="unpinnedWorkspaceListItems.length > 0"
+            class="dashboard-workspace-group"
+            :aria-labelledby="pinnedWorkspaceListItems.length > 0 ? 'all-workspaces-title' : undefined"
+          >
+            <header
+              v-if="pinnedWorkspaceListItems.length > 0"
+              class="dashboard-workspace-group-heading"
+            >
+              <h3 id="all-workspaces-title">All Workspaces</h3>
+            </header>
+
+            <dashboard-workspace-item
+              v-for="workspace in unpinnedWorkspaceListItems"
+              :key="workspace.id"
+              :workspace="workspace"
+              :selected="workspace.id === currentWorkspace?.id"
+              @select="selectWorkspace(workspace)"
+              @toggle-pin="toggleWorkspacePin(workspace.id)"
+            />
+          </section>
         </div>
 
-        <div v-else class="dashboard-search-empty" aria-live="polite">
+        <div
+          v-else
+          class="dashboard-search-empty"
+          aria-live="polite"
+        >
           <p>No workspaces match “{{ workspaceSearch }}”.</p>
-          <button class="btn btn-link" type="button" @click="workspaceSearch = ''">
+          <button
+            class="btn btn-link"
+            type="button"
+            @click="workspaceSearch = ''"
+          >
             Clear search
           </button>
         </div>
       </aside>
 
-      <section v-if="currentWorkspace" class="dashboard-workspace-details" aria-labelledby="dashboard-workspace-title">
+      <section
+        v-if="currentWorkspace"
+        class="dashboard-workspace-details"
+        aria-labelledby="dashboard-workspace-title"
+      >
         <header class="dashboard-workspace-header">
           <div class="dashboard-workspace-heading">
             <h2 id="dashboard-workspace-title">
               <span class="dashboard-workspace-title-text">{{ currentWorkspace.title }}</span>
-              <dashboard-workspace-import-status-badge v-if="currentWorkspace.importStatus
-                && currentWorkspace.importStatus !== 'empty'" :status="currentWorkspace.importStatus"
+              <dashboard-workspace-import-status-badge
+                v-if="currentWorkspace.importStatus
+                  && currentWorkspace.importStatus !== 'empty'"
+                :status="currentWorkspace.importStatus"
                 :interactive="currentWorkspace.importStatus === 'failed'"
-                @click="showJobFailure(currentWorkspace.id)" />
+                @click="showJobFailure(currentWorkspace.id)"
+              />
             </h2>
             <div class="dashboard-workspace-heading-meta">
               <span class="dashboard-workspace-badge">{{ workspaceTypeLabel }}</span>
               <span class="dashboard-workspace-badge">{{ workspaceRoleLabel }}</span>
               <span class="dashboard-workspace-updated">
-                <img :src="timelineIcon" alt="">
+                <img
+                  :src="timelineIcon"
+                  alt=""
+                >
                 Updated {{ workspaceUpdatedTime }}
               </span>
             </div>
           </div>
 
-          <dashboard-toolbar :workspace="currentWorkspace" :refreshing="refreshingWorkspaces"
-            @refresh="refreshWorkspaces" />
+          <dashboard-toolbar
+            :workspace="currentWorkspace"
+            :refreshing="refreshingWorkspaces"
+            @refresh="refreshWorkspaces"
+          />
         </header>
 
         <div class="dashboard-details-content">
           <div class="dashboard-map-frame">
-            <dashboard-map :workspace="currentWorkspace" @center-loaded="onCenterLoaded" />
+            <dashboard-map
+              :workspace="currentWorkspace"
+              @center-loaded="onCenterLoaded"
+            />
           </div>
 
-          <dashboard-workspace-information :workspace="currentWorkspace" :my-tdei-roles="currentWorkspaceTdeiRoles" />
+          <dashboard-workspace-information
+            :workspace="currentWorkspace"
+            :my-tdei-roles="currentWorkspaceTdeiRoles"
+          />
         </div>
       </section>
-      <section v-else class="dashboard-workspace-details dashboard-workspace-unavailable" aria-live="polite">
-        <app-icon variant="hourglass_empty" size="30" no-margin />
+      <section
+        v-else
+        class="dashboard-workspace-details dashboard-workspace-unavailable"
+        aria-live="polite"
+      >
+        <app-icon
+          variant="hourglass_empty"
+          size="30"
+          no-margin
+        />
         <h2>No workspace available to open</h2>
         <p>
           Workspaces still being set up cannot be opened. Use Refresh to check their latest status.
         </p>
-        <button class="btn btn-outline-secondary" type="button" :disabled="refreshingWorkspaces"
-          @click="refreshWorkspaces">
-          <app-icon variant="refresh" size="20" no-margin />
+        <button
+          class="btn btn-outline-secondary"
+          type="button"
+          :disabled="refreshingWorkspaces"
+          @click="refreshWorkspaces"
+        >
+          <app-icon
+            variant="refresh"
+            size="20"
+            no-margin
+          />
           Refresh
         </button>
       </section>
@@ -119,10 +267,15 @@
 
 <script setup lang="ts">
 import timelineIcon from '~/assets/img/timeline.svg';
-import { tdeiUserClient, workspacesClient } from '~/services/index';
+import { tdeiAuth, tdeiUserClient, workspacesClient } from '~/services/index';
 import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 import { formatElapsed } from '~/util/time';
 import { ROLE_LABELS } from '~/util/roles';
+import {
+  readWorkspacePins,
+  keepOnePinPerProjectGroup,
+  writeWorkspacePins,
+} from '~/util/workspace-pins';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 import { parsePositiveIntegerQuery } from '~/util/route-query';
@@ -157,6 +310,7 @@ const currentProjectGroup = ref<string | null>(
 );
 const currentWorkspace = ref<Workspace>();
 const workspaceSearch = ref('');
+const pinnedWorkspaceIds = ref<Set<number>>(new Set());
 const refreshingWorkspaces = ref(false);
 const jobFailureDialog = useTemplateRef<JobFailureDialog>('jobFailureDialog');
 
@@ -169,13 +323,14 @@ const workspaceListItems = computed<Workspace[]>(() => {
   const normalizedSearch = workspaceSearch.value.toLocaleLowerCase();
 
   return currentWorkspaces.value
-    .filter(workspace => workspace.title.toLocaleLowerCase().includes(normalizedSearch))
-    .sort((firstWorkspace, secondWorkspace) => {
-      const selectedWorkspaceId = currentWorkspace.value?.id;
-      return Number(secondWorkspace.id === selectedWorkspaceId)
-        - Number(firstWorkspace.id === selectedWorkspaceId);
-    });
+    .filter(workspace => workspace.title.toLocaleLowerCase().includes(normalizedSearch));
 });
+const pinnedWorkspaceListItems = computed<Workspace[]>(() =>
+  workspaceListItems.value.filter(workspace => pinnedWorkspaceIds.value.has(workspace.id))
+);
+const unpinnedWorkspaceListItems = computed<Workspace[]>(() =>
+  workspaceListItems.value.filter(workspace => !pinnedWorkspaceIds.value.has(workspace.id))
+);
 const currentWorkspaceTdeiRoles = computed<string[]>(() =>
   currentWorkspace.value
     ? rolesByProjectGroup.get(currentWorkspace.value.tdeiProjectGroupId) ?? []
@@ -216,6 +371,14 @@ watch(
 );
 
 onMounted(() => {
+  loadWorkspacePins();
+  if (route.query.workspace == null) {
+    const lastWorkspace = workspaces.value.find(workspace => workspace.id === getLastWorkspaceId());
+    if (lastWorkspace) {
+      currentProjectGroup.value = lastWorkspace.tdeiProjectGroupId;
+      selectWorkspace(lastWorkspace, false);
+    }
+  }
   applyWorkspaceFromRoute();
   if (!requestedWorkspaceNotFound.value) {
     syncSelectedWorkspace(currentWorkspaces.value);
@@ -289,6 +452,42 @@ function selectWorkspace(
     });
   }
 }
+
+function loadWorkspacePins(): void {
+  if (!tdeiAuth.subject) {
+    return;
+  }
+
+  const storedIds = readWorkspacePins(localStorage, tdeiAuth.subject);
+  const validIds = keepOnePinPerProjectGroup(storedIds, workspaces.value);
+  pinnedWorkspaceIds.value = new Set(validIds);
+
+  if (validIds.length !== storedIds.length || validIds[0] !== storedIds[0]) {
+    writeWorkspacePins(localStorage, tdeiAuth.subject, validIds);
+  }
+}
+
+function toggleWorkspacePin(workspaceId: number): void {
+  const workspace = currentWorkspaces.value.find(workspace => workspace.id === workspaceId);
+  if (!workspace) {
+    return;
+  }
+
+  const groupWorkspaceIds = new Set(currentWorkspaces.value.map(workspace => workspace.id));
+  const nextPinnedIds = new Set(
+    [...pinnedWorkspaceIds.value].filter(id => !groupWorkspaceIds.has(id))
+  );
+  if (!pinnedWorkspaceIds.value.has(workspaceId)) {
+    nextPinnedIds.add(workspaceId);
+  }
+
+  pinnedWorkspaceIds.value = nextPinnedIds;
+
+  if (tdeiAuth.subject) {
+    writeWorkspacePins(localStorage, tdeiAuth.subject, nextPinnedIds);
+  }
+}
+
 function showJobFailure(workspaceId: number): void {
   void jobFailureDialog.value?.show(workspaceId);
 }
@@ -314,6 +513,15 @@ async function refreshWorkspaces(): Promise<void> {
           : workspace;
       })
       .sort(compareWorkspaceCreatedAtDesc);
+
+    const validPinnedIds = keepOnePinPerProjectGroup(
+      pinnedWorkspaceIds.value,
+      workspaces.value
+    );
+    pinnedWorkspaceIds.value = new Set(validPinnedIds);
+    if (tdeiAuth.subject) {
+      writeWorkspacePins(localStorage, tdeiAuth.subject, validPinnedIds);
+    }
   }
   catch (error: unknown) {
     toast.error(error instanceof Error ? error.message : 'Failed to refresh workspaces.');
@@ -555,13 +763,57 @@ $dashboard-create-button-radius: 0.375rem;
 .dashboard-workspace-list {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 0 $dashboard-panel-padding $dashboard-panel-padding;
+  padding: 5px $dashboard-panel-padding $dashboard-panel-padding;
   display: grid;
   align-content: start;
   gap: $dashboard-panel-gap;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba($secondary, 0.3) transparent;
+}
+
+.dashboard-workspace-group {
+  display: grid;
+  gap: $dashboard-panel-gap;
+}
+
+.dashboard-pinned-workspaces {
+  padding: 0.85rem;
+  border: $border-width solid rgba($primary, 0.25);
+  border-radius: $dashboard-shell-radius;
+}
+
+.dashboard-workspace-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dashboard-workspace-group-heading h3 {
+  margin: 0;
+  color: $text-navy;
+  font-family: var(--primary-font-family);
+  font-size: 0.875rem;
+  font-weight: $font-weight-bold;
+  letter-spacing: 0.01em;
+}
+
+.dashboard-workspace-group-heading > span {
+  min-width: 1.5rem;
+  padding: 0.1rem 0.4rem;
+  color: $primary;
+  font-size: 0.75rem;
+  font-weight: $font-weight-bold;
+  text-align: center;
+  background: rgba($primary, 0.12);
+  border-radius: 999px;
+}
+
+.dashboard-workspace-divider {
+  height: 1.5px;
+  margin: 15px 0;
+  background: rgba($secondary, 0.28);
 }
 
 .dashboard-search-empty {

@@ -91,24 +91,23 @@ const notesGeoJson = {
 };
 
 // TDEI feedback list (array). Dates are ISO strings the client parses.
-const feedback = [
-  {
-    id: 555,
-    status: 'open',
-    location_latitude: 47.607,
-    location_longitude: -122.338,
-    customer_email: 'rider@example.com',
-    feedback_text: 'This crossing is hard to navigate in a wheelchair',
-    created_at: '2026-06-14T09:00:00.000Z',
-    updated_at: '2026-06-14T09:00:00.000Z',
-    due_date: '2099-06-14T09:00:00.000Z',
-    resolution_status: null,
-    resolution_description: null,
-    resolved_by: null,
-    project_group: { tdei_project_group_id: PROJECT_GROUP_ID, name: 'Puget Sound' },
-    dataset: { tdei_dataset_id: TDEI_RECORD_ID, name: 'Seattle Sidewalks' }
-  }
-];
+const feedbackSubmission = {
+  id: 555,
+  status: 'open',
+  location_latitude: 47.607,
+  location_longitude: -122.338,
+  customer_email: 'rider@example.com',
+  feedback_text: 'This crossing is hard to navigate in a wheelchair',
+  created_at: '2026-06-14T09:00:00.000Z',
+  updated_at: '2026-06-14T09:00:00.000Z',
+  due_date: '2099-06-14T09:00:00.000Z',
+  resolution_status: null,
+  resolution_description: null,
+  resolved_by: null,
+  project_group: { tdei_project_group_id: PROJECT_GROUP_ID, name: 'Puget Sound' },
+  dataset: { tdei_dataset_id: TDEI_RECORD_ID, name: 'Seattle Sidewalks' }
+};
+const feedback = [feedbackSubmission];
 
 const selectedFeedback = feedback[0]!;
 
@@ -415,16 +414,30 @@ test.describe('workspace review', () => {
 
     // openEditor() navigates to /workspace/1/edit with a #map=zoom/lat/lon hash
     // derived from the map. The proper hash MUST be present.
-    await expect(page).toHaveURL(/\/workspace\/1\/edit/);
-    const url = new URL(page.url());
-    expect(url.searchParams.get('datatype')).toBe('osw');
-    expect(url.hash.startsWith('#map=')).toBe(true);
+    await expect.poll(() => {
+      const url = new URL(page.url());
+      const match = url.hash
+        .match(/^#map=([^/]+)\/([^/]+)\/([^/]+)$/);
+      if (
+        url.pathname !== '/workspace/1/edit'
+        || url.searchParams.get('datatype') !== 'osw'
+        || !match
+      ) return false;
 
-    // Parse numbers rather than rejecting valid scientific notation, and
-    // verify that Edit Here targets the feedback instead of the world view.
-    const coordinates = url.hash.slice('#map='.length).split('/');
-    expect(coordinates).toHaveLength(3);
-    const [zoom, lat, lon] = coordinates.map(Number);
+      const [zoom = NaN, lat = NaN, lon = NaN] = match.slice(1).map(Number);
+      return Number.isFinite(zoom)
+        && Number.isFinite(lat)
+        && Number.isFinite(lon)
+        && zoom >= 0
+        && lat >= -90
+        && lat <= 90
+        && lon >= -180
+        && lon <= 180;
+    }, { timeout: 30_000 }).toBe(true);
+
+    const url = new URL(page.url());
+    // Verify that Edit Here targets the selected feedback.
+    const [zoom, lat, lon] = url.hash.slice('#map='.length).split('/').map(Number);
     expect(zoom).toBeCloseTo(18);
     expect(lat).toBeCloseTo(selectedFeedback.location_latitude);
     expect(lon).toBeCloseTo(selectedFeedback.location_longitude);

@@ -177,7 +177,9 @@ test.describe('workspace settings', () => {
       if (req.method() === 'GET') {
         // Apps.vue binds the checkbox with :true-value="1"; seed externalAppAccess
         // as 1 (published) so it renders checked, matching the true-value.
-        return route.fulfill({ json: { ...aWorkspace, externalAppAccess: 1 } });
+        // overrideConflicts seeded true; this test doesn't touch the "During
+        // conflicts" radios, so the value should pass through unchanged.
+        return route.fulfill({ json: { ...aWorkspace, externalAppAccess: 1, overrideConflicts: true } });
       }
       if (req.method() === 'PATCH') {
         patchBody = JSON.parse(req.postData() ?? '{}');
@@ -209,8 +211,9 @@ test.describe('workspace settings', () => {
 
     // Outline: a confirmation is shown (the page renders a success toast).
     await expect(successToast(page)).toBeVisible();
-    // Proper API call: PATCH workspaces/1 with externalAppAccess set to 0 (off).
-    expect(patchBody).toEqual({ externalAppAccess: 0 });
+    // Proper API call: PATCH workspaces/1 with externalAppAccess set to 0 (off),
+    // plus the unchanged overrideConflicts value seeded above.
+    expect(patchBody).toEqual({ externalAppAccess: 0, overrideConflicts: true });
   });
 
   // @test e2e: While External Apps settings are being saved, the Save button is
@@ -262,7 +265,9 @@ test.describe('workspace settings', () => {
     await page.route('**/workspaces/1', (route) => {
       const req = route.request();
       if (req.method() === 'GET') {
-        return route.fulfill({ json: { ...aWorkspace, externalAppAccess: 0 } });
+        // overrideConflicts seeded false; this test doesn't touch the "During
+        // conflicts" radios, so the value should pass through unchanged.
+        return route.fulfill({ json: { ...aWorkspace, externalAppAccess: 0, overrideConflicts: false } });
       }
       if (req.method() === 'PATCH') {
         patchBody = JSON.parse(req.postData() ?? '{}');
@@ -298,8 +303,56 @@ test.describe('workspace settings', () => {
     await apps.getByRole('button', { name: 'Save' }).click();
 
     await expect(successToast(page)).toBeVisible();
-    // Proper API call: externalAppAccess turned on (enabled === 1).
-    expect(patchBody).toEqual({ externalAppAccess: 1 });
+    // Proper API call: externalAppAccess turned on (enabled === 1), plus the
+    // unchanged overrideConflicts value seeded above.
+    expect(patchBody).toEqual({ externalAppAccess: 1, overrideConflicts: false });
+  });
+
+  // @test e2e: Under "External Apps" > "During conflicts", choosing "Override" (vs. the default
+  //            "Resolve") and clicking "Save" sends the proper API call with the chosen value.
+  test('choosing "Override" under During Conflicts and saving sends overrideConflicts: true', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    let patchBody: unknown = null;
+    // Published, with overrideConflicts seeded false so "Resolve" starts selected.
+    await page.route('**/workspaces/1', (route) => {
+      const req = route.request();
+      if (req.method() === 'GET') {
+        return route.fulfill({ json: { ...aWorkspace, externalAppAccess: 1, overrideConflicts: false } });
+      }
+      if (req.method() === 'PATCH') {
+        patchBody = JSON.parse(req.postData() ?? '{}');
+        return route.fulfill({ status: 204, body: '' });
+      }
+      return route.fallback();
+    });
+    await page.route('**/workspaces/1/quests/long/settings', (route) => {
+      if (route.request().method() === 'GET') {
+        return route.fulfill({ json: emptyQuestSettings });
+      }
+      return route.fulfill({ status: 204, body: '' });
+    });
+    await page.route('**/workspaces/1/imagery/settings', route =>
+      route.fulfill({ json: emptyImagerySettings })
+    );
+    await page.route(/(?:imagery-schema|schema)\.json$/, route =>
+      route.fulfill({ json: imagerySchema })
+    );
+
+    await page.goto('/workspace/1/settings');
+
+    const apps = page.locator('form.card', { hasText: 'External Apps' });
+    const resolve = apps.getByLabel('Resolve');
+    const override = apps.getByLabel('Override');
+    // Seeded overrideConflicts: false, so "Resolve" starts selected.
+    await expect(resolve).toBeChecked();
+    await expect(override).not.toBeChecked();
+
+    await override.check();
+    await apps.getByRole('button', { name: 'Save' }).click();
+
+    await expect(successToast(page)).toBeVisible();
+    // Proper API call: PATCH workspaces/1 with the chosen overrideConflicts value.
+    expect(patchBody).toEqual({ externalAppAccess: 1, overrideConflicts: true });
   });
 
   // @test e2e: the "Custom Imagery" box is validated against the JSON schema, and a toast shown
