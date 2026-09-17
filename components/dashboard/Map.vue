@@ -20,7 +20,7 @@
           The map preview could not be loaded.
         </div>
         <div v-else>
-          This workspace does not contain map data.
+          This workspace is empty.
         </div>
       </template>
     </div>
@@ -181,10 +181,17 @@ async function getWorkspaceArea(workspace: Workspace): Promise<WorkspaceArea | n
   await loadingBbox.cancelable(workspacesClient, async (client) => {
     const bbox = await client.getWorkspaceBbox(workspace.id);
 
-    if (!bbox) {
+    if (
+      !bbox
+      || ![
+        bbox.min_lat,
+        bbox.min_lon,
+        bbox.max_lat,
+        bbox.max_lon
+      ].every(Number.isFinite)
+    ) {
       return;
     }
-
     area = {
       geojson: bboxToPolygon(bbox.min_lat, bbox.min_lon, bbox.max_lat, bbox.max_lon),
       bounds: [[bbox.min_lon, bbox.min_lat], [bbox.max_lon, bbox.max_lat]],

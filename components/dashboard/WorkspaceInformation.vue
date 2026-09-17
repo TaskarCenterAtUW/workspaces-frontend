@@ -28,6 +28,18 @@
       </div>
     </div>
 
+    <div
+      v-if="!hasDatasetArea"
+      class="workspace-information-area-notice"
+      role="status"
+    >
+      <app-icon
+        variant="info"
+        size="20"
+      />
+      No dataset area has been set for this workspace.
+    </div>
+
     <dl class="workspace-information-grid">
       <div
         v-for="(column, columnIndex) in informationColumns"
@@ -88,6 +100,15 @@ const projectCountNoun = computed(() =>
 );
 const parsedMetadata = computed(() => parseMetadata(props.workspace.tdeiMetadata));
 const datasetVersion = computed(() => getDatasetVersion(parsedMetadata.value));
+const hasDatasetArea = computed(() => {
+  const metadataDetails = parsedMetadata.value?.metadata;
+  if (!isRecord(metadataDetails)) {
+    return false;
+  }
+
+  const datasetDetail = metadataDetails.dataset_detail;
+  return isRecord(datasetDetail) && isRecord(datasetDetail.dataset_area);
+});
 
 const roleLabel = computed(() => {
   const labels: string[] = [];
@@ -234,6 +255,15 @@ $workspace-information-meta-size: 0.875rem;
 .workspace-information-version strong {
   color: $text-navy;
   font-weight: $font-weight-semibold;
+}
+
+.workspace-information-area-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.8rem;
+  color: $gray-600;
+  font-size: $workspace-information-meta-size;
 }
 
 .workspace-information-grid {
