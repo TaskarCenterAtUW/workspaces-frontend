@@ -28,9 +28,25 @@
         Create Workspace
       </nuxt-link>
     </header>
-
     <section
-      v-if="currentWorkspaces.length === 0"
+      v-if="requestedWorkspaceNotFound"
+      class="dashboard-empty-state"
+      role="alert"
+    >
+      <h2>Workspace not found</h2>
+      <p>
+        This workspace does not exist or you do not have permission to access it.
+      </p>
+
+      <nuxt-link
+        class="btn btn-primary"
+        to="/dashboard"
+      >
+        View my workspaces
+      </nuxt-link>
+    </section>
+    <section
+      v-else-if="currentWorkspaces.length === 0"
       class="dashboard-empty-state"
       aria-live="polite"
     >
@@ -215,7 +231,6 @@
           />
         </div>
       </section>
-
       <section
         v-else
         class="dashboard-workspace-details dashboard-workspace-unavailable"
@@ -263,6 +278,7 @@ import {
 } from '~/util/workspace-pins';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
+import { parsePositiveIntegerQuery } from '~/util/route-query';
 
 import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
 
@@ -273,6 +289,8 @@ type JobFailureDialog = {
 const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
 const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
 const route = useRoute();
+const router = useRouter();
+const requestedWorkspaceNotFound = ref(false);
 
 const [initialWorkspaces, { items: myProjectGroups }] = await Promise.all([
   workspacesClient.getMyWorkspaces().then(items => items.sort(compareWorkspaceCreatedAtDesc)),
@@ -341,14 +359,39 @@ watch(currentWorkspaces, (nextWorkspaces) => {
   workspaceSearch.value = '';
   syncSelectedWorkspace(nextWorkspaces);
 });
+watch(
+  () => route.query.workspace,
+  () => {
+    applyWorkspaceFromRoute();
+
+    if (!requestedWorkspaceNotFound.value) {
+      syncSelectedWorkspace(currentWorkspaces.value);
+    }
+  }
+);
 
 onMounted(() => {
   loadWorkspacePins();
-  autoSelectPreferredWorkspace();
-  syncSelectedWorkspace(currentWorkspaces.value);
+  if (route.query.workspace == null) {
+    const lastWorkspace = workspaces.value.find(workspace => workspace.id === getLastWorkspaceId());
+    if (lastWorkspace) {
+      currentProjectGroup.value = lastWorkspace.tdeiProjectGroupId;
+      selectWorkspace(lastWorkspace, false);
+    }
+  }
+  applyWorkspaceFromRoute();
+  if (!requestedWorkspaceNotFound.value) {
+    syncSelectedWorkspace(currentWorkspaces.value);
+  }
 });
 
-function syncSelectedWorkspace(availableWorkspaces: Workspace[]): void {
+function syncSelectedWorkspace(
+  availableWorkspaces: Workspace[]
+): void {
+  if (requestedWorkspaceNotFound.value) {
+    return;
+  }
+
   if (availableWorkspaces.length === 0) {
     currentWorkspace.value = undefined;
     return;
@@ -361,25 +404,50 @@ function syncSelectedWorkspace(availableWorkspaces: Workspace[]): void {
   selectWorkspace(selectedWorkspace ?? availableWorkspaces[0]!);
 }
 
-function autoSelectPreferredWorkspace(): void {
-  const routeWorkspaceId = Number(route.query.workspace);
-  const preferredWorkspaceId = Number.isFinite(routeWorkspaceId) && routeWorkspaceId > 0
-    ? routeWorkspaceId
-    : getLastWorkspaceId();
+function applyWorkspaceFromRoute(): void {
+  const workspaceQueryValue = route.query.workspace;
+  const routeWorkspaceId = workspaceQueryValue == null
+    ? undefined
+    : parsePositiveIntegerQuery(workspaceQueryValue);
 
-  if (!preferredWorkspaceId) {
+  if (!routeWorkspaceId) {
+    requestedWorkspaceNotFound.value = false;
     return;
   }
 
-  const workspace = workspaces.value.find(item => item.id === preferredWorkspaceId);
-  if (workspace) {
-    currentProjectGroup.value = workspace.tdeiProjectGroupId;
-    selectWorkspace(workspace);
+  const workspace = workspaces.value.find(
+    item => item.id === routeWorkspaceId
+  );
+
+  if (!workspace) {
+    currentWorkspace.value = undefined;
+    requestedWorkspaceNotFound.value = true;
+    return;
   }
+
+  requestedWorkspaceNotFound.value = false;
+  currentProjectGroup.value = workspace.tdeiProjectGroupId;
+  selectWorkspace(workspace, false);
 }
 
-function selectWorkspace(workspace: Workspace): void {
+function selectWorkspace(
+  workspace: Workspace,
+  updateRoute: boolean = true
+): void {
   currentWorkspace.value = workspace;
+
+  if (
+    updateRoute
+    && String(route.query.workspace ?? '') !== String(workspace.id)
+  ) {
+    void router.push({
+      path: '/dashboard',
+      query: {
+        ...route.query,
+        workspace: String(workspace.id)
+      }
+    });
+  }
 }
 
 function loadWorkspacePins(): void {
@@ -566,7 +634,7 @@ $dashboard-create-button-radius: 0.375rem;
   gap: $spacer;
 }
 
-.dashboard-project-group-control > label {
+.dashboard-project-group-control>label {
   margin: 0;
   flex-shrink: 0;
   color: $text-navy;
@@ -681,7 +749,7 @@ $dashboard-create-button-radius: 0.375rem;
   font-size: $dashboard-copy-size;
 }
 
-.dashboard-workspace-search > :deep(.material-icons) {
+.dashboard-workspace-search> :deep(.material-icons) {
   position: absolute;
   top: 50%;
   right: $spacer;
@@ -886,6 +954,7 @@ $dashboard-create-button-radius: 0.375rem;
 }
 
 @include media-breakpoint-down(md) {
+
   .dashboard-topbar,
   .dashboard-project-group-control {
     align-items: stretch;

@@ -35,14 +35,16 @@
       >
         No items to review.
       </p>
-      <review-item
-        v-for="item in items"
-        :key="item.key"
-        :item="item"
-        :changeset-observer="changesetObserver"
-        :selected="item === currentItem"
-        @click="currentItem = item"
-      />
+      <template v-if="changesetObserver">
+        <review-item
+          v-for="item in items"
+          :key="item.key"
+          :item="item"
+          :changeset-observer="changesetObserver"
+          :selected="item === currentItem"
+          @click="currentItem = item"
+        />
+      </template>
     </div>
   </section><!-- .review-sidebar -->
 </template>
@@ -67,30 +69,31 @@ const filter = defineModel<ReviewListFilter>('filter', { required: true });
 const reviewListGroup = useTemplateRef<HTMLDivElement>('reviewListGroup');
 const items = reactive(props.reviewList.items);
 
-let changesetObserver: IntersectionObserver;
+const changesetObserver = shallowRef<IntersectionObserver>();
 
 onMounted(() => {
-  // We load some additional data when a changeset item scrolls into view:
-  changesetObserver = new IntersectionObserver(
+  changesetObserver.value = new IntersectionObserver(
     onChangesetObserved,
     {
       root: reviewListGroup.value,
-      threshold: 0.2,
-    },
+      threshold: 0.2
+    }
   );
 });
 
 onUnmounted(() => {
-  if (changesetObserver) {
-    changesetObserver.disconnect();
-  }
+  changesetObserver.value?.disconnect();
+});
+
+onUnmounted(() => {
+  changesetObserver.value?.disconnect();
 });
 
 function onChangesetObserved(entries: IntersectionObserverEntry[]) {
   for (const entry of entries) {
     if (entry.isIntersecting) {
       const target = entry.target as ItemElement;
-      changesetObserver.unobserve(target);
+      changesetObserver.value?.unobserve(target);
       props.reviewList.loadOsmChange(target.wsReviewItem);
     }
   }

@@ -24,7 +24,7 @@ test('shows session recovery before loading a protected page', async ({ page }) 
 
   const logoutUrl = new URL((await logoutRequest).url());
   expect(logoutUrl.searchParams.get('redirect_uri'))
-    .toBe('http://localhost:3000/logout/callback');
+    .toBe(new URL('/logout/callback', page.url()).href);
 });
 
 test('shows session recovery when the server rejects the refresh token', async ({ page }) => {
@@ -71,7 +71,7 @@ test('starts SSO recovery and preserves the protected return route', async ({ pa
 
   const requestUrl = new URL((await ssoRequest).url());
   expect(requestUrl.searchParams.get('redirect_uri'))
-    .toBe('http://localhost:3000/auth/callback');
+    .toBe(new URL('/auth/callback', page.url()).href);
   expect(capturedReturnTo).toBe('/dashboard');
 });
 
@@ -102,8 +102,9 @@ test('redirects an open sign-in tab after another tab signs in', async ({ page, 
   await page.goto('/signin');
   await otherPage.goto('/signin');
 
-  await expect(otherPage.getByRole('button', { name: 'TDEI Login' }))
-    .toBeVisible({ timeout: COLD_ROUTE_TIMEOUT });
+  // Ensure both apps have initialized before dispatching the storage event.
+  await expect(page.getByRole('button', { name: 'TDEI Login', exact: true })).toBeVisible({ timeout: COLD_ROUTE_TIMEOUT });
+  await expect(otherPage.getByRole('button', { name: 'TDEI Login', exact: true })).toBeVisible({ timeout: COLD_ROUTE_TIMEOUT });
 
   await page.evaluate(() => {
     localStorage.setItem('tdei-auth', JSON.stringify({
@@ -133,9 +134,14 @@ test('synchronizes renewed credentials and recoverable expiry across open tabs',
   await page.goto('/help');
   await otherPage.goto('/workspace/create');
 
-  // Ensure the receiving tab has hydrated and subscribed to storage events.
-  await expect(otherPage.locator('.user-profile'))
-    .toContainText('Tester', { timeout: COLD_ROUTE_TIMEOUT });
+  // Let both tabs finish initializing their seeded session and storage
+  // listeners before expiring the shared credentials.
+  await expect(page.locator('.user-profile')).toContainText('Tester', { timeout: COLD_ROUTE_TIMEOUT });
+  await expect(otherPage.locator('.user-profile')).toContainText('Tester', { timeout: COLD_ROUTE_TIMEOUT });
+  await expect(otherPage.getByRole('heading', {
+    name: 'Create a Workspace',
+    exact: true
+  })).toBeVisible({ timeout: COLD_ROUTE_TIMEOUT });
 
   await page.evaluate(() => {
     localStorage.setItem('tdei-auth', JSON.stringify({ username: 'tester' }));

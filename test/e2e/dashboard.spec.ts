@@ -21,6 +21,95 @@ import {
 const EMPTY = (route: import('@playwright/test').Route) => route.fulfill({ json: [] });
 
 test.describe('dashboard', () => {
+  test.describe('workspace ID in workspace information', () => {
+    const workspaces = [
+      {
+        ...aWorkspace,
+        id: 1926,
+        title: 'LA-OSW Workspace',
+        tdeiMetadata: JSON.stringify({
+          metadata: { dataset_detail: { version: '1.2' } }
+        })
+      },
+      {
+        ...aWorkspace,
+        id: 2207,
+        title: 'Seattle Review Workspace',
+        tdeiMetadata: null
+      }
+    ];
+
+    test.beforeEach(async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
+      await page.route(`${TEST_API_BASE}workspaces/mine`, route => route.fulfill({ json: workspaces }));
+      await page.route(`${TEST_API_BASE}tdei-user/project-group-roles/**`, route => route.fulfill({ json: projectGroups }));
+      // Empty map data keeps these metadata tests independent of WebGL.
+      await page.route(`${TEST_API_BASE}workspaces/{1926,2207}/bbox{,?*}`, route =>
+        route.fulfill({ status: 204 })
+      );
+    });
+
+    test('redirects a dashboard workspace URL to the selected workspace', async ({ page }) => {
+      await page.goto('/dashboard/workspace/1926');
+
+      await expect(page).toHaveURL('/dashboard?workspace=1926');
+    });
+
+    test('displays the selected workspace ID in the same row as TDEI Dataset Version', async ({ page }) => {
+      await page.goto('/dashboard?workspace=1926');
+
+      const primaryRow = page.locator('.workspace-info-primary-section');
+      const workspaceId = primaryRow.locator('.workspace-information-id');
+      const datasetVersion = primaryRow.locator('.workspace-information-version:not(.workspace-information-id)');
+
+      await expect(workspaceId.getByText('Workspace ID', { exact: true })).toBeVisible();
+      await expect(workspaceId.locator('strong')).toHaveText('1926');
+      await expect(datasetVersion.getByText('TDEI Dataset Version', { exact: true })).toBeVisible();
+      await expect(datasetVersion.locator('strong')).toHaveText('1.2');
+
+      const idBounds = await workspaceId.boundingBox();
+      const versionBounds = await datasetVersion.boundingBox();
+      expect(idBounds).not.toBeNull();
+      expect(versionBounds).not.toBeNull();
+      expect(Math.abs(
+        (idBounds!.y + idBounds!.height / 2)
+        - (versionBounds!.y + versionBounds!.height / 2)
+      )).toBeLessThanOrEqual(2);
+      expect(idBounds!.x).toBeGreaterThanOrEqual(versionBounds!.x + versionBounds!.width);
+    });
+
+    test('updates the workspace ID when a different workspace is selected', async ({ page }) => {
+      await page.goto('/dashboard?workspace=1926');
+
+      const workspaceId = page.locator('.workspace-information-id strong');
+      await expect(workspaceId).toHaveText('1926');
+
+      await page.getByRole('button', {
+        name: 'Select workspace Seattle Review Workspace, ID 2207',
+        exact: true
+      }).click();
+
+      await expect(workspaceId).toHaveText('2207');
+
+      await page.getByRole('button', {
+        name: 'Select workspace LA-OSW Workspace, ID 1926',
+        exact: true
+      }).click();
+
+      await expect(workspaceId).toHaveText('1926');
+    });
+
+    test('displays the workspace ID even when TDEI Dataset Version is unavailable', async ({ page }) => {
+      await page.goto('/dashboard?workspace=2207');
+
+      const primaryRow = page.locator('.workspace-info-primary-section');
+      await expect(primaryRow.locator('.workspace-information-id strong')).toHaveText('2207');
+      await expect(primaryRow.locator('.workspace-information-version:not(.workspace-information-id) strong'))
+        .toHaveText('N/A');
+    });
+  });
+
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
   // Use the empty case so no workspace is auto-selected and the maplibre map
   // never mounts (WebGL is unreliable headless). The recorder still sees the
