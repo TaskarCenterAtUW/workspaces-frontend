@@ -8,10 +8,10 @@ if (isNaN(workspaceId)) {
 }
 
 await navigateTo({
-    path: '/dashboard',
-    query: {
-      workspaceId: workspaceId.toString(),
-    },
-    replace: true,
+  path: '/dashboard',
+  query: {
+    workspace: workspaceId.toString(),
+  },
+  replace: true,
 })
 </script>
