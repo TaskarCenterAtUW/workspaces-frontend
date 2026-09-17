@@ -100,7 +100,7 @@
         >
           <section
             v-if="pinnedWorkspaceListItems.length > 0"
-            class="dashboard-workspace-group"
+            class="dashboard-workspace-group dashboard-pinned-workspaces"
             aria-labelledby="pinned-workspaces-title"
           >
             <header class="dashboard-workspace-group-heading">

@@ -9,7 +9,6 @@ import {
   USER_ID
 } from '../mocks/fixtures';
 
-
 // Generated from the @test outline in pages/dashboard.vue.
 //
 // dashboard.vue does a top-level `await` on getMyWorkspaces() +
@@ -118,7 +117,7 @@ test.describe('dashboard', () => {
     ]);
 
     await page.getByRole('button', { name: 'Pin workspace Old Workspace' }).click();
-    await expect(page.getByRole('heading', { name: 'Pinned Workspaces' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Pinned Workspace', exact: true })).toBeVisible();
     await expect(
       page.locator('.dashboard-pinned-workspaces .workspace-card-copy strong')
     ).toHaveText('Old Workspace');
@@ -178,6 +177,7 @@ test.describe('dashboard', () => {
     await expect(page.getByText('The map preview could not be loaded.', { exact: true })).toBeHidden();
     await expect(page.getByText('No dataset area has been set for this workspace.', { exact: true }))
       .toBeVisible();
+  });
 
   test('clicking a failed import status loads the latest job and shows its failure response', async ({ page }) => {
     const failedWorkspace = {
@@ -274,4 +274,4 @@ test.describe('dashboard', () => {
   // BLOCKED: same selected-workspace requirement; assert navigation to
   // /workspace/{id}/settings.
   test.fixme('settings button opens the settings screen', async () => {});
-})});
+});
