@@ -33,8 +33,16 @@
       </div>
 
       <hr>
-      <h4 class="h5">During conflicts</h4>
-      <div class="form-check form-check-inline">
+      <h4 class="h5">Edit Conflict Handling</h4>
+      
+      <div
+        id="conflict-handling-help"
+        class="form-text"
+      >
+        These options control how edit conflicts are handled when two users make edits to the same feature.
+      </div>
+      <br>
+      <div class="form-check">
         <label class="form-check-label">
           <input
             v-model="workspaceOverrideConflicts"
@@ -46,8 +54,13 @@
           >
           Resolve
         </label>
+        <div class="form-text">
+          When it is detected that another user has made an edit to a feature you have also edited, the values
+          you entered are compared to the ones entered by the other user — you are prompted to confirm which of
+          the two you'd like to use for any values that differ.
+        </div>
       </div>
-      <div class="form-check form-check-inline">
+      <div class="form-check">
         <label class="form-check-label">
           <input
             v-model="workspaceOverrideConflicts"
@@ -59,6 +72,10 @@
           >
           Override
         </label>
+        <div class="form-text">
+          When it is detected that another user has made an edit to a feature you have also edited, all of the
+          field values you submitted are saved — "last edit wins".
+        </div>
       </div>
 
       <hr class="horizontal-separator">
