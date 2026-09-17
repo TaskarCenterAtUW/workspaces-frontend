@@ -1,6 +1,13 @@
 import { test, expect, seedAuthenticatedSession, seedProjectGroupSelection } from './fixtures';
 import { recordContract } from './contract';
-import { aWorkspace, projectGroups, PROJECT_GROUP_ID, TEST_API_BASE } from '../mocks/fixtures';
+import {
+  aWorkspace,
+  myWorkspaces,
+  projectGroups,
+  PROJECT_GROUP_ID,
+  TEST_API_BASE,
+  USER_ID
+} from '../mocks/fixtures';
 
 // Generated from the @test outline in pages/dashboard.vue.
 //
@@ -53,6 +60,120 @@ test.describe('dashboard', () => {
 
     await expect(page.getByLabel('Project Group')).toHaveValue('Puget Sound');
     await expect(page.getByText('No workspaces exist in the selected project group.')).toBeVisible();
+  });
+
+  test('selection keeps list order while explicit pins persist in a prominent section', async ({ page }) => {
+    const otherGroupId = '33333333-3333-3333-3333-333333333333';
+    const dashboardWorkspaces = [
+      {
+        ...myWorkspaces[0],
+        id: 1,
+        title: 'Old Workspace',
+        createdAt: '2026-01-01T00:00:00.000Z'
+      },
+      {
+        ...myWorkspaces[0],
+        id: 2,
+        title: 'New Workspace',
+        createdAt: '2026-03-01T00:00:00.000Z'
+      },
+      {
+        ...myWorkspaces[0],
+        id: 3,
+        title: 'Middle Workspace',
+        createdAt: '2026-02-01T00:00:00.000Z',
+        importStatus: 'in-progress'
+      },
+      {
+        ...myWorkspaces[0],
+        id: 4,
+        title: 'Other Group Workspace',
+        tdeiProjectGroupId: otherGroupId
+      }
+    ];
+
+    await seedAuthenticatedSession(page);
+    await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
+    await page.route('**/workspaces/mine', route => route.fulfill({ json: dashboardWorkspaces }));
+    await page.route('**/project-group-roles/**', route => route.fulfill({ json: [
+      ...projectGroups,
+      { ...projectGroups[0], tdei_project_group_id: otherGroupId, project_group_name: 'Other Group' }
+    ] }));
+    await page.route('**/workspaces/*/bbox', route => route.fulfill({ status: 204 }));
+
+    await page.goto('/dashboard');
+
+    const visibleWorkspaceTitles = page.locator('.dashboard-workspace-list .workspace-card-copy strong');
+    await expect(visibleWorkspaceTitles).toHaveText([
+      'New Workspace',
+      'Middle Workspace',
+      'Old Workspace'
+    ]);
+
+    const importingCard = page.locator('.workspace-card-container').filter({
+      hasText: 'Middle Workspace'
+    });
+    const statusBounds = await importingCard.locator('.workspace-import-status-badge').boundingBox();
+    const pinBounds = await importingCard.locator('.workspace-card-pin').boundingBox();
+    expect(statusBounds).not.toBeNull();
+    expect(pinBounds).not.toBeNull();
+    expect(statusBounds!.x + statusBounds!.width).toBeLessThanOrEqual(pinBounds!.x);
+
+    await page.getByRole('button', { name: /Select workspace Old Workspace/ }).click();
+    await expect(visibleWorkspaceTitles).toHaveText([
+      'New Workspace',
+      'Middle Workspace',
+      'Old Workspace'
+    ]);
+
+    await page.getByRole('button', { name: 'Pin workspace Old Workspace' }).click();
+    await expect(page.getByRole('heading', { name: 'Pinned Workspace', exact: true })).toBeVisible();
+    await expect(
+      page.locator('.dashboard-pinned-workspaces .workspace-card-copy strong')
+    ).toHaveText('Old Workspace');
+    await expect(page.getByRole('heading', { name: 'All Workspaces' })).toBeVisible();
+    await expect.poll(() => page.evaluate(
+      key => localStorage.getItem(key),
+      `tdei-pinned-workspaces:${USER_ID}`
+    )).toBe('[1]');
+
+    await page.getByRole('button', { name: 'Pin workspace New Workspace' }).click();
+    await expect(
+      page.locator('.dashboard-pinned-workspaces .workspace-card-copy strong')
+    ).toHaveText('New Workspace');
+    await expect(page.getByRole('button', { name: 'Pin workspace Old Workspace' })).toBeVisible();
+    await expect.poll(() => page.evaluate(
+      key => localStorage.getItem(key),
+      `tdei-pinned-workspaces:${USER_ID}`
+    )).toBe('[2]');
+
+    await page.reload();
+    await expect(
+      page.locator('.dashboard-pinned-workspaces .workspace-card-copy strong')
+    ).toHaveText('New Workspace');
+
+    const groupPicker = page.getByLabel('Project Group');
+    await groupPicker.click();
+    await page.locator('.pg-dropdown li').filter({ hasText: 'Other Group' }).click();
+    await page.getByRole('button', { name: 'Pin workspace Other Group Workspace', exact: true }).click();
+    await expect(page.locator('.dashboard-pinned-workspaces .workspace-card-copy strong'))
+      .toHaveText('Other Group Workspace');
+
+    await page.reload();
+    await groupPicker.click();
+    await page.locator('.pg-dropdown li').filter({ hasText: 'Other Group' }).click();
+    await expect(page.locator('.dashboard-pinned-workspaces .workspace-card-copy strong'))
+      .toHaveText('Other Group Workspace');
+    await groupPicker.click();
+    await page.locator('.pg-dropdown li').filter({ hasText: 'Puget Sound' }).click();
+    await expect(page.locator('.dashboard-pinned-workspaces .workspace-card-copy strong'))
+      .toHaveText('New Workspace');
+    await page.getByRole('button', { name: 'Unpin workspace New Workspace', exact: true }).click();
+    await expect(page.locator('.dashboard-pinned-workspaces')).toBeHidden();
+    await groupPicker.click();
+    await page.locator('.pg-dropdown li').filter({ hasText: 'Other Group' }).click();
+    await expect(page.locator('.dashboard-pinned-workspaces .workspace-card-copy strong'))
+      .toHaveText('Other Group Workspace');
   });
 
   test('shows empty-workspace and missing-dataset-area notices', async ({ page }) => {
