@@ -32,6 +32,52 @@
         </label>
       </div>
 
+      <hr>
+      <h4 class="h5">Edit Conflict Handling</h4>
+
+      <div
+        id="conflict-handling-help"
+        class="form-text"
+      >
+        These options control how edit conflicts are handled when two users make edits to the same feature.
+      </div>
+      <br>
+      <div class="form-check">
+        <label class="form-check-label">
+          <input
+            v-model="workspaceOverrideConflicts"
+            class="form-check-input"
+            type="radio"
+            name="workspaceOverrideConflicts"
+            :value="false"
+            :disabled="appControlsDisabled"
+          >
+          Resolve
+        </label>
+        <div class="form-text">
+          When it is detected that another user has made an edit to a feature you have also edited, the values
+          you entered are compared to the ones entered by the other user — you are prompted to confirm which of
+          the two you'd like to use for any values that differ.
+        </div>
+      </div>
+      <div class="form-check">
+        <label class="form-check-label">
+          <input
+            v-model="workspaceOverrideConflicts"
+            class="form-check-input"
+            type="radio"
+            name="workspaceOverrideConflicts"
+            :value="true"
+            :disabled="appControlsDisabled"
+          >
+          Override
+        </label>
+        <div class="form-text">
+          When it is detected that another user has made an edit to a feature you have also edited, all of the
+          field values you submitted are saved — "last edit wins".
+        </div>
+      </div>
+
       <hr class="horizontal-separator">
 
       <h3 class="label-secondary">
@@ -192,6 +238,7 @@ const longFormQuestSchema = ref<object | undefined>();
 const longFormQuestType = ref(longFormQuestSettings.type);
 const longFormQuestDef = ref(longFormQuestSettings.definition);
 const longFormQuestUrl = ref(longFormQuestSettings.url);
+const workspaceOverrideConflicts = ref(Boolean(workspace.overrideConflicts));
 const longFormQuestError = ref<string | null>(null);
 const isDraggingQuest = ref(false);
 
@@ -262,6 +309,7 @@ async function saveExternalAppConfiguration() {
     await Promise.all([
       workspacesClient.updateWorkspace(workspace.id, {
         externalAppAccess: workspace.externalAppAccess,
+        overrideConflicts: workspaceOverrideConflicts.value,
       }),
       workspacesClient.saveLongFormQuestSettings(workspace.id, {
         type,
