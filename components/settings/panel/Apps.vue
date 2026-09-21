@@ -1,12 +1,12 @@
 <template>
   <form
-    class="card mb-4"
+    class="card mb-4 setting-card-item"
     @submit.prevent="saveExternalAppConfiguration"
   >
     <div class="card-body border-bottom">
-      <h3 class="card-title mb-3">
+      <h2 class="card-title">
         External Apps
-      </h3>
+      </h2>
 
       <b-alert
         v-if="!isLead"
@@ -33,10 +33,56 @@
       </div>
 
       <hr>
+      <h4 class="h5">Edit Conflict Handling</h4>
 
-      <h4 class="h5">
+      <div
+        id="conflict-handling-help"
+        class="form-text"
+      >
+        These options control how edit conflicts are handled when two users make edits to the same feature.
+      </div>
+      <br>
+      <div class="form-check">
+        <label class="form-check-label">
+          <input
+            v-model="workspaceOverrideConflicts"
+            class="form-check-input"
+            type="radio"
+            name="workspaceOverrideConflicts"
+            :value="false"
+            :disabled="appControlsDisabled"
+          >
+          Resolve
+        </label>
+        <div class="form-text">
+          When it is detected that another user has made an edit to a feature you have also edited, the values
+          you entered are compared to the ones entered by the other user — you are prompted to confirm which of
+          the two you'd like to use for any values that differ.
+        </div>
+      </div>
+      <div class="form-check">
+        <label class="form-check-label">
+          <input
+            v-model="workspaceOverrideConflicts"
+            class="form-check-input"
+            type="radio"
+            name="workspaceOverrideConflicts"
+            :value="true"
+            :disabled="appControlsDisabled"
+          >
+          Override
+        </label>
+        <div class="form-text">
+          When it is detected that another user has made an edit to a feature you have also edited, all of the
+          field values you submitted are saved — "last edit wins".
+        </div>
+      </div>
+
+      <hr class="horizontal-separator">
+
+      <h3 class="label-secondary">
         AVIV ScoutRoute Long Form Quest Definitions
-      </h4>
+      </h3>
 
       <div class="form-check">
         <label class="form-check-label">
@@ -66,7 +112,7 @@
       </div>
 
       <template v-if="longFormQuestType === 'JSON'">
-        <label class="d-block form-label mt-3">
+        <label class="d-block form-label mt-4">
           JSON Quest Definition
           <textarea
             v-model.trim="longFormQuestDef"
@@ -103,7 +149,7 @@
       </template>
 
       <template v-else-if="longFormQuestType === 'URL'">
-        <label class="d-block form-label mt-3">
+        <label class="d-block form-label mt-4">
           Quest Definition URL
           <input
             v-model.trim="longFormQuestUrl"
@@ -142,7 +188,7 @@
         {{ longFormQuestError }}
       </div>
 
-      <hr>
+      <hr class="horizontal-separator">
       <button
         type="submit"
         class="btn btn-primary"
@@ -192,6 +238,7 @@ const longFormQuestSchema = ref<object | undefined>();
 const longFormQuestType = ref(longFormQuestSettings.type);
 const longFormQuestDef = ref(longFormQuestSettings.definition);
 const longFormQuestUrl = ref(longFormQuestSettings.url);
+const workspaceOverrideConflicts = ref(Boolean(workspace.overrideConflicts));
 const longFormQuestError = ref<string | null>(null);
 const isDraggingQuest = ref(false);
 
@@ -262,6 +309,7 @@ async function saveExternalAppConfiguration() {
     await Promise.all([
       workspacesClient.updateWorkspace(workspace.id, {
         externalAppAccess: workspace.externalAppAccess,
+        overrideConflicts: workspaceOverrideConflicts.value,
       }),
       workspacesClient.saveLongFormQuestSettings(workspace.id, {
         type,
@@ -284,3 +332,24 @@ async function saveExternalAppConfiguration() {
   }
 }
 </script>
+
+<style lang="scss" scoped>
+.setting-card-item {
+  background-color: #FFFFFF;
+  border: 1px solid #D9D9D9;
+  border-radius: 10px;
+}
+.card-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+.horizontal-separator {
+  border-top: 1px dashed;
+}
+.label-secondary {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 15px;
+}
+</style>

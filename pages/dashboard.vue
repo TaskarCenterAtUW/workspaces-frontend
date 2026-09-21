@@ -28,9 +28,25 @@
         Create Workspace
       </nuxt-link>
     </header>
-
     <section
-      v-if="currentWorkspaces.length === 0"
+      v-if="requestedWorkspaceNotFound"
+      class="dashboard-empty-state"
+      role="alert"
+    >
+      <h2>Workspace not found</h2>
+      <p>
+        This workspace does not exist or you do not have permission to access it.
+      </p>
+
+      <nuxt-link
+        class="btn btn-primary"
+        to="/dashboard"
+      >
+        View my workspaces
+      </nuxt-link>
+    </section>
+    <section
+      v-else-if="currentWorkspaces.length === 0"
       class="dashboard-empty-state"
       aria-live="polite"
     >
@@ -98,13 +114,54 @@
           v-if="workspaceListItems.length > 0"
           class="dashboard-workspace-list"
         >
-          <dashboard-workspace-item
-            v-for="workspace in workspaceListItems"
-            :key="workspace.id"
-            :workspace="workspace"
-            :selected="workspace.id === currentWorkspace?.id"
-            @click="selectWorkspace(workspace)"
+          <section
+            v-if="pinnedWorkspaceListItems.length > 0"
+            class="dashboard-workspace-group dashboard-pinned-workspaces"
+            aria-labelledby="pinned-workspace-title"
+          >
+            <header class="dashboard-workspace-group-heading">
+              <h3 id="pinned-workspace-title">Pinned Workspace</h3>
+              <!-- <span aria-hidden="true">{{ pinnedWorkspaceListItems.length }}</span> -->
+            </header>
+
+            <dashboard-workspace-item
+              v-for="workspace in pinnedWorkspaceListItems"
+              :key="workspace.id"
+              :workspace="workspace"
+              :pinned="true"
+              :selected="workspace.id === currentWorkspace?.id"
+              @select="selectWorkspace(workspace)"
+              @toggle-pin="toggleWorkspacePin(workspace.id)"
+            />
+          </section>
+
+          <div
+            v-if="pinnedWorkspaceListItems.length > 0 && unpinnedWorkspaceListItems.length > 0"
+            class="dashboard-workspace-divider"
+            aria-hidden="true"
           />
+
+          <section
+            v-if="unpinnedWorkspaceListItems.length > 0"
+            class="dashboard-workspace-group"
+            :aria-labelledby="pinnedWorkspaceListItems.length > 0 ? 'all-workspaces-title' : undefined"
+          >
+            <header
+              v-if="pinnedWorkspaceListItems.length > 0"
+              class="dashboard-workspace-group-heading"
+            >
+              <h3 id="all-workspaces-title">All Workspaces</h3>
+            </header>
+
+            <dashboard-workspace-item
+              v-for="workspace in unpinnedWorkspaceListItems"
+              :key="workspace.id"
+              :workspace="workspace"
+              :selected="workspace.id === currentWorkspace?.id"
+              @select="selectWorkspace(workspace)"
+              @toggle-pin="toggleWorkspacePin(workspace.id)"
+            />
+          </section>
         </div>
 
         <div
@@ -174,7 +231,6 @@
           />
         </div>
       </section>
-
       <section
         v-else
         class="dashboard-workspace-details dashboard-workspace-unavailable"
@@ -211,12 +267,18 @@
 
 <script setup lang="ts">
 import timelineIcon from '~/assets/img/timeline.svg';
-import { tdeiUserClient, workspacesClient } from '~/services/index';
+import { tdeiAuth, tdeiUserClient, workspacesClient } from '~/services/index';
 import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 import { formatElapsed } from '~/util/time';
 import { ROLE_LABELS } from '~/util/roles';
+import {
+  readWorkspacePins,
+  keepOnePinPerProjectGroup,
+  writeWorkspacePins,
+} from '~/util/workspace-pins';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
+import { parsePositiveIntegerQuery } from '~/util/route-query';
 
 import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
 
@@ -227,6 +289,8 @@ type JobFailureDialog = {
 const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
 const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
 const route = useRoute();
+const router = useRouter();
+const requestedWorkspaceNotFound = ref(false);
 
 const [initialWorkspaces, { items: myProjectGroups }] = await Promise.all([
   workspacesClient.getMyWorkspaces().then(items => items.sort(compareWorkspaceCreatedAtDesc)),
@@ -246,6 +310,7 @@ const currentProjectGroup = ref<string | null>(
 );
 const currentWorkspace = ref<Workspace>();
 const workspaceSearch = ref('');
+const pinnedWorkspaceIds = ref<Set<number>>(new Set());
 const refreshingWorkspaces = ref(false);
 const jobFailureDialog = useTemplateRef<JobFailureDialog>('jobFailureDialog');
 
@@ -258,13 +323,14 @@ const workspaceListItems = computed<Workspace[]>(() => {
   const normalizedSearch = workspaceSearch.value.toLocaleLowerCase();
 
   return currentWorkspaces.value
-    .filter(workspace => workspace.title.toLocaleLowerCase().includes(normalizedSearch))
-    .sort((firstWorkspace, secondWorkspace) => {
-      const selectedWorkspaceId = currentWorkspace.value?.id;
-      return Number(secondWorkspace.id === selectedWorkspaceId)
-        - Number(firstWorkspace.id === selectedWorkspaceId);
-    });
+    .filter(workspace => workspace.title.toLocaleLowerCase().includes(normalizedSearch));
 });
+const pinnedWorkspaceListItems = computed<Workspace[]>(() =>
+  workspaceListItems.value.filter(workspace => pinnedWorkspaceIds.value.has(workspace.id))
+);
+const unpinnedWorkspaceListItems = computed<Workspace[]>(() =>
+  workspaceListItems.value.filter(workspace => !pinnedWorkspaceIds.value.has(workspace.id))
+);
 const currentWorkspaceTdeiRoles = computed<string[]>(() =>
   currentWorkspace.value
     ? rolesByProjectGroup.get(currentWorkspace.value.tdeiProjectGroupId) ?? []
@@ -293,13 +359,39 @@ watch(currentWorkspaces, (nextWorkspaces) => {
   workspaceSearch.value = '';
   syncSelectedWorkspace(nextWorkspaces);
 });
+watch(
+  () => route.query.workspace,
+  () => {
+    applyWorkspaceFromRoute();
+
+    if (!requestedWorkspaceNotFound.value) {
+      syncSelectedWorkspace(currentWorkspaces.value);
+    }
+  }
+);
 
 onMounted(() => {
-  autoSelectPreferredWorkspace();
-  syncSelectedWorkspace(currentWorkspaces.value);
+  loadWorkspacePins();
+  if (route.query.workspace == null) {
+    const lastWorkspace = workspaces.value.find(workspace => workspace.id === getLastWorkspaceId());
+    if (lastWorkspace) {
+      currentProjectGroup.value = lastWorkspace.tdeiProjectGroupId;
+      selectWorkspace(lastWorkspace, false);
+    }
+  }
+  applyWorkspaceFromRoute();
+  if (!requestedWorkspaceNotFound.value) {
+    syncSelectedWorkspace(currentWorkspaces.value);
+  }
 });
 
-function syncSelectedWorkspace(availableWorkspaces: Workspace[]): void {
+function syncSelectedWorkspace(
+  availableWorkspaces: Workspace[]
+): void {
+  if (requestedWorkspaceNotFound.value) {
+    return;
+  }
+
   if (availableWorkspaces.length === 0) {
     currentWorkspace.value = undefined;
     return;
@@ -312,25 +404,85 @@ function syncSelectedWorkspace(availableWorkspaces: Workspace[]): void {
   selectWorkspace(selectedWorkspace ?? availableWorkspaces[0]!);
 }
 
-function autoSelectPreferredWorkspace(): void {
-  const routeWorkspaceId = Number(route.query.workspace);
-  const preferredWorkspaceId = Number.isFinite(routeWorkspaceId) && routeWorkspaceId > 0
-    ? routeWorkspaceId
-    : getLastWorkspaceId();
+function applyWorkspaceFromRoute(): void {
+  const workspaceQueryValue = route.query.workspace;
+  const routeWorkspaceId = workspaceQueryValue == null
+    ? undefined
+    : parsePositiveIntegerQuery(workspaceQueryValue);
 
-  if (!preferredWorkspaceId) {
+  if (!routeWorkspaceId) {
+    requestedWorkspaceNotFound.value = false;
     return;
   }
 
-  const workspace = workspaces.value.find(item => item.id === preferredWorkspaceId);
-  if (workspace) {
-    currentProjectGroup.value = workspace.tdeiProjectGroupId;
-    selectWorkspace(workspace);
+  const workspace = workspaces.value.find(
+    item => item.id === routeWorkspaceId
+  );
+
+  if (!workspace) {
+    currentWorkspace.value = undefined;
+    requestedWorkspaceNotFound.value = true;
+    return;
+  }
+
+  requestedWorkspaceNotFound.value = false;
+  currentProjectGroup.value = workspace.tdeiProjectGroupId;
+  selectWorkspace(workspace, false);
+}
+
+function selectWorkspace(
+  workspace: Workspace,
+  updateRoute: boolean = true
+): void {
+  currentWorkspace.value = workspace;
+
+  if (
+    updateRoute
+    && String(route.query.workspace ?? '') !== String(workspace.id)
+  ) {
+    void router.push({
+      path: '/dashboard',
+      query: {
+        ...route.query,
+        workspace: String(workspace.id)
+      }
+    });
   }
 }
 
-function selectWorkspace(workspace: Workspace): void {
-  currentWorkspace.value = workspace;
+function loadWorkspacePins(): void {
+  if (!tdeiAuth.subject) {
+    return;
+  }
+
+  const storedIds = readWorkspacePins(localStorage, tdeiAuth.subject);
+  const validIds = keepOnePinPerProjectGroup(storedIds, workspaces.value);
+  pinnedWorkspaceIds.value = new Set(validIds);
+
+  if (validIds.length !== storedIds.length || validIds[0] !== storedIds[0]) {
+    writeWorkspacePins(localStorage, tdeiAuth.subject, validIds);
+  }
+}
+
+function toggleWorkspacePin(workspaceId: number): void {
+  const workspace = currentWorkspaces.value.find(workspace => workspace.id === workspaceId);
+  if (!workspace) {
+    return;
+  }
+
+  const groupWorkspaceIds = new Set(currentWorkspaces.value.map(workspace => workspace.id));
+  const nextPinnedIds = new Set(
+    [...pinnedWorkspaceIds.value].filter(id => !groupWorkspaceIds.has(id))
+  );
+  if (!pinnedWorkspaceIds.value.has(workspaceId)) {
+    nextPinnedIds.add(workspaceId);
+  }
+
+  pinnedWorkspaceIds.value = nextPinnedIds;
+
+  if (tdeiAuth.subject) {
+    writeWorkspacePins(localStorage, tdeiAuth.subject, nextPinnedIds);
+  }
 }
 
 function showJobFailure(workspaceId: number): void {
@@ -358,6 +510,15 @@ async function refreshWorkspaces(): Promise<void> {
           : workspace;
       })
       .sort(compareWorkspaceCreatedAtDesc);
+
+    const validPinnedIds = keepOnePinPerProjectGroup(
+      pinnedWorkspaceIds.value,
+      workspaces.value
+    );
+    pinnedWorkspaceIds.value = new Set(validPinnedIds);
+    if (tdeiAuth.subject) {
+      writeWorkspacePins(localStorage, tdeiAuth.subject, validPinnedIds);
+    }
   }
   catch (error: unknown) {
     toast.error(error instanceof Error ? error.message : 'Failed to refresh workspaces.');
@@ -473,7 +634,7 @@ $dashboard-create-button-radius: 0.375rem;
   gap: $spacer;
 }
 
-.dashboard-project-group-control > label {
+.dashboard-project-group-control>label {
   margin: 0;
   flex-shrink: 0;
   color: $text-navy;
@@ -588,7 +749,7 @@ $dashboard-create-button-radius: 0.375rem;
   font-size: $dashboard-copy-size;
 }
 
-.dashboard-workspace-search > :deep(.material-icons) {
+.dashboard-workspace-search> :deep(.material-icons) {
   position: absolute;
   top: 50%;
   right: $spacer;
@@ -599,13 +760,57 @@ $dashboard-create-button-radius: 0.375rem;
 .dashboard-workspace-list {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 0 $dashboard-panel-padding $dashboard-panel-padding;
+  padding: 5px $dashboard-panel-padding $dashboard-panel-padding;
   display: grid;
   align-content: start;
   gap: $dashboard-panel-gap;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba($secondary, 0.3) transparent;
+}
+
+.dashboard-workspace-group {
+  display: grid;
+  gap: $dashboard-panel-gap;
+}
+
+.dashboard-pinned-workspaces {
+  padding: 0.85rem;
+  border: $border-width solid rgba($primary, 0.25);
+  border-radius: $dashboard-shell-radius;
+}
+
+.dashboard-workspace-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dashboard-workspace-group-heading h3 {
+  margin: 0;
+  color: $text-navy;
+  font-family: var(--primary-font-family);
+  font-size: 0.875rem;
+  font-weight: $font-weight-bold;
+  letter-spacing: 0.01em;
+}
+
+.dashboard-workspace-group-heading > span {
+  min-width: 1.5rem;
+  padding: 0.1rem 0.4rem;
+  color: $primary;
+  font-size: 0.75rem;
+  font-weight: $font-weight-bold;
+  text-align: center;
+  background: rgba($primary, 0.12);
+  border-radius: 999px;
+}
+
+.dashboard-workspace-divider {
+  height: 1.5px;
+  margin: 15px 0;
+  background: rgba($secondary, 0.28);
 }
 
 .dashboard-search-empty {
@@ -749,6 +954,7 @@ $dashboard-create-button-radius: 0.375rem;
 }
 
 @include media-breakpoint-down(md) {
+
   .dashboard-topbar,
   .dashboard-project-group-control {
     align-items: stretch;

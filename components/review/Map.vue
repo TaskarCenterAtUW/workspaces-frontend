@@ -75,6 +75,7 @@ const mapError = defineModel<string | null>('mapError', {
 
 onMounted(() => {
   initMap();
+  void drawItem(props.item);
 });
 
 onUnmounted(() => {
@@ -101,18 +102,29 @@ function initMap() {
 }
 
 async function resetMap(): Promise<void> {
-  if (popup) {
-    popup.remove();
-  }
+  popup?.remove();
 
-  reviewMap.setStyle(reviewMapStyle);
+  await new Promise<void>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reviewMap.off('style.load', onStyleLoaded);
+      reject(new Error('Timed out loading the review map style.'));
+    }, 15000);
 
-  if (!reviewMap.isStyleLoaded()) {
-    // Sources and layers can only be added after MapLibre finishes resetting.
-    await new Promise<void>((resolve) => {
-      reviewMap.once('style.load', () => resolve());
-    });
-  }
+    function onStyleLoaded() {
+      window.clearTimeout(timeoutId);
+      resolve();
+    }
+    reviewMap.once('style.load', onStyleLoaded);
+
+    try {
+      reviewMap.setStyle(reviewMapStyle, { diff: false });
+    }
+    catch (error) {
+      window.clearTimeout(timeoutId);
+      reviewMap.off('style.load', onStyleLoaded);
+      reject(error);
+    }
+  });
 }
 
 function getLatLonZoom() {
@@ -129,6 +141,7 @@ async function drawItem(item: ReviewListItem | undefined, refreshAdiff: boolean 
   mapError.value = null;
   const generation = ++drawGeneration;
   if (!item) {
+    await resetMap();
     loading.value = false;
     return;
   }

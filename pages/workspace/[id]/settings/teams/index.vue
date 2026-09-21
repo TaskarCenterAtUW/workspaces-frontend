@@ -5,7 +5,7 @@
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
-  <div class="col-lg-8">
+  <div class="col-lg-7 workspace-setting-tab-column-right">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h3 class="mb-0">
         Teams
@@ -153,3 +153,11 @@ async function remove(team: WorkspaceTeam) {
   }
 }
 </script>
+
+<style lang="scss" scoped>
+.workspace-setting-tab-column-right {
+  padding: 30px 30px;
+  border-left: 1px solid rgba(26, 30, 61, 0.08);
+  min-height: 100vh;
+}
+</style>

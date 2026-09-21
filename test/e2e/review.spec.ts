@@ -91,24 +91,25 @@ const notesGeoJson = {
 };
 
 // TDEI feedback list (array). Dates are ISO strings the client parses.
-const feedback = [
-  {
-    id: 555,
-    status: 'open',
-    location_latitude: 47.607,
-    location_longitude: -122.338,
-    customer_email: 'rider@example.com',
-    feedback_text: 'This crossing is hard to navigate in a wheelchair',
-    created_at: '2026-06-14T09:00:00.000Z',
-    updated_at: '2026-06-14T09:00:00.000Z',
-    due_date: '2099-06-14T09:00:00.000Z',
-    resolution_status: null,
-    resolution_description: null,
-    resolved_by: null,
-    project_group: { tdei_project_group_id: PROJECT_GROUP_ID, name: 'Puget Sound' },
-    dataset: { tdei_dataset_id: TDEI_RECORD_ID, name: 'Seattle Sidewalks' }
-  }
-];
+const feedbackSubmission = {
+  id: 555,
+  status: 'open',
+  location_latitude: 47.607,
+  location_longitude: -122.338,
+  customer_email: 'rider@example.com',
+  feedback_text: 'This crossing is hard to navigate in a wheelchair',
+  created_at: '2026-06-14T09:00:00.000Z',
+  updated_at: '2026-06-14T09:00:00.000Z',
+  due_date: '2099-06-14T09:00:00.000Z',
+  resolution_status: null,
+  resolution_description: null,
+  resolved_by: null,
+  project_group: { tdei_project_group_id: PROJECT_GROUP_ID, name: 'Puget Sound' },
+  dataset: { tdei_dataset_id: TDEI_RECORD_ID, name: 'Seattle Sidewalks' }
+};
+const feedback = [feedbackSubmission];
+
+const selectedFeedback = feedback[0]!;
 
 // A minimal osmChange XML for the changeset download (getOsc, triggered when an
 // item scrolls into view). Keeps the OSC parser happy without driving the map.
@@ -187,6 +188,153 @@ test.describe('workspace review', () => {
     await page.clock.setFixedTime(FIXED_NOW);
   });
 
+  test.describe('changeset deep links', () => {
+    test.beforeEach(async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubReviewApis(page);
+      // An empty diff exercises initial map drawing/style reset without
+      // depending on rendered WebGL features or external imagery services.
+      await page.route('**/workspaces/1/changesets/*/adiff', route =>
+        route.fulfill({ json: { actions: [] } })
+      );
+      await page.route('https://ecn.*.tiles.virtualearth.net/**', route => route.abort());
+    });
+
+    test('a direct link selects the changeset and finishes initial map loading', async ({ page }) => {
+      const pageErrors: string[] = [];
+      page.on('pageerror', error => pageErrors.push(error.message));
+      const diffRequest = page.waitForRequest('**/workspaces/1/changesets/4242/adiff');
+
+      await page.goto('/workspace/1/review?changeset=4242');
+      await diffRequest;
+
+      await expect(sidebar(page).locator('.review-item.active')).toContainText('#4242');
+      await expect(page.locator('.review-toolbar')).toContainText('Changeset: #4242');
+      await expect(page.getByRole('status').filter({ hasText: 'This changeset contains no changes.' }))
+        .toBeVisible();
+      await expect(page.locator('.map-loading-overlay')).toBeHidden();
+      expect(pageErrors).toEqual([]);
+    });
+
+    test('reloading a changeset link restores the selection', async ({ page }) => {
+      await page.goto('/workspace/1/review?changeset=4242');
+      await expect(sidebar(page).locator('.review-item.active')).toContainText('#4242');
+
+      await page.reload();
+
+      await expect(page).toHaveURL('/workspace/1/review?changeset=4242');
+      await expect(sidebar(page).locator('.review-item.active')).toContainText('#4242');
+      await expect(page.locator('.review-toolbar')).toContainText('Changeset: #4242');
+      await expect(page.locator('.map-loading-overlay')).toBeHidden();
+    });
+
+    test('selecting changesets updates the URL and preserves unrelated query parameters', async ({ page }) => {
+      await stubReviewApis(page, {
+        changesets: {
+          changesets: [
+            changesets.changesets[0],
+            { ...changesets.changesets[0], id: 9001, tags: { comment: 'Another changeset' } }
+          ]
+        }
+      });
+      await page.goto('/workspace/1/review?source=shared');
+
+      await sidebar(page).locator('.review-item').filter({ hasText: '#4242' }).click();
+      await expect(page).toHaveURL('/workspace/1/review?source=shared&changeset=4242');
+
+      await sidebar(page).locator('.review-item').filter({ hasText: '#9001' }).click();
+      await expect(page).toHaveURL('/workspace/1/review?source=shared&changeset=9001');
+      await expect(page.locator('.review-toolbar')).toContainText('#9001');
+
+      await page.goBack();
+      await expect(page).toHaveURL('/workspace/1/review?source=shared&changeset=4242');
+      await expect(sidebar(page).locator('.review-item.active')).toContainText('#4242');
+
+      await page.goForward();
+      await expect(page).toHaveURL('/workspace/1/review?source=shared&changeset=9001');
+      await expect(sidebar(page).locator('.review-item.active')).toContainText('#9001');
+    });
+
+    test('selecting feedback removes the changeset query and keeps feedback selected', async ({ page }) => {
+      await page.goto('/workspace/1/review?changeset=4242&source=shared');
+      await expect(sidebar(page).locator('.review-item.active')).toContainText('#4242');
+
+      await sidebar(page).locator('.review-item').filter({ hasText: 'Feedback' }).click();
+
+      await expect(page).toHaveURL('/workspace/1/review?source=shared');
+      await expect(sidebar(page).locator('.review-item.active')).toContainText('#555');
+      await expect(page.locator('.review-toolbar')).toContainText('Feedback: #555');
+    });
+
+    test('closing mobile details removes the changeset query', async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto('/workspace/1/review?changeset=4242');
+
+      await page.getByTitle('Back to list', { exact: true }).click();
+
+      await expect(page).toHaveURL('/workspace/1/review');
+      await expect(page.locator('.review-overlay')).toHaveCount(0);
+      await expect(sidebar(page).locator('.review-item.active')).toHaveCount(0);
+    });
+
+    test('a resolved changeset can be opened directly', async ({ page }) => {
+      const originalChangeset = changesets.changesets[0];
+
+      await stubReviewApis(page, {
+        changesets: {
+          changesets: [{
+            ...originalChangeset,
+            tags: { ...(originalChangeset?.tags ?? {}), reviewed_by: 'reviewer' }
+          }]
+        }
+      });
+      await page.goto('/workspace/1/review?changeset=4242');
+
+      const selected = sidebar(page).locator('.review-item.active');
+      await expect(selected).toContainText('#4242');
+      await expect(selected.getByText('Resolved', { exact: true })).toBeVisible();
+      await expect(page.locator('.review-toolbar')).toContainText('Changeset: #4242');
+    });
+
+    test('refresh preserves the linked changeset selection', async ({ page }) => {
+      await page.goto('/workspace/1/review?changeset=4242');
+      await expect(sidebar(page).locator('.review-item.active')).toContainText('#4242');
+
+      await sidebar(page).getByRole('button', { name: 'Refresh' }).click();
+
+      await expect(sidebar(page).locator('.review-item.active')).toContainText('#4242');
+      await expect(page).toHaveURL('/workspace/1/review?changeset=4242');
+      await expect(page.locator('.review-toolbar')).toContainText('Changeset: #4242');
+    });
+
+    test('a missing changeset shows a notice without selecting another item', async ({ page }) => {
+      await page.goto('/workspace/1/review?changeset=999999');
+
+      await expect(page.getByRole('alert')).toHaveText(
+        'Changeset #999999 was not found in this workspace.'
+      );
+      await expect(sidebar(page).locator('.review-item')).toHaveCount(3);
+      await expect(sidebar(page).locator('.review-item.active')).toHaveCount(0);
+      await expect(page.locator('.review-overlay')).toHaveCount(0);
+      await expect(page.locator('.map-loading-overlay')).toBeHidden();
+    });
+
+    for (const value of ['abc', '-1', '4242&changeset=9001']) {
+      test(`invalid changeset query ${value} leaves the review list usable`, async ({ page }) => {
+        await page.goto(`/workspace/1/review?changeset=${value}`);
+
+        await expect(sidebar(page).locator('.review-item')).toHaveCount(3);
+        await expect(sidebar(page).locator('.review-item.active')).toHaveCount(0);
+        await expect(page.locator('.review-overlay')).toHaveCount(0);
+        await expect(page.getByRole('alert')).toHaveCount(0);
+
+        await sidebar(page).locator('.review-item').filter({ hasText: 'Changeset' }).click();
+        await expect(page).toHaveURL('/workspace/1/review?changeset=4242');
+        await expect(page.locator('.review-toolbar')).toContainText('Changeset: #4242');
+      });
+    }
+  });
+
   // @test e2e: loading this page shows a sidebar with a list of items to review (playwright snapshot this)
   test('loading shows a sidebar with a list of items to review', async ({ page }) => {
     await seedAuthenticatedSession(page);
@@ -246,6 +394,7 @@ test.describe('workspace review', () => {
   test('clicking edit opens the editor with a map-view hash in the URL', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await stubReviewApis(page);
+    await page.route('https://ecn.*.tiles.virtualearth.net/**', route => route.abort());
     // The editor page itself will fetch the workspace; stub already covers it.
 
     await page.goto('/workspace/1/review');
@@ -254,6 +403,10 @@ test.describe('workspace review', () => {
       .locator('.review-item', { hasText: 'This crossing is hard to navigate' });
     await feedbackItem.click();
 
+    // The toolbar appears before the asynchronous map draw finishes.
+    await expect(page.locator('.maplibregl-popup')).toContainText(selectedFeedback.feedback_text);
+    await expect(page.locator('.map-loading-overlay')).toBeHidden();
+
     const editButton = page.locator('.review-toolbar')
       .getByRole('button', { name: /Edit Here/ });
     await expect(editButton).toBeVisible();
@@ -261,46 +414,67 @@ test.describe('workspace review', () => {
 
     // openEditor() navigates to /workspace/1/edit with a #map=zoom/lat/lon hash
     // derived from the map. The proper hash MUST be present.
-    await expect(page).toHaveURL(/\/workspace\/1\/edit/);
-    await expect(page).toHaveURL(/datatype=osw/);
-    await expect(page).toHaveURL(/#map=[-\d.]+\/[-\d.]+\/[-\d.]+/);
+    await expect.poll(() => {
+      const url = new URL(page.url());
+      const match = url.hash
+        .match(/^#map=([^/]+)\/([^/]+)\/([^/]+)$/);
+      if (
+        url.pathname !== '/workspace/1/edit'
+        || url.searchParams.get('datatype') !== 'osw'
+        || !match
+      ) return false;
+
+      const [zoom = NaN, lat = NaN, lon = NaN] = match.slice(1).map(Number);
+      return Number.isFinite(zoom)
+        && Number.isFinite(lat)
+        && Number.isFinite(lon)
+        && zoom >= 0
+        && lat >= -90
+        && lat <= 90
+        && lon >= -180
+        && lon <= 180;
+    }, { timeout: 30_000 }).toBe(true);
+
+    const url = new URL(page.url());
+    // Verify that Edit Here targets the selected feedback.
+    const [zoom, lat, lon] = url.hash.slice('#map='.length).split('/').map(Number);
+    expect(zoom).toBeCloseTo(18);
+    expect(lat).toBeCloseTo(selectedFeedback.location_latitude);
+    expect(lon).toBeCloseTo(selectedFeedback.location_longitude);
   });
 
   // @test e2e: while the data is loading on the map a spinner appears (assert() this is true)
   test('shows a spinner on the map while data is loading', async ({ page }) => {
     await seedAuthenticatedSession(page);
 
-    // Gate the feedback response so the loading state is observable. The map
-    // spinner is driven by loadingMap (Map.drawItem sets it true while drawing);
-    // the sidebar spinner is driven by `loading` during refresh(). We hold the
-    // feedback call open to keep refresh() in-flight, asserting the sidebar
-    // spinner, which is plain DOM (the map's GL spinner overlay shares the same
-    // app-spinner component).
-    let release: () => void = () => {};
+    await stubReviewApis(page);
+    await page.route('https://ecn.*.tiles.virtualearth.net/**', route => route.abort());
+
+    // Initial refresh is awaited before the page mounts. Gate the diff request
+    // after selection to exercise the actual map loading overlay.
+    let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
 
-    // Register the base stubs FIRST, then layer the gated feedback route on top
-    // so it wins (Playwright matches most-recently-registered first). Otherwise
-    // stubReviewApis' ungated feedback route resolves immediately and `loading`
-    // flips back before the spinner can be observed.
-    await stubReviewApis(page);
-    await page.route('**/tdei/osw/dataset-viewer/feedbacks**', async (route) => {
+    await page.route('**/workspaces/1/changesets/4242/adiff', async (route) => {
       await gate;
-      await route.fulfill({ json: feedback });
+      await route.fulfill({ json: { actions: [] } });
     });
 
     await page.goto('/workspace/1/review');
 
-    // While refresh() is awaiting the gated feedback call, the spinner shows.
-    await expect(sidebar(page).locator('.spinner-border')).toBeVisible();
+    try {
+      await sidebar(page).locator('.review-item', { hasText: 'Changeset' }).click();
+      await expect(page.locator('.map-loading-overlay .spinner-border')).toBeVisible();
+    }
+    finally {
+      release();
+    }
 
-    release();
-
-    // Once data resolves the spinner is gone and items render.
-    await expect(sidebar(page).locator('.spinner-border')).toHaveCount(0);
-    await expect(sidebar(page).locator('.review-item')).toHaveCount(3);
+    await expect(page.locator('.map-loading-overlay')).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: 'This changeset contains no changes.' }))
+      .toBeVisible();
   });
 
   // @test e2e: the "gear" menu allows filtering of the elements in the sidebar--make sure the simulated response and the display on the UI matches (playright snapshot or assert() this)

@@ -82,8 +82,12 @@ function isNewApiRequest(req: Request): boolean {
 
 // Begin recording. Returns a function that validates everything seen so far and
 // returns the list of contract violations (empty == conformant).
-export function recordContract(page: Page) {
+export function recordContract(
+  page: Page,
+  options: { ignoredPaths?: readonly string[] } = {}
+) {
   const calls: RecordedCall[] = [];
+  const ignoredPaths = new Set(options.ignoredPaths);
 
   page.on('response', async (response) => {
     const req = response.request();
@@ -109,6 +113,10 @@ export function recordContract(page: Page) {
     violations(): ContractViolation[] {
       const out: ContractViolation[] = [];
       for (const c of calls) {
+        if (ignoredPaths.has(c.recordedPath)) {
+          continue;
+        }
+
         const specKey = '/api/v1/' + c.recordedPath;
         const match = PATH_MATCHERS.find(m => m.re.test(specKey));
         if (!match) {
