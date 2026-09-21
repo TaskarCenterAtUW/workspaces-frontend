@@ -28,6 +28,7 @@ export class Rapid3Manager {
   /** The Rapid `Context` instance, available after loading completes. */
   rapidContext: any
 
+
   /**
    * @constructor
    * @param baseUrl - Base URL where Rapid static assets are served
@@ -83,9 +84,19 @@ export class Rapid3Manager {
   #onRapidLoaded() {
     const container = this.containerNode;
 
-    if (typeof Rapid === 'undefined' || !Rapid.utilDetect().support) {
-      container.innerHTML = 'Sorry, your browser is not currently supported.'
+    var error;
+    if (typeof Rapid === 'undefined') {
+      error = 'Rapid script was not loaded.';
+    } else if (!globalThis.isSecureContext) {
+      error = 'Rapid requires a secure context (https: or localhost).';
+    } else if (!Rapid.utilDetect().isSupported) {
+      error = 'Your browser is currently unsupported.';
+    }
+
+    if (error) {
+      container.innerHTML = error
       container.style.padding = '20px'
+
     } else {
       const context = new Rapid.Context()
       context.embed(true); // hide the account management control
