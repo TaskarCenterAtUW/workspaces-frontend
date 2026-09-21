@@ -119,8 +119,21 @@ const password = ref('')
 const showPassword = ref(false)
 const disabled = computed(() => loading.active || !username.value.length || !password.value.length)
 const tdeiPortalUrl = import.meta.env.VITE_TDEI_PORTAL_URL
-const registerUrl = new URL('/register', tdeiPortalUrl).toString()
-const forgotPasswordUrl = new URL('/ForgotPassword', tdeiPortalUrl).toString()
+
+// Build a portal link defensively: a missing or non-absolute VITE_TDEI_PORTAL_URL
+// makes `new URL()` throw, and since this runs at <script setup> top level it
+// would take down the entire signin page. Fall back to an empty href instead.
+function portalLink(path: string): string {
+  try {
+    return new URL(path, tdeiPortalUrl).toString();
+  }
+  catch {
+    return '';
+  }
+}
+
+const registerUrl = portalLink('/register')
+const forgotPasswordUrl = portalLink('/ForgotPassword')
 
 function handleSsoLogin() {
   error.value = ''
