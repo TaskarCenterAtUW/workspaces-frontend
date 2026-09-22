@@ -59,4 +59,8 @@ onMounted(() => {
   width: 100%;
   height: 100%;
 }
+
+.editorContainer .modal {
+  height: unset;  /* override bootstrap */
+}
 </style>
