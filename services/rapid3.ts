@@ -103,12 +103,8 @@ export class Rapid3Manager {
 
       this.rapidContext = context;
       (globalThis as any).rapidContext = context;
-      this.#prePrepare();
 
-      context.prepareAsync()
-        .then(() => {
-          this.loaded.value = true
-        })
+      this.loaded.value = true
     }
   }
 
@@ -127,6 +123,8 @@ export class Rapid3Manager {
     context.workspaceId = workspaceId
     context.tdeiAuth = this.#tdeiAuth
     context.preauth = { url: this.#osmUrl, apiUrl: this.#osmUrl }
+
+    this.#prePrepare()
 
     return context.prepareAsync()
       .then(() => this.#preInit())
@@ -198,11 +196,64 @@ export class Rapid3Manager {
         }
       }]
     };
-    // Apply these overrides over the imagery that was already loaded in `init`
+    // Apply these overrides over the imagery already loaded during `init`
     imagery.merge(imageryOverrides)
     imagery._overlayLayers.delete('mapbox_locator_overlay')
 
-    // TODO: Customize Style system, user interface, etc
+    // Customize Style system
+    // - apply Gaussian overrides for WA-Proviso
+    const styles = context.systems.styles
+    const styleOverrides = {
+      assetID: 'WA-Proviso-style',
+      scopes: [{
+        scope: 'osm',
+        styles: {
+          'override-crossing-marked': {
+            label: { color: 0xffffff },
+            casing: { color: 0xffffff },
+            stroke: { color: 0x6c6f77 }
+          },
+          'override-footway-sidewalk': {
+            label: { color: 0xffffff },
+            casing: { color: 0xffffff },
+            stroke: { color: 0xd196b1 }
+          },
+          'override-highway-pedestrian': {
+            label: { color: 0xffffff },
+            casing: { color: 0x464d50 },
+            stroke: { color: 0xffffff }
+          },
+        },
+        selectors: {
+          'crossing-marked': {
+            weight: 10,
+            styleIDs: ['override-crossing-marked'],
+            match: {
+              geometry: 'line',
+              tags: [{ key: 'crossing', value: 'marked' }]
+            },
+          },
+          'footway-sidewalk': {
+            weight: 10,
+            styleIDs: ['override-footway-sidewalk'],
+            match: {
+              geometry: 'line',
+              tags: [{ key: 'footway', value: 'sidewalk' }]
+            },
+          },
+          'highway-pedestrian': {
+            weight: 10,
+            styleIDs: ['override-highway-pedestrian'],
+            match: {
+              geometry: 'line',
+              tags: [{ key: 'highway', value: 'pedestrian' }]
+            },
+          }
+        }
+      }]
+    };
+    // Apply these overrides over the styles already loaded during `init`
+    styles.merge(styleOverrides)
   }
 
   /**

@@ -60,7 +60,11 @@ onMounted(() => {
   height: 100%;
 }
 
+/* override some things that bootstrap / reset.scss did */
 .editorContainer .modal {
-  height: unset;  /* override bootstrap */
+  height: unset;
+}
+.editorContainer kbd {
+  color: unset;
 }
 </style>
