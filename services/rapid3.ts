@@ -88,7 +88,7 @@ export class Rapid3Manager {
       error = 'Rapid script was not loaded.';
     } else if (!globalThis.isSecureContext) {
       error = 'Rapid requires a secure context (https: or localhost).';
-    } else if (!Rapid.utilDetect().isSupported) {
+    } else if (!Rapid.utilDetect().support) {
       error = 'Your browser is currently unsupported.';
     }
 
