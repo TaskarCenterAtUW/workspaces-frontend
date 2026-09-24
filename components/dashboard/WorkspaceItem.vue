@@ -1,82 +1,103 @@
 <template>
-  <button
-    class="workspace-card"
-    :class="{
-      'workspace-card-selected': selected
-    }"
-    type="button"
-    :aria-label="workspaceAriaLabel"
-    :aria-pressed="selected"
-  >
-    <span class="workspace-card-heading">
-      <span
-        class="workspace-card-icon"
+  <div class="workspace-card-container">
+    <button
+      class="workspace-card"
+      :class="{
+        'workspace-card-selected': selected
+      }"
+      type="button"
+      :aria-label="workspaceAriaLabel"
+      :aria-pressed="selected"
+      @click="emit('select')"
+    >
+      <span class="workspace-card-heading">
+        <span
+          class="workspace-card-icon"
+          aria-hidden="true"
+        >
+          <img
+            :src="workspaceIcon"
+            alt=""
+          >
+        </span>
+
+        <span class="workspace-card-copy">
+          <strong :title="workspace.title">{{ workspace.title }}</strong>
+          <span class="workspace-card-updated">Updated {{ updatedTime }}</span>
+        </span>
+
+        <dashboard-workspace-import-status-badge
+          v-if="isImporting"
+          class="workspace-card-import-status"
+          status="in-progress"
+        />
+      </span>
+
+      <span class="workspace-card-meta">
+        <span>
+          <img
+            :src="dataTypeIcon"
+            alt=""
+          >
+          {{ typeLabel }}
+        </span>
+        <span>
+          <img
+            :src="listProjectsIcon"
+            alt=""
+          >
+          {{ projectLabel }}
+        </span>
+        <app-icon
+          class="workspace-card-chevron"
+          variant="chevron_right"
+          size="22"
+          no-margin
+        />
+      </span>
+    </button>
+
+    <button
+      class="workspace-card-pin"
+      type="button"
+      :aria-label="pinAriaLabel"
+      :aria-pressed="pinned"
+      :title="pinAriaLabel"
+      @click="emit('togglePin')"
+    >
+      <img
+        :src="pinned ? pinnedIcon : unpinnedIcon"
+        alt=""
         aria-hidden="true"
       >
-        <img
-          :src="workspaceIcon"
-          alt=""
-        >
-      </span>
-
-      <span class="workspace-card-copy">
-        <strong :title="workspace.title">{{ workspace.title }}</strong>
-        <span class="workspace-card-updated">Updated {{ updatedTime }}</span>
-      </span>
-
-      <span
-        v-if="selected"
-        class="workspace-card-selected-icon"
-        aria-hidden="true"
-      />
-      <dashboard-workspace-import-status-badge
-        v-else-if="isImporting"
-        class="workspace-card-import-status"
-        status="in-progress"
-      />
-    </span>
-
-    <span class="workspace-card-meta">
-      <span>
-        <img
-          :src="dataTypeIcon"
-          alt=""
-        >
-        {{ typeLabel }}
-      </span>
-      <span>
-        <img
-          :src="listProjectsIcon"
-          alt=""
-        >
-        {{ projectLabel }}
-      </span>
-      <app-icon
-        class="workspace-card-chevron"
-        variant="chevron_right"
-        size="22"
-        no-margin
-      />
-    </span>
-  </button>
+    </button>
+  </div>
 </template>
 
 <script setup lang="ts">
 import dataTypeIcon from '~/assets/img/data-type.svg';
 import listProjectsIcon from '~/assets/img/list-projects.svg';
+import pinnedIcon from '~/assets/img/thumbtacks.svg';
+import unpinnedIcon from '~/assets/img/thumbtacks-outline.svg';
 import workspaceIcon from '~/assets/img/project.svg';
 import { formatElapsed } from '~/util/time';
 
 import type { Workspace } from '~/types/workspaces';
 
 interface Props {
+  pinned?: boolean;
   selected?: boolean;
   workspace: Workspace;
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  pinned: false,
   selected: false
 });
+const emit = defineEmits<{
+  select: [];
+  togglePin: [];
+}>();
 
 const updatedTime = computed(() => formatElapsed(
   props.workspace.updatedAt ?? props.workspace.createdAt
@@ -86,6 +107,9 @@ const workspaceAriaLabel = computed(() =>
   `Select workspace ${props.workspace.title}, ID ${props.workspace.id}${
     isImporting.value ? ', setup in progress' : ''
   }`
+);
+const pinAriaLabel = computed(() =>
+  `${props.pinned ? 'Unpin' : 'Pin'} workspace ${props.workspace.title}`
 );
 const typeLabel = computed(() => props.workspace.type.toUpperCase());
 const projectLabel = computed(() => {
@@ -109,8 +133,11 @@ $workspace-card-radius: 0.625rem;
 $workspace-card-title-size: 0.9375rem;
 $workspace-card-copy-size: 0.8125rem;
 $workspace-card-meta-size: 0.75rem;
-$workspace-card-selected-icon-size: 1.25rem;
 $workspace-card-meta-icon-height: 0.85rem;
+
+.workspace-card-container {
+  position: relative;
+}
 
 .workspace-card {
   width: 100%;
@@ -119,7 +146,7 @@ $workspace-card-meta-icon-height: 0.85rem;
   flex-direction: column;
   justify-content: space-between;
   gap: 15px;
-  padding: 15px 15px;
+  padding: 15px;
   color: $text-navy;
   text-align: left;
   background: $surface-card;
@@ -136,9 +163,6 @@ $workspace-card-meta-icon-height: 0.85rem;
 }
 
 .workspace-card-selected {
-  position: sticky;
-  top: 0;
-  z-index: 1;
   background: $purple-background-subtle;
   border-color: $border-strong;
 }
@@ -149,6 +173,7 @@ $workspace-card-meta-icon-height: 0.85rem;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: start;
   gap: $workspace-card-gap;
+  padding-right: 45px;
 }
 
 .workspace-card-icon {
@@ -160,7 +185,6 @@ $workspace-card-meta-icon-height: 0.85rem;
   border-radius: $workspace-card-radius;
 }
 
-.workspace-card-selected-icon,
 .workspace-card-import-status {
   align-self: center;
 }
@@ -199,14 +223,6 @@ $workspace-card-meta-icon-height: 0.85rem;
   line-height: 1.4;
 }
 
-.workspace-card-selected-icon {
-  width: $workspace-card-selected-icon-size;
-  height: $workspace-card-selected-icon-size;
-  color: $primary;
-  background-color: currentColor;
-  mask: url("~/assets/img/selected-workspace.svg") center / contain no-repeat;
-}
-
 .workspace-card-meta {
   margin-top: auto;
   display: flex;
@@ -232,6 +248,36 @@ $workspace-card-meta-icon-height: 0.85rem;
 
 .workspace-card-chevron {
   margin-left: auto;
+}
+
+.workspace-card-pin {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: $text-secondary;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  transition: background-color 0.18s ease;
+}
+
+.workspace-card-pin img {
+  width: 20px;
+  height: 20px;
+}
+
+.workspace-card-pin:hover,
+.workspace-card-pin:focus-visible {
+  color: $primary;
+  background: rgba($primary, 0.1);
+  outline: none;
 }
 
 @include media-breakpoint-down(sm) {

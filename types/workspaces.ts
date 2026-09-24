@@ -48,6 +48,7 @@ export interface Workspace {
   externalAppAccess: WorkspaceAppAccess;
   kartaViewToken?: string;
   autoFlagReview?: boolean;
+  overrideConflicts?: boolean;
   role?: WorkspaceRole;
   center?: WorkspaceCenter;
   projectsCount?: number | null;
@@ -67,11 +68,21 @@ export interface WorkspaceCreation {
   createdByName?: string;
 }
 
+export interface WorkspaceTitleAvailabilityRequest {
+  title: string;
+  tdeiProjectGroupId: string;
+}
+
+export interface WorkspaceTitleAvailability {
+  available: boolean;
+}
+
 export interface WorkspacePatch {
   title?: string;
   description?: string;
   externalAppAccess?: WorkspaceAppAccess;
   autoFlagReview?: boolean;
+  overrideConflicts?: boolean;
 }
 
 export type QuestSettingsType = 'NONE' | 'JSON' | 'URL';

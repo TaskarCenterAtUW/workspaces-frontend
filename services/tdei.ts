@@ -6,6 +6,7 @@ import {
   BaseHttpClientError,
   type FetchConfig,
   type HttpBody,
+  withBearerToken
 } from '~/services/http';
 import type { ICancelableClient } from '~/services/loading';
 import type {
@@ -19,11 +20,20 @@ import type {
   TdeiDatasetMetadata,
   TdeiUserItem,
 } from '~/types/tdei.ts';
+import {
+  requestSessionReauthentication,
+  SessionRecoveryCancelledError,
+} from '~/services/auth-session';
 
 const MIN_TOKEN_REFRESH_MS = 10 * 1000;
 
+// Check whether the saved tokens are still valid.
 function refreshTokenActive(refreshExpiresAt: Date) {
   return refreshExpiresAt > new Date(Date.now() + MIN_TOKEN_REFRESH_MS);
+}
+
+function accessTokenActive(expiresAt: Date) {
+  return expiresAt > new Date();
 }
 
 function expiresAsDate(seconds: number) {
@@ -65,30 +75,53 @@ export class TdeiAuthStore {
     return this.accessToken.length > 0;
   }
 
+  // The session can continue with either the access token or the refresh token.
   get ok() {
-    return this.complete && !this.refreshTokenExpired;
+    return this.complete
+      && (!this.accessTokenExpired || !this.refreshTokenExpired);
   }
 
   get accessTokenExpired() {
-    return this.expiresAt < new Date();
+    return !accessTokenActive(this.expiresAt);
   }
 
   get refreshTokenExpired() {
-    return !refreshTokenActive(this.refreshExpiresAt);
+    return !this.refreshToken || !refreshTokenActive(this.refreshExpiresAt);
   }
 
   get needsRefresh() {
     return this.accessTokenExpired && !this.refreshTokenExpired;
   }
 
-  get nextRefreshMs() {
-    if (this.refreshTokenExpired) {
+  // Refresh shortly before the access token expires.
+  get nextRefreshMs(): number {
+    if (!this.complete || this.refreshTokenExpired) {
       return 0;
     }
 
-    const nowMs = Date.now() + MIN_TOKEN_REFRESH_MS;
+    return Math.max(
+      0,
+      this.expiresAt.getTime() - Date.now() - MIN_TOKEN_REFRESH_MS
+    );
+  }
 
-    return this.refreshExpiresAt.getTime() - nowMs;
+  get canReauthenticate(): boolean {
+    return this.username.length > 0;
+  }
+
+  expire(): void {
+    const username = this.username;
+
+    // Keep only the username so this tab and other tabs can recover the session.
+    this._resetAuth();
+    this.username = username;
+
+    if (username) {
+      localStorage.setItem(this._storageKey, JSON.stringify({ username }));
+    }
+    else {
+      localStorage.removeItem(this._storageKey);
+    }
   }
 
   store() {
@@ -103,24 +136,42 @@ export class TdeiAuthStore {
       return;
     }
 
-    const auth = JSON.parse(serialized);
+    let auth: Record<string, unknown>;
 
-    if (!refreshTokenActive(new Date(auth.refreshExpiresAt))) {
+    try {
+      auth = JSON.parse(serialized) as Record<string, unknown>;
+    }
+    catch {
+      // Corrupt browser storage should behave like a signed-out session.
       this.clear();
       return;
     }
 
-    this.username = auth.username;
-    this.subject = auth.subject;
-    this.email = auth.email;
-    this.displayName = auth.displayName;
-    this.accessToken = auth.accessToken;
-    this.refreshToken = auth.refreshToken;
-    this.expiresAt = new Date(auth.expiresAt);
-    this.refreshExpiresAt = new Date(auth.refreshExpiresAt);
+    this.username = typeof auth.username === 'string' ? auth.username : '';
+    this.subject = typeof auth.subject === 'string' ? auth.subject : '';
+    this.email = typeof auth.email === 'string' ? auth.email : '';
+    this.displayName = typeof auth.displayName === 'string' ? auth.displayName : '';
+    this.accessToken = typeof auth.accessToken === 'string' ? auth.accessToken : '';
+    this.refreshToken = typeof auth.refreshToken === 'string' ? auth.refreshToken : '';
+    this.expiresAt = new Date(String(auth.expiresAt ?? ''));
+    this.refreshExpiresAt = new Date(String(auth.refreshExpiresAt ?? ''));
+
+    if (!this.ok) {
+      // Neither token works, so preserve identity for SSO session recovery.
+      this.expire();
+      return;
+    }
   }
 
   clear() {
+    this._resetAuth();
+
+    localStorage.removeItem(this._storageKey);
+    sessionStorage.removeItem('tdei-selected-project-group');
+    sessionStorage.removeItem('tdei-selected-workspace');
+  }
+
+  _resetAuth(): void {
     this.username = '';
     this.subject = '';
     this.email = '';
@@ -129,10 +180,6 @@ export class TdeiAuthStore {
     this.refreshToken = '';
     this.expiresAt = new Date(0);
     this.refreshExpiresAt = new Date(0);
-
-    localStorage.removeItem(this._storageKey);
-    sessionStorage.removeItem('tdei-selected-project-group');
-    sessionStorage.removeItem('tdei-selected-workspace');
   }
 }
 
@@ -166,12 +213,14 @@ export class TdeiUserClientError extends Error {
 export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   #auth: TdeiAuthStore;
   #refreshTimer?: ReturnType<typeof setTimeout>;
+  #refreshPromise?: Promise<void>;
+  // Changes whenever another tab updates the session or the user logs out.
+  #sessionRevision = 0;
 
   constructor(gatewayUrl: string, auth: TdeiAuthStore, signal?: AbortSignal) {
     super(gatewayUrl, signal);
 
     this.#auth = auth;
-    this.#setAuthHeader();
   }
 
   get auth() {
@@ -183,51 +232,116 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   async authenticate(username: string, password: string) {
+    const sessionRevision = this.#sessionRevision;
     const response = await super._send('authenticate', 'POST', { username, password });
+
+    // Do not restore a session that changed while login was in progress.
+    if (sessionRevision !== this.#sessionRevision) {
+      throw new SessionRecoveryCancelledError();
+    }
+
     const body = await response.json();
 
     this.#setAuth(username, body);
   }
 
-  async refreshToken() {
-    try {
-      const response = await super._send('refresh-token', 'POST', this.#auth.refreshToken);
-      this.#setAuth(this.#auth.username, await response.json());
-    } catch (e: unknown) {
-      if (e instanceof BaseHttpClientError && e.response.status === 401) {
-        this.#auth.clear();
+  async completeSsoLogin(code: string, state: string, clientId?: string) {
+    const sessionRevision = this.#sessionRevision;
+    const requestBody: { code: string; state: string; clientId?: string } = { code, state };
+    if (clientId) {
+      requestBody.clientId = clientId;
+    }
+
+    const response = await super._send('sso-login', 'POST', requestBody);
+
+    if (sessionRevision !== this.#sessionRevision) {
+      throw new SessionRecoveryCancelledError();
+    }
+
+    const body = await response.json();
+
+    this.#setAuth('', body);
+  }
+
+  async refreshToken(): Promise<void> {
+    if (this.#refreshPromise) {
+      // Reuse the refresh already started by another request in this tab.
+      return this.#refreshPromise;
+    }
+
+    const refreshToken = this.#auth.refreshToken;
+    const sessionRevision = this.#sessionRevision;
+    const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID;
+    const requestBody: { refreshToken: string; clientId?: string } = {
+      refreshToken
+    };
+    if (clientId) {
+      requestBody.clientId = clientId;
+    }
+
+    this.#refreshPromise = (async () => {
+      let response: Response;
+
+      try {
+        response = await super._send('refresh-token', 'POST', requestBody);
       }
-    }
-  }
+      catch (error: unknown) {
+        // Ignore this result if another tab changed the session while we waited.
+        if (sessionRevision !== this.#sessionRevision) {
+          if (this.#auth.ok) {
+            return;
+          }
+          throw new SessionRecoveryCancelledError();
+        }
+        throw error;
+      }
 
-  async tryRefreshAuth() {
-    if (!this.#auth.needsRefresh) {
-      return false;
-    }
+      if (sessionRevision !== this.#sessionRevision) {
+        if (this.#auth.ok) {
+          return;
+        }
+        throw new SessionRecoveryCancelledError();
+      }
+
+      this.#setAuth(this.#auth.username, await response.json());
+    })();
 
     try {
-      await this.refreshToken();
-    } catch (e: unknown) {
-      console.warn('Exception when refreshing TDEI access token', e);
-      return false;
+      await this.#refreshPromise;
     }
-
-    return true;
+    finally {
+      this.#refreshPromise = undefined;
+    }
   }
 
-  restartAutoAuthRefresh() {
+  restartAutoAuthRefresh(): void {
+    // Keep only one refresh timer running.
     this.stopAutoAuthRefresh();
 
-    if (!this.#auth.refreshTokenExpired) {
-      const refreshFn = this.#onAutoRefreshToken.bind(this);
-      this.#refreshTimer = setTimeout(refreshFn, this.#auth.nextRefreshMs);
-      console.info(`Refreshing TDEI tokens in ${this.#auth.nextRefreshMs} ms.`)
+    if (!this.#auth.complete || this.#auth.refreshTokenExpired) {
+      return;
     }
+
+    this.#refreshTimer = setTimeout(
+      () => void this.#onAutoRefreshToken(),
+      this.#auth.nextRefreshMs
+    );
   }
 
   stopAutoAuthRefresh() {
     clearTimeout(this.#refreshTimer);
     this.#refreshTimer = undefined;
+  }
+
+  synchronizeAuthFromStorage(): void {
+    // Load the session saved by another tab.
+    this.#sessionRevision += 1;
+    this.stopAutoAuthRefresh();
+    this.#auth.load();
+
+    if (this.#auth.ok) {
+      this.restartAutoAuthRefresh();
+    }
   }
 
   async getDatasetInfo(tdeiRecordId: string): Promise<TdeiDatasetApiResponse | undefined> {
@@ -431,9 +545,12 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   }
 
   #setAuth(username: string, body: any) {
+    // Save the new tokens and user details after login or refresh.
     const jwt = getJwtBody(body.access_token);
 
-    this.#auth.username = username;
+    this.#auth.username = username
+      || (typeof jwt.preferred_username === 'string' ? jwt.preferred_username : '')
+      || (typeof jwt.email === 'string' ? jwt.email : '');
     this.#auth.subject = typeof jwt.sub === 'string' ? jwt.sub : '';
     this.#auth.displayName = typeof jwt.name === 'string' ? jwt.name : '';
     this.#auth.email = typeof jwt.email === 'string' ? jwt.email : '';
@@ -443,24 +560,30 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     this.#auth.refreshExpiresAt = expiresAsDate(body.refresh_expires_in);
     this.#auth.store();
 
-    this.#setAuthHeader();
-
-    if (this.#refreshTimer) {
-      this.restartAutoAuthRefresh();
-    }
-  }
-
-  #setAuthHeader() {
-    if (this.#auth.complete) {
-      this._requestHeaders.Authorization = 'Bearer ' + this.#auth.accessToken;
-    }
+    this.restartAutoAuthRefresh();
   }
 
   async #onAutoRefreshToken() {
-    await this.refreshToken();
-
-    if (this.#auth.ok) {
+    try {
+      await this.refreshToken();
       this.restartAutoAuthRefresh();
+    }
+    catch (error: unknown) {
+      // Temporary errors are retried later. A 401 needs SSO reauthentication.
+      if (!this.#isUnauthorized(error)) {
+        console.warn('Unable to refresh the TDEI session automatically.', error);
+        this.restartAutoAuthRefresh();
+        return;
+      }
+
+      try {
+        await this.#requestSessionReauthentication();
+      }
+      catch (recoveryError: unknown) {
+        if (!(recoveryError instanceof SessionRecoveryCancelledError)) {
+          console.warn('Unable to recover the expired TDEI session.', recoveryError);
+        }
+      }
     }
   }
 
@@ -468,22 +591,126 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     url: string,
     method: string,
     body?: HttpBody,
-    config?: FetchConfig,
+    config?: FetchConfig
   ): Promise<Response> {
     try {
-      if (this.#auth.needsRefresh) {
+      return await this.sendProtectedRequest(accessToken =>
+        super._send(
+          url,
+          method,
+          body,
+          withBearerToken(config, accessToken)
+        )
+      );
+    }
+    catch (error: unknown) {
+      if (error instanceof BaseHttpClientError) {
+        throw new TdeiClientError(error.response);
+      }
+
+      throw error;
+    }
+  }
+
+  async sendProtectedRequest(
+    send: (accessToken: string) => Promise<Response>
+  ): Promise<Response> {
+    // Refresh first when the saved access token has expired.
+    await this.#ensureSession();
+
+    try {
+      return await this.#sendWithAccessToken(send);
+    }
+    catch (error: unknown) {
+      if (!this.#isUnauthorized(error)) {
+        throw error;
+      }
+    }
+
+    if (!this.#auth.refreshTokenExpired) {
+      // The server may reject a token before its saved expiry time. Refresh once.
+      try {
         await this.refreshToken();
-      }
 
-      return await super._send(url, method, body, config);
-    }
-    catch (e: unknown) {
-      if (e instanceof BaseHttpClientError) {
-        throw new TdeiClientError(e.response);
+        try {
+          return await this.#sendWithAccessToken(send);
+        }
+        catch (error: unknown) {
+          if (!this.#isUnauthorized(error)) {
+            throw error;
+          }
+        }
       }
-
-      throw e;
+      catch (error: unknown) {
+        if (!this.#isUnauthorized(error)) {
+          throw error;
+        }
+      }
     }
+
+    await this.#requestSessionReauthentication();
+
+    // Re-login worked, so retry with the new token.
+    return await this.#sendWithAccessToken(send);
+  }
+
+  async #sendWithAccessToken(
+    send: (accessToken: string) => Promise<Response>
+  ): Promise<Response> {
+    const response = await send(this.#auth.accessToken);
+
+    if (response.status === 401) {
+      throw new BaseHttpClientError(response);
+    }
+
+    return response;
+  }
+
+  async #ensureSession(): Promise<void> {
+    // Use the current access token when it is still valid.
+    if (this.#auth.complete && !this.#auth.accessTokenExpired) {
+      return;
+    }
+
+    if (this.#auth.needsRefresh) {
+      try {
+        await this.refreshToken();
+        return;
+      }
+      catch (error: unknown) {
+        if (!this.#isUnauthorized(error)) {
+          throw error;
+        }
+      }
+    }
+
+    await this.#requestSessionReauthentication();
+  }
+
+  async #requestSessionReauthentication(): Promise<void> {
+    const username = this.#auth.username;
+
+    // Stop automatic refreshes while the user is restoring the session.
+    this.stopAutoAuthRefresh();
+    this.#auth.expire();
+
+    if (!username) {
+      throw new Error('The session expired and cannot be restored.');
+    }
+
+    await requestSessionReauthentication(username);
+  }
+
+  #isUnauthorized(error: unknown): boolean {
+    return error instanceof BaseHttpClientError
+      && error.response.status === 401;
+  }
+
+  logout(): void {
+    // Stop refreshes before clearing the shared session.
+    this.#sessionRevision += 1;
+    this.stopAutoAuthRefresh();
+    this.#auth.clear();
   }
 }
 
@@ -571,12 +798,6 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     return await response.json();
   }
 
-  #setAuthHeader() {
-    if (this.#auth.complete) {
-      this._requestHeaders.Authorization = 'Bearer ' + this.#auth.accessToken;
-    }
-  }
-
   override async _send(
     url: string,
     method: string,
@@ -584,10 +805,14 @@ export class TdeiUserClient extends BaseHttpClient implements ICancelableClient 
     config?: FetchConfig,
   ): Promise<Response> {
     try {
-      await this.#tdeiClient.tryRefreshAuth();
-      this.#setAuthHeader();
-
-      return await super._send(url, method, body, config);
+      return await this.#tdeiClient.sendProtectedRequest(accessToken =>
+        super._send(
+          url,
+          method,
+          body,
+          withBearerToken(config, accessToken),
+        )
+      );
     }
     catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {

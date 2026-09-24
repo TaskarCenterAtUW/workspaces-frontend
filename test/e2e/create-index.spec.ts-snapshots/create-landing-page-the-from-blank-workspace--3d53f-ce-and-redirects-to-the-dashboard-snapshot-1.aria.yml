@@ -1,5 +1,8 @@
+- heading "Create a Blank Workspace" [level=1]
+- paragraph: Create an empty workspace with no data. Add your data when ready.
 - text: Workspace Title
-- textbox "Workspace Title"
+- textbox "Workspace Title":
+  - /placeholder: Enter a title for your workspace
 - text: Project Group
 - textbox "Project Group":
   - /placeholder: Search project groups...
@@ -8,5 +11,6 @@
 - radio "OpenSidewalks" [checked]
 - text: OpenSidewalks
 - radio "GTFS Pathways"
-- text: GTFS Pathways
+- text: GTFS Pathways What's next? You can create projects, tasks, add team members, add additional settings after creating your workspace.
+- button "Cancel"
 - button "Create Workspace" [disabled]

@@ -147,8 +147,15 @@ export class ReviewListItem {
   async awaitOsmChange(promise: Promise<OsmChange>): Promise<void> {
     this.loadingChangeset = true;
     this.oscPromise = promise;
-    (this.data as OsmChangeset).osmChange = await promise;
-    this.loadingChangeset = false;
+
+    try {
+      (this.data as OsmChangeset).osmChange = await promise;
+    }
+    finally {
+      // Do not keep retrying a request that has already finished or failed.
+      this.loadingChangeset = false;
+      this.oscPromise = undefined;
+    }
   }
 }
 
@@ -276,7 +283,12 @@ export class ReviewList {
     }
 
     const changeset = item.data as OsmChangeset;
-    item.awaitOsmChange(this.#changesets.getOsc(this.workspaceId, changeset));
+    try {
+      await item.awaitOsmChange(this.#changesets.getOsc(this.workspaceId, changeset));
+    }
+    catch (error: unknown) {
+      console.warn('Could not preload the changeset details.', error);
+    }
   }
 
   async #fetchLists(filter: ReviewListFilter) {

@@ -8,7 +8,9 @@ import type { TdeiClient } from '~/services/tdei';
 import type { WorkspaceProjectTaskApiItem } from '~/types/projects';
 
 const tdeiClient = {
-  tryRefreshAuth: async () => {},
+  sendProtectedRequest: async (
+    request: (accessToken: string) => Promise<Response>
+  ) => await request('test-access-token'),
   auth: { complete: false, accessToken: '' },
 } as unknown as TdeiClient;
 

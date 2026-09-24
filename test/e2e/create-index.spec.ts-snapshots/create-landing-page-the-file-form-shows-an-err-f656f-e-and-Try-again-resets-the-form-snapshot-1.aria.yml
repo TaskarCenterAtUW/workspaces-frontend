@@ -1,4 +1,5 @@
+- button "Cancel"
 - alert:
-  - heading " An error occurred:" [level=5]
-  - paragraph: boom
-  - button "Try again"
+  - heading " An error occurred:" [level=6]
+  - text: boom
+- button "Try again"

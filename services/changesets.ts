@@ -123,27 +123,63 @@ export class ChangesetManager {
       return await this.#osmClient.getOsmChange(workspaceId, changeset.id);
     }
 
-    let osc = await this.#oscCache.get(workspaceId, changeset.id);
+    let osc: OsmChange | undefined;
+
+    try {
+      osc = await this.#oscCache.get(workspaceId, changeset.id);
+    }
+    catch (error: unknown) {
+      // A broken browser cache should not stop us from loading fresh data.
+      console.warn('Could not read the changeset cache.', error);
+    }
 
     if (!osc) {
       osc = await this.#osmClient.getOsmChange(workspaceId, changeset.id);
-      await this.#oscCache.set(workspaceId, changeset.id, osc);
+
+      try {
+        await this.#oscCache.set(workspaceId, changeset.id, osc);
+      }
+      catch (error: unknown) {
+        // Keep using the downloaded data even when it is too large to cache.
+        console.warn('Could not save the changeset cache.', error);
+      }
     }
 
     return osc;
   }
 
-  async getAdiff(workspaceId: WorkspaceId, changeset: OsmChangeset): Promise<AugmentedDiff> {
+  async getAdiff(
+    workspaceId: WorkspaceId,
+    changeset: OsmChangeset,
+    refresh: boolean = false,
+  ): Promise<AugmentedDiff> {
     if (changeset.open) {
       // Skip the cache — open changesets may still receive edits:
       return await this.#workspacesClient.getChangesetAdiff(workspaceId, changeset.id);
     }
 
-    let adiff = await this.#adiffCache.get(workspaceId, changeset.id);
+    let adiff: AugmentedDiff | undefined;
+
+    if (!refresh) {
+      try {
+        adiff = await this.#adiffCache.get(workspaceId, changeset.id);
+      }
+      catch (error: unknown) {
+        // A broken browser cache should not stop us from loading fresh data.
+        console.warn('Could not read the augmented diff cache.', error);
+      }
+    }
 
     if (!adiff) {
       adiff = await this.#workspacesClient.getChangesetAdiff(workspaceId, changeset.id);
-      await this.#adiffCache.set(workspaceId, changeset.id, adiff);
+
+      try {
+        await this.#adiffCache.set(workspaceId, changeset.id, adiff);
+      }
+      catch (error: unknown) {
+        // Keep using the downloaded data even when it is too large to cache.
+        console.warn('Could not save the augmented diff cache.', error);
+      }
     }
 
     return adiff;

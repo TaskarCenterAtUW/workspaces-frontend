@@ -1,6 +1,7 @@
 import {
   BaseHttpClient,
   BaseHttpClientError,
+  withBearerToken,
   type FetchConfig,
   type HttpBody,
 } from '~/services/http';
@@ -25,6 +26,8 @@ import type {
   WorkspacePatch,
   WorkspaceRole,
   WorkspaceTeam,
+  WorkspaceTitleAvailability,
+  WorkspaceTitleAvailabilityRequest,
 } from '~/types/workspaces';
 
 export function compareWorkspaceCreatedAtDesc(a: Workspace, b: Workspace) {
@@ -163,6 +166,28 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     const workspaceId = (await workspaceResponse.json()).workspaceId;
 
     return workspaceId;
+  }
+
+  /// Create a new workspace (Blank) and provision it in the OSM API.
+  async createBlankWorkspace(workspace: WorkspaceCreation): Promise<WorkspaceId> {
+    const workspaceId = await this.createWorkspace(workspace);
+    await this.#osmClient.createWorkspace(workspaceId);
+    return workspaceId;
+  }
+
+  async checkWorkspaceTitleAvailability(
+    request: WorkspaceTitleAvailabilityRequest
+  ): Promise<WorkspaceTitleAvailability> {
+    const originalBaseUrl = this._baseUrl;
+    this._baseUrl = this.#newApiUrl;
+
+    try {
+      const response = await this._post('workspaces/check', request);
+      return await response.json();
+    }
+    finally {
+      this._baseUrl = originalBaseUrl;
+    }
   }
 
   async createWorkspaceFromFile(file: Blob, workspace: WorkspaceCreation): Promise<WorkspaceId> {
@@ -325,12 +350,6 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     return await response.json();
   }
 
-  #setAuthHeader() {
-    if (this.#tdeiClient.auth.complete) {
-      this._requestHeaders.Authorization = 'Bearer ' + this.auth.accessToken;
-    }
-  }
-
   override async _send(
     url: string,
     method: string,
@@ -338,10 +357,9 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     config?: FetchConfig,
   ): Promise<Response> {
     try {
-      await this.#tdeiClient.tryRefreshAuth();
-      this.#setAuthHeader();
-
-      return await super._send(url, method, body, config);
+      return await this.#tdeiClient.sendProtectedRequest(accessToken =>
+        super._send(url, method, body, withBearerToken(config, accessToken))
+      );
     }
     catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {
