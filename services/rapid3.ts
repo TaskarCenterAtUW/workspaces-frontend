@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import type { TdeiAuthStore } from '~/services/tdei'
+import '~/services/patchWorker'
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
 declare const Rapid: any
@@ -82,8 +83,7 @@ export class Rapid3Manager {
    */
   #onRapidLoaded() {
     const container = this.containerNode;
-
-    if (typeof Rapid === 'undefined' || !Rapid.utilDetect().support) {
+    if (typeof Rapid === 'undefined' || !Rapid.utilDetect().isSupported) {
       container.innerHTML = 'Sorry, your browser is not currently supported.'
       container.style.padding = '20px'
     } else {
@@ -115,7 +115,6 @@ export class Rapid3Manager {
     context.workspaceId = workspaceId
     context.tdeiAuth = this.#tdeiAuth
     context.preauth = { url: this.#osmUrl, apiUrl: this.#osmUrl }
-
     return context.initAsync()
       .then(() => this.#patchRapid())
       .then(() => context.startAsync())
