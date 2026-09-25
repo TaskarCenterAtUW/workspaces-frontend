@@ -509,18 +509,8 @@ test.describe('workspace review', () => {
       route.fulfill({ json: { changeset: { ...changesets.changesets[0], comments } } })
     );
 
-    // Select by clicking rather than a ?changeset= deep link, which is flaky
-    // headless (see the changeset deep links tests).
     await page.goto('/workspace/1/review');
-    // Selecting a changeset sets ?changeset=, which makes the page reload the
-    // list (changesets, then notes) with resolved items included. That swaps
-    // in a new item object and closes any panel opened meanwhile, so let the
-    // reload finish before opening one.
-    const reloaded = page.waitForResponse('**/osm/api/0.6/notes/search.json?*closed=-1*');
     await sidebar(page).locator('.review-item', { hasText: '#4242' }).click();
-    await reloaded;
-    await page.evaluate(() => new Promise(resolve =>
-      requestAnimationFrame(() => requestAnimationFrame(resolve))));
 
     const overlay = page.locator('.review-overlay');
     await expect(overlay.locator('.review-toolbar')).toContainText('#4242');
