@@ -669,6 +669,77 @@ test.describe('workspace review', () => {
     await expect(discussion.locator('.message-list')).not.toContainText('This should fail to post.');
   });
 
+  // Opens changeset 4242's discussion. Its comments come from
+  // changeset/4242.json?include_discussion=true, which answers with `comments`
+  // every time, so a test can make a post appear to succeed without landing.
+  async function openChangesetDiscussion(page: Page, comments: object[]) {
+    await seedAuthenticatedSession(page);
+    await stubReviewApis(page);
+    await page.route('**/workspaces/1/changesets/*/adiff', route =>
+      route.fulfill({ json: { actions: [] } })
+    );
+    await page.route('https://ecn.*.tiles.virtualearth.net/**', route => route.abort());
+    await page.route('**/osm/api/0.6/changeset/4242.json**', route =>
+      route.fulfill({ json: { changeset: { ...changesets.changesets[0], comments } } })
+    );
+
+    await page.goto('/workspace/1/review?changeset=4242');
+    await expect(page.locator('.review-toolbar')).toContainText('Changeset: #4242');
+    await page.locator('.review-toolbar button:has(.md-chat_bubble_outline)').click();
+
+    const discussion = page.locator('.review-discussion');
+    await expect(discussion).toContainText('Looks good to me.');
+    return discussion;
+  }
+
+  const existingChangesetComment = {
+    id: 1,
+    text: 'Looks good to me.',
+    visible: true,
+    user: 'mapper_jane',
+    uid: 7,
+    date: '2026-06-11T09:00:00.000Z'
+  };
+
+  // @test e2e: if the server refuses a changeset comment, the toast gives the
+  //            server's reason rather than a generic "try again"
+  test('a refused changeset comment shows the server reason', async ({ page }) => {
+    // OSM refuses comments on a changeset that is still open, as plain text.
+    await page.route('**/osm/api/0.6/changeset/4242/comment**', route =>
+      route.fulfill({
+        status: 409,
+        contentType: 'text/plain',
+        body: 'The changeset 4242 was not yet closed at 2026-06-10 10:05:00 UTC'
+      })
+    );
+    const discussion = await openChangesetDiscussion(page, [existingChangesetComment]);
+
+    await discussion.locator('textarea').fill('Please fix the crossing.');
+    await discussion.locator('button[title="Send"]').click();
+
+    const errorToast = page.locator('.Toastify__toast--error');
+    await expect(errorToast).toContainText('was not yet closed');
+    await expect(discussion.locator('textarea')).toHaveValue('Please fix the crossing.');
+  });
+
+  // @test e2e: a changeset comment the server accepts but does not save is
+  //            reported, and the draft is kept
+  test('a changeset comment that does not land is reported', async ({ page }) => {
+    // OSM answers 200 but drops the comment when its author fails validation.
+    // The re-fetched discussion is unchanged.
+    await page.route('**/osm/api/0.6/changeset/4242/comment**', route =>
+      route.fulfill({ contentType: 'application/xml', body: '<osm version="0.6"/>' })
+    );
+    const discussion = await openChangesetDiscussion(page, [existingChangesetComment]);
+
+    await discussion.locator('textarea').fill('Please fix the crossing.');
+    await discussion.locator('button[title="Send"]').click();
+
+    const errorToast = page.locator('.Toastify__toast--error');
+    await expect(errorToast).toContainText('was not saved');
+    await expect(discussion.locator('textarea')).toHaveValue('Please fix the crossing.');
+  });
+
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
   test('new-API calls conform to the OpenAPI spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
