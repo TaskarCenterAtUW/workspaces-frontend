@@ -683,9 +683,22 @@ test.describe('workspace review', () => {
       route.fulfill({ json: { changeset: { ...changesets.changesets[0], comments } } })
     );
 
-    await page.goto('/workspace/1/review?changeset=4242');
-    await expect(page.locator('.review-toolbar')).toContainText('Changeset: #4242');
-    await page.locator('.review-toolbar button:has(.md-chat_bubble_outline)').click();
+    // Select by clicking rather than a ?changeset= deep link, which is flaky
+    // headless (see the changeset deep links tests).
+    await page.goto('/workspace/1/review');
+    // Selecting a changeset sets ?changeset=, which makes the page reload the
+    // list (changesets, then notes) with resolved items included. That swaps
+    // in a new item object and closes any panel opened meanwhile, so let the
+    // reload finish before opening one.
+    const reloaded = page.waitForResponse('**/osm/api/0.6/notes/search.json?*closed=-1*');
+    await sidebar(page).locator('.review-item', { hasText: '#4242' }).click();
+    await reloaded;
+    await page.evaluate(() => new Promise(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve))));
+
+    const overlay = page.locator('.review-overlay');
+    await expect(overlay.locator('.review-toolbar')).toContainText('#4242');
+    await overlay.locator('.review-toolbar button:has(.md-chat_bubble_outline)').click();
 
     const discussion = page.locator('.review-discussion');
     await expect(discussion).toContainText('Looks good to me.');
@@ -722,6 +735,36 @@ test.describe('workspace review', () => {
     await expect(discussion.locator('textarea')).toHaveValue('Please fix the crossing.');
   });
 
+  // @test e2e: a posted changeset comment appears and clears the draft, even
+  //            when OSM's author name differs from the signed-in user's name
+  test('a posted changeset comment appears and clears the draft', async ({ page }) => {
+    await page.route('**/osm/api/0.6/changeset/4242/comment**', route =>
+      route.fulfill({ contentType: 'application/xml', body: '<osm version="0.6"/>' })
+    );
+    const discussion = await openChangesetDiscussion(page, [existingChangesetComment]);
+
+    await page.route('**/osm/api/0.6/changeset/4242.json**', route =>
+      route.fulfill({
+        json: {
+          changeset: {
+            ...changesets.changesets[0],
+            comments: [
+              existingChangesetComment,
+              { ...existingChangesetComment, id: 2, text: 'Please fix the crossing.', user: 'tester@example.com', uid: 42 }
+            ]
+          }
+        }
+      })
+    );
+
+    await discussion.locator('textarea').fill('Please fix the crossing.');
+    await discussion.locator('button[title="Send"]').click();
+
+    await expect(discussion.locator('.message-list')).toContainText('Please fix the crossing.');
+    await expect(discussion.locator('textarea')).toHaveValue('');
+    await expect(page.locator('.Toastify__toast--error')).toHaveCount(0);
+  });
+
   // @test e2e: a changeset comment the server accepts but does not save is
   //            reported, and the draft is kept
   test('a changeset comment that does not land is reported', async ({ page }) => {
@@ -731,6 +774,22 @@ test.describe('workspace review', () => {
       route.fulfill({ contentType: 'application/xml', body: '<osm version="0.6"/>' })
     );
     const discussion = await openChangesetDiscussion(page, [existingChangesetComment]);
+
+    // Someone else's comment lands meanwhile, so the count still goes up: only
+    // a comment with the submitted text counts as this one landing.
+    await page.route('**/osm/api/0.6/changeset/4242.json**', route =>
+      route.fulfill({
+        json: {
+          changeset: {
+            ...changesets.changesets[0],
+            comments: [
+              existingChangesetComment,
+              { ...existingChangesetComment, id: 2, text: 'Crossing fixed.', user: 'mapper_joe', uid: 8 }
+            ]
+          }
+        }
+      })
+    );
 
     await discussion.locator('textarea').fill('Please fix the crossing.');
     await discussion.locator('button[title="Send"]').click();
