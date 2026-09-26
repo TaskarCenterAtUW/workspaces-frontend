@@ -83,8 +83,17 @@ export class Rapid3Manager {
   #onRapidLoaded() {
     const container = this.containerNode;
 
-    if (typeof Rapid === 'undefined' || !Rapid.utilDetect().support) {
-      container.innerHTML = 'Sorry, your browser is not currently supported.'
+    let error;
+    if (typeof Rapid === 'undefined') {
+      error = 'Rapid script was not loaded.';
+    } else if (!globalThis.isSecureContext) {
+      error = 'Rapid requires a secure context (https: or localhost).';
+    } else if (!Rapid.utilDetect().support) {
+      error = 'Your browser is currently unsupported.';
+    }
+
+    if (error) {
+      container.innerHTML = error
       container.style.padding = '20px'
     } else {
       const context = new Rapid.Context()
@@ -92,11 +101,10 @@ export class Rapid3Manager {
       context.containerNode = container
       context.assetPath = this.#baseUrl
 
-      this.rapidContext = context
-      context.prepareAsync()
-        .then(() => {
-          this.loaded.value = true
-        })
+      this.rapidContext = context;
+      (globalThis as any).rapidContext = context;
+
+      this.loaded.value = true
     }
   }
 
@@ -116,9 +124,136 @@ export class Rapid3Manager {
     context.tdeiAuth = this.#tdeiAuth
     context.preauth = { url: this.#osmUrl, apiUrl: this.#osmUrl }
 
-    return context.initAsync()
-      .then(() => this.#patchRapid())
+    this.#prePrepare()
+
+    return context.prepareAsync()
+      .then(() => this.#preInit())
+      .then(() => context.initAsync())
+      .then(() => this.#preStart())
       .then(() => context.startAsync())
+  }
+
+  /**
+   * Customizations to run before Rapid instantiates anything.
+   * This is a good time to get rid of systems or services that we will never need.
+   */
+  #prePrepare() {
+    const services = Rapid.services.available;
+    services.delete('geoscribble');
+    services.delete('keepright');
+    services.delete('mapwithai');
+    services.delete('osmose');
+  }
+
+  /**
+   * Customizations to run after `prepareAsync` but before `initAsync`.
+   * The core objects have been instantiated but `initAsync` has not run yet.
+   */
+  #preInit() {
+    const context = this.rapidContext
+
+    // Customize Network system
+    // - Add request interceptor to apply TDEI headers to `/osm/api` requests only.
+    const network = context.systems.network
+    const interceptor = (url: string, init: RequestInit): RequestInit => {
+      if (url.includes('/osm/api')) {
+        const headers = Object.fromEntries(new Headers(init.headers).entries())
+        headers['Authorization'] = 'Bearer ' + this.#tdeiAuth.accessToken
+        headers['X-Workspace'] = context.workspaceId
+        return { ...init, headers }
+      }
+      return init // by default, no change
+    };
+    network.addRequestInterceptor(interceptor);
+
+    // Customize OSM service
+    // - Override the `authenticated` check to use TDEI auth state
+    // - Stub out`userDetails` (not needed for workspace-based changeset uploads).
+    const osm = context.services.osm
+    osm._oauth.authenticated = () => this.#tdeiAuth.ok
+    osm.userDetails = (callback: (err: string) => void) => {
+      callback('dummy error')
+    }
+  }
+
+  /**
+   * Customizations to run after `initAsync` but before `startAsync`.
+   * The systems have been initted, but Rapid hasn't started doing anything yet.
+   */
+  #preStart() {
+    const context = this.rapidContext
+
+    // Customize Imagery system
+    // - Remove unapproved imagery sources
+    const imagery = context.systems.imagery
+    const imageryOverrides = {
+      assetID: 'tdei-imagery',
+      scopes: [{
+        scope: 'osm',
+        imagery: {
+          Mapbox: null,
+          mapbox_locator_overlay: null
+        }
+      }]
+    };
+    // Apply these overrides over the imagery already loaded during `init`
+    imagery.merge(imageryOverrides)
+    imagery._overlayLayers.delete('mapbox_locator_overlay')
+
+    // Customize Style system
+    // - apply Gaussian overrides for WA-Proviso
+    const styles = context.systems.styles
+    const styleOverrides = {
+      assetID: 'WA-Proviso-style',
+      scopes: [{
+        scope: 'osm',
+        styles: {
+          'override-crossing-marked': {
+            label: { color: 0xffffff },
+            casing: { color: 0xffffff },
+            stroke: { color: 0x6c6f77 }
+          },
+          'override-footway-sidewalk': {
+            label: { color: 0xffffff },
+            casing: { color: 0xffffff },
+            stroke: { color: 0xd196b1 }
+          },
+          'override-highway-pedestrian': {
+            label: { color: 0xffffff },
+            casing: { color: 0x464d50 },
+            stroke: { color: 0xffffff }
+          },
+        },
+        selectors: {
+          'crossing-marked': {
+            weight: 10,
+            styleIDs: ['override-crossing-marked'],
+            match: {
+              geometry: 'line',
+              tags: [{ key: 'crossing', value: 'marked' }]
+            },
+          },
+          'footway-sidewalk': {
+            weight: 10,
+            styleIDs: ['override-footway-sidewalk'],
+            match: {
+              geometry: 'line',
+              tags: [{ key: 'footway', value: 'sidewalk' }]
+            },
+          },
+          'highway-pedestrian': {
+            weight: 10,
+            styleIDs: ['override-highway-pedestrian'],
+            match: {
+              geometry: 'line',
+              tags: [{ key: 'highway', value: 'pedestrian' }]
+            },
+          }
+        }
+      }]
+    };
+    // Apply these overrides over the styles already loaded during `init`
+    styles.merge(styleOverrides)
   }
 
   /**
@@ -142,66 +277,46 @@ export class Rapid3Manager {
     return this.rapidContext.resetAsync()
   }
 
-  /**
-   * Patches Rapid's OSM service layer to use TDEI authentication.
-   *
-   * Replaces the built-in OAuth fetch with {@link #wrapFetch} to inject
-   * workspace and authorization headers, overrides the `authenticated` check
-   * to use TDEI auth state, and stubs out `userDetails` (not needed for
-   * workspace-based changeset uploads).
-   */
-  #patchRapid() {
-    const context = this.rapidContext
-    const rapidOsmService = context.services.osm
-    const rapidOsmClient = rapidOsmService._oauth
-
-    rapidOsmClient.fetch = this.#wrapFetch(rapidOsmClient.fetch)
-    rapidOsmClient.authenticated = () => this.#tdeiAuth.ok
-
-    rapidOsmService.userDetails = (callback: (err: string) => void) => {
-      callback('dummy error')
-    }
-  }
-
-  /**
-   * Wraps a fetch function to inject `X-Workspace` and `Authorization` headers
-   * on every request Rapid makes to the OSM API.
-   *
-   * Handles all three header formats that Rapid/osm-auth may use: `Headers`
-   * instance, array of tuples, or plain object. When headers are a plain object,
-   * `Authorization` is defined as non-writable to prevent osm-auth from
-   * overwriting it with its own OAuth token.
-   *
-   * @param innerFetch - The original fetch function from Rapid's OAuth client.
-   * @returns A wrapped fetch function with workspace/auth headers injected.
-   */
-  #wrapFetch(innerFetch: typeof fetch) {
-    return (resource: RequestInfo | URL, options: RequestInit & { headers?: HeadersInit | Record<string, string> }) => {
-      if (!options.headers) {
-        options.headers = new Headers()
-      }
-
-      const tokenHeader = 'Bearer ' + this.#tdeiAuth.accessToken
-
-      if (options.headers instanceof Headers) {
-        options.headers.set('X-Workspace', this.rapidContext.workspaceId)
-        options.headers.set('Authorization', tokenHeader)
-      }
-      else if (Array.isArray(options.headers)) {
-        options.headers.push(['X-Workspace', this.rapidContext.workspaceId])
-        options.headers.push(['Authorization', tokenHeader])
-      }
-      else {
-        options.headers['X-Workspace'] = this.rapidContext.workspaceId
-
-        Object.defineProperty(options.headers, 'Authorization', {
-          value: tokenHeader,
-          writable: false,
-          enumerable: true,
-        })
-      }
-
-      return innerFetch(resource, options)
-    }
-  }
+//
+//  /**
+//   * Wraps a fetch function to inject `X-Workspace` and `Authorization` headers
+//   * on every request Rapid makes to the OSM API.
+//   *
+//   * Handles all three header formats that Rapid/osm-auth may use: `Headers`
+//   * instance, array of tuples, or plain object. When headers are a plain object,
+//   * `Authorization` is defined as non-writable to prevent osm-auth from
+//   * overwriting it with its own OAuth token.
+//   *
+//   * @param innerFetch - The original fetch function from Rapid's OAuth client.
+//   * @returns A wrapped fetch function with workspace/auth headers injected.
+//   */
+//  #wrapFetch(innerFetch: typeof fetch) {
+//    return (resource: RequestInfo | URL, options: RequestInit & { headers?: HeadersInit | Record<string, string> }) => {
+//      if (!options.headers) {
+//        options.headers = new Headers()
+//      }
+//
+//      const tokenHeader = 'Bearer ' + this.#tdeiAuth.accessToken
+//
+//      if (options.headers instanceof Headers) {
+//        options.headers.set('X-Workspace', this.rapidContext.workspaceId)
+//        options.headers.set('Authorization', tokenHeader)
+//      }
+//      else if (Array.isArray(options.headers)) {
+//        options.headers.push(['X-Workspace', this.rapidContext.workspaceId])
+//        options.headers.push(['Authorization', tokenHeader])
+//      }
+//      else {
+//        options.headers['X-Workspace'] = this.rapidContext.workspaceId
+//
+//        Object.defineProperty(options.headers, 'Authorization', {
+//          value: tokenHeader,
+//          writable: false,
+//          enumerable: true,
+//        })
+//      }
+//
+//      return innerFetch(resource, options)
+//    }
+//  }
 }

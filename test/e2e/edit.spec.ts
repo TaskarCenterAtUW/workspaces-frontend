@@ -54,13 +54,20 @@ const RAPID2_SCRIPT = (route: Route) => route.fulfill({
 });
 
 // A fake Rapid 3 global (services/rapid3.ts). `#onRapidLoaded` checks
-// `Rapid.utilDetect().support`, builds a Context, calls `prepareAsync()` then
-// flips loaded; `init` runs `initAsync().then(patch).then(startAsync)`.
+// `Rapid.utilDetect().support`, then builds a Context. `init` runs the sequence
+// `#prePrepare()` -> `prepareAsync()` -> `#preInit()` -> `initAsync()` ->
+// `#preStart()` -> `startAsync()`, customizing Rapid's services/systems along the
+// way. The fake must expose every namespace those hooks poke at so init() runs to
+// completion and initAsync() paints the editor surface:
+//   - Rapid.services.available          (#prePrepare deletes optional services)
+//   - context.systems.network           (#preInit adds a request interceptor)
+//   - context.systems.imagery / .styles (#preStart merges overrides)
 const RAPID3_SCRIPT = (route: Route) => route.fulfill({
   contentType: 'application/javascript',
   body: `
     window.Rapid = {
       utilDetect: () => ({ support: true }),
+      services: { available: new Set(['geoscribble', 'keepright', 'mapwithai', 'osmose']) },
       Context: class {
         embed() {}
         async prepareAsync() {}
@@ -70,6 +77,11 @@ const RAPID3_SCRIPT = (route: Route) => route.fulfill({
         }
         async startAsync() {}
         services = { osm: { _oauth: { fetch: () => {}, authenticated: () => true }, userDetails: () => {} } };
+        systems = {
+          network: { addRequestInterceptor: () => {} },
+          imagery: { merge: () => {}, _overlayLayers: new Set(['mapbox_locator_overlay']) },
+          styles: { merge: () => {} }
+        };
       }
     };
   `
