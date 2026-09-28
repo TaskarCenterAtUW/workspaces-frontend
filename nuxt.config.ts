@@ -55,9 +55,6 @@ export default defineNuxtConfig({
       '/osm': { target: 'https://osm.workspaces-dev.sidewalks.washington.edu/', changeOrigin: true },
       '/tdei': { target: 'https://api-dev.tdei.us/api/', changeOrigin: true },
       '/tdei-user': { target: 'https://portal-api-dev.tdei.us/api/', changeOrigin: true },
-      // Rapid 3 uses Web Workers, whose entry scripts must be loaded from the
-      // application origin. Keep its public asset path behind this proxy.
-      '/rapid3': { target: 'https://wsrapid.blob.core.windows.net/editor/dev/rapid3/', changeOrigin: true },
 
       // Local backend (repo workspaces-backend) instead of the shared dev API:
       // '/api': { target: 'http://localhost:8000/api/', changeOrigin: true },
