@@ -127,19 +127,8 @@ export class Rapid3Manager {
   #onRapidLoaded() {
     const container = this.containerNode
 
-    let error: string | undefined
-    if (typeof Rapid === 'undefined') {
-      error = 'Rapid script was not loaded.'
-    }
-    else if (!globalThis.isSecureContext) {
-      error = 'Rapid requires a secure context (https: or localhost).'
-    }
-    else if (!Rapid.utilDetect().isSupported) {
-      error = 'Your browser is currently unsupported.'
-    }
-
-    if (error) {
-      container.innerHTML = error
+    if (typeof Rapid === 'undefined' || !Rapid.utilDetect().isSupported) {
+      container.innerHTML = 'Sorry, your browser is not currently supported.'
       container.style.padding = '20px'
     }
     else {
