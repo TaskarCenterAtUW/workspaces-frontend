@@ -166,6 +166,31 @@ test.describe('workspace edit (editor host)', () => {
     await expect(page.locator('.editorContainer')).toMatchAriaSnapshot();
   });
 
+  test('reopening Rapid 3 recreates the editor context and preserves its hash', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubAllEditors(page);
+    await page.addInitScript(() => {
+      const loadCount = Number(sessionStorage.getItem('rapid3-test-load-count') || '0');
+      sessionStorage.setItem('rapid3-test-load-count', String(loadCount + 1));
+    });
+
+    const editorUrl = '/workspace/1/edit?datatype=osw&editor=rapid3#map=7.92/47.930/-121.784&background=suan_juan_wa_2025';
+    await page.goto(editorUrl);
+    await expect(page.getByRole('application', { name: 'Rapid 3 editor' })).toBeVisible();
+
+    // Leave through Nuxt's client-side router, then revisit the existing history
+    // entry. Rapid 3 must reload rather than reuse its detached context.
+    await page.locator('.navbar-brand').click();
+    await expect(page).toHaveURL('/');
+    await page.goBack();
+
+    await expect(page.getByRole('application', { name: 'Rapid 3 editor' })).toBeVisible();
+    await expect(page).toHaveURL(editorUrl);
+    await expect.poll(() => page.evaluate(() => (
+      Number(sessionStorage.getItem('rapid3-test-load-count'))
+    ))).toBe(2);
+  });
+
   // @test e2e: loading this page with the "osw" datatype query param loads the OpenSidewalks editor, and without it loads the Pathways editor (playwright snapshot each editor's UI)
   test('datatype=osw loads the OpenSidewalks (Rapid) editor', async ({ page }) => {
     await seedAuthenticatedSession(page);
