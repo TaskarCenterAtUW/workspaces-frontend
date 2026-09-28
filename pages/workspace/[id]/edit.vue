@@ -23,10 +23,25 @@ const editorContainer = ref<HTMLDivElement | null>(null);
 const oswManager = (editor === 'rapid3' && rapid3Manager) ? rapid3Manager : rapidManager
 const manager = datatype === 'osw' ? oswManager : pathwaysManager
 
+function rapid3HasDifferentWorkspace() {
+  if (!rapid3Manager || manager !== rapid3Manager) {
+    return false
+  }
+
+  const currentWorkspaceId = rapid3Manager.rapidContext?.workspaceId
+  return currentWorkspaceId !== undefined && currentWorkspaceId !== workspaceId
+}
+
 function onEditorLoaded() {
   editorContainer.value!.appendChild(manager.containerNode);
   manager.init(workspaceId);
 }
+
+watch(() => route.params.id, (id) => {
+  if (rapid3Manager && manager === rapid3Manager && Number(id) !== workspaceId) {
+    window.location.reload()
+  }
+})
 
 onMounted(() => {
   // If a different Rapid version is already loaded, hard-reload to swap.
@@ -48,6 +63,11 @@ onMounted(() => {
 
     manager.load();
   } else {
+    if (rapid3HasDifferentWorkspace()) {
+      window.location.reload()
+      return
+    }
+
     editorContainer.value!.appendChild(manager.containerNode);
     manager.switchWorkspace(workspaceId);
   }

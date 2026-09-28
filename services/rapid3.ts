@@ -178,9 +178,10 @@ export class Rapid3Manager {
     context.tdeiAuth = this.#tdeiAuth
     context.preauth = { url: this.#osmUrl, apiUrl: this.#osmUrl }
     this.#setInitialChangesetHashtags(changesetHashtags)
-    this.#configureRapidAuth()
+    this.#patchRapidNetwork()
 
     await context.initAsync()
+    this.#patchRapid()
 
     // Rapid can create or reset its hash settings during initialization.
     this.#setInitialChangesetHashtags(changesetHashtags)
@@ -268,15 +269,10 @@ export class Rapid3Manager {
   }
 
   /**
-   * Configures Rapid's network layer to use TDEI authentication.
-   *
-   * Rapid 3 sends OSM requests through its NetworkSystem (including a worker),
-   * so authentication must be registered there before `initAsync()` starts
-   * loading map data. Only requests to the configured OSM backend are changed.
+   * Adds TDEI authentication to Rapid 3's worker-backed network requests.
    */
-  #configureRapidAuth() {
+  #patchRapidNetwork() {
     const context = this.rapidContext
-    const rapidOsmService = context.services.osm
     const osmBaseUrl = new URL(`${this.#osmUrl}/`, window.location.href)
 
     context.systems.network.addRequestInterceptor((url: string | URL, init: RequestInit = {}) => {
@@ -294,11 +290,68 @@ export class Rapid3Manager {
 
       return { ...init, headers }
     })
+  }
 
-    rapidOsmService._oauth.authenticated = () => this.#tdeiAuth.ok
+  /**
+   * Patches Rapid's OSM service layer to use TDEI authentication.
+   *
+   * Replaces the built-in OAuth fetch with {@link #wrapFetch} to inject
+   * workspace and authorization headers, overrides the `authenticated` check
+   * to use TDEI auth state, and stubs out `userDetails` (not needed for
+   * workspace-based changeset uploads).
+   */
+  #patchRapid() {
+    const context = this.rapidContext
+    const rapidOsmService = context.services.osm
+    const rapidOsmClient = rapidOsmService._oauth
+
+    rapidOsmClient.fetch = this.#wrapFetch(rapidOsmClient.fetch)
+    rapidOsmClient.authenticated = () => this.#tdeiAuth.ok
 
     rapidOsmService.userDetails = (callback: (err: string) => void) => {
       callback('dummy error')
+    }
+  }
+
+  /**
+   * Wraps a fetch function to inject `X-Workspace` and `Authorization` headers
+   * on every request Rapid makes to the OSM API.
+   *
+   * Handles all three header formats that Rapid/osm-auth may use: `Headers`
+   * instance, array of tuples, or plain object. When headers are a plain object,
+   * `Authorization` is defined as non-writable to prevent osm-auth from
+   * overwriting it with its own OAuth token.
+   *
+   * @param innerFetch - The original fetch function from Rapid's OAuth client.
+   * @returns A wrapped fetch function with workspace/auth headers injected.
+   */
+  #wrapFetch(innerFetch: typeof fetch) {
+    return (resource: RequestInfo | URL, options: RequestInit & { headers?: HeadersInit | Record<string, string> }) => {
+      if (!options.headers) {
+        options.headers = new Headers()
+      }
+
+      const tokenHeader = 'Bearer ' + this.#tdeiAuth.accessToken
+
+      if (options.headers instanceof Headers) {
+        options.headers.set('X-Workspace', this.rapidContext.workspaceId)
+        options.headers.set('Authorization', tokenHeader)
+      }
+      else if (Array.isArray(options.headers)) {
+        options.headers.push(['X-Workspace', this.rapidContext.workspaceId])
+        options.headers.push(['Authorization', tokenHeader])
+      }
+      else {
+        options.headers['X-Workspace'] = this.rapidContext.workspaceId
+
+        Object.defineProperty(options.headers, 'Authorization', {
+          value: tokenHeader,
+          writable: false,
+          enumerable: true,
+        })
+      }
+
+      return innerFetch(resource, options)
     }
   }
 }
