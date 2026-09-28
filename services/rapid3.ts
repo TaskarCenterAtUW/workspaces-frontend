@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import type { TdeiAuthStore } from '~/services/tdei'
 import type { ImagerySource } from '~/types/imagery'
 import { convertToRapidImagerySource } from '~/util/rapid-imagery'
+import '~/services/patchWorker'
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
 declare const Rapid: any
