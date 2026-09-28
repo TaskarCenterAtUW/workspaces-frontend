@@ -55,10 +55,21 @@ export default defineNuxtConfig({
       '/osm': { target: 'https://osm.workspaces-dev.sidewalks.washington.edu/', changeOrigin: true },
       '/tdei': { target: 'https://api-dev.tdei.us/api/', changeOrigin: true },
       '/tdei-user': { target: 'https://portal-api-dev.tdei.us/api/', changeOrigin: true },
+      '/pathways': { target: 'https://pathways.workspaces-dev.sidewalks.washington.edu/', changeOrigin: true },
+
+      // Rapid editor bundles are served from Azure blob storage. (The
+      // rapid.workspaces-dev.sidewalks.washington.edu host is not currently
+      // serving them.) Each proxy key must match its VITE_RAPID*_URL prefix
+      // (/rapid2, /rapid3) or the stripped path won't line up upstream.
+      '/rapid2': { target: 'https://wsrapid.blob.core.windows.net/editor/dev/rapid2/', changeOrigin: true },
+      '/rapid3': { target: 'https://wsrapid.blob.core.windows.net/editor/dev/rapid3/', changeOrigin: true },
 
       // Local backend (repo workspaces-backend) instead of the shared dev API:
       // '/api': { target: 'http://localhost:8000/api/', changeOrigin: true },
       // '/osm': { target: 'http://localhost:8000/workspaces/', changeOrigin: true },
+      // To develop against a locally-built Rapid, serve its build on :8080 and use:
+      // '/rapid2': { target: 'http://localhost:8080/dist', changeOrigin: true },
+      // '/rapid3': { target: 'http://localhost:8080/dist', changeOrigin: true },
     },
   },
   vite: {

@@ -28,6 +28,12 @@ function onEditorLoaded() {
   manager.init(workspaceId);
 }
 
+watch(() => route.params.id, (id) => {
+  if (rapid3Manager && manager === rapid3Manager && Number(id) !== workspaceId) {
+    window.location.reload()
+  }
+})
+
 onMounted(() => {
   // If a different Rapid version is already loaded, hard-reload to swap.
   // Only one version can occupy the global Rapid namespace at a time.
@@ -48,6 +54,11 @@ onMounted(() => {
 
     manager.load();
   } else {
+    if (rapid3Manager && manager === rapid3Manager) {
+      window.location.reload()
+      return
+    }
+
     editorContainer.value!.appendChild(manager.containerNode);
     manager.switchWorkspace(workspaceId);
   }
