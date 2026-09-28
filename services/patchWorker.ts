@@ -4,7 +4,7 @@ declare global {
   }
 }
 
-if (typeof window !== 'undefined' && !window.__crossOriginWorkerPatched) {
+if (typeof window !== 'undefined' && typeof window.Worker === 'function' && !window.__crossOriginWorkerPatched) {
   const NativeWorker = window.Worker;
 
   class CrossOriginWorker extends NativeWorker {
@@ -13,10 +13,9 @@ if (typeof window !== 'undefined' && !window.__crossOriginWorkerPatched) {
       let url: string | URL = scriptURL;
 
       if (abs.origin !== window.location.origin) {
-        const shim =
-          options?.type === 'module'
-            ? `import ${JSON.stringify(abs.href)};`
-            : `importScripts(${JSON.stringify(abs.href)});`;
+        const shim = options?.type === 'module'
+          ? `import ${JSON.stringify(abs.href)};`
+          : `importScripts(${JSON.stringify(abs.href)});`;
         url = URL.createObjectURL(
           new Blob([shim], { type: 'application/javascript' })
         );

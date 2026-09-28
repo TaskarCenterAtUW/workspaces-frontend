@@ -71,6 +71,7 @@ const RAPID3_SCRIPT = (route: Route) => route.fulfill({
         async startAsync() {}
         services = { osm: { _oauth: { fetch: () => {}, authenticated: () => true }, userDetails: () => {} } };
         systems = {
+          network: { addRequestInterceptor: () => {} },
           urlhash: { initialHashParams: new Map() },
           editor: {
             changes: () => ({ created: [], deleted: [], modified: [] }),
