@@ -112,6 +112,21 @@ Don't soften assertions to make buggy code pass.
   against a production build if you want pre-compiled routes.
 - **Playwright route precedence is most-recently-registered-first** — register
   per-test override routes AFTER (or in a way that wins over) shared stub helpers.
+- **Rapid editor bundles load via the `/rapid2` and `/rapid3` `nitro.devProxy`
+  routes** (see README "Dev Setup"). They're served from Azure blob storage
+  (`wsrapid.blob.core.windows.net/editor/dev/rapid{2,3}/`), NOT the
+  `rapid.workspaces-dev…` host (which isn't serving them). Each devProxy key must
+  match its `VITE_RAPID*_URL` prefix exactly — a mismatch (e.g. key `/rapid` with
+  `VITE_RAPID_URL=/rapid2/`) makes Nitro strip the wrong prefix and 404 (or, if
+  the host just hangs, "pending") upstream. Point a target at
+  `http://localhost:8080/dist` to develop against a local Rapid build.
+- **The `test/e2e/edit.spec.ts` editor tests fake the external Rapid/iD globals**
+  with just enough surface for each manager's load→init path to run and paint a
+  `.fake-editor`. When `services/{rapid,rapid3,pathways}.ts` changes what it pokes
+  at on the Rapid `Context`/global (e.g. `Rapid.services.available`,
+  `context.systems.*`, `utilDetect().isSupported`), extend the fake to match — or
+  init throws, the editor never mounts, and the test fails on `.fake-editor` not
+  visible.
 
 ## Permission Structure
 
