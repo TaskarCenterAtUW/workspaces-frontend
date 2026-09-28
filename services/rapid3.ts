@@ -1,8 +1,21 @@
 import { ref } from 'vue'
 import type { TdeiAuthStore } from '~/services/tdei'
+import type { ImagerySource } from '~/types/imagery'
+import { convertToRapidImagerySource } from '~/util/rapid-imagery'
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
 declare const Rapid: any
+
+type RapidInitialHashParams = Pick<Map<string, string>, 'delete' | 'set'>
+
+function isRapidInitialHashParams(value: unknown): value is RapidInitialHashParams {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+  return typeof candidate.delete === 'function' && typeof candidate.set === 'function'
+}
 
 /**
  * Manages the lifecycle of an embedded Rapid v3.x editor instance.
@@ -18,6 +31,8 @@ export class Rapid3Manager {
   #baseUrl: string
   #osmUrl: string
   #tdeiAuth: TdeiAuthStore
+  #stateCallback: ((state: any) => void) | null = null
+  #uploadCallback: ((result: any) => void) | null = null
 
   /** Reactive flag indicating whether the Rapid 3 script has loaded and is ready. */
   loaded: ReturnType<typeof ref<boolean>>
@@ -43,6 +58,34 @@ export class Rapid3Manager {
     this.loaded = ref(false)
     this.containerNode = document.createElement('div')
     this.rapidContext = null
+  }
+
+  onStateChange(callback: (state: any) => void): () => void {
+    this.#stateCallback = callback
+
+    return () => {
+      if (this.#stateCallback === callback) {
+        this.#stateCallback = null
+      }
+    }
+  }
+
+  #notifyStateChange(state: any) {
+    this.#stateCallback?.(state)
+  }
+
+  onUploadResult(callback: (result: any) => void): () => void {
+    this.#uploadCallback = callback
+
+    return () => {
+      if (this.#uploadCallback === callback) {
+        this.#uploadCallback = null
+      }
+    }
+  }
+
+  #notifyUploadResult(result: any) {
+    this.#uploadCallback?.(result)
   }
 
   /**
@@ -81,12 +124,24 @@ export class Rapid3Manager {
    * {@link init} can be called.
    */
   #onRapidLoaded() {
-    const container = this.containerNode;
+    const container = this.containerNode
 
-    if (typeof Rapid === 'undefined' || !Rapid.utilDetect().support) {
-      container.innerHTML = 'Sorry, your browser is not currently supported.'
+    let error: string | undefined
+    if (typeof Rapid === 'undefined') {
+      error = 'Rapid script was not loaded.'
+    }
+    else if (!globalThis.isSecureContext) {
+      error = 'Rapid requires a secure context (https: or localhost).'
+    }
+    else if (!Rapid.utilDetect().isSupported) {
+      error = 'Your browser is currently unsupported.'
+    }
+
+    if (error) {
+      container.innerHTML = error
       container.style.padding = '20px'
-    } else {
+    }
+    else {
       const context = new Rapid.Context()
       context.embed(true); // hide the account management control
       context.containerNode = container
@@ -108,17 +163,29 @@ export class Rapid3Manager {
    * becomes `true`.
    *
    * @param workspaceId - The numeric ID of the workspace to open for editing.
+   * @param customImagerySource - Optional project imagery to select in Rapid.
+   * @param changesetHashtags - Optional task hashtag to include on upload.
    * @returns A promise that resolves once the editor is fully started.
    */
-  init(workspaceId: number) {
+  async init(
+    workspaceId: number,
+    customImagerySource: ImagerySource | null = null,
+    changesetHashtags?: string,
+  ): Promise<void> {
     const context = this.rapidContext
     context.workspaceId = workspaceId
     context.tdeiAuth = this.#tdeiAuth
     context.preauth = { url: this.#osmUrl, apiUrl: this.#osmUrl }
+    this.#setInitialChangesetHashtags(changesetHashtags)
 
-    return context.initAsync()
-      .then(() => this.#patchRapid())
-      .then(() => context.startAsync())
+    await context.initAsync()
+    this.#patchRapid()
+
+    // Rapid can create or reset its hash settings during initialization.
+    this.#setInitialChangesetHashtags(changesetHashtags)
+    this.#addCustomImagerySource(customImagerySource)
+    this.#bindRapidEvents()
+    await context.startAsync()
   }
 
   /**
@@ -129,17 +196,74 @@ export class Rapid3Manager {
    * editor state.
    *
    * @param workspaceId - The numeric ID of the workspace to switch to.
+   * @param customImagerySource - Optional project imagery to select in Rapid.
+   * @param changesetHashtags - Optional task hashtag to include on upload.
    * @returns A promise that resolves once the editor has reset.
    */
-  switchWorkspace(workspaceId: number) {
+  async switchWorkspace(
+    workspaceId: number,
+    customImagerySource: ImagerySource | null = null,
+    changesetHashtags?: string,
+  ): Promise<void> {
     this.rapidContext.workspaceId = workspaceId
+    this.#setInitialChangesetHashtags(changesetHashtags)
 
     window.dispatchEvent(new HashChangeEvent('hashchange', {
       newURL: window.location.href,
       oldURL: window.location.href,
     }))
 
-    return this.rapidContext.resetAsync()
+    await this.rapidContext.resetAsync()
+
+    // Reset can clear task-specific settings, so restore them afterward.
+    this.#setInitialChangesetHashtags(changesetHashtags)
+    this.#addCustomImagerySource(customImagerySource)
+  }
+
+  #setInitialChangesetHashtags(changesetHashtags?: string): void {
+    const initialHashParams: unknown = this.rapidContext.systems?.urlhash?.initialHashParams
+      ?? this.rapidContext.initialHashParams
+
+    if (!isRapidInitialHashParams(initialHashParams)) {
+      return
+    }
+
+    if (changesetHashtags) {
+      initialHashParams.set('hashtags', changesetHashtags)
+    }
+    else {
+      initialHashParams.delete('hashtags')
+    }
+  }
+
+  #addCustomImagerySource(customImagerySource: ImagerySource | null) {
+    if (!customImagerySource) {
+      return
+    }
+
+    const newCustomSourceData = convertToRapidImagerySource(customImagerySource)
+    if (!newCustomSourceData) {
+      return
+    }
+
+    const imagerySystem = this.rapidContext.systems.imagery
+    const newCustomSource = new Rapid.ImagerySource(this.rapidContext, newCustomSourceData)
+    imagerySystem._imageryIndex.sources.set(newCustomSourceData.id, newCustomSource)
+    imagerySystem.setSourceByID(newCustomSourceData.id)
+  }
+
+  #bindRapidEvents() {
+    const editSystem = this.rapidContext.systems.editor
+    editSystem.on('stablechange', () => {
+      const changes = editSystem.changes()
+      const changesLength = changes.modified.length || changes.created.length || changes.deleted.length
+      this.#notifyStateChange(changesLength)
+    })
+
+    const uploader = this.rapidContext.systems.uploader
+    uploader.on('resultSuccess', (result: any) => {
+      this.#notifyUploadResult(result)
+    })
   }
 
   /**

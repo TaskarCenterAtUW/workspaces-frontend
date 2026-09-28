@@ -54,13 +54,13 @@ const RAPID2_SCRIPT = (route: Route) => route.fulfill({
 });
 
 // A fake Rapid 3 global (services/rapid3.ts). `#onRapidLoaded` checks
-// `Rapid.utilDetect().support`, builds a Context, calls `prepareAsync()` then
-// flips loaded; `init` runs `initAsync().then(patch).then(startAsync)`.
+// `Rapid.utilDetect().isSupported`, builds a Context, calls `prepareAsync()` then
+// flips loaded; `init` initializes, patches auth, binds events, then starts.
 const RAPID3_SCRIPT = (route: Route) => route.fulfill({
   contentType: 'application/javascript',
   body: `
     window.Rapid = {
-      utilDetect: () => ({ support: true }),
+      utilDetect: () => ({ isSupported: true }),
       Context: class {
         embed() {}
         async prepareAsync() {}
@@ -70,6 +70,14 @@ const RAPID3_SCRIPT = (route: Route) => route.fulfill({
         }
         async startAsync() {}
         services = { osm: { _oauth: { fetch: () => {}, authenticated: () => true }, userDetails: () => {} } };
+        systems = {
+          urlhash: { initialHashParams: new Map() },
+          editor: {
+            changes: () => ({ created: [], deleted: [], modified: [] }),
+            on: () => {}
+          },
+          uploader: { on: () => {} }
+        };
       }
     };
   `

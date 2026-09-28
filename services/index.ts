@@ -25,10 +25,19 @@ if (!newApiUrl) {
   throw new Error('VITE_NEW_API_URL is required');
 }
 const osmWebUrl = import.meta.env.VITE_OSM_URL;
+if (!osmWebUrl) {
+  throw new Error('VITE_OSM_URL is required');
+}
 const osmApiUrl = osmWebUrl + 'api/0.6/';
 const rapidUrl = import.meta.env.VITE_RAPID_URL;
+if (!rapidUrl) {
+  throw new Error('VITE_RAPID_URL is required');
+}
 const rapid3Url = import.meta.env.VITE_RAPID3_URL;
 const pathwaysUrl = import.meta.env.VITE_PATHWAYS_EDITOR_URL;
+if (!pathwaysUrl) {
+  throw new Error('VITE_PATHWAYS_EDITOR_URL is required');
+}
 
 export const tdeiAuth = reactive(new TdeiAuthStore());
 export const tdeiClient = new TdeiClient(tdeiApiUrl, tdeiAuth);
