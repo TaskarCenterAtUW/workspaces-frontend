@@ -227,7 +227,7 @@ export class Rapid3Manager {
         selectors: {
           'crossing-marked': {
             weight: 10,
-            styleIDs: ['override-crossing-marked'],
+            styleIDs: ['override-crossing-marked', 'line_narrow'],
             match: {
               geometry: 'line',
               tags: [{ key: 'crossing', value: 'marked' }]
@@ -235,7 +235,7 @@ export class Rapid3Manager {
           },
           'footway-sidewalk': {
             weight: 10,
-            styleIDs: ['override-footway-sidewalk'],
+            styleIDs: ['override-footway-sidewalk', 'line_narrow'],
             match: {
               geometry: 'line',
               tags: [{ key: 'footway', value: 'sidewalk' }]
@@ -243,7 +243,7 @@ export class Rapid3Manager {
           },
           'highway-pedestrian': {
             weight: 10,
-            styleIDs: ['override-highway-pedestrian'],
+            styleIDs: ['override-highway-pedestrian', 'line_wide'],
             match: {
               geometry: 'line',
               tags: [{ key: 'highway', value: 'pedestrian' }]
