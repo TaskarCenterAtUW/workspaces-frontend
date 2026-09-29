@@ -54,7 +54,7 @@ const RAPID2_SCRIPT = (route: Route) => route.fulfill({
 });
 
 // A fake Rapid 3 global (services/rapid3.ts). `#onRapidLoaded` checks
-// `Rapid.utilDetect().support`, then builds a Context. `init` runs the sequence
+// `Rapid.utilDetect().isSupported`, then builds a Context. `init` runs the sequence
 // `#prePrepare()` -> `prepareAsync()` -> `#preInit()` -> `initAsync()` ->
 // `#preStart()` -> `startAsync()`, customizing Rapid's services/systems along the
 // way. The fake must expose every namespace those hooks poke at so init() runs to
@@ -66,7 +66,7 @@ const RAPID3_SCRIPT = (route: Route) => route.fulfill({
   contentType: 'application/javascript',
   body: `
     window.Rapid = {
-      utilDetect: () => ({ support: true }),
+      utilDetect: () => ({ isSupported: true }),
       services: { available: new Set(['geoscribble', 'keepright', 'mapwithai', 'osmose']) },
       Context: class {
         embed() {}

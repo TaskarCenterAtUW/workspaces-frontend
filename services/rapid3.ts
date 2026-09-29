@@ -88,7 +88,7 @@ export class Rapid3Manager {
       error = 'Rapid script was not loaded.';
     } else if (!globalThis.isSecureContext) {
       error = 'Rapid requires a secure context (https: or localhost).';
-    } else if (!Rapid.utilDetect().support) {
+    } else if (!Rapid.utilDetect().isSupported) {
       error = 'Your browser is currently unsupported.';
     }
 
@@ -168,12 +168,10 @@ export class Rapid3Manager {
 
     // Customize OSM service
     // - Override the `authenticated` check to use TDEI auth state
-    // - Stub out`userDetails` (not needed for workspace-based changeset uploads).
+    // - Stub out`getUserDetailsAsync` (not needed for workspace-based changeset uploads).
     const osm = context.services.osm
     osm._oauth.authenticated = () => this.#tdeiAuth.ok
-    osm.userDetails = (callback: (err: string) => void) => {
-      callback('dummy error')
-    }
+    osm.getUserDetailsAsync = (): Promise<any> => Promise.resolve(null)
   }
 
   /**
