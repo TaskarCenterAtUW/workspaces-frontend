@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { WorkspacesClient, WorkspacesClientError } from '~/services/workspaces';
 import { server } from '../../mocks/server';
 import { TEST_API_BASE } from '../../mocks/fixtures';
@@ -13,7 +13,9 @@ import type { TdeiClient } from '~/services/tdei';
 // Authorization header. The real BaseHttpClient runs end to end — MSW
 // intercepts at fetch, so URL building and error mapping are exercised.
 const tdeiClient = {
-  tryRefreshAuth: async () => {},
+  sendProtectedRequest: async (
+    request: (accessToken: string) => Promise<Response>
+  ) => await request('test-access-token'),
   auth: { complete: false, accessToken: '' }
 } as unknown as TdeiClient;
 const osmClient = {} as unknown as OsmApiClient;
@@ -112,6 +114,94 @@ describe('WorkspacesClient.getWorkspaceBbox', () => {
     );
 
     await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toBeUndefined();
+  });
+});
+
+describe('WorkspacesClient.createBlankWorkspace', () => {
+  it.each(['osw', 'pathways'] as const)(
+    'provisions an empty OSM store for a blank %s workspace',
+    async (type) => {
+      const createOsmWorkspace = vi.fn().mockResolvedValue(undefined);
+      const client = new WorkspacesClient(
+        TEST_API_BASE,
+        TEST_API_BASE,
+        tdeiClient,
+        { createWorkspace: createOsmWorkspace } as unknown as OsmApiClient
+      );
+      const workspace = {
+        title: 'Empty workspace',
+        type,
+        tdeiProjectGroupId: '11111111-1111-1111-1111-111111111111'
+      };
+
+      server.use(
+        http.post(`${TEST_API_BASE}workspaces`, () => {
+          expect(createOsmWorkspace).not.toHaveBeenCalled();
+          return HttpResponse.json({ workspaceId: 1909 }, { status: 201 });
+        })
+      );
+
+      await expect(client.createBlankWorkspace(workspace)).resolves.toBe(1909);
+      expect(createOsmWorkspace).toHaveBeenCalledOnce();
+      expect(createOsmWorkspace).toHaveBeenCalledWith(1909);
+    }
+  );
+
+  it('does not provision OSM when workspace record creation fails', async () => {
+    const createOsmWorkspace = vi.fn().mockResolvedValue(undefined);
+    const client = new WorkspacesClient(
+      TEST_API_BASE,
+      TEST_API_BASE,
+      tdeiClient,
+      { createWorkspace: createOsmWorkspace } as unknown as OsmApiClient
+    );
+    const workspace = {
+      title: 'Empty workspace',
+      type: 'pathways' as const,
+      tdeiProjectGroupId: '11111111-1111-1111-1111-111111111111'
+    };
+
+    server.use(
+      http.post(`${TEST_API_BASE}workspaces`, () => {
+        return new HttpResponse(null, { status: 500, statusText: 'Server Error' });
+      })
+    );
+
+    await expect(client.createBlankWorkspace(workspace)).rejects.toBeInstanceOf(
+      WorkspacesClientError
+    );
+    expect(createOsmWorkspace).not.toHaveBeenCalled();
+  });
+});
+
+describe('WorkspacesClient.checkWorkspaceTitleAvailability', () => {
+  const LEGACY_API_BASE = 'http://legacy-api.test/';
+  const NEW_API_BASE = 'http://new-api.test/';
+
+  it('posts the title and project group to the new API and returns availability', async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(`${NEW_API_BASE}workspaces/check`, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({ available: false });
+      })
+    );
+    const client = new WorkspacesClient(
+      LEGACY_API_BASE,
+      NEW_API_BASE,
+      tdeiClient,
+      osmClient
+    );
+
+    await expect(client.checkWorkspaceTitleAvailability({
+      title: 'Existing workspace',
+      tdeiProjectGroupId: '11111111-1111-4111-8111-111111111111',
+    })).resolves.toEqual({ available: false });
+
+    expect(receivedBody).toEqual({
+      title: 'Existing workspace',
+      tdeiProjectGroupId: '11111111-1111-4111-8111-111111111111',
+    });
   });
 });
 

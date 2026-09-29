@@ -6,6 +6,7 @@ import {
   BaseHttpClientError,
   type FetchConfig,
   type HttpBody,
+  withBearerToken,
 } from '~/services/http';
 import * as xml from '~/util/xml';
 
@@ -207,7 +208,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
 
     this.#webUrl = webUrl;
     this.#tdeiClient = tdeiClient;
-    this.#setAuthHeader();
 
     // OSM API can return XML or JSON based on the header or file extension:
     this._requestHeaders['Accept'] = '*/*';
@@ -527,12 +527,6 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return await response.blob();
   }
 
-  #setAuthHeader() {
-    if (this.#tdeiClient.auth.complete) {
-      this._requestHeaders.Authorization = 'Bearer ' + this.#tdeiClient.auth.accessToken;
-    }
-  }
-
   override async _send(
     url: string,
     method: string,
@@ -540,14 +534,19 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     config?: FetchConfig,
   ): Promise<Response> {
     try {
-      await this.#tdeiClient.tryRefreshAuth();
-      this.#setAuthHeader();
-
       const requestOptions: FetchConfig = {
         credentials: 'include',
+        ...config,
       };
 
-      return await super._send(url, method, body, { ...requestOptions, ...config });
+      return await this.#tdeiClient.sendProtectedRequest(accessToken =>
+        super._send(
+          url,
+          method,
+          body,
+          withBearerToken(requestOptions, accessToken),
+        )
+      );
     }
     catch (e: unknown) {
       if (e instanceof BaseHttpClientError) {

@@ -1,9 +1,9 @@
 <template>
-  <div class="card mb-4 border-danger">
+  <div class="card mb-4 setting-card-item">
     <div class="card-body">
-      <h3 class="card-title mb-3">
+      <h2 class="card-title">
         Delete Workspace
-      </h3>
+      </h2>
 
       <b-alert
         v-if="!isLead"
@@ -29,32 +29,34 @@
       </button>
 
       <template v-if="accepted">
-        <label class="d-block mb-3">
-          <strong>To confirm, please type "delete" in the box below:</strong>
-          <input
-            ref="input"
-            v-model.trim="attestation"
-            class="form-control border-danger"
+        <div class="delect-confirmation-block">
+          <label class="d-block mb-3">
+            <strong>To confirm, please type "delete" in the box below:</strong>
+            <input
+              ref="input"
+              v-model.trim="attestation"
+              class="form-control border-danger mt-2"
+            >
+          </label>
+          <hr class="horizontal-separator">
+          <button
+            class="btn btn-danger"
+            :disabled="!isLead || attestation !== 'delete' || isDeleting"
+            :aria-busy="isDeleting"
+            @click="submitDelete"
           >
-        </label>
-
-        <button
-          class="btn btn-danger"
-          :disabled="!isLead || attestation !== 'delete' || isDeleting"
-          :aria-busy="isDeleting"
-          @click="submitDelete"
-        >
-          <template v-if="isDeleting">
-            <span
-              class="spinner-border spinner-border-sm me-2"
-              aria-hidden="true"
-            />
-            Deleting&hellip;
-          </template>
-          <template v-else>
-            Delete this workspace
-          </template>
-        </button>
+            <template v-if="isDeleting">
+              <span
+                class="spinner-border spinner-border-sm me-2"
+                aria-hidden="true"
+              />
+              Deleting&hellip;
+            </template>
+            <template v-else>
+              Delete this workspace
+            </template>
+          </button>
+        </div>
       </template>
     </div>
     <!-- .card-body -->
@@ -107,3 +109,27 @@ async function submitDelete() {
   }
 }
 </script>
+
+<style lang="scss" scoped>
+.setting-card-item {
+  background-color: #FFFFFF;
+  border: 1px solid #D9D9D9;
+  border-radius: 10px;
+}
+.card-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+.horizontal-separator {
+  border-top: 1px dashed;
+}
+.border-danger:focus {
+  box-shadow: 0 0 0 0.25rem rgb(220 52 69 / 18%);
+}
+.delect-confirmation-block {
+  padding: 15px;
+  background-color: #f3f3f3;
+  border-radius: 10px;
+}
+</style>

@@ -11,13 +11,13 @@ const PATHWAYS_ZIP = Buffer.from(
 //
 // The create landing page (/workspace/create) is a static set of three cards,
 // each linking to a create form. These tests assert the landing page itself and
-// that each "Start" link navigates to the right form, then assert what the
+// that each named create link navigates to the right form, then assert what the
 // outline says each destination form must contain. Auth is required for every
 // flow (seedAuthenticatedSession FIRST).
 //
 // Stubs the forms need:
 //   - GET tdei-user/project-group-roles/{subject}  -> projectGroups (ProjectGroupPicker)
-//   - POST workspaces                              -> { workspaceId: <int> } (createWorkspace)
+//   - POST workspaces                              -> { workspaceId: <int> } (createBlankWorkspace)
 //   - POST workspaces/from-file                    -> { workspaceId: <int> } (file import)
 //   - PUT osm/workspaces/{id}                      -> 200 (blank workspace provisioning)
 
@@ -58,13 +58,13 @@ test.describe('create landing page', () => {
 
     await expect(page.getByRole('heading', { name: 'Create a Workspace' })).toBeVisible();
 
-    const blank = page.getByRole('link').filter({ hasText: 'Start' }).nth(0);
-    const tdei = page.getByRole('link').filter({ hasText: 'Start' }).nth(1);
-    const file = page.getByRole('link').filter({ hasText: 'Start' }).nth(2);
+    const blank = page.getByRole('link', { name: /^Create Blank Workspace/ });
+    const tdei = page.getByRole('link', { name: /^Create From TDEI/ });
+    const file = page.getByRole('link', { name: /^Create From File/ });
 
-    await expect(page.getByText('Blank Workspace')).toBeVisible();
-    await expect(page.getByText('From TDEI')).toBeVisible();
-    await expect(page.getByText('From File')).toBeVisible();
+    await expect(page.getByText('Blank Workspace', { exact: true })).toBeVisible();
+    await expect(page.getByText('From TDEI', { exact: true })).toBeVisible();
+    await expect(page.getByText('From File', { exact: true })).toBeVisible();
 
     await expect(blank).toHaveAttribute('href', '/workspace/create/blank');
     await expect(tdei).toHaveAttribute('href', '/workspace/create/tdei');
@@ -81,10 +81,10 @@ test.describe('create landing page', () => {
     await stubProjectGroups(page);
 
     await page.goto('/workspace/create');
-    await page.getByRole('link').filter({ hasText: 'Start' }).nth(1).click();
+    await page.getByRole('link', { name: /^Create From TDEI/ }).click();
 
     await expect(page).toHaveURL(/\/workspace\/create\/tdei$/);
-    await expect(page.getByRole('heading', { name: 'Create a Workspace from the TDEI' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create a Workspace from TDEI' })).toBeVisible();
 
     // Title field present.
     await expect(page.getByText('Workspace Title')).toBeVisible();
@@ -108,7 +108,7 @@ test.describe('create landing page', () => {
     await page.route('**/osm/api/0.6/workspaces/**', route => route.fulfill({ status: 200, body: '' }));
 
     await page.goto('/workspace/create');
-    await page.getByRole('link').filter({ hasText: 'Start' }).nth(0).click();
+    await page.getByRole('link', { name: /^Create Blank Workspace/ }).click();
 
     await expect(page).toHaveURL(/\/workspace\/create\/blank$/);
     await expect(page.getByRole('heading', { name: 'Create a Blank Workspace' })).toBeVisible();
@@ -121,7 +121,7 @@ test.describe('create landing page', () => {
 
     const submit = page.getByRole('button', { name: 'Create Workspace' });
     // Snapshot the completed form before submitting.
-    await expect(page.locator('.create-blank-page .card')).toMatchAriaSnapshot();
+    await expect(page.locator('.create-workspace-blank-page .create-workspace-card')).toMatchAriaSnapshot();
 
     await page.getByLabel('Workspace Title').fill('My Blank Workspace');
     await expect(submit).toBeEnabled();
@@ -141,8 +141,8 @@ test.describe('create landing page', () => {
 
     await submit.click();
     // Loading state: spinner shown inside the submit button.
-    await expect(page.locator('.create-blank-page .spinner-border, .create-blank-page [role="status"]')).toBeVisible();
-    await expect(page.locator('.create-blank-page .card-footer')).toMatchAriaSnapshot();
+    await expect(page.locator('.create-workspace-blank-page .spinner-border, .create-workspace-blank-page [role="status"]')).toBeVisible();
+    await expect(page.locator('.create-workspace-blank-page .card-footer')).toMatchAriaSnapshot();
 
     release();
     // Redirects to the dashboard with the new workspace selected.
@@ -158,7 +158,7 @@ test.describe('create landing page', () => {
     await stubCreateWorkspaceFromFileOk(page);
 
     await page.goto('/workspace/create');
-    await page.getByRole('link').filter({ hasText: 'Start' }).nth(2).click();
+    await page.getByRole('link', { name: /^Create From File/ }).click();
 
     await expect(page).toHaveURL(/\/workspace\/create\/file$/);
     await expect(page.getByRole('heading', { name: 'Create a Workspace from a File' })).toBeVisible();
@@ -170,7 +170,7 @@ test.describe('create landing page', () => {
     await expect(page.getByText('Dataset File')).toBeVisible();
 
     // Snapshot the empty form.
-    await expect(page.locator('.create-file-page .card')).toMatchAriaSnapshot();
+    await expect(page.locator('.create-workspace-file-page .create-workspace-card')).toMatchAriaSnapshot();
 
     await page.getByLabel('Workspace Title').fill('My File Workspace');
     // Select the dataset type included in the multipart upload.
@@ -199,8 +199,8 @@ test.describe('create landing page', () => {
 
     await submit.click();
     // Loading state: spinner + status text in the footer.
-    await expect(page.locator('.create-file-page .spinner-border, .create-file-page [role="status"]')).toBeVisible();
-    await expect(page.locator('.create-file-page .card-footer')).toMatchAriaSnapshot();
+    await expect(page.locator('.create-workspace-file-page .spinner-border, .create-workspace-file-page [role="status"]')).toBeVisible();
+    await expect(page.locator('.create-workspace-file-page .card-footer')).toMatchAriaSnapshot();
 
     release();
     const confirmation = page.getByRole('dialog');
@@ -243,7 +243,7 @@ test.describe('create landing page', () => {
     await expect(tryAgain).toBeVisible();
 
     // Snapshot the error state.
-    await expect(page.locator('.create-file-page .card-footer')).toMatchAriaSnapshot();
+    await expect(page.locator('.create-workspace-file-page .card-footer')).toMatchAriaSnapshot();
 
     // Clicking "Try again" resets the form back to the editable Create button.
     await tryAgain.click();

@@ -5,7 +5,7 @@ import { projectGroups, myWorkspaces, PROJECT_GROUP_ID } from '../mocks/fixtures
 // Generated from the @test outline in pages/workspace/create/blank.vue.
 //
 // The blank-create form (title + workspace type + project group) submits via
-// workspacesClient.createWorkspace, which:
+// workspacesClient.createBlankWorkspace, which:
 //   1) POST http://api.test/workspaces  (WorkspaceCreate body) -> { workspaceId }
 //   2) PUT  http://api.test/osm/workspaces/{id}  (provision)
 // then the page calls navigateTo('/dashboard').
@@ -42,11 +42,16 @@ const createdWorkspace = {
 // `postBehavior` lets a test swap in an error/slow response for the create POST.
 async function stubCreateFlow(
   page: import('@playwright/test').Page,
-  postBehavior?: (route: import('@playwright/test').Route) => unknown
+  postBehavior?: (route: import('@playwright/test').Route) => unknown,
+  titleAvailable = true
 ) {
   // Project group picker (TDEI user API).
   await page.route('**/tdei-user/project-group-roles/**', route =>
     route.fulfill({ json: projectGroups })
+  );
+
+  await page.route('**/workspaces/check', route =>
+    route.fulfill({ status: 200, json: { available: titleAvailable } })
   );
 
   // POST workspaces -> { workspaceId } (spec 201 is additionalProperties:integer).
@@ -102,7 +107,7 @@ test.describe('create blank workspace', () => {
     // First paint of this cold route can be slow under parallel runs.
     await expect(page.getByRole('heading', { name: 'Create a Blank Workspace' }))
       .toBeVisible({ timeout: COLD_ROUTE_TIMEOUT });
-    const card = page.locator('.create-blank-page .card');
+    const card = page.locator('.create-workspace-blank-page .create-workspace-card');
     await expect(card).toMatchAriaSnapshot();
 
     await fillForm(page);
@@ -128,7 +133,7 @@ test.describe('create blank workspace', () => {
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
     await stubCreateFlow(page);
 
-    const contract = recordContract(page);
+    const contract = recordContract(page, { ignoredPaths: ['workspaces/check'] });
 
     await page.goto('/workspace/create/blank');
     await fillForm(page);
@@ -136,6 +141,20 @@ test.describe('create blank workspace', () => {
     await expect(page).toHaveURL(/\/dashboard/);
 
     expect(contract.violations()).toEqual([]);
+  });
+
+  test('warns when the title already exists in the selected project group', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
+    await stubCreateFlow(page, undefined, false);
+
+    await page.goto('/workspace/create/blank');
+    await fillForm(page);
+
+    await expect(page.getByRole('alert')).toContainText(
+      'A workspace with this title already exists in the selected project group.'
+    );
+    await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeEnabled();
   });
 
   // @test e2e: if an API error occurs when creating a workspace from either form, an error message is shown

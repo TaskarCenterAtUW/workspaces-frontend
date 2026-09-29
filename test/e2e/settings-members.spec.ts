@@ -178,13 +178,13 @@ test.describe('workspace member roles', () => {
     await page.goto('/workspace/1/settings/members');
 
     // The members content lives in the settings page's right-hand column
-    // (b-col lg="8" => .col-lg-8); the settings sidebar nav ALSO uses a
+    // (the dedicated tab content class); the settings sidebar nav ALSO uses a
     // `.list-group` class, so scope to the content column to exclude it. The
     // three section list-groups render in document order: [0] Project Group
     // Admins (POCs), [1] Data Generators, [2] Workspace Members. Scope each
     // assertion to its own list so a name that appears in more than one section
     // (a non-POC generator is also a workspace member) doesn't match twice.
-    const content = page.locator('.col-lg-8');
+    const content = page.locator('.workspace-setting-tab-column-right');
     const pocList = content.locator('.list-group').nth(0);
     const pocItem = pocList.locator('.list-group-item', { hasText: 'Petra Poc' });
     await expect(pocItem).toBeVisible();
@@ -210,7 +210,7 @@ test.describe('workspace member roles', () => {
     // inside the content column (the settings nav also uses `.list-group`).
     // Gabriela Generator (osw_data_generator) is shown with the "osw" badge
     // (formatDataGeneratorRole strips the "_data_generator" suffix).
-    const genList = page.locator('.col-lg-8').locator('.list-group').nth(1);
+    const genList = page.locator('.workspace-setting-tab-column-right').locator('.list-group').nth(1);
     const genItem = genList.locator('.list-group-item', { hasText: 'Gabriela Generator' });
     await expect(genItem).toBeVisible();
     await expect(genItem).toContainText('osw');
@@ -225,7 +225,7 @@ test.describe('workspace member roles', () => {
 
     await page.goto('/workspace/1/settings/members');
 
-    const membersList = page.locator('.col-lg-8').locator('.list-group').last();
+    const membersList = page.locator('.workspace-setting-tab-column-right').locator('.list-group').last();
 
     // The non-POC project-group users appear as workspace members.
     await expect(membersList.locator('.list-group-item', { hasText: 'Owen Owner' })).toBeVisible();
@@ -246,7 +246,7 @@ test.describe('workspace member roles', () => {
 
     await page.goto('/workspace/1/settings/members');
 
-    const membersList = page.locator('.col-lg-8').locator('.list-group').last();
+    const membersList = page.locator('.workspace-setting-tab-column-right').locator('.list-group').last();
 
     // Owen Owner came back from GET workspaces/1/users with role 'lead' => "Owner".
     const owenRow = membersList.locator('.list-group-item', { hasText: 'Owen Owner' });
@@ -308,7 +308,7 @@ test.describe('workspace member roles', () => {
 
     await page.goto('/workspace/1/settings/members');
 
-    const content = page.locator('.col-lg-8');
+    const content = page.locator('.workspace-setting-tab-column-right');
 
     // Each section heading names the role/category its members fall under.
     await expect(content.getByRole('heading', { name: /^Project Group Admins/ })).toBeVisible();
@@ -360,7 +360,7 @@ test.describe('workspace member roles', () => {
 
     await page.goto('/workspace/1/settings/members');
 
-    const membersList = page.locator('.col-lg-8').locator('.list-group').last();
+    const membersList = page.locator('.workspace-setting-tab-column-right').locator('.list-group').last();
 
     // Drive an assignRole (PUT users/{uid}/role -> SetRoleRequest): set Mona to Owner.
     const monaRow = membersList.locator('.list-group-item', { hasText: 'Mona Member' });

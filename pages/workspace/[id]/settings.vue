@@ -6,6 +6,8 @@
 //            confirmation and sends the proper API call to the server (Swagger here: https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 // @test e2e: Under "External Apps", turning on "Publish this workspace" enables the other buttons and when clicking "Save" shows a confirmation and sends
 //            the proper API call.
+// @test e2e: Under "External Apps" > "Edit Conflict Handling", choosing "Override" (vs. the default "Resolve") and clicking "Save" sends the proper
+//            API call with the chosen overrideConflicts value.
 // @test e2e: While External Apps settings are being saved, the Save button is disabled and displays "Saving..." to prevent duplicate submissions.
 // @test e2e: the "Custom Imagery" box is validated against the JSON schema here (https://raw.githubusercontent.com/TaskarCenterAtUW/asr-imagery-list/refs/heads/main/schema/schema.json),
 //            and a toast shown when it passes and the API call to set its value is successful on the backend.
@@ -15,13 +17,25 @@
 //            and error states are handled properly with toasts (playwright snapshot these)
 
 <template>
-  <app-page>
-    <h2 class="mb-4">
-      Workspace Settings
-    </h2>
-
+  <app-page
+    fluid
+    class="workspace-edit-page"
+  >
+    <div class="workspace-settings-header">
+      <nav
+        class="workspace-settings-breadcrumbs"
+        aria-label="Breadcrumb"
+      >
+        <nuxt-link :to="workspaceRoute">Workspaces</nuxt-link>
+        <span aria-hidden="true">&gt;</span>
+        <nuxt-link>{{ workspace.title }}</nuxt-link>
+      </nav>
+      <h1 class="workspace-heading">
+        Workspace Settings
+      </h1>
+    </div>
     <div class="row align-items-start">
-      <div class="col-lg-3">
+      <div class="col-lg-3 workspace-setting-tab-column">
         <settings-nav />
       </div>
 
@@ -35,6 +49,7 @@ import { workspacesClient } from '~/services/index';
 
 const route = useRoute();
 const workspaceId = Number(route.params.id);
+const workspaceRoute = `/dashboard`;
 // reactive so child panels (e.g. the External Apps publish toggle) can react to
 // changes to the provided workspace.
 const workspace = reactive(await workspacesClient.getWorkspace(workspaceId));
@@ -45,10 +60,41 @@ provide('workspace', workspace);
 <script lang="ts">
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import "~/assets/scss/theme.scss";
 .drag-over {
   border-style: dashed;
   border-color: var(--bs-primary);
   background-color: var(--bs-light);
+}
+.workspace-settings-breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: $text-secondary;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.workspace-settings-breadcrumbs a {
+  color: inherit;
+  text-decoration: none;
+}
+.workspace-heading {
+  font-size: 26px;
+  font-weight: 600;
+  margin-bottom: 0px;
+}
+.workspace-settings-header {
+  padding: 25px 30px;
+  border-bottom: 1px solid rgba(26, 30, 61, 0.08);
+  margin-bottom: 0px;
+}
+.workspace-edit-page {
+  padding: 0px 0px !important;
+}
+.workspace-setting-tab-column {
+  padding: 30px 30px;
 }
 </style>

@@ -1,208 +1,255 @@
 <template>
   <app-page class="workspace-projects-page">
-    <section class="workspace-projects-header">
-      <h1 class="page-header-title workspace-projects-title">
-        {{ workspace.title }} &gt; Projects
-      </h1>
-      <p class="page-header-subtitle tdei-page-subtitle-body">
-        {{ projectGroupLabel }}
-      </p>
-    </section>
-
-    <section class="workspace-projects-toolbar">
-      <div class="workspace-projects-filters">
-        <div class="workspace-projects-search">
-          <label
-            class="visually-hidden"
-            for="workspace-project-search"
-          >Search Projects</label>
-          <input
-            id="workspace-project-search"
-            v-model.trim="searchQuery"
-            class="form-control workspace-projects-search-input"
-            type="search"
-            placeholder="Search Projects"
-          >
-          <span
-            class="workspace-projects-search-icon"
-            aria-hidden="true"
-          >
-            <app-icon
-              variant="search"
-              size="22"
-              no-margin
-            />
-          </span>
-        </div>
-
-        <div class="workspace-projects-filter-group">
-          <span class="tdei-inline-filter-label">Status</span>
-          <app-select
-            id="workspace-project-status"
-            v-model="selectedStatus"
-            :aria-label="'Filter projects by status'"
-            :options="statusOptions"
-          />
-        </div>
-
-        <div class="workspace-projects-filter-group">
-          <span class="tdei-inline-filter-label">Sort By</span>
-          <app-select
-            id="workspace-project-sort"
-            v-model="sortBy"
-            :aria-label="'Sort projects'"
-            :options="sortOptions"
-          />
-        </div>
-      </div>
-
-      <div class="workspace-projects-toolbar-actions">
-        <div
-          class="workspace-projects-view-toggle"
-          role="group"
-          aria-label="Project layout"
-        >
-          <button
-            v-for="option in viewOptions"
-            :key="option.value"
-            class="workspace-projects-view-button"
-            :class="{ 'workspace-projects-view-button-active': option.value === viewMode }"
-            type="button"
-            :aria-pressed="option.value === viewMode"
-            @click="viewMode = option.value"
-          >
-            <img
-              :src="option.icon"
-              alt=""
-              class="view-icon"
-            >
-            <span class="visually-hidden">{{ option.label }}</span>
-          </button>
-        </div>
-
-        <span
-          v-if="canCreateProject"
-          class="workspace-projects-toolbar-divider"
-          aria-hidden="true"
-        />
-
-        <nuxt-link
-          v-if="canCreateProject"
-          :to="createProjectRoute"
-          class="btn btn-primary workspace-projects-create-button"
-        >
-          <app-icon
-            variant="add"
-            size="22"
-          />
-          New Project
-        </nuxt-link>
-      </div>
-    </section>
-
-    <p
-      class="visually-hidden"
+    <section
+      v-if="initialLoading"
+      class="workspace-projects-load-state"
+      role="status"
       aria-live="polite"
     >
-      {{ liveRegionSummary }}
-    </p>
-
-    <section
-      v-if="projects.length > 0"
-      class="workspace-projects-results"
-    >
-      <div
-        v-if="viewMode === 'grid'"
-        class="workspace-projects-grid"
-      >
-        <workspace-projects-project-card
-          v-for="project in projects"
-          :key="project.id"
-          :project="project"
-        />
-      </div>
-
-      <div
-        v-else
-        class="workspace-projects-list"
-      >
-        <workspace-projects-project-list-row
-          v-for="project in projects"
-          :key="project.id"
-          :project="project"
-        />
-      </div>
+      <app-spinner />
+      <p>Loading projects...</p>
     </section>
 
     <section
-      v-else
-      class="workspace-projects-empty-state"
+      v-else-if="initialLoadError"
+      class="alert alert-danger workspace-projects-load-error"
+      role="alert"
     >
-      <p class="workspace-projects-empty-title">
-        No projects match these filters.
-      </p>
+      <h1 class="h5">
+        Unable to load projects
+      </h1>
+      <p>Please check your connection and try again.</p>
       <button
-        class="btn btn-outline-secondary"
+        class="btn btn-outline-danger"
         type="button"
-        @click="resetFilters"
+        @click="loadInitialData"
       >
-        Reset Filters
+        Try again
       </button>
     </section>
 
-    <section
-      v-if="pagination.total > 0"
-      class="workspace-projects-footer"
-    >
-      <p class="workspace-projects-footer-copy">
-        {{ paginationSummary }}
+    <template v-else-if="workspace">
+      <section class="workspace-projects-header">
+        <h1 class="page-header-title workspace-projects-title">
+          {{ workspace.title }} &gt; Projects
+        </h1>
+        <p class="page-header-subtitle tdei-page-subtitle-body">
+          {{ projectGroupLabel }}
+        </p>
+      </section>
+
+      <section class="workspace-projects-toolbar">
+        <div class="workspace-projects-filters">
+          <div class="workspace-projects-search">
+            <label
+              class="visually-hidden"
+              for="workspace-project-search"
+            >Search Projects</label>
+            <input
+              id="workspace-project-search"
+              v-model.trim="searchQuery"
+              class="form-control workspace-projects-search-input"
+              type="search"
+              placeholder="Search Projects"
+            >
+            <span
+              class="workspace-projects-search-icon"
+              aria-hidden="true"
+            >
+              <app-icon
+                variant="search"
+                size="22"
+                no-margin
+              />
+            </span>
+          </div>
+
+          <div class="workspace-projects-filter-group">
+            <span class="tdei-inline-filter-label">Status</span>
+            <app-select
+              id="workspace-project-status"
+              v-model="selectedStatus"
+              :aria-label="'Filter projects by status'"
+              :options="statusOptions"
+            />
+          </div>
+
+          <div class="workspace-projects-filter-group">
+            <span class="tdei-inline-filter-label">Sort By</span>
+            <app-select
+              id="workspace-project-sort"
+              v-model="sortBy"
+              :aria-label="'Sort projects'"
+              :options="sortOptions"
+            />
+          </div>
+        </div>
+
+        <div class="workspace-projects-toolbar-actions">
+          <div
+            class="workspace-projects-view-toggle"
+            role="group"
+            aria-label="Project layout"
+          >
+            <button
+              v-for="option in viewOptions"
+              :key="option.value"
+              class="workspace-projects-view-button"
+              :class="{ 'workspace-projects-view-button-active': option.value === viewMode }"
+              type="button"
+              :aria-pressed="option.value === viewMode"
+              @click="viewMode = option.value"
+            >
+              <img
+                :src="option.icon"
+                alt=""
+                class="view-icon"
+              >
+              <span class="visually-hidden">{{ option.label }}</span>
+            </button>
+          </div>
+
+          <span
+            v-if="canCreateProject"
+            class="workspace-projects-toolbar-divider"
+            aria-hidden="true"
+          />
+
+          <nuxt-link
+            v-if="canCreateProject"
+            :to="createProjectRoute"
+            class="btn btn-primary workspace-projects-create-button"
+          >
+            <app-icon
+              variant="add"
+              size="22"
+            />
+            New Project
+          </nuxt-link>
+        </div>
+      </section>
+
+      <section
+        v-if="projectsLoadError"
+        class="alert alert-danger workspace-projects-results-error"
+        role="alert"
+      >
+        <p>Unable to load projects. Please check your connection and try again.</p>
+        <button
+          class="btn btn-outline-danger"
+          type="button"
+          @click="loadProjects"
+        >
+          Try again
+        </button>
+      </section>
+
+      <p
+        class="visually-hidden"
+        aria-live="polite"
+      >
+        {{ projectsLoading.active ? 'Loading projects.' : liveRegionSummary }}
       </p>
 
-      <nav
-        class="workspace-projects-pagination"
-        aria-label="Projects pagination"
+      <section
+        v-if="projects.length > 0"
+        class="workspace-projects-results"
+        :aria-busy="projectsLoading.active"
       >
-        <button
-          class="workspace-projects-pagination-arrow"
-          type="button"
-          :disabled="currentPage === 1"
-          aria-label="Previous page"
-          @click="goToPage(currentPage - 1)"
+        <div
+          v-if="viewMode === 'grid'"
+          class="workspace-projects-grid"
         >
-          <app-icon
-            variant="chevron_left"
-            size="24"
-            no-margin
+          <workspace-projects-project-card
+            v-for="project in projects"
+            :key="project.id"
+            :project="project"
           />
-        </button>
+        </div>
 
-        <button
-          v-for="pageNumber in pageNumbers"
-          :key="pageNumber"
-          class="workspace-projects-pagination-number"
-          :class="{ 'workspace-projects-pagination-number-active': pageNumber === currentPage }"
-          type="button"
-          :aria-current="pageNumber === currentPage ? 'page' : undefined"
-          @click="goToPage(pageNumber)"
+        <div
+          v-else
+          class="workspace-projects-list"
         >
-          {{ pageNumber }}
-        </button>
-
-        <button
-          class="workspace-projects-pagination-arrow"
-          type="button"
-          :disabled="currentPage === totalPages"
-          aria-label="Next page"
-          @click="goToPage(currentPage + 1)"
-        >
-          <app-icon
-            variant="chevron_right"
-            size="24"
-            no-margin
+          <workspace-projects-project-list-row
+            v-for="project in projects"
+            :key="project.id"
+            :project="project"
           />
+        </div>
+      </section>
+
+      <section
+        v-else-if="!projectsLoadError"
+        class="workspace-projects-empty-state"
+        :aria-busy="projectsLoading.active"
+      >
+        <p class="workspace-projects-empty-title">
+          No projects match these filters.
+        </p>
+        <button
+          class="btn btn-outline-secondary"
+          type="button"
+          @click="resetFilters"
+        >
+          Reset Filters
         </button>
-      </nav>
-    </section>
+      </section>
+
+      <section
+        v-if="pagination.total > 0"
+        class="workspace-projects-footer"
+      >
+        <p class="workspace-projects-footer-copy">
+          {{ paginationSummary }}
+        </p>
+
+        <nav
+          class="workspace-projects-pagination"
+          aria-label="Projects pagination"
+        >
+          <button
+            class="workspace-projects-pagination-arrow"
+            type="button"
+            :disabled="currentPage === 1"
+            aria-label="Previous page"
+            @click="goToPage(currentPage - 1)"
+          >
+            <app-icon
+              variant="chevron_left"
+              size="24"
+              no-margin
+            />
+          </button>
+
+          <button
+            v-for="pageNumber in pageNumbers"
+            :key="pageNumber"
+            class="workspace-projects-pagination-number"
+            :class="{ 'workspace-projects-pagination-number-active': pageNumber === currentPage }"
+            type="button"
+            :aria-current="pageNumber === currentPage ? 'page' : undefined"
+            @click="goToPage(pageNumber)"
+          >
+            {{ pageNumber }}
+          </button>
+
+          <button
+            class="workspace-projects-pagination-arrow"
+            type="button"
+            :disabled="currentPage === totalPages"
+            aria-label="Next page"
+            @click="goToPage(currentPage + 1)"
+          >
+            <app-icon
+              variant="chevron_right"
+              size="24"
+              no-margin
+            />
+          </button>
+        </nav>
+      </section>
+    </template>
   </app-page>
 </template>
 
@@ -219,6 +266,8 @@ import type {
   WorkspaceProjectStatus,
   WorkspaceProjectView,
 } from '~/types/projects';
+import type { TdeiProjectGroup } from '~/types/tdei';
+import type { Workspace } from '~/types/workspaces';
 
 type StatusFilter = WorkspaceProjectStatus | 'all';
 
@@ -231,20 +280,21 @@ const route = useRoute();
 const workspaceId = Number(route.params.id);
 const projectsLoading = reactive(new LoadingContext());
 const createProjectRoute = `/workspace/${workspaceId}/projects/create`;
-
-const [workspace, { items: projectGroups }] = await Promise.all([
-  workspacesClient.getWorkspace(workspaceId),
-  tdeiUserClient.getMyProjectGroups(1, '', 10000),
-]);
+const workspace = ref<Workspace>();
+const projectGroups = ref<TdeiProjectGroup[]>([]);
+const initialLoading = ref(true);
+const initialLoadError = ref(false);
+const projectsLoadError = ref(false);
+let initialLoadController: AbortController | undefined;
 
 const myTdeiRoles = computed(() =>
-  projectGroups.find(group =>
-    group.tdei_project_group_id === workspace.tdeiProjectGroupId,
+  projectGroups.value.find(group =>
+    group.tdei_project_group_id === workspace.value?.tdeiProjectGroupId,
   )?.roles ?? [],
 );
 
 const { canCreateProject } = useWorkspaceProjectPermissions(
-  () => workspace.role,
+  () => workspace.value?.role,
   myTdeiRoles,
 );
 
@@ -268,9 +318,15 @@ const currentPage = ref(1);
 const pageSize = workspaceProjectsClient.getPageSize();
 
 const projectGroupLabel = computed(() => {
-  const projectGroup = projectGroups.find(group => group.tdei_project_group_id === workspace.tdeiProjectGroupId);
+  if (!workspace.value) {
+    return '';
+  }
 
-  return projectGroup?.name ?? `Project Group ${workspace.tdeiProjectGroupId}`;
+  const projectGroup = projectGroups.value.find(group =>
+    group.tdei_project_group_id === workspace.value?.tdeiProjectGroupId,
+  );
+
+  return projectGroup?.name ?? `Project Group ${workspace.value.tdeiProjectGroupId}`;
 });
 
 const sortOptions: SelectOption[] = [
@@ -336,13 +392,69 @@ function buildProjectsQuery(client: typeof workspaceProjectsClient): WorkspacePr
   };
 }
 
-async function loadProjects() {
-  await projectsLoading.cancelable(workspaceProjectsClient, async (client) => {
-    projectsResponse.value = await client.getWorkspaceProjects(
-      workspace.id,
-      buildProjectsQuery(client),
-    );
-  });
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+async function loadProjects(): Promise<void> {
+  const currentWorkspace = workspace.value;
+
+  if (!currentWorkspace) {
+    return;
+  }
+
+  projectsLoadError.value = false;
+
+  try {
+    await projectsLoading.cancelable(workspaceProjectsClient, async (client) => {
+      projectsResponse.value = await client.getWorkspaceProjects(
+        currentWorkspace.id,
+        buildProjectsQuery(client),
+      );
+    });
+  }
+  catch (error: unknown) {
+    if (isAbortError(error)) {
+      return;
+    }
+
+    projectsLoadError.value = true;
+    console.error('Unable to load workspace projects.', error);
+  }
+}
+
+async function loadInitialData(): Promise<void> {
+  initialLoadController?.abort();
+  initialLoadController = new AbortController();
+  const controller = initialLoadController;
+
+  initialLoading.value = true;
+  initialLoadError.value = false;
+  projectsLoadError.value = false;
+
+  try {
+    const [loadedWorkspace, { items }] = await Promise.all([
+      workspacesClient.clone(controller.signal).getWorkspace(workspaceId),
+      tdeiUserClient.clone(controller.signal).getMyProjectGroups(1, '', 10000),
+    ]);
+
+    workspace.value = loadedWorkspace;
+    projectGroups.value = items;
+    await loadProjects();
+  }
+  catch (error: unknown) {
+    if (isAbortError(error)) {
+      return;
+    }
+
+    initialLoadError.value = true;
+    console.error('Unable to load the workspace projects page.', error);
+  }
+  finally {
+    if (initialLoadController === controller) {
+      initialLoading.value = false;
+    }
+  }
 }
 
 async function refreshProjects(resetPage: boolean = false) {
@@ -353,8 +465,6 @@ async function refreshProjects(resetPage: boolean = false) {
 
   await loadProjects();
 }
-
-await loadProjects();
 
 watch([selectedStatus, sortBy], () => {
   void refreshProjects(true);
@@ -388,7 +498,14 @@ function resetFilters() {
   sortBy.value = 'latest';
 }
 
+onMounted(() => {
+  void loadInitialData();
+});
+
 onBeforeUnmount(() => {
+  initialLoadController?.abort();
+  projectsLoading.abort();
+
   if (searchDebounce) {
     clearTimeout(searchDebounce);
   }
@@ -401,6 +518,32 @@ onBeforeUnmount(() => {
 .workspace-projects-page {
   padding-top: 1.75rem;
   padding-bottom: 2.5rem;
+}
+
+.workspace-projects-load-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 12rem;
+}
+
+.workspace-projects-load-state p,
+.workspace-projects-load-error p,
+.workspace-projects-results-error p {
+  margin-bottom: 0;
+}
+
+.workspace-projects-load-error,
+.workspace-projects-results-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.workspace-projects-load-error h1 {
+  margin-bottom: 0;
 }
 
 .workspace-projects-header {

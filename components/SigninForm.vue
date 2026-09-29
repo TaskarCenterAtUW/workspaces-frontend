@@ -1,8 +1,7 @@
 <!--
   Test outline → generated in test/e2e/signin.spec.ts
-  @test e2e: the Sign In button is disabled until both username and password are entered
-  @test e2e: invalid credentials (401) surface "Incorrect TDEI username/password."
-  @test e2e: the show/hide toggle switches the password field between hidden and visible text
+  @test e2e: an unauthenticated user starts TDEI SSO from the TDEI Login button
+  @test e2e: registration and password recovery link back to the configured TDEI Portal pages
 -->
 <template>
   <div class="signin-card card">
@@ -16,62 +15,73 @@
           Welcome!
         </h1>
         <p class="signin-subtitle">
-          Please login to your account.
+          Sign in with your TDEI account.
         </p>
       </div>
 
-      <div class="mb-4">
-        <label
-          for="username"
-          class="form-label signin-label"
-        >TDEI Username</label>
-        <input
-          id="username"
-          v-model="username"
-          class="form-control signin-input"
-          aria-describedby="usernameHelp"
-        >
-        <div
-          id="usernameHelp"
-          class="form-text signin-help-text"
-        >
-          Enter the same username that you provide to use the TDEI API.
-        </div>
-      </div>
-
-      <div class="mb-4">
-        <label
-          for="password"
-          class="form-label signin-label"
-        >Password</label>
-        <div class="input-group password-group">
+      <template v-if="ENABLE_PASSWORD_LOGIN">
+        <div class="mb-4">
+          <label
+            for="username"
+            class="form-label signin-label"
+          >TDEI Username</label>
           <input
-            id="password"
-            v-model="password"
-            :type="showPassword ? 'text' : 'password'"
-            class="form-control signin-input password-input"
+            id="username"
+            v-model="username"
+            class="form-control signin-input"
+            aria-describedby="usernameHelp"
           >
-          <button
-            type="button"
-            class="btn password-toggle"
-            :aria-label="showPassword ? 'Hide password' : 'Show password'"
-            @click="showPassword = !showPassword"
+          <div
+            id="usernameHelp"
+            class="form-text signin-help-text"
           >
-            <app-icon
-              :variant="showPassword ? 'visibility_off' : 'visibility'"
-              size="24"
-              no-margin
-            />
-          </button>
+            Enter the same username that you provide to use the TDEI API.
+          </div>
         </div>
-      </div>
+
+        <div class="mb-4">
+          <label
+            for="password"
+            class="form-label signin-label"
+          >Password</label>
+          <div class="input-group password-group">
+            <input
+              id="password"
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              class="form-control signin-input password-input"
+            >
+            <button
+              type="button"
+              class="btn password-toggle"
+              :aria-label="showPassword ? 'Hide password' : 'Show password'"
+              @click="showPassword = !showPassword"
+            >
+              <app-icon
+                :variant="showPassword ? 'visibility_off' : 'visibility'"
+                size="24"
+                no-margin
+              />
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          class="btn btn-primary signin-submit"
+          :disabled="disabled"
+        >
+          {{ loading.active ? 'Signing In...' : 'Sign In' }}
+        </button>
+      </template>
 
       <button
-        type="submit"
+        type="button"
         class="btn btn-primary signin-submit"
-        :disabled="disabled"
+        :disabled="ssoPending"
+        @click="handleSsoLogin"
       >
-        {{ loading.active ? 'Signing In...' : 'Sign In' }}
+        {{ ssoPending ? 'Redirecting...' : 'TDEI Login' }}
       </button>
 
       <div
@@ -80,6 +90,17 @@
       >
         {{ error }}
       </div>
+
+      <nav
+        class="signin-account-links"
+        aria-label="TDEI account"
+      >
+        <p class="signin-register-prompt">
+          New to TDEI?
+          <a :href="registerUrl">Register Now</a>
+        </p>
+        <a :href="forgotPasswordUrl">Forgot Password?</a>
+      </nav>
     </form>
   </div>
 </template>
@@ -87,13 +108,43 @@
 <script setup lang="ts">
 import { LoadingContext } from '~/services/loading'
 import { tdeiClient, osmClient } from '~/services/index'
+import { startTdeiSsoLogin } from '~/services/sso'
 
+const ENABLE_PASSWORD_LOGIN = false
 const loading = reactive(new LoadingContext())
 const error = ref ('')
+const ssoPending = ref(false)
 const username = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const disabled = computed(() => loading.active || !username.value.length || !password.value.length)
+const tdeiPortalUrl = import.meta.env.VITE_TDEI_PORTAL_URL
+
+// Build a portal link defensively: a missing or non-absolute VITE_TDEI_PORTAL_URL
+// makes `new URL()` throw, and since this runs at <script setup> top level it
+// would take down the entire signin page. Fall back to an empty href instead.
+function portalLink(path: string): string {
+  try {
+    return new URL(path, tdeiPortalUrl).toString();
+  }
+  catch {
+    return '';
+  }
+}
+
+const registerUrl = portalLink('/register')
+const forgotPasswordUrl = portalLink('/ForgotPassword')
+
+function handleSsoLogin() {
+  error.value = ''
+  ssoPending.value = true
+
+  const rememberedRoute = window.rememberRoute
+  const returnTo = typeof rememberedRoute?.fullPath === 'string'
+    ? rememberedRoute.fullPath
+    : '/dashboard'
+  startTdeiSsoLogin(returnTo)
+}
 
 async function submit() {
   error.value = ''
@@ -261,6 +312,32 @@ async function signIn() {
   margin-top: 0.75rem;
   font-size: 0.875rem;
   color: #cc2c47;
+}
+
+.signin-account-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: $text-navy;
+
+  a {
+    color: $primary;
+    font-weight: 600;
+    text-decoration: none;
+
+    &:hover {
+      color: $primary-hover;
+      text-decoration: none;
+    }
+  }
+}
+
+.signin-register-prompt {
+  margin: 0;
 }
 
 @include media-breakpoint-down(sm) {

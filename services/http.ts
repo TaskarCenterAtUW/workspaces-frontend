@@ -217,3 +217,18 @@ export abstract class BaseHttpClient {
     return response;
   }
 }
+export function withBearerToken(
+  config: FetchConfig | undefined,
+  accessToken: string
+): FetchConfig {
+  // Add the current token at send time instead of caching an old header.
+  const { headers, ...requestConfig } = config ?? {};
+
+  return {
+    ...requestConfig,
+    headers: {
+      ...headers,
+      Authorization: `Bearer ${accessToken}`
+    }
+  };
+}

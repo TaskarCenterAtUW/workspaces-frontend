@@ -105,10 +105,17 @@ const DATASET_ZIP = buildDatasetZip();
 
 // Stubs every endpoint the page hits to *succeed*. Pass an `override` map keyed
 // by a short label to fail a specific call with a 500 for the error-path tests.
-async function stubHappyPath(page: Page, override: { workspace?: boolean } = {}) {
+async function stubHappyPath(
+  page: Page,
+  override: { workspace?: boolean; titleAvailable?: boolean } = {}
+) {
   // ProjectGroupPicker -> TDEI user API.
   await page.route('**/tdei-user/project-group-roles/**', (route: Route) =>
     route.fulfill({ json: projectGroups })
+  );
+
+  await page.route('**/workspaces/check', (route: Route) =>
+    route.fulfill({ status: 200, json: { available: override.titleAvailable ?? true } })
   );
 
   // DatasetPicker list + getDatasetInfo both hit /tdei/datasets; one dataset
@@ -227,6 +234,19 @@ test.describe('create workspace from TDEI', () => {
       .toHaveAttribute('href', `/dashboard?workspace=${NEW_WORKSPACE_ID}`);
   });
 
+  test('warns when the title already exists in the selected project group', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubHappyPath(page, { titleAvailable: false });
+
+    await page.goto('/workspace/create/tdei');
+    await fillForm(page);
+
+    await expect(page.getByRole('alert')).toContainText(
+      'A workspace with this title already exists in the selected project group.'
+    );
+    await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeEnabled();
+  });
+
   // @test e2e: submitting the form with an API error shows an error message and a "try again" button, and
   //            clicking the "try again" button resets the form (playwright snapshot the error state)
   // @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again"
@@ -258,7 +278,7 @@ test.describe('create workspace from TDEI', () => {
   test('the create-workspace API calls match the Swagger spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await stubHappyPath(page);
-    const contract = recordContract(page);
+    const contract = recordContract(page, { ignoredPaths: ['workspaces/check'] });
 
     await page.goto('/workspace/create/tdei');
     await fillForm(page);
