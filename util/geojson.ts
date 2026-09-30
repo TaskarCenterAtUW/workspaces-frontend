@@ -102,6 +102,20 @@ export function getGeoJsonBounds(geojson: any): [[number, number], [number, numb
   return [[bounds[0], bounds[1]], [bounds[2], bounds[3]]]
 }
 
+export function isValidGeoJsonBounds(
+  bounds: [[number, number], [number, number]]
+): boolean {
+  const [[minLon, minLat], [maxLon, maxLat]] = bounds
+
+  return [minLon, minLat, maxLon, maxLat].every(Number.isFinite)
+    && minLon >= -180
+    && maxLon <= 180
+    && minLat >= -90
+    && maxLat <= 90
+    && minLon <= maxLon
+    && minLat <= maxLat
+}
+
 export function shapeToCenter(shape: any) {
   if (shape.type === 'Polygon') {
     const bbox = polygonToBbox(shape)
