@@ -20,6 +20,7 @@
 import { toast } from 'vue3-toastify';
 import type { ReviewListItem } from '~/services/review';
 import { osmClient } from '~/services/index';
+import { resolveHttpErrorMessage } from '~/services/http';
 
 import type ChatBox from '~/components/ChatBox.vue';
 import type { ChatMessage } from '~/components/ChatBox.vue';
@@ -77,9 +78,27 @@ function noteComments(note: OsmNote): ChatMessage[] {
 async function send(message: string) {
   try {
     if (props.item.isChangeset) {
+      const idsBefore = new Set(messages.value.map(m => m.id));
       await osmClient.postChangesetComment(workspaceId, props.item.id, message);
       // Re-fetch so the newly posted comment (and its server timestamp) appears.
       await refreshChangeset();
+
+      // OSM answers 200 even when it fails to save the comment (it uses
+      // `create`, not `create!`, so a comment whose author fails validation is
+      // dropped silently). Check it actually landed rather than trusting the
+      // status, and keep the user's text if it did not. Look for a new comment
+      // with this text rather than a higher count, which someone else's
+      // comment could also cause. Not by author: OSM display names need not
+      // match the TDEI name we hold (some are the account's email address).
+      const landed = messages.value.some(m =>
+        !idsBefore.has(m.id) && m.text.trim() === message.trim());
+
+      if (!landed) {
+        toast.error('Your comment was not saved. The server accepted the request but did not '
+          + 'record the comment, which usually means a problem with your account. Please '
+          + 'contact your workspace administrator.');
+        return;
+      }
     }
     else if (props.item.isNote) {
       await osmClient.postNoteComment(workspaceId, props.item.id, message);
@@ -92,8 +111,12 @@ async function send(message: string) {
     // user's text.
     chat.value?.clear();
   }
-  catch {
-    toast.error('Failed to post your comment. Please try again.');
+  catch (e: unknown) {
+    // Show why the server refused -- e.g. the changeset is still open, the
+    // hourly comment limit was hit, or the proxy denied workspace access --
+    // since "try again" does not help with any of those.
+    const reason = await resolveHttpErrorMessage(e, 'Please try again.');
+    toast.error(`Failed to post your comment. ${reason}`);
   }
 }
 
