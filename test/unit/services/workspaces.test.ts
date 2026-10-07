@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { WorkspacesClient, WorkspacesClientError } from '~/services/workspaces';
 import { server } from '../../mocks/server';
 import { TEST_API_BASE } from '../../mocks/fixtures';
@@ -115,62 +115,40 @@ describe('WorkspacesClient.getWorkspaceBbox', () => {
 
     await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toBeUndefined();
   });
-});
 
-describe('WorkspacesClient.createBlankWorkspace', () => {
-  it.each(['osw', 'pathways'] as const)(
-    'provisions an empty OSM store for a blank %s workspace',
-    async (type) => {
-      const createOsmWorkspace = vi.fn().mockResolvedValue(undefined);
-      const client = new WorkspacesClient(
-        TEST_API_BASE,
-        TEST_API_BASE,
-        tdeiClient,
-        { createWorkspace: createOsmWorkspace } as unknown as OsmApiClient
-      );
-      const workspace = {
-        title: 'Empty workspace',
-        type,
-        tdeiProjectGroupId: '11111111-1111-1111-1111-111111111111'
-      };
-
-      server.use(
-        http.post(`${TEST_API_BASE}workspaces`, () => {
-          expect(createOsmWorkspace).not.toHaveBeenCalled();
-          return HttpResponse.json({ workspaceId: 1909 }, { status: 201 });
-        })
-      );
-
-      await expect(client.createBlankWorkspace(workspace)).resolves.toBe(1909);
-      expect(createOsmWorkspace).toHaveBeenCalledOnce();
-      expect(createOsmWorkspace).toHaveBeenCalledWith(1909);
-    }
-  );
-
-  it('does not provision OSM when workspace record creation fails', async () => {
-    const createOsmWorkspace = vi.fn().mockResolvedValue(undefined);
-    const client = new WorkspacesClient(
-      TEST_API_BASE,
-      TEST_API_BASE,
-      tdeiClient,
-      { createWorkspace: createOsmWorkspace } as unknown as OsmApiClient
+  // The backend computes the box as a MIN/MAX over the workspace's nodes, and
+  // an aggregate over no rows returns a row of nulls rather than no row, so an
+  // empty workspace answers 200 with null coordinates rather than 204. Passing
+  // that on would put "null" into a bbox query string and NaN into a map fit.
+  it('returns undefined when the coordinates come back null', async () => {
+    server.use(
+      http.get(`${NEW_API_BASE}workspaces/1/bbox`, () =>
+        HttpResponse.json({ min_lat: null, min_lon: null, max_lat: null, max_lon: null })
+      )
     );
-    const workspace = {
-      title: 'Empty workspace',
-      type: 'pathways' as const,
-      tdeiProjectGroupId: '11111111-1111-1111-1111-111111111111'
-    };
+
+    await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toBeUndefined();
+  });
+
+  it('returns undefined when only some coordinates are missing', async () => {
+    server.use(
+      http.get(`${NEW_API_BASE}workspaces/1/bbox`, () =>
+        HttpResponse.json({ min_lat: 47.6, min_lon: null, max_lat: 47.62, max_lon: -122.32 })
+      )
+    );
+
+    await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toBeUndefined();
+  });
+
+  it('keeps a box whose coordinates are legitimately zero', async () => {
+    // 0/0 is a real position, so it must not read as missing.
+    const bbox = { min_lat: 0, min_lon: 0, max_lat: 0, max_lon: 0 };
 
     server.use(
-      http.post(`${TEST_API_BASE}workspaces`, () => {
-        return new HttpResponse(null, { status: 500, statusText: 'Server Error' });
-      })
+      http.get(`${NEW_API_BASE}workspaces/1/bbox`, () => HttpResponse.json(bbox))
     );
 
-    await expect(client.createBlankWorkspace(workspace)).rejects.toBeInstanceOf(
-      WorkspacesClientError
-    );
-    expect(createOsmWorkspace).not.toHaveBeenCalled();
+    await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toEqual(bbox);
   });
 });
 

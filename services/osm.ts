@@ -20,6 +20,7 @@ import type {
   OsmElement,
   OsmNode,
   OsmNote,
+  OsmTags,
   OsmWay,
 } from '~/types/osm';
 import type { WorkspaceId } from '~/types/workspaces';
@@ -343,8 +344,22 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return (await response.json()).elements;
   }
 
-  async listChangesets(workspaceId: WorkspaceId): Promise<OsmChangeset[]> {
-    const response = await this._get(`changesets.json`, {
+  async listChangesets(
+    workspaceId: WorkspaceId,
+    params: { order?: 'oldest' | 'newest'; limit?: number } = { }
+  ): Promise<OsmChangeset[]> {
+    const query = new URLSearchParams();
+
+    if (params.order) {
+      query.set('order', params.order);
+    }
+
+    if (params.limit !== undefined) {
+      query.set('limit', String(params.limit));
+    }
+
+    const search = query.size > 0 ? `?${query}` : '';
+    const response = await this._get(`changesets.json${search}`, {
       headers: { 'X-Workspace': String(workspaceId) },
     });
 
@@ -414,12 +429,20 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return osmChange;
   }
 
-  async createChangeset(workspaceId: WorkspaceId): Promise<number> {
+  async createChangeset(workspaceId: WorkspaceId, tags: OsmTags = { }): Promise<number> {
     const doc = xml.parse('<osm><changeset></changeset></osm>');
     const changesetNode = doc.firstChild!.firstChild!;
-    changesetNode.appendChild(xml.makeNode(doc, 'tag', { k: 'workspace', v: workspaceId }));
-    changesetNode.appendChild(xml.makeNode(doc, 'tag', { k: 'comment', v: 'Import workspace' }));
-    changesetNode.appendChild(xml.makeNode(doc, 'tag', { k: 'created_by', v: 'TDEI Workspaces' }));
+    const changesetTags: OsmTags = {
+      workspace: String(workspaceId),
+      created_by: 'TDEI Workspaces',
+      ...tags
+    };
+
+    // A for...in loop here could pollute this by walking the prototype chain:
+    //
+    for (const [k, v] of Object.entries(changesetTags)) {
+      changesetNode.appendChild(xml.makeNode(doc, 'tag', { k, v }));
+    }
 
     const body = xml.serialize(doc);
     const response = await this._put('changeset/create', body, {
@@ -434,11 +457,19 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     changesetId: number,
     changesetXml: string
   ) {
-    await this._post(`changeset/${changesetId}/upload`, changesetXml, {
+    const response = await this._post(`changeset/${changesetId}/upload`, changesetXml, {
       headers: {
         'Content-Type': 'application/xml',
         'X-Workspace': String(workspaceId),
       },
+    });
+
+    return await response.text();
+  }
+
+  async closeChangeset(workspaceId: WorkspaceId, changesetId: number): Promise<void> {
+    await this._put(`changeset/${changesetId}/close`, undefined, {
+      headers: { 'X-Workspace': String(workspaceId) }
     });
   }
 
@@ -503,8 +534,17 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return notesGeoJsonToEntities(await response.json());
   }
 
-  async getWorkspaceData(workspaceId: WorkspaceId): Promise<any[]> {
+  async getWorkspaceData(workspaceId: WorkspaceId): Promise<OsmElement[]> {
     const bboxParam = await this.getExportBbox(workspaceId);
+
+    if (bboxParam === undefined) {
+      // The API reports no bounding box for a workspace that has never held a
+      // node. The export paths archive an empty workspace legitimately, so this
+      // reads as no elements rather than throwing:
+      //
+      return [];
+    }
+
     const response = await this._get(`map.json?bbox=${bboxParam}`, {
       headers: {
         'Accept': 'application/json',
@@ -512,11 +552,31 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
       }
     });
 
-    return (await response.json()).elements;
+    const elements: OsmElement[] = (await response.json()).elements ?? [];
+
+    // The API sends timestamps as strings. Every other method on this client
+    // normalizes them here rather than leaving it to callers:
+    //
+    for (const element of elements) {
+      element.timestamp = new Date(element.timestamp);
+    }
+
+    return elements;
   }
 
   async exportWorkspaceXml(workspaceId: WorkspaceId): Promise<Blob> {
     const bboxParam = await this.getExportBbox(workspaceId);
+
+    if (bboxParam === undefined) {
+      // Same case as `getWorkspaceData`: no bounding box means the workspace
+      // has never held a node, and an empty document is its export:
+      //
+      return new Blob(
+        ['<?xml version="1.0" encoding="UTF-8"?>\n<osm version="0.6" generator="TDEI Workspaces"/>\n'],
+        { type: 'application/xml' }
+      );
+    }
+
     const response = await this._get(`map?bbox=${bboxParam}`, {
       headers: {
         'Accept': 'application/xml',
@@ -533,6 +593,12 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     body?: HttpBody,
     config?: FetchConfig,
   ): Promise<Response> {
+    // `sendProtectedRequest` may refresh the session before or between
+    // attempts, and a failed refresh throws the TDEI API's response. Only the
+    // error this client's own request threw is the OSM server's answer:
+    //
+    let osmFailure: unknown;
+
     try {
       const requestOptions: FetchConfig = {
         credentials: 'include',
@@ -545,11 +611,14 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
           method,
           body,
           withBearerToken(requestOptions, accessToken),
-        )
+        ).catch((error: unknown) => {
+          osmFailure = error;
+          throw error;
+        })
       );
     }
     catch (e: unknown) {
-      if (e instanceof BaseHttpClientError) {
+      if (e === osmFailure && e instanceof BaseHttpClientError) {
         throw new OsmApiClientError(e.response);
       }
 
