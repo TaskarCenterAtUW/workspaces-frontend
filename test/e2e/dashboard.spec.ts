@@ -301,6 +301,45 @@ test.describe('dashboard', () => {
       .toBeVisible();
   });
 
+  test('falls back to the API bbox when metadata coordinates produce invalid bounds', async ({ page }) => {
+    const reversedDatasetArea = {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[
+            [46.3678626, -120.3228517],
+            [46.3678626, -120.2938718],
+            [46.3896327, -120.2938718],
+            [46.3896327, -120.3228517],
+            [46.3678626, -120.3228517],
+          ]],
+        },
+      }],
+    };
+    let bboxRequestCount = 0;
+
+    await seedAuthenticatedSession(page);
+    await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
+    await page.route('**/workspaces/mine', route => route.fulfill({
+      json: [{
+        ...aWorkspace,
+        tdeiMetadata: { metadata: { dataset_detail: { dataset_area: reversedDatasetArea } } },
+      }],
+    }));
+    await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
+    await page.route('**/workspaces/1/bbox', (route) => {
+      bboxRequestCount++;
+      return route.fulfill({ status: 204 });
+    });
+
+    await page.goto('/dashboard');
+
+    await expect(page.getByText('This workspace is empty.', { exact: true })).toBeVisible();
+    expect(bboxRequestCount).toBe(1);
+  });
+
   test('clicking a failed import status loads the latest job and shows its failure response', async ({ page }) => {
     const failedWorkspace = {
       id: 1769,

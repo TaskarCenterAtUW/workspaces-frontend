@@ -55,10 +55,16 @@ export default defineNuxtConfig({
       '/osm': { target: 'https://osm.workspaces-dev.sidewalks.washington.edu/', changeOrigin: true },
       '/tdei': { target: 'https://api-dev.tdei.us/api/', changeOrigin: true },
       '/tdei-user': { target: 'https://portal-api-dev.tdei.us/api/', changeOrigin: true },
+      '/rapid2': { target: 'https://wsrapid.blob.core.windows.net/editor/dev/rapid2/', changeOrigin: true },
+      '/rapid3': { target: 'https://wsrapid.blob.core.windows.net/editor/dev/rapid3/', changeOrigin: true },
+      '/pathways': { target: 'https://pathways.workspaces-dev.sidewalks.washington.edu/', changeOrigin: true },
 
       // Local backend (repo workspaces-backend) instead of the shared dev API:
       // '/api': { target: 'http://localhost:8000/api/', changeOrigin: true },
       // '/osm': { target: 'http://localhost:8000/workspaces/', changeOrigin: true },
+      // '/rapid': { target: 'http://localhost:8080/dist', changeOrigin: true },
+      // '/rapid3': { target: 'http://localhost:8080/dist', changeOrigin: true },
+      // '/pathways': { target: 'http://localhost:8080/dist', changeOrigin: true },
     },
   },
   vite: {
