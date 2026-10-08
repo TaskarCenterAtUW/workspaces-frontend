@@ -156,7 +156,7 @@ export class Rapid3Manager {
     // - Add request interceptor to apply TDEI headers to `/osm/api` requests only.
     const network = context.systems.network
     const interceptor = (url: string, init: RequestInit): RequestInit => {
-      if (url.includes('/osm/api')) {
+      if (url.includes('/api/0.6')) {
         const headers = Object.fromEntries(new Headers(init.headers).entries())
         headers['Authorization'] = 'Bearer ' + this.#tdeiAuth.accessToken
         headers['X-Workspace'] = context.workspaceId
