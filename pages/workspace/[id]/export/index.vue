@@ -61,7 +61,7 @@
             </p>
             <p>
               <em>
-                Note: press the "Start Preparing File for Download" button to prepare the download which may take a minute; when it's ready, the button will change to "Start", when you can then press again to download the file to your device.
+                Note: press the "Start Preparing File for Download" button to prepare the download which may take a minute; when it's ready, the button will change to "Save", which you can then press again to download the file to your device.
               </em>
             </p>
           </div>

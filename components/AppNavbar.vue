@@ -57,9 +57,11 @@
             >Dashboard</nuxt-link>
           </li>
           <li class="nav-item">
+            <!-- Use document navigation to avoid overlapping with unresolved dashboard setup. -->
             <nuxt-link
               class="nav-link nav-link-item"
               to="/workspace/create"
+              external
               @click="closeOnMobile"
             >Create Workspace</nuxt-link>
           </li>

@@ -403,7 +403,71 @@ test.describe('dashboard', () => {
     await expect(dialog).not.toContainText('must-not-be-rendered');
     expect(jobsRequestCount).toBe(1);
   });
+  test('navigates to Create Workspace while a large dashboard is loading', async ({ page }) => {
+    await seedAuthenticatedSession(page);
 
+    const largeWorkspaceList = Array.from({ length: 1_500 }, (_, index) => ({
+      ...aWorkspace,
+      id: index + 1,
+      title: `Workspace ${index + 1}`,
+      createdAt: new Date(
+        Date.UTC(2026, 0, 1, 0, 0, index)
+      ).toISOString()
+    }));
+
+    let notifyMineStarted!: () => void;
+    const mineStarted = new Promise<void>((resolve) => {
+      notifyMineStarted = resolve;
+    });
+
+    await page.route(`${TEST_API_BASE}workspaces/mine`, async (route) => {
+      notifyMineStarted();
+
+      await new Promise(resolve => setTimeout(resolve, 3_000));
+      await route.fulfill({ json: largeWorkspaceList }).catch(() => {});
+    });
+
+    await page.route(
+      `${TEST_API_BASE}tdei-user/project-group-roles/**`,
+      route => route.fulfill({ json: projectGroups })
+    );
+
+    await page.goto('/');
+
+    await page
+      .locator('.app-navbar')
+      .getByRole('link', { name: 'Dashboard', exact: true })
+      .click();
+
+    await mineStarted;
+
+    const createWorkspaceLink = page
+      .locator('.app-navbar')
+      .getByRole('link', {
+        name: 'Create Workspace',
+        exact: true
+      });
+
+    await expect(createWorkspaceLink).toBeVisible();
+    await createWorkspaceLink.click();
+
+    await expect(page).toHaveURL('/workspace/create');
+    await expect(
+      page.getByRole('heading', { name: 'Create a Workspace' })
+    ).toBeVisible();
+
+    await expect(
+      page.getByText('Blank Workspace', { exact: true })
+    ).toBeVisible();
+
+    await expect(
+      page.getByText('From TDEI', { exact: true })
+    ).toBeVisible();
+
+    await expect(
+      page.getByText('From File', { exact: true })
+    ).toBeVisible();
+  });
   // @test e2e: clicking on a dataset updates the metadata panel on the right and shows the data extent in the map
   // BLOCKED: needs the details panel + maplibre map to render. The map calls
   // getWorkspaceBbox (OSM API) and inits maplibre-gl, which requires WebGL in
