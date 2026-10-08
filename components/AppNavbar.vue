@@ -63,9 +63,8 @@
               to="/workspace/create"
               external
               @click="closeOnMobile"
-            >Create Workspace
-          </nuxt-link>
-        </li>
+            >Create Workspace</nuxt-link>
+          </li>
           <li class="nav-item">
             <nuxt-link
               class="nav-link nav-link-item"
