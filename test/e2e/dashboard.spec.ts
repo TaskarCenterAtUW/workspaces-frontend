@@ -423,16 +423,8 @@ test.describe('dashboard', () => {
     await page.route(`${TEST_API_BASE}workspaces/mine`, async (route) => {
       notifyMineStarted();
 
-      // Keep /mine pending long enough to click the navbar link.
       await new Promise(resolve => setTimeout(resolve, 3_000));
-
-      // A full document navigation may cancel the dashboard request.
-      try {
-        await route.fulfill({ json: largeWorkspaceList });
-      }
-      catch {
-        // Expected when the external navbar navigation cancels /mine.
-      }
+      await route.fulfill({ json: largeWorkspaceList }).catch(() => {});
     });
 
     await page.route(
@@ -440,8 +432,6 @@ test.describe('dashboard', () => {
       route => route.fulfill({ json: projectGroups })
     );
 
-    // Begin on an already-rendered page, similar to navigating from the
-    // authentication callback into the dashboard.
     await page.goto('/');
 
     await page
@@ -449,7 +439,6 @@ test.describe('dashboard', () => {
       .getByRole('link', { name: 'Dashboard', exact: true })
       .click();
 
-    // This guarantees we click while /mine is actually pending.
     await mineStarted;
 
     const createWorkspaceLink = page
