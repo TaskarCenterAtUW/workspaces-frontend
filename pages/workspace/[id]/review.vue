@@ -80,6 +80,7 @@ shows the proper details in the map and attribute diff panel (playwright snapsho
       <review-overlay
         v-if="currentItem"
         :item="currentItem"
+        :workspace-type="workspace.type"
         @edit="openEditor"
         @resolve="resolveCurrentChangeset"
         @back="selectedItem = undefined"
@@ -297,7 +298,7 @@ async function resolveCurrentChangeset() {
   }
 }
 
-async function openEditor() {
+async function openEditor(editor: 'rapid' | 'rapid3' = 'rapid') {
   if (!map.value) {
     return;
   }
@@ -306,7 +307,10 @@ async function openEditor() {
 
   await navigateTo({
     path: `/workspace/${workspaceId}/edit`,
-    query: { datatype: reviewList.workspace?.type },
+    query: {
+      datatype: reviewList.workspace?.type,
+      ...(reviewList.workspace?.type === 'osw' ? { editor } : {})
+    },
     hash: `#map=${zoom}/${lat}/${lon}`,
   });
 }

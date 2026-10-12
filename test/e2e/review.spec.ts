@@ -436,7 +436,41 @@ test.describe('workspace review', () => {
     }, { timeout: 30_000 }).toBe(true);
 
     const url = new URL(page.url());
+    expect(url.searchParams.get('editor')).toBe('rapid');
     // Verify that Edit Here targets the selected feedback.
+    const [zoom, lat, lon] = url.hash.slice('#map='.length).split('/').map(Number);
+    expect(zoom).toBeCloseTo(18);
+    expect(lat).toBeCloseTo(selectedFeedback.location_latitude);
+    expect(lon).toBeCloseTo(selectedFeedback.location_longitude);
+  });
+
+  test('selecting Rapid 3 opens that editor at the reviewed location', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubReviewApis(page);
+    await page.route('https://ecn.*.tiles.virtualearth.net/**', route => route.abort());
+
+    await page.goto('/workspace/1/review');
+
+    const feedbackItem = sidebar(page)
+      .locator('.review-item', { hasText: 'This crossing is hard to navigate' });
+    await feedbackItem.click();
+
+    await expect(page.locator('.maplibregl-popup')).toContainText(selectedFeedback.feedback_text);
+    await expect(page.locator('.map-loading-overlay')).toBeHidden();
+
+    const editorDropdown = page.locator('.review-editor-dropdown');
+    await editorDropdown.locator('.dropdown-toggle').click();
+    await page.getByRole('menuitem', { name: 'Rapid 3 (beta)' }).click();
+
+    await expect.poll(() => {
+      const url = new URL(page.url());
+      return url.pathname === '/workspace/1/edit'
+        && url.searchParams.get('datatype') === 'osw'
+        && url.searchParams.get('editor') === 'rapid3'
+        && /^#map=[^/]+\/[^/]+\/[^/]+$/.test(url.hash);
+    }, { timeout: 30_000 }).toBe(true);
+
+    const url = new URL(page.url());
     const [zoom, lat, lon] = url.hash.slice('#map='.length).split('/').map(Number);
     expect(zoom).toBeCloseTo(18);
     expect(lat).toBeCloseTo(selectedFeedback.location_latitude);
