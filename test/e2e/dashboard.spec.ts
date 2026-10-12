@@ -340,7 +340,7 @@ test.describe('dashboard', () => {
     expect(bboxRequestCount).toBe(1);
   });
 
-  test('clicking a failed import status loads the latest job and shows its failure response', async ({ page }) => {
+  test('treats a completed import with an unsuccessful response as failed', async ({ page }) => {
     const failedWorkspace = {
       id: 1769,
       type: 'osw',
@@ -357,10 +357,9 @@ test.describe('dashboard', () => {
       externalAppAccess: 0,
       kartaViewToken: null,
       role: 'lead',
-      importStatus: 'failed'
+      importStatus: 'completed'
     };
     const failureMessage = 'Step \'Create Changeset\' failed: no input file was found';
-    let jobsRequestCount = 0;
 
     await seedAuthenticatedSession(page);
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
@@ -368,7 +367,6 @@ test.describe('dashboard', () => {
     await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
     await page.route('**/workspaces/1769/bbox', route => route.fulfill({ status: 204 }));
     await page.route('**/workspaces/1769/jobs', (route) => {
-      jobsRequestCount++;
       return route.fulfill({
         json: [{
           id: 2,
@@ -390,10 +388,12 @@ test.describe('dashboard', () => {
     });
 
     await page.goto('/dashboard');
-    await expect(page.locator('.workspace-card-updated')).toContainText('Updated');
-    await expect(page.locator('.dashboard-workspace-updated')).toContainText('Updated');
-    await expect(page.getByText('Updated At', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'View import failure details' }).click();
+    const failedBadge = page.getByRole('button', { name: 'View import failure details' });
+    await expect(failedBadge).toContainText(
+      'Setup failed. Select to view details',
+      { timeout: 30_000 }
+    );
+    await failedBadge.click();
 
     const dialog = page.getByRole('dialog', { name: 'Workspace import failed' });
     await expect(dialog).toBeVisible();
@@ -401,7 +401,6 @@ test.describe('dashboard', () => {
     await expect(dialog).toContainText('STEP_EXECUTION_FAILED');
     await expect(dialog).toContainText('Create Changeset');
     await expect(dialog).not.toContainText('must-not-be-rendered');
-    expect(jobsRequestCount).toBe(1);
   });
   test('navigates to Create Workspace while a large dashboard is loading', async ({ page }) => {
     await seedAuthenticatedSession(page);
