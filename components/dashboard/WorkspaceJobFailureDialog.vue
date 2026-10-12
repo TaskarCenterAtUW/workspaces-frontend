@@ -191,6 +191,7 @@ import { BModal } from 'bootstrap-vue-next/components/BModal';
 import type { ComponentExposed } from 'vue-component-type-helpers';
 import { workspacesClient } from '~/services/index';
 import { resolveHttpErrorMessage } from '~/services/http';
+import { findFailedImportJob } from '~/util/workspace-jobs';
 
 import type { WorkspaceId, WorkspaceJob } from '~/types/workspaces';
 
@@ -216,7 +217,7 @@ async function show(workspaceId: WorkspaceId): Promise<void> {
   try {
     const jobs = await workspacesClient.getWorkspaceJobs(workspaceId);
     if (activeRequestId === requestId) {
-      job.value = jobs[0] ?? null;
+      job.value = findFailedImportJob(jobs) ?? jobs[0] ?? null;
     }
   }
   catch (error: unknown) {
