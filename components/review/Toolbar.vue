@@ -17,9 +17,35 @@
         :class="typeClass"
       /><span class="d-none d-sm-inline fw-bold text-uppercase">{{ props.item.displayType }}:</span> #{{ props.item.id }}
     </span>
+    <b-dropdown
+      v-if="isOsw && rapid3Available"
+      split
+      size="sm"
+      split-variant="primary"
+      variant="primary"
+      class="review-editor-dropdown"
+      teleport-to="body"
+      strategy="fixed"
+      @split-click="edit()"
+    >
+      <template #button-content>
+        <app-icon
+          variant="edit_location_alt"
+          no-margin
+        />
+        <span class="d-none d-sm-inline ms-2">Edit Here</span>
+      </template>
+      <b-dropdown-item @click="edit('rapid')">
+        Rapid 2 (default)
+      </b-dropdown-item>
+      <b-dropdown-item @click="edit('rapid3')">
+        Rapid 3 (beta)
+      </b-dropdown-item>
+    </b-dropdown>
     <button
+      v-else
       class="btn btn-sm btn-primary"
-      @click="edit"
+      @click="edit()"
     >
       <app-icon
         variant="edit_location_alt"
@@ -105,24 +131,31 @@
 </template>
 
 <script setup lang="ts">
+import { rapid3Manager } from '~/services/index';
 import type { ReviewListItem } from '~/services/review';
+import type { WorkspaceType } from '~/types/workspaces';
+
+type RapidEditor = 'rapid' | 'rapid3';
 
 interface Props {
   item: ReviewListItem;
+  workspaceType: WorkspaceType;
 }
 
 const props = defineProps<Props>();
 const emit = defineEmits(['back', 'edit', 'resolve']);
 
 const { isValidator } = useWorkspaceRole();
+const rapid3Available = Boolean(rapid3Manager);
+const isOsw = computed(() => props.workspaceType === 'osw');
 
 const typeClass = computed(() => props.item.badgeClass.replace('bg-', 'text-'));
 
 const showDetails = defineModel<boolean>('showDetails');
 const showDiscussion = defineModel<boolean>('showDiscussion');
 
-function edit() {
-  emit('edit');
+function edit(editor: RapidEditor = 'rapid') {
+  emit('edit', editor);
 }
 
 function resolveChangeset() {
@@ -155,5 +188,9 @@ function toggleDiscussion() {
   @include media-breakpoint-down(sm) {
     & { padding: 0.5rem; }
   }
+}
+
+.review-editor-dropdown {
+  flex-shrink: 0;
 }
 </style>

@@ -4,6 +4,7 @@
       v-model:show-details="showDetails"
       v-model:show-discussion="showDiscussion"
       :item="item"
+      :workspace-type="workspaceType"
       @edit="props.onEdit"
       @resolve="$emit('resolve')"
       @back="emit('back')"
@@ -24,10 +25,14 @@
 
 <script setup lang="ts">
 import type { ReviewListItem } from '~/services/review';
+import type { WorkspaceType } from '~/types/workspaces';
+
+type RapidEditor = 'rapid' | 'rapid3';
 
 interface Props {
   item: ReviewListItem;
-  onEdit: () => void;
+  workspaceType: WorkspaceType;
+  onEdit: (editor?: RapidEditor) => void;
 }
 
 const props = defineProps<Props>();
