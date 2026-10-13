@@ -142,6 +142,7 @@ export class Rapid3Manager {
     services.delete('geoscribble');
     services.delete('keepright');
     services.delete('mapwithai');
+    services.delete('nsi');
     services.delete('osmose');
   }
 
@@ -153,7 +154,7 @@ export class Rapid3Manager {
     const context = this.rapidContext
 
     // Customize Network system
-    // - Add request interceptor to apply TDEI headers to `/osm/api` requests only.
+    // - Add request interceptor to apply TDEI headers to `/api/0.6` requests only.
     const network = context.systems.network
     const interceptor = (url: string, init: RequestInit): RequestInit => {
       if (url.includes('/api/0.6')) {
