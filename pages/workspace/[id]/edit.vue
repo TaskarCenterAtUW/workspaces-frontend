@@ -67,4 +67,16 @@ onMounted(() => {
 .editorContainer kbd {
   color: unset;
 }
+
+/* Remove extra language about OpenStreetmap */
+/* view on openstreetmap.org */
+.editorContainer .inspector-wrap .sidebar-footer,
+/* your changes will be visible on maps that use OpenStreetMap */
+.editorContainer .save-section .commit-info,
+/* your changes should appear on OpenStreetMap within a few minutes */
+.editorContainer .save-summary > p,
+/* Like OpenStreetMap? Connect with others */
+.editorContainer .save-communityLinks {
+  display: none;
+}
 </style>

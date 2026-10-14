@@ -153,8 +153,10 @@ export class Rapid3Manager {
   #preInit() {
     const context = this.rapidContext
 
+    //
     // Customize Network system
     // - Add request interceptor to apply TDEI headers to `/api/0.6` requests only.
+    //
     const network = context.systems.network
     const interceptor = (url: string, init: RequestInit): RequestInit => {
       if (url.includes('/api/0.6')) {
@@ -167,12 +169,59 @@ export class Rapid3Manager {
     };
     network.addRequestInterceptor(interceptor);
 
+    //
     // Customize OSM service
     // - Override the `authenticated` check to use TDEI auth state
     // - Stub out`getUserDetailsAsync` (not needed for workspace-based changeset uploads).
+    //
     const osm = context.services.osm
     osm._oauth.authenticated = () => this.#tdeiAuth.ok
-    osm.getUserDetailsAsync = (): Promise<any> => Promise.resolve(null)
+    osm.getUserDetailsAsync = () => Promise.resolve(null)
+
+    //
+    // Customize UiSuccess screen (post-save)
+    // Remove the functions that load and render the community index
+    //
+    const empty_oci = { resources: [], defaults: {} };
+    Rapid.UiSuccess.prototype._getCommunityIndexAsync = () => Promise.resolve(empty_oci);
+    Rapid.UiSuccess.prototype._renderCommunityData = () => null;
+
+    //
+    // Customize Localization System
+    // When changing or setting up initial locale, override some strings with our own.
+    //
+    const l10n = context.systems.l10n;
+    l10n.prependListener('localechange', () => {
+      let code = l10n.localeCode;
+      // Note that internally, 'en-US' is actually stored under 'en'
+      if (code === 'en-US') {
+        code = 'en';
+      }
+      // Change strings
+      const replacements = {
+        'loading_auth': 'Connecting...', // was: "Connecting to OpenStreetMap..."
+        'status.message.error': 'Unable to reach the API. Your edits are safe locally. Check your network connection.',
+        'status.message.offline': 'The API is offline. Your edits are safe locally. Please come back later.',
+        'status.message.readonly': 'The API is currently read-only. You can continue editing, but must wait to save your changes.',
+        'status.message.ratelimit': 'You have downloaded too much data. Please try again in {seconds} seconds or switch accounts.',
+        'save.help': 'Review and upload your changes.',
+        'save.uploading': 'Uploading Changes...', // was: 'Uploading changes to OpenStreetMap...
+        'commit.title': 'Upload Changes', // was: "Upload to OpenStreetMap"
+        'success.just_edited': 'Changes Saved!', // was: "You just edited OpenStreetMap!"
+        'success.view_on_osm': 'View Changes', // was: "View changes on OSM"
+        'map_data.layers.osm.tooltip': 'Existing data in this Workspace', // was: "Map data from OpenStreetMap"
+        'map_data.layers.osm.title': 'Workspace Data', // was: "OpenStreetMap Data"
+        'map_data.layers.osm.feature': 'Workspace Data', // was: "OpenStreetMap Feature"
+        'map_data.layers.notes.tooltip': 'Notes in this Workspace', // was: "Note data from OpenStreetMap"
+        'map_data.layers.notes.title': 'Workspace Notes', // was: "OpenStreetMap Notes"
+        'map_data.layers.osmhidden': 'These features have been automatically hidden because the Workspace layer is hidden.',
+        'shortcuts.command.toggle_osm_data.label': 'Toggle Workspace data', // was: "Toggle OpenStreetMap data"
+        'shortcuts.command.toggle_osm_notes.label': 'Toggle Workspace notes', // was: "Toggle OpenStreetMap notes"
+      };
+      for (const [k, v] of Object.entries(replacements)) {
+        l10n._store.set(`${code}.core.${k}`, v);
+      }
+    });
   }
 
   /**
@@ -182,8 +231,10 @@ export class Rapid3Manager {
   #preStart() {
     const context = this.rapidContext
 
+    //
     // Customize Imagery system
     // - Remove unapproved imagery sources
+    //
     const imagery = context.systems.imagery
     const imageryOverrides = {
       assetID: 'tdei-imagery',
@@ -199,8 +250,10 @@ export class Rapid3Manager {
     imagery.merge(imageryOverrides)
     imagery._overlayLayers.delete('mapbox_locator_overlay')
 
+    //
     // Customize Style system
     // - apply Gaussian overrides for WA-Proviso
+    //
     const styles = context.systems.styles
     const styleOverrides = {
       assetID: 'WA-Proviso-style',
