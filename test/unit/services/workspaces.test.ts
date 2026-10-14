@@ -174,6 +174,49 @@ describe('WorkspacesClient.createBlankWorkspace', () => {
   });
 });
 
+describe('WorkspacesClient.deleteWorkspace', () => {
+  it('reports failed OSM cleanup after the workspace record is deleted', async () => {
+    const deleteOsmWorkspace = vi.fn().mockRejectedValue(new Error('Forbidden'));
+    const client = new WorkspacesClient(
+      TEST_API_BASE,
+      TEST_API_BASE,
+      tdeiClient,
+      { deleteWorkspace: deleteOsmWorkspace } as unknown as OsmApiClient
+    );
+
+    server.use(
+      http.delete(`${TEST_API_BASE}workspaces/1`, () => {
+        return new HttpResponse(null, { status: 204 });
+      })
+    );
+
+    await expect(client.deleteWorkspace(1)).resolves.toEqual({
+      osmRequestSucceeded: false
+    });
+    expect(deleteOsmWorkspace).toHaveBeenCalledWith(1);
+  });
+
+  it('still rejects when the workspace record cannot be deleted', async () => {
+    const deleteOsmWorkspace = vi.fn().mockResolvedValue(undefined);
+    const client = new WorkspacesClient(
+      TEST_API_BASE,
+      TEST_API_BASE,
+      tdeiClient,
+      { deleteWorkspace: deleteOsmWorkspace } as unknown as OsmApiClient
+    );
+
+    server.use(
+      http.delete(`${TEST_API_BASE}workspaces/1`, () => {
+        return new HttpResponse(null, { status: 500, statusText: 'Server Error' });
+      })
+    );
+
+    await expect(client.deleteWorkspace(1)).rejects.toBeInstanceOf(
+      WorkspacesClientError
+    );
+  });
+});
+
 describe('WorkspacesClient.checkWorkspaceTitleAvailability', () => {
   const LEGACY_API_BASE = 'http://legacy-api.test/';
   const NEW_API_BASE = 'http://new-api.test/';
