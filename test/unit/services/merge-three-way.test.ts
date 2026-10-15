@@ -344,4 +344,28 @@ describe('threeWayMerge created-on-both-sides dedupe', () => {
     // node 2 was identical, so it still collapses to a single copy.
     expect([...result.elements].filter(e => e.type === 'node' && e.id === 2)).toHaveLength(1);
   });
+
+  // A parent only looks identical by its raw child ids. When a child node
+  // differs between the sides it is re-identified, so a way that pointed at it —
+  // the same raw id on both sides — is no longer the same way: its effective
+  // geometry diverges. Deduping on the raw ids would drop one way and leave the
+  // re-identified node orphaned. Both ways must survive, each pointing at its
+  // own node 2.
+  it('keeps both when a shared-id way points at a child that differs', async () => {
+    const { result } = await runMerge({
+      ancestor: [osmNode(1)],
+      a: [osmNode(1), osmNode(2, { lat: 1, lon: 1 }), osmWay(10, [2])],
+      b: [osmNode(1), osmNode(2, { lat: 2, lon: 2 }), osmWay(10, [2])]
+    });
+
+    const ways = [...result.elements].filter(e => e.type === 'way') as OsmWay[];
+    expect(ways).toHaveLength(2);
+
+    // Every way points at a node that is actually present (no orphaned ref),
+    // and the two ways point at different nodes — each side's own node 2.
+    const nodeIds = new Set([...result.elements].filter(e => e.type === 'node').map(e => e.id));
+    const referenced = ways.map(way => way.nodes[0]!);
+    referenced.forEach(ref => expect(nodeIds.has(ref)).toBe(true));
+    expect(new Set(referenced).size).toBe(2);
+  });
 });

@@ -30,7 +30,40 @@ function remapCollidingIds(
   const remapped = new Map<string, number>();
   let nextSyntheticId = -1;
 
-  for (const element of elementsB) {
+  // B's element seen through the remapping chosen so far: its references point
+  // at the IDs they will actually resolve to, not the raw IDs that may belong
+  // to a child that has been re-identified on A's side.
+  const withEffectiveReferences = (element: OsmElement): OsmElement => {
+    if (element.type === 'way') {
+      return {
+        ...element,
+        nodes: element.nodes.map(
+          ref => remapped.get(referenceKey('node', ref)) ?? ref
+        )
+      };
+    }
+
+    if (element.type === 'relation') {
+      return {
+        ...element,
+        members: element.members.map(member => ({
+          ...member,
+          ref: remapped.get(referenceKey(member.type, member.ref)) ?? member.ref
+        }))
+      };
+    }
+
+    return element;
+  };
+
+  // Decide children before parents, so a way or relation is compared against
+  // the IDs its children were remapped to rather than their raw IDs.
+  const precedence = { node: 0, way: 1, relation: 2 };
+  const ordered = [...elementsB].sort(
+    (first, second) => precedence[first.type] - precedence[second.type]
+  );
+
+  for (const element of ordered) {
     if (lookupC.has(element.type, element.id)) {
       continue; // Descended from the import, so the ID is shared by design.
     }
@@ -42,9 +75,11 @@ function remapCollidingIds(
       // cause being a multi-changeset import whose later batches aren't in the
       // first-changeset ancestor, so they read as created-on-both-sides — they
       // are the same element: keep one by leaving B's ID so it collapses onto
-      // A's, rather than remapping B's into a duplicate. Only genuinely distinct
+      // A's, rather than remapping B's into a duplicate. The comparison uses B's
+      // effective references, so a parent whose child was re-identified reads as
+      // different and is kept, not collapsed onto A's. Only genuinely distinct
       // elements that happen to share an ID are remapped.
-      if (elementContentEqual(collidingA, element)) {
+      if (elementContentEqual(collidingA, withEffectiveReferences(element))) {
         continue;
       }
 
