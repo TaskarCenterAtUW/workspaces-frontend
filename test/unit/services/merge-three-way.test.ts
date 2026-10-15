@@ -309,3 +309,39 @@ describe('workspaces whose imports do not line up', () => {
     await expect(mergeWith([osmNode(1)], [osmNode(1)])).resolves.toBeDefined();
   });
 });
+
+describe('threeWayMerge created-on-both-sides dedupe', () => {
+  // A multi-changeset import leaves its later batches out of the first-changeset
+  // ancestor, so those elements read as "created" in both workspaces. When the
+  // two copies are identical they are the same imported element and must collapse
+  // to one, not be kept twice. (node 1 is the ancestor/first batch; node 2 + way
+  // 10 stand in for a second import batch present in both workspaces unchanged.)
+  it('keeps one copy of identical elements created on both sides', async () => {
+    const batch2 = () => [osmNode(1), osmNode(2), osmWay(10, [1, 2])];
+    const { result } = await runMerge({
+      ancestor: [osmNode(1)],
+      a: batch2(),
+      b: batch2()
+    });
+
+    expect(result.conflicts).toHaveLength(0);
+    expect(ids(result.elements)).toEqual(['node/1', 'node/2', 'way/10']);
+  });
+
+  // The collapse is content-aware: when a created-on-both-sides element differs
+  // (here a tag), it is NOT merged away — both are kept (B's gets a fresh id).
+  // Surfacing such a divergence as a real conflict would need the whole import in
+  // the ancestor; that is out of scope for the dedupe.
+  it('keeps both when an element created on both sides differs', async () => {
+    const { result } = await runMerge({
+      ancestor: [osmNode(1)],
+      a: [osmNode(1), osmNode(2), osmWay(10, [1, 2], { tags: { surface: 'asphalt' } })],
+      b: [osmNode(1), osmNode(2), osmWay(10, [1, 2], { tags: { surface: 'concrete' } })]
+    });
+
+    const ways = [...result.elements].filter(e => e.type === 'way');
+    expect(ways).toHaveLength(2);
+    // node 2 was identical, so it still collapses to a single copy.
+    expect([...result.elements].filter(e => e.type === 'node' && e.id === 2)).toHaveLength(1);
+  });
+});

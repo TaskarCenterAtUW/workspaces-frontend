@@ -112,6 +112,30 @@ export function checkConflict(
   return mergeTagsThreeWay(a.tags, b.tags, base).conflicts.length > 0;
 }
 
+export function tagsEqual(a: OsmTags | undefined, b: OsmTags | undefined): boolean {
+  const aTags = a ?? {};
+  const bTags = b ?? {};
+  const aKeys = Object.keys(aTags);
+
+  if (aKeys.length !== Object.keys(bTags).length) {
+    return false;
+  }
+
+  return aKeys.every(key => aTags[key] === bTags[key]);
+}
+
+/**
+ * Whether two elements are the same element content-wise: same geometry and the
+ * same tags, ignoring the per-workspace metadata (version, changeset, timestamp,
+ * user) that always differs. Two workspaces built from the same import hold
+ * copies of each imported element that differ only in that metadata.
+ */
+export function elementContentEqual(a: OsmElement, b: OsmElement): boolean {
+  return a.type === b.type
+    && geometryEqual(a, b)
+    && tagsEqual(a.tags, b.tags);
+}
+
 function geometrySource<T extends OsmElement>(a: T, b: T, base?: OsmElement): T {
   if (base !== undefined && geometryEqual(a, base)) {
     return b; // A did not change, so take geometry from B

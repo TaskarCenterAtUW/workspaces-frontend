@@ -3,6 +3,7 @@ import { copyOsmElement, OsmElementLookup } from '~/util/osm';
 import {
   checkConflict,
   checkGeometryConflict,
+  elementContentEqual,
   mergeOsmElements,
   mergeTagsThreeWay
 } from '~/util/osm-merge';
@@ -34,7 +35,19 @@ function remapCollidingIds(
       continue; // Descended from the import, so the ID is shared by design.
     }
 
-    if (createdInA.has(element.type, element.id)) {
+    const collidingA = createdInA.get(element.type, element.id);
+
+    if (collidingA) {
+      // Same ID created on both sides. When the two are identical — the usual
+      // cause being a multi-changeset import whose later batches aren't in the
+      // first-changeset ancestor, so they read as created-on-both-sides — they
+      // are the same element: keep one by leaving B's ID so it collapses onto
+      // A's, rather than remapping B's into a duplicate. Only genuinely distinct
+      // elements that happen to share an ID are remapped.
+      if (elementContentEqual(collidingA, element)) {
+        continue;
+      }
+
       remapped.set(referenceKey(element.type, element.id), nextSyntheticId--);
     }
   }
