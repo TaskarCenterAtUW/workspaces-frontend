@@ -1,0 +1,16 @@
+- heading "Merge Workspace" [level=1]
+- text: Merge workspace
+- strong: "\"Seattle Sidewalks\""
+- text: "with:"
+- combobox "Merge workspace \"Seattle Sidewalks\" with:":
+  - option "Seattle Sidewalks (survey)"
+- text: Merged Workspace Title
+- textbox "Merged Workspace Title": "Merged: Seattle Sidewalks"
+- text: Project Group
+- textbox "Project Group":
+  - /placeholder: Search project groups...
+  - text: Puget Sound
+- paragraph: The merged workspace stays in this workspace's project group.
+- alert: The merged workspace will not be linked to a TDEI dataset, so exporting it publishes a new dataset rather than a new version of this one.
+- button "Cancel"
+- button "Merge " [disabled]

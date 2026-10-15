@@ -139,6 +139,15 @@
         <app-icon variant="drive_folder_upload" />
         Export
       </b-dropdown-item>
+      <b-dropdown-item
+        :to="mergeRoute"
+        :disabled="!isLead"
+        :title="isLead ? undefined : 'Only workspace owners can merge workspaces'"
+      >
+        <app-icon variant="merge" />
+        Merge
+      </b-dropdown-item>
+      <b-dropdown-divider />
       <b-dropdown-item :to="settingsRoute">
         <app-icon variant="settings" />
         Settings
@@ -178,6 +187,7 @@ const editHash = computed(() => {
 });
 
 const isOsw = computed(() => props.workspace.type === 'osw');
+const isLead = computed(() => props.workspace.role === 'lead');
 const editorLabel = computed(() => {
   switch (props.workspace.type) {
     case 'osw':
@@ -202,6 +212,7 @@ const editRouteRapid3 = computed(() => ({
 const reviewRoute = computed(() => workspacePath('review'));
 const projectsRoute = computed(() => workspacePath('projects'));
 const exportRoute = computed(() => workspacePath('export'));
+const mergeRoute = computed(() => workspacePath('merge'));
 const settingsRoute = computed(() => workspacePath('settings'));
 
 function workspacePath(page: string): string {
