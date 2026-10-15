@@ -79,6 +79,10 @@ export class WorkspacesClientError extends Error {
   }
 }
 
+export interface DeleteWorkspaceResult {
+  osmRequestSucceeded: boolean;
+}
+
 export class WorkspacesClient extends BaseHttpClient implements ICancelableClient {
   #tdeiClient: TdeiClient;
   #osmClient: OsmApiClient;
@@ -241,11 +245,15 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     );
   }
 
-  async deleteWorkspace(id: WorkspaceId): Promise<void> {
-    await Promise.all([
+  async deleteWorkspace(id: WorkspaceId): Promise<DeleteWorkspaceResult> {
+    const [workspaceDelete, osmDelete] = await Promise.allSettled([
       this._delete(`workspaces/${id}`),
       this.#osmClient.deleteWorkspace(id),
     ]);
+    if (workspaceDelete.status === 'rejected') {
+      throw workspaceDelete.reason;
+    }
+    return { osmRequestSucceeded: osmDelete.status === 'fulfilled' };
   }
 
   async getLongFormQuestSettings(id: WorkspaceId): Promise<QuestSettings> {

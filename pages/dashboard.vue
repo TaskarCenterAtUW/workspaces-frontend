@@ -279,6 +279,7 @@ import {
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 import { parsePositiveIntegerQuery } from '~/util/route-query';
+import { findFailedImportJob } from '~/util/workspace-jobs';
 
 import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
 
@@ -313,6 +314,7 @@ const workspaceSearch = ref('');
 const pinnedWorkspaceIds = ref<Set<number>>(new Set());
 const refreshingWorkspaces = ref(false);
 const jobFailureDialog = useTemplateRef<JobFailureDialog>('jobFailureDialog');
+const verifiedCompletedImports = new Set<number>();
 
 const currentWorkspaces = computed<Workspace[]>(() =>
   currentProjectGroup.value
@@ -435,6 +437,7 @@ function selectWorkspace(
   updateRoute: boolean = true
 ): void {
   currentWorkspace.value = workspace;
+  void verifyCompletedImport(workspace);
 
   if (
     updateRoute
@@ -447,6 +450,27 @@ function selectWorkspace(
         workspace: String(workspace.id)
       }
     });
+  }
+}
+
+async function verifyCompletedImport(workspace: Workspace): Promise<void> {
+  if (
+    workspace.importStatus !== 'completed'
+    || verifiedCompletedImports.has(workspace.id)
+  ) {
+    return;
+  }
+
+  verifiedCompletedImports.add(workspace.id);
+
+  try {
+    const jobs = await workspacesClient.getWorkspaceJobs(workspace.id);
+    if (findFailedImportJob(jobs)) {
+      workspace.importStatus = 'failed';
+    }
+  }
+  catch {
+    verifiedCompletedImports.delete(workspace.id);
   }
 }
 
@@ -498,6 +522,7 @@ async function refreshWorkspaces(): Promise<void> {
 
   try {
     const refreshedWorkspaces = await workspacesClient.getMyWorkspaces();
+    verifiedCompletedImports.clear();
     const existingWorkspaces = new Map(
       workspaces.value.map(workspace => [workspace.id, workspace])
     );

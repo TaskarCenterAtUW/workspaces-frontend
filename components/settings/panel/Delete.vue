@@ -96,7 +96,15 @@ async function submitDelete() {
   isDeleting.value = true;
 
   try {
-    await workspacesClient.deleteWorkspace(workspace.id);
+    const { osmRequestSucceeded: osmCleanupSucceeded } = await workspacesClient.deleteWorkspace(workspace.id);
+
+    if (!osmCleanupSucceeded) {
+      toast.info(
+        'The workspace has been deleted, but the data may persist for some more time.',
+        { clearOnUrlChange: false }
+      );
+    }
+
     await navigateTo('/dashboard');
   }
   catch (error) {

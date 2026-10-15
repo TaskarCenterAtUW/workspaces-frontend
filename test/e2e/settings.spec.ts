@@ -104,6 +104,9 @@ function successToast(page: Page) {
 function errorToast(page: Page) {
   return page.locator('.Toastify__toast--error');
 }
+function infoToast(page: Page) {
+  return page.locator('.Toastify__toast--info');
+}
 
 test.describe('workspace settings', () => {
   // @test e2e: the workspace can be renamed with the "Workspace Title" field, then clicking "Rename";
@@ -431,6 +434,34 @@ test.describe('workspace settings', () => {
     releaseDelete();
     await expect.poll(() => deleteCalled).toBe(true);
     await expect(page).toHaveURL(/\/dashboard$/);
+  });
+
+  test('shows an info toast when deletion succeeds but OSM cleanup fails', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubSettings(page);
+
+    await page.route('**/workspaces/1', async (route) => {
+      if (route.request().method() === 'DELETE') {
+        return route.fulfill({ status: 204, body: '' });
+      }
+      return route.fallback();
+    });
+    await page.route('**/osm/**', (route) => {
+      return route.fulfill({ status: 403, body: 'Forbidden' });
+    });
+
+    await page.goto('/workspace/1/settings');
+
+    const del = page.locator('div.card', { hasText: 'Delete Workspace' });
+    await del.getByRole('button', { name: /^I understand/ }).click();
+    await del.getByRole('textbox').fill('delete');
+    await del.getByRole('button', { name: 'Delete this workspace', exact: true }).click();
+
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(infoToast(page)).toContainText(
+      'The workspace has been deleted, but the data may persist for some more time.'
+    );
+    await expect(errorToast(page)).toHaveCount(0);
   });
 
   // @test e2e: validate that all the API calls used on this page match the Swagger spec and that

@@ -1,5 +1,6 @@
 - navigation:
   - text: "/Feedback: #\\d+/"
   - button " Edit Here"
+  - button "Toggle dropdown"
   - button ""
   - button " Mark as Resolved"
