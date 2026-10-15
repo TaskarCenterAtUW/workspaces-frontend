@@ -5,7 +5,6 @@ import {
   type FetchConfig,
   type HttpBody,
 } from '~/services/http';
-import { OsmApiClientError } from '~/services/osm';
 import { buildPathwaysCsvArchive } from '~/services/pathways';
 import { compareStringAsc } from '~/util/compare';
 
@@ -78,6 +77,10 @@ export class WorkspacesClientError extends Error {
     super(`Workspaces request failed: ${response.statusText} (${response.url})`);
     this.response = response;
   }
+}
+
+export interface DeleteWorkspaceResult {
+  osmRequestSucceeded: boolean;
 }
 
 export class WorkspacesClient extends BaseHttpClient implements ICancelableClient {
@@ -276,31 +279,15 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     );
   }
 
-  /**
-   * Deletes the workspace's OSM database, then its row.
-   *
-   * The row goes second because deleting it removes every member's role, and
-   * where OSM requests pass through the API, it checks for the lead role
-   * before it drops the database, so a drop sent after the row delete would be
-   * refused.
-   *
-   * A refused drop (401 or 403) stops here and leaves the workspace intact. Any
-   * other failed response is taken to mean the database is already gone: the
-   * OSM API answers with an error, not a no-op, for a workspace that never had
-   * one, such as an import that failed before creating it, and stopping would
-   * leave that row impossible to delete.
-   */
-  async deleteWorkspace(id: WorkspaceId): Promise<void> {
-    try {
-      await this.#osmClient.deleteWorkspace(id);
+  async deleteWorkspace(id: WorkspaceId): Promise<DeleteWorkspaceResult> {
+    const [workspaceDelete, osmDelete] = await Promise.allSettled([
+      this._delete(`workspaces/${id}`),
+      this.#osmClient.deleteWorkspace(id),
+    ]);
+    if (workspaceDelete.status === 'rejected') {
+      throw workspaceDelete.reason;
     }
-    catch (error) {
-      if (!(error instanceof OsmApiClientError) || [401, 403].includes(error.response.status)) {
-        throw error;
-      }
-    }
-
-    await this._delete(`workspaces/${id}`);
+    return { osmRequestSucceeded: osmDelete.status === 'fulfilled' };
   }
 
   async getLongFormQuestSettings(id: WorkspaceId): Promise<QuestSettings> {

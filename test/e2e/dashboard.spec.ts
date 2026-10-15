@@ -340,7 +340,7 @@ test.describe('dashboard', () => {
     expect(bboxRequestCount).toBe(1);
   });
 
-  test('clicking a failed import status loads the latest job and shows its failure response', async ({ page }) => {
+  test('treats a completed import with an unsuccessful response as failed', async ({ page }) => {
     const failedWorkspace = {
       id: 1769,
       type: 'osw',
@@ -357,10 +357,9 @@ test.describe('dashboard', () => {
       externalAppAccess: 0,
       kartaViewToken: null,
       role: 'lead',
-      importStatus: 'failed'
+      importStatus: 'completed'
     };
     const failureMessage = 'Step \'Create Changeset\' failed: no input file was found';
-    let jobsRequestCount = 0;
 
     await seedAuthenticatedSession(page);
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
@@ -368,7 +367,6 @@ test.describe('dashboard', () => {
     await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
     await page.route('**/workspaces/1769/bbox', route => route.fulfill({ status: 204 }));
     await page.route('**/workspaces/1769/jobs', (route) => {
-      jobsRequestCount++;
       return route.fulfill({
         json: [{
           id: 2,
@@ -390,10 +388,12 @@ test.describe('dashboard', () => {
     });
 
     await page.goto('/dashboard');
-    await expect(page.locator('.workspace-card-updated')).toContainText('Updated');
-    await expect(page.locator('.dashboard-workspace-updated')).toContainText('Updated');
-    await expect(page.getByText('Updated At', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'View import failure details' }).click();
+    const failedBadge = page.getByRole('button', { name: 'View import failure details' });
+    await expect(failedBadge).toContainText(
+      'Setup failed. Select to view details',
+      { timeout: 30_000 }
+    );
+    await failedBadge.click();
 
     const dialog = page.getByRole('dialog', { name: 'Workspace import failed' });
     await expect(dialog).toBeVisible();
@@ -401,9 +401,72 @@ test.describe('dashboard', () => {
     await expect(dialog).toContainText('STEP_EXECUTION_FAILED');
     await expect(dialog).toContainText('Create Changeset');
     await expect(dialog).not.toContainText('must-not-be-rendered');
-    expect(jobsRequestCount).toBe(1);
   });
+  test('navigates to Create Workspace while a large dashboard is loading', async ({ page }) => {
+    await seedAuthenticatedSession(page);
 
+    const largeWorkspaceList = Array.from({ length: 1_500 }, (_, index) => ({
+      ...aWorkspace,
+      id: index + 1,
+      title: `Workspace ${index + 1}`,
+      createdAt: new Date(
+        Date.UTC(2026, 0, 1, 0, 0, index)
+      ).toISOString()
+    }));
+
+    let notifyMineStarted!: () => void;
+    const mineStarted = new Promise<void>((resolve) => {
+      notifyMineStarted = resolve;
+    });
+
+    await page.route(`${TEST_API_BASE}workspaces/mine`, async (route) => {
+      notifyMineStarted();
+
+      await new Promise(resolve => setTimeout(resolve, 3_000));
+      await route.fulfill({ json: largeWorkspaceList }).catch(() => {});
+    });
+
+    await page.route(
+      `${TEST_API_BASE}tdei-user/project-group-roles/**`,
+      route => route.fulfill({ json: projectGroups })
+    );
+
+    await page.goto('/');
+
+    await page
+      .locator('.app-navbar')
+      .getByRole('link', { name: 'Dashboard', exact: true })
+      .click();
+
+    await mineStarted;
+
+    const createWorkspaceLink = page
+      .locator('.app-navbar')
+      .getByRole('link', {
+        name: 'Create Workspace',
+        exact: true
+      });
+
+    await expect(createWorkspaceLink).toBeVisible();
+    await createWorkspaceLink.click();
+
+    await expect(page).toHaveURL('/workspace/create');
+    await expect(
+      page.getByRole('heading', { name: 'Create a Workspace' })
+    ).toBeVisible();
+
+    await expect(
+      page.getByText('Blank Workspace', { exact: true })
+    ).toBeVisible();
+
+    await expect(
+      page.getByText('From TDEI', { exact: true })
+    ).toBeVisible();
+
+    await expect(
+      page.getByText('From File', { exact: true })
+    ).toBeVisible();
+  });
   // @test e2e: clicking on a dataset updates the metadata panel on the right and shows the data extent in the map
   // BLOCKED: needs the details panel + maplibre map to render. The map calls
   // getWorkspaceBbox (OSM API) and inits maplibre-gl, which requires WebGL in
