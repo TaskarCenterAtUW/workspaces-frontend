@@ -116,6 +116,8 @@ const props = withDefaults(defineProps<{
 });
 const model = defineModel<string | null>({ required: true });
 
+const { canCreateInProjectGroup, getEligibleProjectGroupsForType, load: loadCapabilities } = useUserCapabilities();
+
 const generatedId = useId();
 const listboxId = computed(() => `${props.id || `dataset-picker-${generatedId}`}-options`);
 const pickerRef = ref<HTMLElement | null>(null);
@@ -198,9 +200,19 @@ async function loadDatasets(name: string) {
   activeIndex.value = -1;
 
   try {
+    await loadCapabilities();
     const results = await client.getAvailableDatasetsByName(name, 1, pageSize);
     if (requestId === requestSequence) {
-      datasets.value = results;
+      datasets.value = results.filter((item) => {
+        const raw = item.raw;
+        if (!raw) return true;
+        const isReleased = raw.status === 'Publish' || raw.is_released === true;
+        if (isReleased) {
+          return getEligibleProjectGroupsForType(raw.data_type).length > 0;
+        }
+        const pgId = raw.project_group?.tdei_project_group_id;
+        return canCreateInProjectGroup(pgId, raw.data_type);
+      });
       hasLoaded.value = true;
     }
   }

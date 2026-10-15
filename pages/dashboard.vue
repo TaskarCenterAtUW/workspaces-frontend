@@ -17,6 +17,7 @@
       </div>
 
       <nuxt-link
+        v-if="canCreateInCurrentProjectGroup"
         class="btn btn-primary dashboard-create-button"
         to="/workspace/create"
       >
@@ -27,6 +28,21 @@
         />
         Create Workspace
       </nuxt-link>
+      <button
+        v-else-if="canCreateAnyWorkspace"
+        type="button"
+        class="btn btn-primary dashboard-create-button disabled"
+        disabled
+        aria-disabled="true"
+        title="You do not have permission to create workspaces in this project group"
+      >
+        <app-icon
+          variant="add"
+          size="22"
+          no-margin
+        />
+        Create Workspace
+      </button>
     </header>
     <section
       v-if="requestedWorkspaceNotFound"
@@ -63,6 +79,7 @@
       <h2>No workspaces yet</h2>
       <p>No workspaces exist in the selected project group.</p>
       <nuxt-link
+        v-if="canCreateInCurrentProjectGroup"
         class="btn btn-primary"
         to="/workspace/create"
       >
@@ -298,6 +315,13 @@ const [initialWorkspaces, { items: myProjectGroups }] = await Promise.all([
   tdeiUserClient.getMyProjectGroups(1, '', 10000)
 ]);
 const workspaces = ref<Workspace[]>(initialWorkspaces);
+
+const { setProjectGroups, canCreateInProjectGroup, canCreateAnyWorkspace } = useUserCapabilities();
+setProjectGroups(myProjectGroups);
+
+const canCreateInCurrentProjectGroup = computed(() =>
+  canCreateInProjectGroup(currentProjectGroup.value)
+);
 
 const rolesByProjectGroup = new Map(
   myProjectGroups.map(projectGroup => [projectGroup.tdei_project_group_id, projectGroup.roles])

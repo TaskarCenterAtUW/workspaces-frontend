@@ -288,4 +288,126 @@ test.describe('create workspace from TDEI', () => {
 
     expect(contract.violations()).toEqual([]);
   });
+
+  test('Case 1: blocks creation from unreleased dataset when user is not POC/DG in that project group', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubHappyPath(page);
+
+    const PG_A = '11111111-1111-1111-1111-111111111111';
+    const PG_B = '22222222-2222-2222-2222-222222222222';
+
+    await page.route('**/tdei-user/project-group-roles/**', (route: Route) =>
+      route.fulfill({
+        json: [
+          { tdei_project_group_id: PG_A, project_group_name: 'Group A', roles: ['member'] },
+          { tdei_project_group_id: PG_B, project_group_name: 'Group B', roles: ['poc'] }
+        ]
+      })
+    );
+
+    const unreleasedDataset = {
+      ...TDEI_DATASET,
+      tdei_dataset_id: 'unreleased-dx',
+      status: 'Pre-Release',
+      project_group: { tdei_project_group_id: PG_A, name: 'Group A' }
+    };
+
+    await page.route('**/tdei/datasets**', (route: Route) =>
+      route.fulfill({ json: [unreleasedDataset] })
+    );
+
+    await page.goto('/workspace/create/tdei?tdeiRecordId=unreleased-dx');
+
+    await expect(page.getByRole('alert')).toContainText(
+      'You do not have permission to create a workspace from an unreleased dataset in this project group.'
+    );
+    await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeDisabled();
+  });
+
+  test('Case 2: redirects to dashboard when user has only member role across all project groups', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubHappyPath(page);
+
+    await page.route('**/tdei-user/project-group-roles/**', (route: Route) =>
+      route.fulfill({
+        json: [
+          { tdei_project_group_id: 'pg-1', project_group_name: 'Group 1', roles: ['member'] },
+          { tdei_project_group_id: 'pg-2', project_group_name: 'Group 2', roles: ['member'] }
+        ]
+      })
+    );
+
+    await page.goto('/workspace/create/tdei');
+    await expect(page).toHaveURL(/\/dashboard/);
+  });
+
+  test('Case 3: defaults to eligible project group when opening a released dataset', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubHappyPath(page);
+
+    const PG_A = '11111111-1111-1111-1111-111111111111';
+    const PG_B = '22222222-2222-2222-2222-222222222222';
+
+    await page.route('**/tdei-user/project-group-roles/**', (route: Route) =>
+      route.fulfill({
+        json: [
+          { tdei_project_group_id: PG_A, project_group_name: 'Group A', roles: ['member'] },
+          { tdei_project_group_id: PG_B, project_group_name: 'Group B', roles: ['poc'] }
+        ]
+      })
+    );
+
+    const releasedDataset = {
+      ...TDEI_DATASET,
+      tdei_dataset_id: 'released-dy',
+      status: 'Publish',
+      project_group: { tdei_project_group_id: PG_A, name: 'Group A' }
+    };
+
+    await page.route('**/tdei/datasets**', (route: Route) =>
+      route.fulfill({ json: [releasedDataset] })
+    );
+
+    await page.goto('/workspace/create/tdei?tdeiRecordId=released-dy');
+
+    // Group B should be automatically selected because user is POC in Group B (only member in Group A)
+    const pgInput = page.locator('#create_tdei_project_group');
+    await expect(pgInput).toHaveValue('Group B');
+    await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeEnabled();
+  });
+
+  test('blocks creation when user only has data generator role for a different data type', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubHappyPath(page);
+
+    const PG_A = '11111111-1111-1111-1111-111111111111';
+
+    // User only has pathways_data_generator, but dataset is OSW
+    await page.route('**/tdei-user/project-group-roles/**', (route: Route) =>
+      route.fulfill({
+        json: [
+          { tdei_project_group_id: PG_A, project_group_name: 'Group A', roles: ['pathways_data_generator'] }
+        ]
+      })
+    );
+
+    const unreleasedOsw = {
+      ...TDEI_DATASET,
+      tdei_dataset_id: 'unreleased-osw',
+      status: 'Draft',
+      data_type: 'osw',
+      project_group: { tdei_project_group_id: PG_A, name: 'Group A' }
+    };
+
+    await page.route('**/tdei/datasets**', (route: Route) =>
+      route.fulfill({ json: [unreleasedOsw] })
+    );
+
+    await page.goto('/workspace/create/tdei?tdeiRecordId=unreleased-osw');
+
+    await expect(
+      page.getByText('You do not have permission to create a workspace from an unreleased dataset in this project group.')
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeDisabled();
+  });
 });
