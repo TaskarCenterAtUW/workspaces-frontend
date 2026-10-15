@@ -192,11 +192,15 @@ export class Rapid3Manager {
     //
     const l10n = context.systems.l10n;
     l10n.prependListener('localechange', () => {
-      let code = l10n.localeCode;
-      // Note that internally, 'en-US' is actually stored under 'en'
-      if (code === 'en-US') {
-        code = 'en';
+      // The replacements below are English, so only apply them to English locales.
+      // Other locales keep Rapid's own translations.
+      const code = String(l10n.localeCode ?? '').toLowerCase();
+      if (code !== 'en' && !code.startsWith('en-')) {
+        return;
       }
+      // Internally 'en-US' is stored under 'en'; other English variants (e.g. 'en-GB')
+      // fall back to 'en', so write the overrides there and under the variant itself.
+      const codes = code === 'en' || code === 'en-us' ? ['en'] : ['en', l10n.localeCode];
       // Change strings
       const replacements = {
         'loading_auth': 'Connecting...', // was: "Connecting to OpenStreetMap..."
@@ -214,12 +218,14 @@ export class Rapid3Manager {
         'map_data.layers.osm.feature': 'Workspace Data', // was: "OpenStreetMap Feature"
         'map_data.layers.notes.tooltip': 'Notes in this Workspace', // was: "Note data from OpenStreetMap"
         'map_data.layers.notes.title': 'Workspace Notes', // was: "OpenStreetMap Notes"
-        'map_data.layers.osmhidden': 'These features have been automatically hidden because the Workspace layer is hidden.',
+        'map_data.osmhidden': 'These features have been automatically hidden because the Workspace layer is hidden.',
         'shortcuts.command.toggle_osm_data.label': 'Toggle Workspace data', // was: "Toggle OpenStreetMap data"
-        'shortcuts.command.toggle_osm_notes.label': 'Toggle Workspace notes', // was: "Toggle OpenStreetMap notes"
+        'shortcuts.command.toggle_osm_notes.label': 'Toggle Workspace notes' // was: "Toggle OpenStreetMap notes"
       };
-      for (const [k, v] of Object.entries(replacements)) {
-        l10n._store.set(`${code}.core.${k}`, v);
+      for (const c of codes) {
+        for (const [k, v] of Object.entries(replacements)) {
+          l10n._store.set(`${c}.core.${k}`, v);
+        }
       }
     });
   }
