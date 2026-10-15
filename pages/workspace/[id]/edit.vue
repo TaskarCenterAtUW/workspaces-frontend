@@ -8,6 +8,7 @@
   <div
     ref="editorContainer"
     class="editorContainer"
+    :class="{ rapid3: isRapid3 }"
   />
 </template>
 
@@ -22,6 +23,7 @@ const editorContainer = ref<HTMLDivElement | null>(null);
 
 const oswManager = (editor === 'rapid3' && rapid3Manager) ? rapid3Manager : rapidManager
 const manager = datatype === 'osw' ? oswManager : pathwaysManager
+const isRapid3 = manager === rapid3Manager;
 
 function onEditorLoaded() {
   editorContainer.value!.appendChild(manager.containerNode);
@@ -66,5 +68,20 @@ onMounted(() => {
 }
 .editorContainer kbd {
   color: unset;
+}
+
+/* Remove extra language about OpenStreetMap (Rapid 3 only; the l10n overrides
+   in services/rapid3.ts cover the rest) */
+/* view on openstreetmap.org: feature inspector */
+.editorContainer.rapid3 .inspector-wrap .sidebar-footer,
+/* view on openstreetmap.org / report a note: note editor */
+.editorContainer.rapid3 .body:has(.note-editor) ~ .sidebar-footer,
+/* your changes will be visible on maps that use OpenStreetMap */
+.editorContainer.rapid3 .save-section .commit-info,
+/* your changes should appear on OpenStreetMap within a few minutes */
+.editorContainer.rapid3 .save-summary > p,
+/* Like OpenStreetMap? Connect with others */
+.editorContainer.rapid3 .save-communityLinks {
+  display: none;
 }
 </style>
