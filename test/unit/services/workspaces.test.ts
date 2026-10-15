@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { WorkspacesClient, WorkspacesClientError } from '~/services/workspaces';
 import { server } from '../../mocks/server';
 import { TEST_API_BASE } from '../../mocks/fixtures';
