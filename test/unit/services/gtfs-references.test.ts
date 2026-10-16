@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildReferenceIndex, referenceProblems } from '~/services/gtfs-references';
+import { buildReferenceIndex, referenceProblems, suggestedStopIds } from '~/services/gtfs-references';
 import type { LevelEntity } from '~/services/pathways-levels';
 
 // GTFS references between stops must resolve: parent_station to a station (a
@@ -90,5 +90,38 @@ describe('referenceProblems', () => {
     const index = buildReferenceIndex(station());
     expect(referenceProblems(node('x'), index)).toEqual([]);
     expect(referenceProblems(levelArea('a9', 'NOPE'), index)).toEqual([]);
+  });
+});
+
+describe('suggestedStopIds', () => {
+  it('suggests stop_ids for stations and platforms without one, from their names', () => {
+    const suggestions = suggestedStopIds([
+      node('s1', { location_type: '1', stop_name: 'Central Station' }),
+      node('s2', { location_type: '1' }),
+      node('p1', { location_type: '0', stop_name: 'Platform 1' }),
+      node('p2', { stop_name: '  ' }), // empty location_type = platform
+      node('e1', { location_type: '2', stop_name: 'Main entrance' }), // entrances aren't parents
+      node('s3', { location_type: '1', stop_id: 'HAS_ONE' })
+    ]);
+    expect(Object.fromEntries(suggestions)).toEqual({
+      s1: 'CENTRAL_STATION', s2: 'STATION', p1: 'PLATFORM_1', p2: 'PLATFORM'
+    });
+  });
+
+  it('keeps suggestions unique, avoiding existing stop_ids', () => {
+    const suggestions = suggestedStopIds([
+      node('s0', { location_type: '1', stop_id: 'CENTRAL' }),
+      node('s1', { location_type: '1', stop_name: 'Central' }),
+      node('s2', { location_type: '1', stop_name: 'central!' })
+    ]);
+    expect([...suggestions.values()]).toEqual(['CENTRAL_2', 'CENTRAL_3']);
+  });
+
+  it('lets a parent_station name a station\'s suggested stop_id without a warning', () => {
+    const entities = [
+      node('s1', { location_type: '1', stop_name: 'Central' }),
+      node('e1', { location_type: '2', parent_station: 'CENTRAL' })
+    ];
+    expect(referenceProblems(entities[1]!, buildReferenceIndex(entities))).toEqual([]);
   });
 });

@@ -41,11 +41,47 @@ const locationType = (entity: LevelEntity) => {
   return type === '' ? '0' : type; // empty means 0 (stop / platform)
 };
 
+/** location_types that other stops point at with parent_station: stations, and platforms (for boarding areas). */
+const PARENT_TYPES = new Set(['0', '1']);
+
+/**
+ * stop_ids to give stations and platforms that don't have one yet, so they can
+ * be chosen as a parent_station: their stop_name in upper snake case (e.g.
+ * "Central Station" -> CENTRAL_STATION), or STATION / PLATFORM, made unique
+ * with a numeric suffix. Deterministic for the same data, so the editor and the
+ * reference checks agree on them before they're written.
+ * @returns entity ID -> suggested stop_id
+ */
+export function suggestedStopIds(entities: LevelEntity[]): Map<string | number, string> {
+  const stops = stopNodes(entities);
+  const taken = new Set(stops.map(stop => stop.tags?.stop_id?.trim()).filter(Boolean) as string[]);
+  const suggestions = new Map<string | number, string>();
+
+  const needIds = stops
+    .filter(stop => !stop.tags?.stop_id?.trim() && PARENT_TYPES.has(locationType(stop)))
+    .sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+  for (const stop of needIds) {
+    const fromName = (stop.tags?.stop_name ?? '').trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const base = fromName || (locationType(stop) === '1' ? 'STATION' : 'PLATFORM');
+    let candidate = base;
+    for (let n = 2; taken.has(candidate); n++) candidate = `${base}_${n}`;
+    taken.add(candidate);
+    suggestions.set(stop.id, candidate);
+  }
+  return suggestions;
+}
+
 export function buildReferenceIndex(entities: LevelEntity[]): ReferenceIndex {
   const stopsByStopId = new Map<string, LevelEntity[]>();
   for (const stop of stopNodes(entities)) {
     const stopId = stop.tags?.stop_id?.trim();
     if (stopId) stopsByStopId.set(stopId, [...(stopsByStopId.get(stopId) ?? []), stop]);
+  }
+  // A parent_station may name a station's suggested stop_id just before the
+  // editor writes it onto the station (see Rapid3LevelTools), so count those.
+  const byId = new Map(entities.map(entity => [entity.id, entity]));
+  for (const [id, stopId] of suggestedStopIds(entities)) {
+    if (!stopsByStopId.has(stopId)) stopsByStopId.set(stopId, [byId.get(id)!]);
   }
 
   const levelIds = new Set<string>();

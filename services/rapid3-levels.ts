@@ -16,6 +16,7 @@ import {
   unleveledStops
 } from '~/services/pathways-levels';
 import type { Level, LevelView, StationIndex, StationLevelGroup } from '~/services/pathways-levels';
+import { suggestedStopIds } from '~/services/gtfs-references';
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
 declare const Rapid: any;
@@ -118,8 +119,11 @@ export class Rapid3LevelTools {
   #refreshTimer: ReturnType<typeof setTimeout> | undefined;
   #viewportTimer: ReturnType<typeof setTimeout> | undefined;
   #stationIndex: StationIndex = { stations: new Map(), stationOfStop: new Map(), stationsByLevel: new Map() };
-  /** Platforms with a stop_id (what a boarding area's parent_station can name). */
+  /** Stations to offer as a parent_station (incl. ones getting a suggested stop_id). */
+  #stations: ReferenceChoice[] = [];
+  /** Platforms to offer as a boarding area's parent_station (likewise). */
   #platforms: ReferenceChoice[] = [];
+  #assigningStopIds = false;
 
   constructor(context: any) {
     this.#context = context;
@@ -134,6 +138,8 @@ export class Rapid3LevelTools {
     for (const event of ['merge', 'stablechange', 'historyjump']) {
       editor.on(event, scheduleRefresh);
     }
+    // Right after an edit (not batched): write any suggested stop_id it used.
+    editor.on('stablechange', () => this.#assignReferencedStopIds());
 
     // Track which stations are in view as the map moves.
     context.systems.map?.on?.('mapchange', () => {
@@ -160,9 +166,23 @@ export class Rapid3LevelTools {
     this.unleveled.value = unleveledStops(entities).map(describeStop);
     this.levelAreasMissingId.value = levelAreasMissingId(entities)
       .map(area => ({ id: area.id, label: area.tags?.level_name?.trim() || area.id, levelId: undefined }));
-    this.#platforms = stopNodes(entities)
-      .filter(stop => ['', '0'].includes(stop.tags?.location_type?.trim() ?? '') && stop.tags?.stop_id?.trim())
-      .map(stop => choice(stop.tags.stop_id.trim(), stop.tags.stop_name?.trim()))
+    // Stations and platforms that may be a parent_station. Those without a
+    // stop_id are offered under a suggested one, written once it's used.
+    const suggested = suggestedStopIds(entities);
+    const parentChoice = (stop: any): ReferenceChoice => {
+      const stopId = stop.tags?.stop_id?.trim();
+      if (stopId) return choice(stopId, stop.tags?.stop_name?.trim());
+      const name = stop.tags?.stop_name?.trim() || `Unnamed ${stop.tags?.location_type?.trim() === '1' ? 'station' : 'platform'}`;
+      return { value: suggested.get(stop.id)!, label: `${name} (new stop_id ${suggested.get(stop.id)})` };
+    };
+    const candidates = stopNodes(entities).filter(stop => stop.tags?.stop_id?.trim() || suggested.has(stop.id));
+    this.#stations = candidates
+      .filter(stop => stop.tags?.location_type?.trim() === '1')
+      .map(parentChoice)
+      .sort(byLabel);
+    this.#platforms = candidates
+      .filter(stop => ['', '0'].includes(stop.tags?.location_type?.trim() ?? ''))
+      .map(parentChoice)
       .sort(byLabel);
     this.#labelReferenceChoices();
     this.updateVisibleStations();
@@ -194,12 +214,43 @@ export class Rapid3LevelTools {
     }
     if (key === 'parent_station') {
       const entity = entityId ? this.#graph().hasEntity(entityId) : undefined;
-      if (entity?.tags?.location_type?.trim() === '4') return this.#platforms;
-      return [...this.#stationIndex.stations.values()]
-        .map(station => choice(station.stopId, station.name))
-        .sort(byLabel);
+      return entity?.tags?.location_type?.trim() === '4' ? this.#platforms : this.#stations;
     }
     return undefined;
+  }
+
+  /**
+   * After an edit, gives a station or platform the suggested stop_id that a
+   * stop now names as its parent_station (picked from the field's choices),
+   * folded into that same edit so one undo reverts both.
+   */
+  #assignReferencedStopIds() {
+    if (this.#assigningStopIds) return;
+    const editor = this.#context.systems.editor;
+    const entities = this.#entities();
+    const suggested = suggestedStopIds(entities);
+    if (!suggested.size) return;
+
+    const referenced = new Set(entities.map(entity => entity.tags?.parent_station?.trim()).filter(Boolean));
+    const graph = this.#graph();
+    const actions = [...suggested]
+      .filter(([, stopId]) => referenced.has(stopId))
+      .map(([id, stopId]) => {
+        const stop = graph.hasEntity(id);
+        return Rapid.actionChangeTags(id, { ...stop.tags, stop_id: stopId });
+      });
+    if (!actions.length) return;
+
+    this.#assigningStopIds = true;
+    try {
+      editor.perform(...actions);
+      editor.commitAppend({
+        annotation: editor.getUndoAnnotation?.() ?? 'Set stop_id',
+        selectedIDs: this.#context.selectedIDs?.() ?? []
+      });
+    } finally {
+      this.#assigningStopIds = false;
+    }
   }
 
   /**
@@ -214,7 +265,7 @@ export class Rapid3LevelTools {
 
     const choices: Record<string, ReferenceChoice[]> = {
       level_id: this.referenceChoices('level_id')!,
-      parent_station: [...this.referenceChoices('parent_station')!, ...this.#platforms]
+      parent_station: [...this.#stations, ...this.#platforms]
     };
     for (const code of new Set(['en', l10n.localeCode].filter(Boolean))) {
       for (const [field, list] of Object.entries(choices)) {

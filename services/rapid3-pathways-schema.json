@@ -60,14 +60,20 @@
           "type": "combo",
           "customValues": false,
           "snake_case": false,
-          "caseSensitive": true
+          "caseSensitive": true,
+          "placeholder": "Pick a level (levels need an outline)"
         },
         "parent_station": {
           "key": "parent_station",
           "type": "combo",
           "customValues": false,
           "snake_case": false,
-          "caseSensitive": true
+          "caseSensitive": true,
+          "placeholder": "Pick a station (a platform, for boarding areas)"
+        },
+        "stop_id": {
+          "key": "stop_id",
+          "type": "text"
         },
         "stop_name": {
           "key": "stop_name",
@@ -137,7 +143,8 @@
           ],
           "fields": [
             "level_id",
-            "stop_name"
+            "stop_name",
+            "stop_id"
           ],
           "moreFields": [
             "parent_station",
@@ -160,7 +167,8 @@
             "point"
           ],
           "fields": [
-            "stop_name"
+            "stop_name",
+            "stop_id"
           ],
           "moreFields": [
             "stop_code",
@@ -187,6 +195,7 @@
             "parent_station"
           ],
           "moreFields": [
+            "stop_id",
             "stop_code",
             "tts_stop_name",
             "stop_desc",
@@ -209,6 +218,7 @@
             "parent_station"
           ],
           "moreFields": [
+            "stop_id",
             "stop_name",
             "stop_code",
             "tts_stop_name",
@@ -234,6 +244,7 @@
             "zone_id"
           ],
           "moreFields": [
+            "stop_id",
             "stop_name",
             "stop_code",
             "tts_stop_name",

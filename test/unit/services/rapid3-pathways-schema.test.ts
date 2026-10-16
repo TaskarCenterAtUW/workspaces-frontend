@@ -123,6 +123,15 @@ describe('Rapid 3 pathways schema', () => {
       }
     });
 
+    it('shows stop_id on every stop type, up front on stations and platforms', () => {
+      expect(fields.stop_id).toEqual({ key: 'stop_id', type: 'text' });
+      expect(presets.station!.fields).toContain('stop_id');
+      expect(presets.platform!.fields).toContain('stop_id');
+      for (const id of ['entrance_exit', 'node', 'boarding_area']) {
+        expect(presets[id]!.moreFields, id).toContain('stop_id');
+      }
+    });
+
     it('treats zone_id as free text', () => {
       expect(fields.zone_id).toEqual({ key: 'zone_id', type: 'text' });
     });

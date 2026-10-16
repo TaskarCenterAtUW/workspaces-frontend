@@ -24,7 +24,11 @@ function fakeContext(entities: Entity[]) {
     staging: { graph },
     on: (event: string, fn: () => void) => listeners.set(event, [...(listeners.get(event) ?? []), fn]),
     perform: vi.fn((...actions: ((g: typeof graph) => void)[]) => actions.forEach(action => action(graph))),
-    commit: vi.fn()
+    commit: vi.fn(),
+    commitAppend: vi.fn(),
+    getUndoAnnotation: () => 'Changed tags',
+    /** Test helper: fires an editor event's listeners. */
+    emit: (event: string) => (listeners.get(event) ?? []).forEach(fn => fn())
   };
   const filters = {
     _forceVisible: new Set<string>(),
@@ -366,9 +370,13 @@ describe('Rapid3LevelTools', () => {
         { value: 'ANNEX', label: 'ANNEX' },
         { value: 'CENTRAL', label: 'Central (CENTRAL)' }
       ]);
+      // Platforms without a stop_id (n1, and n9 with an empty location_type) are
+      // offered under a suggested one.
       expect(tools.referenceChoices('parent_station', 'b1')).toEqual([
         { value: 'P2', label: 'P2' },
-        { value: 'P1', label: 'Platform 1 (P1)' }
+        { value: 'P1', label: 'Platform 1 (P1)' },
+        { value: 'PLATFORM_A', label: 'Platform A (new stop_id PLATFORM_A)' },
+        { value: 'ROOF', label: 'Roof (new stop_id ROOF)' }
       ]);
       expect(tools.referenceChoices('stop_name')).toBeUndefined();
     });
@@ -383,6 +391,48 @@ describe('Rapid3LevelTools', () => {
       expect(set).toHaveBeenCalledWith(['en', 'tagging', 'presets', 'fields', 'level_id', 'options', 'L1'], 'Concourse (L1)');
       expect(set).toHaveBeenCalledWith(['en-GB', 'tagging', 'presets', 'fields', 'parent_station', 'options', 'CENTRAL'], 'Central (CENTRAL)');
       expect(set).toHaveBeenCalledWith(['en', 'tagging', 'presets', 'fields', 'parent_station', 'options', 'P1'], 'Platform 1 (P1)');
+    });
+  });
+
+  describe('stations without a stop_id', () => {
+    const data = () => [
+      node('s1', { location_type: '1', stop_name: 'Central' }), // no stop_id yet
+      node('e1', { location_type: '2' })
+    ];
+
+    it('offers them as a parent_station under a suggested stop_id', () => {
+      const tools = new Rapid3LevelTools(fakeContext(data()));
+      expect(tools.referenceChoices('parent_station', 'e1')).toEqual([
+        { value: 'CENTRAL', label: 'Central (new stop_id CENTRAL)' }
+      ]);
+    });
+
+    it('gives the station that stop_id when a stop picks it, in the same undo step', () => {
+      const context = fakeContext(data());
+      (context as any).selectedIDs = () => ['e1'];
+      new Rapid3LevelTools(context);
+
+      // The user picks "Central" for the entrance's parent_station.
+      context.local.set('e1', { ...context.graph.hasEntity('e1')!, tags: { location_type: '2', parent_station: 'CENTRAL' } });
+      context.systems.editor.emit('stablechange');
+
+      expect(context.graph.hasEntity('s1')!.tags).toEqual({ location_type: '1', stop_name: 'Central', stop_id: 'CENTRAL' });
+      expect(context.systems.editor.commitAppend).toHaveBeenCalledWith({ annotation: 'Changed tags', selectedIDs: ['e1'] });
+      expect(context.systems.editor.commit).not.toHaveBeenCalled();
+
+      // Nothing more to write after that.
+      context.systems.editor.emit('stablechange');
+      expect(context.systems.editor.commitAppend).toHaveBeenCalledTimes(1);
+    });
+
+    it('writes nothing while no stop uses the suggestion', () => {
+      const context = fakeContext(data());
+      new Rapid3LevelTools(context);
+
+      context.systems.editor.emit('stablechange');
+
+      expect(context.systems.editor.perform).not.toHaveBeenCalled();
+      expect(context.graph.hasEntity('s1')!.tags!.stop_id).toBeUndefined();
     });
   });
 });
