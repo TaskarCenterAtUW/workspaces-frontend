@@ -6,6 +6,7 @@ import {
 } from '@zip.js/zip.js';
 
 import { parseCsv } from '~/util/csv';
+import { isLevelArea, isPathway, stopNodes } from '~/services/pathways-levels';
 import { createEmptyGtfsDataset, createGtfsArchive } from '~/util/gtfs';
 import * as xml from '~/util/xml';
 import type { TdeiAuthStore } from '~/services/tdei';
@@ -124,6 +125,7 @@ const STOPS_COLUMNS = [
   'stop_lon', 'zone_id', 'stop_url', 'location_type', 'parent_station',
   'stop_timezone', 'wheelchair_boarding', 'level_id', 'platform_code', 'stop_access'
 ];
+const LEVELS_COLUMNS = ['level_id', 'level_index', 'level_name'];
 const PATHWAYS_COLUMNS = [
   'pathway_id', 'from_stop_id', 'to_stop_id', 'pathway_mode', 'is_bidirectional',
   'length', 'traversal_time', 'stair_count', 'max_slope', 'min_width',
@@ -149,6 +151,7 @@ function toCsv(columns: string[], rows: Record<string, unknown>[]): string {
 // with an agency's own (often numeric) IDs and are recognizable in the feed.
 export const GENERATED_STOP_ID_PREFIX = 'ws-n';
 export const GENERATED_PATHWAY_ID_PREFIX = 'ws-w';
+export const GENERATED_LEVEL_ID_PREFIX = 'ws-l';
 
 /**
  * Picks a unique GTFS ID for each element, keyed by OSM element ID.
@@ -186,19 +189,52 @@ function assignGtfsIds(elements: any[], idTag: string, prefix: string): Map<numb
   return ids;
 }
 
+/**
+ * Builds levels.txt from the level areas drawn in the workspace, on top of the
+ * dataset's original levels.txt (if any). Original levels are kept, since stops
+ * may still reference them, unless a drawn level has the same level_id. Returns
+ * undefined when there are no levels at all.
+ */
+async function buildLevelsCsv(levelAreas: any[], originalCsv?: string): Promise<string | undefined> {
+  const rows = new Map<string, Record<string, unknown>>();
+
+  if (originalCsv?.trim()) {
+    for (const row of await parseCsv(originalCsv) as Record<string, string>[]) {
+      const levelId = row.level_id?.trim();
+      if (levelId) rows.set(levelId, row);
+    }
+  }
+
+  // Areas sharing a level_id are the same level; the first one's tags win.
+  const levelIds = new Map<string, any>();
+  for (const area of levelAreas) {
+    const levelId = String(area.tags.level_id ?? '').trim();
+    if (levelId && !levelIds.has(levelId)) levelIds.set(levelId, area);
+  }
+  const untagged = levelAreas.filter(area => !String(area.tags.level_id ?? '').trim());
+  const generatedIds = assignGtfsIds(untagged, 'level_id', GENERATED_LEVEL_ID_PREFIX);
+
+  const drawn: [string, any][] = [
+    ...levelIds.entries(),
+    ...untagged.map(area => [generatedIds.get(area.id)!, area] as [string, any])
+  ];
+  for (const [levelId, area] of drawn) {
+    rows.set(levelId, { ...area.tags, level_id: levelId });
+  }
+
+  return rows.size ? toCsv(LEVELS_COLUMNS, [...rows.values()]) : undefined;
+}
+
 export async function buildPathwaysCsvArchive(elements: any[], gtfsFiles?: Map<string, string>): Promise<Blob> {
   if (!gtfsFiles) {
     gtfsFiles = createEmptyGtfsDataset();
   }
 
-  const nodes = elements.filter(element => element.type === 'node');
-  const ways = elements.filter(element => element.type === 'way' && element.nodes?.length >= 2);
-
   // A GTFS pathway runs between two stops and has no geometry of its own, so only
-  // a way's first and last nodes are its endpoints. Nodes in between that carry
-  // no tags are just bends in the drawn line, not stops.
-  const endpointIds = new Set(ways.flatMap(way => [way.nodes[0], way.nodes.at(-1)]));
-  const stops = nodes.filter(node => endpointIds.has(node.id) || Object.keys(node.tags ?? {}).length > 0);
+  // a way's first and last nodes are its endpoints. Untagged nodes that only
+  // shape a line or a level box aren't stops. Level boxes aren't pathways.
+  const ways = elements.filter(isPathway);
+  const stops = stopNodes(elements);
 
   const stopIds = assignGtfsIds(stops, 'stop_id', GENERATED_STOP_ID_PREFIX);
   const pathwayIds = assignGtfsIds(ways, 'pathway_id', GENERATED_PATHWAY_ID_PREFIX);
@@ -221,6 +257,11 @@ export async function buildPathwaysCsvArchive(elements: any[], gtfsFiles?: Map<s
 
   gtfsFiles.set('pathways.txt', pathwaysCsv);
   gtfsFiles.set('stops.txt', stopsCsv);
+
+  const levelsCsv = await buildLevelsCsv(elements.filter(isLevelArea), gtfsFiles.get('levels.txt'));
+  if (levelsCsv) {
+    gtfsFiles.set('levels.txt', levelsCsv);
+  }
 
   return await createGtfsArchive(gtfsFiles);
 }

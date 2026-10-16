@@ -1,6 +1,7 @@
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
 import type { TdeiAuthStore } from '~/services/tdei'
 import pathwaysSchema from '~/services/rapid3-pathways-schema.json'
+import { Rapid3LevelTools } from '~/services/rapid3-levels'
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
 declare const Rapid: any
@@ -35,6 +36,9 @@ export class Rapid3Manager {
    * edit page reloads rather than reusing a Rapid instance across datatypes.
    */
   datatype: string | undefined
+
+  /** GTFS level tools, set once a pathways workspace has started (see `init`). */
+  levelTools = shallowRef<Rapid3LevelTools | undefined>()
 
   /**
    * @constructor
@@ -141,6 +145,11 @@ export class Rapid3Manager {
       .then(() => context.initAsync())
       .then(() => this.#preStart())
       .then(() => context.startAsync())
+      .then(() => {
+        if (datatype === 'pathways') {
+          this.levelTools.value = new Rapid3LevelTools(context)
+        }
+      })
   }
 
   /**

@@ -66,6 +66,8 @@ const RAPID2_SCRIPT = (route: Route) => route.fulfill({
 //   - context.systems.imagery / .styles (#preStart merges overrides)
 //   - context.systems.schema            (#preStart merges the pathways schema; the
 //                                        fake records merged assetIDs on window.__schemaMerges)
+//   - context.systems.editor / .filters (pathways level tools read the graph and wrap
+//                                        the filter methods once Rapid has started)
 const RAPID3_SCRIPT = (route: Route) => route.fulfill({
   contentType: 'application/javascript',
   body: `
@@ -89,7 +91,17 @@ const RAPID3_SCRIPT = (route: Route) => route.fulfill({
           // Styles merge just before the schema step in #preStart; flag it so tests
           // can tell the schema step has run.
           styles: { merge: () => { window.__stylesMerged = true; } },
-          schema: { merge: (input) => { (window.__schemaMerges ||= []).push(input.assetID); } }
+          schema: { merge: (input) => { (window.__schemaMerges ||= []).push(input.assetID); } },
+          editor: {
+            on: () => {},
+            staging: { graph: {
+              base: { entities: new Map() },
+              local: { entities: new Map() },
+              hasEntity: () => undefined,
+              parentWays: () => []
+            } }
+          },
+          filters: { isHidden: () => null, filterScene: (entities) => entities, emit: () => {} }
         };
       }
     };
@@ -242,6 +254,32 @@ test.describe('workspace edit (editor host)', () => {
     await expect.poll(() => page.evaluate(() => (window as any).__stylesMerged === true)).toBe(true);
     expect(await page.evaluate(() => (window as any).__schemaMerges ?? [])).toEqual([]);
   });
+
+  // @test e2e: Rapid 3 on a pathways workspace shows a level panel next to the editor; other editors and datatypes don't
+  test('shows the level panel for Rapid 3 on a pathways workspace', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubAllEditors(page);
+
+    await page.goto('/workspace/1/edit?datatype=pathways&editor=rapid3');
+
+    await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+    const panel = page.getByRole('complementary', { name: 'Levels' });
+    await expect(panel).toBeVisible();
+    await expect(panel).toMatchAriaSnapshot();
+  });
+
+  // @test e2e: Rapid 3 on a pathways workspace shows a level panel next to the editor; other editors and datatypes don't
+  for (const query of ['datatype=osw&editor=rapid3', 'datatype=osw', 'datatype=pathways']) {
+    test(`does not show the level panel for ${query}`, async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubAllEditors(page);
+
+      await page.goto(`/workspace/1/edit?${query}`);
+
+      await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+      await expect(page.getByRole('complementary', { name: 'Levels' })).toHaveCount(0);
+    });
+  }
 
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
   test('all API calls conform to the OpenAPI spec', async ({ page }) => {

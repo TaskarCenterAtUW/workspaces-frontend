@@ -4,14 +4,21 @@
 // @test e2e: loading this page with the "osw" datatype query param loads the OpenSidewalks editor, and without it loads the Pathways editor (playwright snapshot each editor's UI)
 // @test e2e: loading this page with editor=rapid3 and a non-osw datatype (e.g. pathways) loads Rapid 3 instead of the Pathways editor (playwright snapshot this)
 // @test e2e: loading Rapid 3 for a pathways workspace swaps in the GTFS Pathways presets; loading it for an osw workspace keeps the OSM presets
+// @test e2e: Rapid 3 on a pathways workspace shows a level panel next to the editor; other editors and datatypes don't
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
-  <div
-    ref="editorContainer"
-    class="editorContainer"
-    :class="{ rapid3: isRapid3 }"
-  />
+  <div class="edit-page">
+    <div
+      ref="editorContainer"
+      class="editorContainer"
+      :class="{ rapid3: isRapid3 }"
+    />
+    <edit-pathways-level-panel
+      v-if="levelTools"
+      :tools="levelTools"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -29,6 +36,9 @@ const manager = (editor === 'rapid3' && rapid3Manager)
   ? rapid3Manager
   : (datatype === 'osw' ? rapidManager : pathwaysManager);
 const isRapid3 = manager === rapid3Manager;
+
+// GTFS level tools, available once Rapid 3 has started on a pathways workspace.
+const levelTools = computed(() => (isRapid3 ? rapid3Manager?.levelTools.value : undefined));
 
 function onEditorLoaded() {
   editorContainer.value!.appendChild(manager.containerNode);
@@ -73,7 +83,15 @@ onMounted(() => {
 </script>
 
 <style>
+.edit-page {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
 .editorContainer {
+  flex: 1;
+  min-width: 0;
   width: 100%;
   height: 100%;
 }

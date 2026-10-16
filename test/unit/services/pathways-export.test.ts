@@ -17,8 +17,8 @@ function way(id: number, nodes: number[], tags?: Record<string, string>) {
 }
 
 /** Exports the elements and reads back each file's raw text and parsed rows. */
-async function exportFeed(elements: any[]) {
-  const archive = await buildPathwaysCsvArchive(elements);
+async function exportFeed(elements: any[], gtfsFiles?: Map<string, string>) {
+  const archive = await buildPathwaysCsvArchive(elements, gtfsFiles);
   const text = await openTdeiPathwaysArchive(archive, false);
   const parsed = await openTdeiPathwaysArchive(archive, true);
 
@@ -26,7 +26,8 @@ async function exportFeed(elements: any[]) {
     stopsText: text.get('stops.txt') as string,
     pathwaysText: text.get('pathways.txt') as string,
     stops: parsed.get('stops.txt') as Row[],
-    pathways: parsed.get('pathways.txt') as Row[]
+    pathways: parsed.get('pathways.txt') as Row[],
+    levels: parsed.get('levels.txt') as Row[] | undefined
   };
 }
 
@@ -190,5 +191,49 @@ describe('buildPathwaysCsvArchive columns', () => {
       stop_name: 'Main St, North Entrance',
       stop_desc: 'Say "hi"\nthen go'
     });
+  });
+});
+
+describe('buildPathwaysCsvArchive levels', () => {
+  // A level is drawn as an area (closed way) tagged with the levels.txt columns.
+  const levelBox = (id: number, tags: Record<string, string>) => [
+    node(id * 10 + 1), node(id * 10 + 2), node(id * 10 + 3),
+    way(id, [id * 10 + 1, id * 10 + 2, id * 10 + 3, id * 10 + 1], { area: 'yes', ...tags })
+  ];
+
+  it('writes levels.txt from level areas, not as pathways or stops', async () => {
+    const { stops, pathways, levels } = await exportFeed([
+      ...levelBox(5, { level_id: 'MEZ', level_index: '-1', level_name: 'Mezzanine' }),
+      node(1, { stop_id: 'A', level_id: 'MEZ' })
+    ]);
+
+    expect(levels).toEqual([{ level_id: 'MEZ', level_index: '-1', level_name: 'Mezzanine' }]);
+    expect(pathways).toEqual([]);
+    expect(stops.map(row => row.stop_id)).toEqual(['A']);
+  });
+
+  it('generates a level_id for level areas without one', async () => {
+    const { levels } = await exportFeed(levelBox(5, { level_index: '2' }));
+
+    expect(levels).toEqual([{ level_id: 'ws-l5', level_index: '2', level_name: '' }]);
+  });
+
+  it('keeps the original levels and lets drawn levels with the same level_id replace them', async () => {
+    const original = 'level_id,level_index,level_name\nL1,0,Old street\nL2,-1,Concourse\n';
+    const { levels } = await exportFeed(
+      levelBox(5, { level_id: 'L1', level_index: '0', level_name: 'Street' }),
+      new Map([['levels.txt', original]])
+    );
+
+    expect(levels).toEqual([
+      { level_id: 'L1', level_index: '0', level_name: 'Street' },
+      { level_id: 'L2', level_index: '-1', level_name: 'Concourse' }
+    ]);
+  });
+
+  it('writes no levels.txt when there are no levels', async () => {
+    const { levels } = await exportFeed([node(1, { stop_id: 'A' })]);
+
+    expect(levels).toBeUndefined();
   });
 });

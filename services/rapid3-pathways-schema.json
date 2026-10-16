@@ -111,6 +111,14 @@
         "platform_code": {
           "key": "platform_code",
           "type": "text"
+        },
+        "level_index": {
+          "key": "level_index",
+          "type": "number"
+        },
+        "level_name": {
+          "key": "level_name",
+          "type": "text"
         }
       },
       "presets": {
@@ -366,6 +374,26 @@
             "is_bidirectional": "0"
           },
           "icon": "roentgen-exit"
+        },
+        "level": {
+          "name": "Level",
+          "geometry": [
+            "area"
+          ],
+          "tags": {
+            "level_index": "*"
+          },
+          "addTags": {
+            "area": "yes",
+            "level_index": "0"
+          },
+          "fields": [
+            "level_id",
+            "level_index",
+            "level_name"
+          ],
+          "icon": "rapid-icon-layers",
+          "matchScore": 1
         }
       },
       "categories": {
@@ -403,6 +431,9 @@
         ],
         "vertex": [
           "node"
+        ],
+        "area": [
+          "level"
         ]
       }
     }

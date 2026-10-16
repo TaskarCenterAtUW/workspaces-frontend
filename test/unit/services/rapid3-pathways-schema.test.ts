@@ -121,6 +121,14 @@ describe('Rapid 3 pathways schema', () => {
       }
     });
 
+    it('defines a Level area preset with the levels.txt columns', () => {
+      const level = presets.level!;
+      expect(level.geometry).toEqual(['area']);
+      expect(level.tags).toEqual({ level_index: '*' });
+      expect(level.fields!.map(id => fields[id]!.key).sort()).toEqual(['level_id', 'level_index', 'level_name']);
+      expect(defaults.area).toEqual(['level']);
+    });
+
     it('keeps exit gates unidirectional', () => {
       expect(presets['pathway/exit_gate']!.tags!.is_bidirectional).toBe('0');
     });
