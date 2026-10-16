@@ -118,4 +118,22 @@ onMounted(() => {
 .editorContainer.rapid3 .save-communityLinks {
   display: none;
 }
+
+/* Labels for coded GTFS tag values in Rapid 3's tag editor (services/rapid3-tag-labels.ts) */
+.editorContainer.rapid3 .tag-row .value-wrap {
+  position: relative;
+}
+.editorContainer.rapid3 .tag-row .gtfs-value-label {
+  position: absolute;
+  top: 50%;
+  right: 0.5em;
+  transform: translateY(-50%);
+  max-width: 60%;
+  overflow: hidden;
+  font-size: 0.85em;
+  opacity: 0.6;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 </style>
