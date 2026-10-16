@@ -46,7 +46,8 @@ function stubTools(currentLevelId?: string) {
     fillLevelId: vi.fn(),
     select: vi.fn(),
     assignLevel: vi.fn(),
-    reorderLevels: vi.fn()
+    reorderLevels: vi.fn(),
+    outlineLevels: vi.fn()
   };
   return tools;
 }
@@ -164,11 +165,26 @@ describe('PathwaysLevelPanel', () => {
     expect(outlines[2]).toMatch(/^No outline, (edit )?add one$/);
     // The draw link sits in the outline line, not inside the level's select button.
     expect(rows[2]!.find('[role="radio"] .level-draw').exists()).toBe(false);
-    expect(rows[2]!.find('.level-outline .level-draw').attributes('aria-label')).toBe('Draw an outline for ROOF');
+    expect(rows[2]!.find('.level-outline .level-draw').attributes('aria-label')).toBe('Add an outline for ROOF');
     expect(rows.map(row => row.find('.level-draw').exists())).toEqual([false, false, true]);
 
     await rows[2]!.find('.level-draw').trigger('click');
-    expect(tools.drawLevel).toHaveBeenCalledWith(roof);
+    expect(tools.outlineLevels).toHaveBeenCalledWith(['ROOF']);
+  });
+
+  it('offers to outline all levels that have no outline', async () => {
+    const tools = stubTools();
+    const mez: Level = { levelId: 'MEZ', index: undefined, name: '', areaIds: [] };
+    setLevels(tools, [concourse, street, roof]);
+    let wrapper = await mountPanel(tools);
+    expect(wrapper.text()).toContain('1 level has no outline yet');
+    expect(wrapper.find('.level-outline-all').exists()).toBe(false); // "add one" covers a single level
+
+    setLevels(tools, [concourse, street, roof, mez]);
+    wrapper = await mountPanel(tools);
+    expect(wrapper.text()).toContain('2 levels have no outline yet');
+    await wrapper.find('.level-outline-all').trigger('click');
+    expect(tools.outlineLevels).toHaveBeenCalledWith(['ROOF', 'MEZ']);
   });
 
   it('counts multiple outlines for one level', async () => {

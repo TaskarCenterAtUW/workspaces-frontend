@@ -336,6 +336,34 @@ export function isHiddenInView(
   return false;
 }
 
+/** Meters per degree of latitude (and of longitude at the equator). */
+const METERS_PER_DEGREE = 111_320;
+
+/**
+ * The corners of a box around the given [lon, lat] points, padded by
+ * `paddingMeters` on every side (so a single point gets a square), in drawing
+ * order: south-west, south-east, north-east, north-west.
+ */
+export function levelBoxCorners(locs: [number, number][], paddingMeters = 10): [number, number][] {
+  if (!locs.length) return [];
+
+  const lons = locs.map(([lon]) => lon);
+  const lats = locs.map(([, lat]) => lat);
+  const [west, east] = [Math.min(...lons), Math.max(...lons)];
+  const [south, north] = [Math.min(...lats), Math.max(...lats)];
+
+  const padLat = paddingMeters / METERS_PER_DEGREE;
+  const midLat = ((south + north) / 2) * Math.PI / 180;
+  const padLon = paddingMeters / (METERS_PER_DEGREE * Math.max(Math.cos(midLat), 0.01));
+
+  return [
+    [west - padLon, south - padLat],
+    [east + padLon, south - padLat],
+    [east + padLon, north + padLat],
+    [west - padLon, north + padLat]
+  ];
+}
+
 /** The level_index of a level area as a number, if it has a numeric one. */
 export function levelAreaIndex(area: LevelEntity): number | undefined {
   return parseIndex(area.tags?.level_index);

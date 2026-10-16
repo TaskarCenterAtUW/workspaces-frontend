@@ -155,9 +155,9 @@
                 <button
                   type="button"
                   class="btn btn-link level-draw"
-                  :title="`Draw an outline for ${levelLabel(level)}`"
-                  :aria-label="`Draw an outline for ${levelLabel(level)}`"
-                  @click="tools.drawLevel(level)"
+                  :title="`Add an outline around ${levelLabel(level)}'s stops (you can reshape it)`"
+                  :aria-label="`Add an outline for ${levelLabel(level)}`"
+                  @click="tools.outlineLevels([level.levelId])"
                 >
                   <app-icon
                     variant="edit"
@@ -183,10 +183,18 @@
         Highest level first. Drag levels to reorder them (within a station); level_index follows the order, with the ground level (0) kept at 0.
       </p>
       <p
-        v-if="levels.some(level => !level.areaIds.length)"
+        v-if="unoutlinedIds.length"
         class="level-panel-hint"
       >
-        Levels with no outline are only used by stops so far; draw one to give them an area.
+        {{ unoutlinedIds.length === 1 ? '1 level has' : `${unoutlinedIds.length} levels have` }} no outline yet (GTFS levels need one).
+        <button
+          v-if="unoutlinedIds.length > 1"
+          type="button"
+          class="btn btn-link btn-sm level-outline-all"
+          @click="tools.outlineLevels(unoutlinedIds)"
+        >
+          Outline all
+        </button>
       </p>
     </section>
 
@@ -265,7 +273,7 @@ import type { Rapid3LevelTools } from '~/services/rapid3-levels';
 import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-levels';
 
 // @test unit: "Add level" starts drawing a new level's outline on the map
-// @test unit: each level shows whether it has an outline; levels without one can have one drawn
+// @test unit: each level shows whether it has an outline; "add one" boxes a level's stops, and "Outline all" does every level without one
 // @test unit: level areas missing a level_id are flagged, and "Fill level_id" generates one
 // @test unit: lists levels highest first, and selecting one shows only that level; selecting it again shows everything
 // @test unit: "No station" (at the top, over the levels no station uses) shows only features not tied to a station; it's hidden when there's nothing outside a station
@@ -338,6 +346,9 @@ function groupKey(group: StationLevelGroup): string {
 }
 
 // Only levels with an outline can move, since level_index is stored on the outline.
+// Levels stops use that have no outline yet ("add one" / "Outline all" box them).
+const unoutlinedIds = computed(() => levels.value.filter(level => !level.areaIds.length).map(level => level.levelId));
+
 function isMovable(level: Level): boolean {
   return level.areaIds.length > 0;
 }
@@ -598,6 +609,12 @@ function stopCount(levelId: string): number {
   white-space: nowrap;
   font-size: 0.75rem;
   opacity: 0.75;
+}
+
+.level-outline-all {
+  padding: 0;
+  font-size: inherit;
+  vertical-align: baseline;
 }
 
 .level-outline-missing {

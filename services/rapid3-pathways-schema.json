@@ -131,6 +131,11 @@
         "level_name": {
           "key": "level_name",
           "type": "text"
+        },
+        "level_area_id": {
+          "key": "level_id",
+          "type": "text",
+          "label": "level_id"
         }
       },
       "presets": {
@@ -405,7 +410,7 @@
             "level_index": "0"
           },
           "fields": [
-            "level_id",
+            "level_area_id",
             "level_index",
             "level_name"
           ],

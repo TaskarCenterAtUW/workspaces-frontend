@@ -132,6 +132,11 @@ describe('Rapid 3 pathways schema', () => {
       }
     });
 
+    it('lets a level outline set its own level_id as free text', () => {
+      expect(fields.level_area_id).toEqual({ key: 'level_id', type: 'text', label: 'level_id' });
+      expect(presets.level!.fields).toEqual(['level_area_id', 'level_index', 'level_name']);
+    });
+
     it('treats zone_id as free text', () => {
       expect(fields.zone_id).toEqual({ key: 'zone_id', type: 'text' });
     });

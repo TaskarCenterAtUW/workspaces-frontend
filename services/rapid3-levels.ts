@@ -6,6 +6,7 @@ import {
   isLevelArea,
   levelAreaIndex,
   levelAreasMissingId,
+  levelBoxCorners,
   levelsByStation,
   levelsTopDown,
   nextLevelIndex,
@@ -352,6 +353,52 @@ export class Rapid3LevelTools {
     if (mode) {
       mode.defaultTags = { area: 'yes', level_id: levelId, level_index: String(index) };
     }
+  }
+
+  /**
+   * Outlines levels that stops use but that have no outline yet, each with a
+   * box around its stops (padded, so a single stop gets a square), as one
+   * undoable edit. They're stacked above the highest level (level_index);
+   * drag them into order afterwards. With one level, the new outline is
+   * selected for reshaping.
+   * @returns the new outlines' way IDs
+   */
+  outlineLevels(levelIds: string[]): string[] {
+    const byLevel = new Map<string, [number, number][]>();
+    for (const stop of stopNodes(this.#entities())) {
+      const levelId = stop.tags?.level_id?.trim();
+      if (levelId && stop.loc) byLevel.set(levelId, [...(byLevel.get(levelId) ?? []), stop.loc]);
+    }
+
+    const known = new Map(this.levels.value.map(level => [level.levelId, level]));
+    const toOutline = levelIds.filter(id => known.has(id) && !known.get(id)!.areaIds.length && byLevel.has(id));
+    if (!toOutline.length) return [];
+
+    let index = nextLevelIndex(this.levels.value);
+    const actions: unknown[] = [];
+    const wayIds: string[] = [];
+    for (const levelId of toOutline) {
+      const corners = levelBoxCorners(byLevel.get(levelId)!)
+        .map(loc => new Rapid.OsmNode(this.#context, { loc }));
+      const way = new Rapid.OsmWay(this.#context, {
+        nodes: [...corners.map(node => node.id), corners[0].id],
+        tags: { area: 'yes', level_id: levelId, level_index: String(index++) }
+      });
+      actions.push(...corners.map(node => Rapid.actionAddEntity(node)), Rapid.actionAddEntity(way));
+      wayIds.push(way.id);
+    }
+
+    const editor = this.#context.systems.editor;
+    editor.perform(...actions);
+    editor.commit({
+      annotation: toOutline.length === 1 ? `Outlined level ${toOutline[0]}` : `Outlined ${toOutline.length} levels`,
+      selectedIDs: wayIds
+    });
+    this.refresh();
+    if (wayIds.length === 1) {
+      this.#context.enter('select-osm', { selection: { osm: wayIds } });
+    }
+    return wayIds;
   }
 
   /**

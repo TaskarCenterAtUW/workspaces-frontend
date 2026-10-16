@@ -8,6 +8,7 @@ import {
   isPathway,
   levelAreaIndex,
   levelAreasMissingId,
+  levelBoxCorners,
   levelsByStation,
   levelsTopDown,
   nextLevelIndex,
@@ -312,5 +313,29 @@ describe('isHiddenInView (station views)', () => {
   it('defers to level filtering for level views', () => {
     expect(shown({ kind: 'level', levelId: 'CONC' })).toContain('n1');
     expect(shown({ kind: 'level', levelId: 'CONC' })).not.toContain('x1');
+  });
+});
+
+describe('levelBoxCorners', () => {
+  it('boxes points with padding, corners from south-west going counter-clockwise', () => {
+    const [sw, se, ne, nw] = levelBoxCorners([[-122.30, 47.60], [-122.29, 47.61]], 10);
+    const padLat = 10 / 111_320;
+    expect(sw![1]).toBeCloseTo(47.60 - padLat, 9);
+    expect(ne![1]).toBeCloseTo(47.61 + padLat, 9);
+    expect(sw![0]).toBeLessThan(-122.30);
+    expect(ne![0]).toBeGreaterThan(-122.29);
+    expect([se![0], se![1], nw![0], nw![1]]).toEqual([ne![0], sw![1], sw![0], ne![1]]);
+  });
+
+  it('makes a square of about 2 x padding around a single point', () => {
+    const [sw, , ne] = levelBoxCorners([[-122.3, 47.6]], 10);
+    const metersNS = (ne![1] - sw![1]) * 111_320;
+    const metersEW = (ne![0] - sw![0]) * 111_320 * Math.cos(47.6 * Math.PI / 180);
+    expect(metersNS).toBeCloseTo(20, 6);
+    expect(metersEW).toBeCloseTo(20, 6);
+  });
+
+  it('returns no corners for no points', () => {
+    expect(levelBoxCorners([])).toEqual([]);
   });
 });

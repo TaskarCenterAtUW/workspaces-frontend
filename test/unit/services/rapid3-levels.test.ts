@@ -5,7 +5,7 @@ import { LEVEL_FILTER_ID, Rapid3LevelTools } from '~/services/rapid3-levels';
 // graph (base + local edits), an editor that applies the actions it's given,
 // and the FilterSystem methods the level filter wraps.
 
-type Entity = { id: string; type: string; tags?: Record<string, string>; nodes?: string[] };
+type Entity = { id: string; type: string; tags?: Record<string, string>; nodes?: string[]; loc?: [number, number] };
 
 function fakeContext(entities: Entity[]) {
   const base = new Map(entities.map(entity => [entity.id, entity]));
@@ -63,11 +63,21 @@ const station = () => [
   node('n3', { location_type: '2', stop_name: 'Main entrance' })
 ];
 
+let newIds = 0;
+
 beforeEach(() => {
   (globalThis as any).Rapid = {
     actionChangeTags: (id: string, tags: Record<string, string>) =>
-      (graph: any) => graph.local.entities.set(id, { ...graph.hasEntity(id), tags })
+      (graph: any) => graph.local.entities.set(id, { ...graph.hasEntity(id), tags }),
+    actionAddEntity: (entity: Entity) => (graph: any) => graph.local.entities.set(entity.id, entity),
+    OsmNode: function (this: Entity, _context: unknown, props: { loc: [number, number] }) {
+      Object.assign(this, { id: `n-${++newIds}`, type: 'node', loc: props.loc });
+    },
+    OsmWay: function (this: Entity, _context: unknown, props: { nodes: string[]; tags: Record<string, string> }) {
+      Object.assign(this, { id: `w-${++newIds}`, type: 'way', nodes: props.nodes, tags: props.tags });
+    }
   };
+  newIds = 0;
 });
 
 afterEach(() => {
@@ -433,6 +443,56 @@ describe('Rapid3LevelTools', () => {
 
       expect(context.systems.editor.perform).not.toHaveBeenCalled();
       expect(context.graph.hasEntity('s1')!.tags!.stop_id).toBeUndefined();
+    });
+  });
+
+  describe('outlining levels', () => {
+    const at = (entity: Entity, loc: [number, number]) => ({ ...entity, loc });
+    const data = () => [
+      ...station(), // L0 and L1 drawn
+      at(node('r1', { level_id: 'ROOF', stop_name: 'Roof A' }), [-122.300, 47.600]),
+      at(node('r2', { level_id: 'ROOF', stop_name: 'Roof B' }), [-122.299, 47.601]),
+      at(node('m1', { level_id: 'MEZ', stop_name: 'Mezzanine' }), [-122.3, 47.6])
+    ];
+
+    it('boxes a level\'s stops in a new outline, stacked on top, and selects it', () => {
+      const context = fakeContext(data());
+      const tools = new Rapid3LevelTools(context);
+
+      const [wayId] = tools.outlineLevels(['ROOF']);
+
+      const outline = context.graph.hasEntity(wayId!)!;
+      expect(outline.tags).toEqual({ area: 'yes', level_id: 'ROOF', level_index: '1' });
+      expect(outline.nodes).toHaveLength(5);
+      expect(outline.nodes![0]).toBe(outline.nodes![4]); // closed
+      const corners = outline.nodes!.slice(0, 4).map(id => context.graph.hasEntity(id)!.loc!);
+      expect(Math.min(...corners.map(([lon]) => lon))).toBeLessThan(-122.300);
+      expect(Math.max(...corners.map(([, lat]) => lat))).toBeGreaterThan(47.601);
+
+      expect(context.systems.editor.commit).toHaveBeenCalledWith({ annotation: 'Outlined level ROOF', selectedIDs: [wayId] });
+      expect(context.enter).toHaveBeenCalledWith('select-osm', { selection: { osm: [wayId] } });
+      expect(tools.levels.value.find(level => level.levelId === 'ROOF')!.areaIds).toEqual([wayId]);
+    });
+
+    it('outlines several levels in one edit, each with its own index', () => {
+      const context = fakeContext(data());
+      const tools = new Rapid3LevelTools(context);
+
+      const wayIds = tools.outlineLevels(['MEZ', 'ROOF']);
+
+      expect(wayIds).toHaveLength(2);
+      expect(wayIds.map(id => context.graph.hasEntity(id)!.tags!.level_index)).toEqual(['1', '2']);
+      expect(context.systems.editor.perform).toHaveBeenCalledTimes(1);
+      expect(context.systems.editor.commit).toHaveBeenCalledWith({ annotation: 'Outlined 2 levels', selectedIDs: wayIds });
+      expect(context.enter).not.toHaveBeenCalled();
+    });
+
+    it('skips levels that already have an outline or aren\'t known', () => {
+      const context = fakeContext(data());
+      const tools = new Rapid3LevelTools(context);
+
+      expect(tools.outlineLevels(['L0', 'NOPE'])).toEqual([]);
+      expect(context.systems.editor.perform).not.toHaveBeenCalled();
     });
   });
 });
