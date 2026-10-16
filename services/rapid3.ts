@@ -3,6 +3,7 @@ import type { TdeiAuthStore } from '~/services/tdei'
 import pathwaysSchema from '~/services/rapid3-pathways-schema.json'
 import { Rapid3LevelTools } from '~/services/rapid3-levels'
 import { installTagValueLabels, installTagValueSuggestions } from '~/services/rapid3-tag-labels'
+import { installReferenceValidator, REFERENCE_VALIDATOR_ID, REFERENCE_VALIDATOR_STRINGS } from '~/services/rapid3-validation'
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
 declare const Rapid: any
@@ -261,6 +262,10 @@ export class Rapid3Manager {
               l10n._store.set([c, 'tagging', 'presets', 'fields', fieldID, 'options', value], label);
             }
           }
+          // Name the GTFS reference validator in Rapid's Issues panel (rule list).
+          for (const [key, text] of Object.entries(REFERENCE_VALIDATOR_STRINGS)) {
+            l10n._store.set([c, 'core', 'issues', REFERENCE_VALIDATOR_ID, key], text);
+          }
         }
       }
     });
@@ -362,6 +367,8 @@ export class Rapid3Manager {
       // both next to the value and in its dropdown.
       installTagValueLabels()
       installTagValueSuggestions(context)
+      // Flag parent_station / level_id / stop_id values that don't resolve.
+      installReferenceValidator(context)
     }
   }
 

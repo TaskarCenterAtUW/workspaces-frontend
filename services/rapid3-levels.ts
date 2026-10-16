@@ -21,6 +21,17 @@ declare const Rapid: any;
 /** The filter ID Rapid reports for features hidden because they're on another level. */
 export const LEVEL_FILTER_ID = 'gtfs_other_levels';
 
+/** Every entity in a Rapid graph: loaded data plus local edits (minus local deletions). */
+export function graphEntities(graph: any): any[] {
+  const ids = new Set([...graph.base.entities.keys(), ...graph.local.entities.keys()]);
+  const entities: any[] = [];
+  for (const id of ids) {
+    const entity = graph.hasEntity(id); // undefined if deleted locally
+    if (entity) entities.push(entity);
+  }
+  return entities;
+}
+
 /** A stop as shown in the level panel. */
 export interface LevelStop {
   id: string;
@@ -263,14 +274,7 @@ export class Rapid3LevelTools {
 
   /** Every entity in the current edit (loaded data plus local changes). */
   #entities(): any[] {
-    const graph = this.#graph();
-    const ids = new Set([...graph.base.entities.keys(), ...graph.local.entities.keys()]);
-    const entities: any[] = [];
-    for (const id of ids) {
-      const entity = graph.hasEntity(id); // undefined if deleted locally
-      if (entity) entities.push(entity);
-    }
-    return entities;
+    return graphEntities(this.#graph());
   }
 
   /**
