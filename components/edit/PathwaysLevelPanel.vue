@@ -41,8 +41,9 @@
         <div
           v-for="level in displayLevels"
           :key="level.levelId"
-          class="level-row"
+          class="list-group-item level-row"
           :class="{
+            'active': currentLevelId === level.levelId,
             'level-dragging': draggingId === level.levelId,
             'level-drop-before': dropTarget?.levelId === level.levelId && dropTarget.before,
             'level-drop-after': dropTarget?.levelId === level.levelId && !dropTarget.before
@@ -70,44 +71,24 @@
           </button>
           <span
             v-else
-            class="level-handle-spacer"
+            class="level-handle level-handle-spacer"
           />
           <button
             type="button"
             role="radio"
-            class="list-group-item list-group-item-action level-row-main"
-            :class="{ active: currentLevelId === level.levelId }"
+            class="level-row-main"
             :aria-checked="currentLevelId === level.levelId"
             @click="tools.showLevel(level.levelId)"
           >
-            <span class="level-name">
-              <span class="level-title">{{ levelLabel(level) }}</span>
-              <span
-                class="level-outline"
-                :class="{ 'level-outline-missing': !level.areaIds.length }"
-              >{{ outlineLabel(level) }}</span>
-            </span>
+            <span class="level-title">{{ levelLabel(level) }}</span>
             <span
               class="badge text-bg-light"
               :title="`${stopCount(level.levelId)} stops`"
             >{{ stopCount(level.levelId) }}</span>
           </button>
           <button
-            v-if="!level.areaIds.length"
             type="button"
-            class="btn btn-sm btn-outline-primary level-draw"
-            :title="`Draw an outline for ${levelLabel(level)}`"
-            :aria-label="`Draw an outline for ${levelLabel(level)}`"
-            @click="tools.drawLevel(level)"
-          >
-            <app-icon
-              variant="edit"
-              no-margin
-            />
-          </button>
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary level-zoom"
+            class="btn btn-sm level-zoom"
             :title="`Zoom to ${levelLabel(level)}`"
             :aria-label="`Zoom to ${levelLabel(level)}`"
             @click="tools.zoomToLevel(level.levelId)"
@@ -117,6 +98,30 @@
               no-margin
             />
           </button>
+          <div
+            class="level-outline"
+            :class="{ 'level-outline-missing': !level.areaIds.length }"
+          >
+            <template v-if="level.areaIds.length">
+              {{ outlineLabel(level) }}
+            </template>
+            <template v-else>
+              No outline,
+              <button
+                type="button"
+                class="btn btn-link level-draw"
+                :title="`Draw an outline for ${levelLabel(level)}`"
+                :aria-label="`Draw an outline for ${levelLabel(level)}`"
+                @click="tools.drawLevel(level)"
+              >
+                <app-icon
+                  variant="edit"
+                  no-margin
+                />
+                add one
+              </button>
+            </template>
+          </div>
         </div>
       </div>
       <p
@@ -359,33 +364,69 @@ function stopCount(levelId: string): number {
 }
 
 .level-row {
-  display: flex;
-  align-items: stretch;
+  display: grid;
+  grid-template-areas:
+    "handle main zoom"
+    "handle outline zoom";
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.25rem;
+  padding: 0.375rem 0.25rem;
+}
+
+.level-row:not(.active):hover {
+  background: var(--bs-tertiary-bg);
+}
+
+.level-handle {
+  grid-area: handle;
+  align-self: stretch;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  opacity: 0.6;
+  cursor: grab;
+}
+
+.level-handle-spacer {
+  cursor: default;
+}
+
+.level-row[draggable="true"]:active .level-handle {
+  cursor: grabbing;
 }
 
 .level-row-main {
+  grid-area: main;
   display: flex;
-  flex: 1;
   align-items: center;
   gap: 0.5rem;
   min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
 }
 
-.level-name {
-  display: flex;
+.level-title {
   flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.level-title,
-.level-outline {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.level-zoom {
+  grid-area: zoom;
+  border: 0;
+  color: inherit;
+}
+
 .level-outline {
+  grid-area: outline;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.75rem;
   opacity: 0.75;
 }
@@ -394,25 +435,16 @@ function stopCount(levelId: string): number {
   font-style: italic;
 }
 
-.level-zoom,
 .level-draw {
-  border-radius: 0;
-}
-
-.level-handle,
-.level-handle-spacer {
-  flex: 0 0 1.75rem;
   padding: 0;
-}
-
-.level-handle {
   border: 0;
-  color: var(--bs-secondary-color);
-  cursor: grab;
+  font-size: inherit;
+  font-style: normal;
+  vertical-align: baseline;
 }
 
-.level-row[draggable="true"]:active .level-handle {
-  cursor: grabbing;
+.level-row.active .level-draw {
+  color: inherit;
 }
 
 .level-dragging {

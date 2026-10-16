@@ -118,7 +118,13 @@ describe('PathwaysLevelPanel', () => {
 
     const rows = wrapper.findAll('.level-row');
     expect(rows.map(row => row.find('.level-title').text())).toEqual(['Street (L0)', 'Concourse (L1)', 'ROOF']);
-    expect(rows.map(row => row.find('.level-outline').text())).toEqual(['Outline drawn', 'Outline drawn', 'No outline']);
+    const outlines = rows.map(row => row.find('.level-outline').text().replace(/\s+/g, ' '));
+    expect(outlines.slice(0, 2)).toEqual(['Outline drawn', 'Outline drawn']);
+    // (The pencil icon's ligature text, if rendered, sits between the two parts.)
+    expect(outlines[2]).toMatch(/^No outline, (edit )?add one$/);
+    // The draw link sits in the outline line, not inside the level's select button.
+    expect(rows[2]!.find('[role="radio"] .level-draw').exists()).toBe(false);
+    expect(rows[2]!.find('.level-outline .level-draw').attributes('aria-label')).toBe('Draw an outline for ROOF');
     expect(rows.map(row => row.find('.level-draw').exists())).toEqual([false, false, true]);
 
     await rows[2]!.find('.level-draw').trigger('click');
@@ -162,13 +168,14 @@ describe('PathwaysLevelPanel', () => {
       const { wrapper, row } = await mountThreeLevels();
 
       expect(wrapper.findAll('.level-row').map(r => r.attributes('draggable'))).toEqual(['true', 'true', 'true', 'false']);
-      expect(row('ROOF').find('.level-handle').exists()).toBe(false);
+      expect(row('ROOF').find('button.level-handle').exists()).toBe(false);
+      expect(row('UP').find('button.level-handle').exists()).toBe(true);
     });
 
     it('moves a level down with the arrow keys and keeps focus on it', async () => {
       const { tools, row } = await mountThreeLevels();
 
-      await row('UP').find('.level-handle').trigger('keydown', { key: 'ArrowDown' });
+      await row('UP').find('button.level-handle').trigger('keydown', { key: 'ArrowDown' });
 
       expect(tools.reorderLevels).toHaveBeenCalledWith(['L0', 'UP', 'L1']);
     });
@@ -176,7 +183,7 @@ describe('PathwaysLevelPanel', () => {
     it('does nothing when moving past the top', async () => {
       const { tools, row } = await mountThreeLevels();
 
-      await row('UP').find('.level-handle').trigger('keydown', { key: 'ArrowUp' });
+      await row('UP').find('button.level-handle').trigger('keydown', { key: 'ArrowUp' });
 
       expect(tools.reorderLevels).not.toHaveBeenCalled();
     });
