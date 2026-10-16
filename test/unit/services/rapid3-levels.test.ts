@@ -204,4 +204,36 @@ describe('Rapid3LevelTools', () => {
     expect(tools.levelAreasMissingId.value).toEqual([]);
     expect(tools.fillLevelId('a2')).toBeUndefined(); // already has one
   });
+
+  it('renumbers level_index on every outline of each moved level, as one edit', () => {
+    const context = fakeContext([
+      ...station(),
+      way('a0b', ['f1', 'f2', 'f3', 'f1'], { area: 'yes', level_id: 'L0', level_index: '0' }), // 2nd outline of L0
+      way('a2', ['e1', 'e2', 'e3', 'e1'], { area: 'yes', level_id: 'UP', level_index: '1' }),
+      node('n9', { level_id: 'ROOF', stop_name: 'Roof' }) // no outline: can't be reordered
+    ]);
+    const tools = new Rapid3LevelTools(context);
+
+    // Move UP from the top to below the concourse; street stays 0.
+    tools.reorderLevels(['L0', 'L1', 'UP', 'ROOF']);
+
+    const index = (id: string) => context.graph.hasEntity(id)!.tags!.level_index;
+    expect([index('a0'), index('a0b'), index('a1'), index('a2')]).toEqual(['0', '0', '-1', '-2']);
+    expect(context.systems.editor.perform).toHaveBeenCalledTimes(1);
+    expect(context.systems.editor.perform.mock.calls[0]).toHaveLength(1); // only UP changed
+    expect(context.systems.editor.commit).toHaveBeenCalledWith({ annotation: 'Reordered levels', selectedIDs: [] });
+    expect(tools.levels.value.map(level => [level.levelId, level.index])).toEqual([
+      ['UP', -2], ['L1', -1], ['L0', 0], ['ROOF', undefined]
+    ]);
+  });
+
+  it('makes no edit when the order is unchanged', () => {
+    const context = fakeContext(station());
+    const tools = new Rapid3LevelTools(context);
+
+    tools.reorderLevels(['L0', 'L1']);
+
+    expect(context.systems.editor.perform).not.toHaveBeenCalled();
+    expect(context.systems.editor.commit).not.toHaveBeenCalled();
+  });
 });

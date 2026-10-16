@@ -5,6 +5,7 @@ import {
   levelAreaIndex,
   levelAreasMissingId,
   nextLevelIndex,
+  reorderedLevelIndexes,
   stopsByLevel,
   suggestLevelId,
   unleveledStops
@@ -166,6 +167,35 @@ export class Rapid3LevelTools {
     editor.perform(Rapid.actionChangeTags(areaId, { ...area.tags, level_id: levelId }));
     editor.commit({ annotation: `Set level_id ${levelId}`, selectedIDs: [areaId] });
     return levelId;
+  }
+
+  /**
+   * Renumbers level_index after the user reorders levels (top to bottom, i.e.
+   * highest first) — see `reorderedLevelIndexes`. Only levels with an outline
+   * can be reordered, since that's where level_index is stored. Every outline of
+   * each level whose index changes is updated, as one undoable edit.
+   */
+  reorderLevels(levelIdsTopDown: string[]) {
+    const byId = new Map(this.levels.value.map(level => [level.levelId, level]));
+    const order = levelIdsTopDown
+      .map(id => byId.get(id))
+      .filter((level): level is Level => Boolean(level?.areaIds.length));
+    const indexes = reorderedLevelIndexes(order);
+
+    const graph = this.#graph();
+    const actions = order
+      .filter(level => indexes.get(level.levelId) !== level.index)
+      .flatMap(level => level.areaIds.map((areaId) => {
+        const area = graph.hasEntity(areaId);
+        return area && Rapid.actionChangeTags(areaId, { ...area.tags, level_index: String(indexes.get(level.levelId)) });
+      }))
+      .filter(Boolean);
+    if (!actions.length) return;
+
+    const editor = this.#context.systems.editor;
+    editor.perform(...actions);
+    editor.commit({ annotation: 'Reordered levels', selectedIDs: [] });
+    this.refresh(); // show the new order now, not after the batched refresh
   }
 
   /** Selects a feature in the editor and brings it into view. */

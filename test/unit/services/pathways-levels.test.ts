@@ -6,13 +6,15 @@ import {
   isPathway,
   levelAreaIndex,
   levelAreasMissingId,
+  levelsTopDown,
   nextLevelIndex,
+  reorderedLevelIndexes,
   stopNodes,
   stopsByLevel,
   suggestLevelId,
   unleveledStops
 } from '~/services/pathways-levels';
-import type { LevelEntity } from '~/services/pathways-levels';
+import type { Level, LevelEntity } from '~/services/pathways-levels';
 
 // A level is an area tagged level_id/level_index/level_name; stops reference it
 // by level_id; pathways take their level(s) from their end stops.
@@ -175,5 +177,40 @@ describe('generated level IDs', () => {
   it('reads a level area index only when it is numeric', () => {
     expect(levelAreaIndex(levelArea('w1', { level_index: '-1' }))).toBe(-1);
     expect(levelAreaIndex(levelArea('w2', { level_index: 'roof' }))).toBeUndefined();
+  });
+});
+
+describe('reordering levels', () => {
+  const level = (levelId: string, index?: number, drawn = true): Level =>
+    ({ levelId, index, name: '', areaIds: drawn ? [`a-${levelId}`] : [] });
+  const renumber = (order: Level[]) => Object.fromEntries(reorderedLevelIndexes(order));
+
+  it('keeps the ground level at 0 and numbers the rest by distance from it', () => {
+    // New level N (index 2) dragged to just below Street.
+    expect(renumber([level('UP', 1), level('STREET', 0), level('N', 2), level('CONC', -1)]))
+      .toEqual({ UP: 1, STREET: 0, N: -1, CONC: -2 });
+  });
+
+  it('keeps 0 on the ground level even when the ground level is the one moved', () => {
+    expect(renumber([level('CONC', -1), level('STREET', 0)])).toEqual({ CONC: 1, STREET: 0 });
+  });
+
+  it('anchors on the level closest to 0 when none is at 0', () => {
+    expect(renumber([level('A', 3), level('B', -2), level('C', 1.5)])).toEqual({ A: 3.5, B: 2.5, C: 1.5 });
+  });
+
+  it('makes the bottom level 0 when no level has a numeric index', () => {
+    expect(renumber([level('A'), level('B')])).toEqual({ A: 1, B: 0 });
+  });
+
+  it('lists drawn levels highest first, then unknown indexes, then levels with no outline', () => {
+    const levels = collectLevels([
+      levelArea('w1', { level_id: 'STREET', level_index: '0' }),
+      levelArea('w2', { level_id: 'UP', level_index: '1' }),
+      levelArea('w3', { level_id: 'ODD', level_index: 'roof' }),
+      levelArea('w4', { level_id: 'DOWN', level_index: '-1' }),
+      node('n1', { level_id: 'LOST', stop_name: 'x' })
+    ]);
+    expect(levelsTopDown(levels).map(l => l.levelId)).toEqual(['UP', 'STREET', 'DOWN', 'ODD', 'LOST']);
   });
 });

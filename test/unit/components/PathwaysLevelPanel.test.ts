@@ -40,7 +40,8 @@ function stubTools(currentLevelId?: string) {
     drawLevel: vi.fn(),
     fillLevelId: vi.fn(),
     select: vi.fn(),
-    assignLevel: vi.fn()
+    assignLevel: vi.fn(),
+    reorderLevels: vi.fn()
   };
   return tools;
 }
@@ -61,23 +62,25 @@ describe('PathwaysLevelPanel', () => {
     expect(tools.drawLevel).toHaveBeenCalled();
   });
 
-  // @test unit: lists levels in level_index order, with an "All levels" option, and selecting one shows only that level
-  it('lists levels in level_index order and shows the one picked', async () => {
+  // @test unit: lists levels highest first, with an "All levels" option, and selecting one shows only that level
+  it('lists levels highest first and shows the one picked', async () => {
     const tools = stubTools();
     const wrapper = await mountPanel(tools);
 
     const options = wrapper.findAll('[role="radio"]');
     expect(options[0]!.text()).toBe('All levels');
-    expect(options.slice(1).map(option => ['.level-index', '.level-title', '.badge']
+    expect(options.slice(1).map(option => ['.level-title', '.badge']
       .map(selector => option.find(selector).text()))).toEqual([
-      ['-1', 'Concourse (L1)', '1'],
-      ['0', 'Street (L0)', '1']
+      ['Street (L0)', '1'],
+      ['Concourse (L1)', '1']
     ]);
+    // The order conveys the level; the index itself isn't shown.
+    expect(options[1]!.find('.level-index').exists()).toBe(false);
     expect(options[0]!.attributes('aria-checked')).toBe('true');
 
-    await options[2]!.trigger('click');
+    await options[1]!.trigger('click');
     expect(tools.showLevel).toHaveBeenCalledWith('L0');
-    expect(wrapper.findAll('[role="radio"]')[2]!.attributes('aria-checked')).toBe('true');
+    expect(wrapper.findAll('[role="radio"]')[1]!.attributes('aria-checked')).toBe('true');
 
     await wrapper.findAll('[role="radio"]')[0]!.trigger('click');
     expect(tools.showLevel).toHaveBeenLastCalledWith(undefined);
@@ -114,6 +117,7 @@ describe('PathwaysLevelPanel', () => {
     const wrapper = await mountPanel(tools);
 
     const rows = wrapper.findAll('.level-row');
+    expect(rows.map(row => row.find('.level-title').text())).toEqual(['Street (L0)', 'Concourse (L1)', 'ROOF']);
     expect(rows.map(row => row.find('.level-outline').text())).toEqual(['Outline drawn', 'Outline drawn', 'No outline']);
     expect(rows.map(row => row.find('.level-draw').exists())).toEqual([false, false, true]);
 
@@ -139,5 +143,73 @@ describe('PathwaysLevelPanel', () => {
     await issue.findAll('button').find(button => button.text() === 'Fill level_id')!.trigger('click');
 
     expect(tools.fillLevelId).toHaveBeenCalledWith('a2');
+  });
+
+  // @test unit: levels with an outline can be reordered by dragging or with the arrow keys, which renumbers level_index
+  describe('reordering', () => {
+    const upper: Level = { levelId: 'UP', index: 1, name: 'Upper', areaIds: ['a2'] };
+
+    async function mountThreeLevels() {
+      const tools = stubTools();
+      tools.levels.value = [concourse, street, upper, roof];
+      const wrapper = await mountPanel(tools);
+      const row = (levelId: string) => wrapper.findAll('.level-row')
+        .find(r => r.find('.level-title').text().includes(levelId))!;
+      return { tools, wrapper, row };
+    }
+
+    it('only lets levels with an outline move', async () => {
+      const { wrapper, row } = await mountThreeLevels();
+
+      expect(wrapper.findAll('.level-row').map(r => r.attributes('draggable'))).toEqual(['true', 'true', 'true', 'false']);
+      expect(row('ROOF').find('.level-handle').exists()).toBe(false);
+    });
+
+    it('moves a level down with the arrow keys and keeps focus on it', async () => {
+      const { tools, row } = await mountThreeLevels();
+
+      await row('UP').find('.level-handle').trigger('keydown', { key: 'ArrowDown' });
+
+      expect(tools.reorderLevels).toHaveBeenCalledWith(['L0', 'UP', 'L1']);
+    });
+
+    it('does nothing when moving past the top', async () => {
+      const { tools, row } = await mountThreeLevels();
+
+      await row('UP').find('.level-handle').trigger('keydown', { key: 'ArrowUp' });
+
+      expect(tools.reorderLevels).not.toHaveBeenCalled();
+    });
+
+    it('drops a dragged level above or below the row it lands on', async () => {
+      const { tools, row } = await mountThreeLevels();
+      const rect = { top: 100, height: 40 } as DOMRect;
+      for (const r of ['UP', 'L0', 'L1']) {
+        (row(r).element as HTMLElement).getBoundingClientRect = () => rect;
+      }
+
+      // Drag UP onto the lower half of the concourse row -> below it.
+      await row('UP').trigger('dragstart', { dataTransfer: { setData: vi.fn() } });
+      await row('L1').trigger('dragover', { clientY: 130, dataTransfer: {} });
+      expect(row('L1').classes()).toContain('level-drop-after');
+      await row('L1').trigger('drop');
+      expect(tools.reorderLevels).toHaveBeenLastCalledWith(['L0', 'L1', 'UP']);
+
+      // Drag the concourse onto the upper half of the top row -> to the top.
+      await row('L1').trigger('dragstart', { dataTransfer: { setData: vi.fn() } });
+      await row('UP').trigger('dragover', { clientY: 105, dataTransfer: {} });
+      await row('UP').trigger('drop');
+      expect(tools.reorderLevels).toHaveBeenLastCalledWith(['L1', 'UP', 'L0']);
+    });
+
+    it('treats dropping on a level without an outline as moving to the bottom', async () => {
+      const { tools, row } = await mountThreeLevels();
+
+      await row('UP').trigger('dragstart', { dataTransfer: { setData: vi.fn() } });
+      await row('ROOF').trigger('dragover', { clientY: 0, dataTransfer: {} });
+      await row('ROOF').trigger('drop');
+
+      expect(tools.reorderLevels).toHaveBeenCalledWith(['L0', 'L1', 'UP']);
+    });
   });
 });

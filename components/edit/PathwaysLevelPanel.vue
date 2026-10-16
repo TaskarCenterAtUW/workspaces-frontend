@@ -39,10 +39,39 @@
           All levels
         </button>
         <div
-          v-for="level in levels"
+          v-for="level in displayLevels"
           :key="level.levelId"
           class="level-row"
+          :class="{
+            'level-dragging': draggingId === level.levelId,
+            'level-drop-before': dropTarget?.levelId === level.levelId && dropTarget.before,
+            'level-drop-after': dropTarget?.levelId === level.levelId && !dropTarget.before
+          }"
+          :draggable="isMovable(level)"
+          @dragstart="onDragStart($event, level)"
+          @dragover="onDragOver($event, level)"
+          @drop="onDrop($event)"
+          @dragend="onDragEnd"
         >
+          <button
+            v-if="isMovable(level)"
+            :ref="(el) => setHandleRef(level.levelId, el)"
+            type="button"
+            class="btn btn-sm level-handle"
+            :title="`Drag (or use the arrow keys) to move ${levelLabel(level)} up or down`"
+            :aria-label="`Move ${levelLabel(level)}; use the up and down arrow keys`"
+            @keydown.up.prevent="move(level, -1)"
+            @keydown.down.prevent="move(level, 1)"
+          >
+            <app-icon
+              variant="drag_indicator"
+              no-margin
+            />
+          </button>
+          <span
+            v-else
+            class="level-handle-spacer"
+          />
           <button
             type="button"
             role="radio"
@@ -51,7 +80,6 @@
             :aria-checked="currentLevelId === level.levelId"
             @click="tools.showLevel(level.levelId)"
           >
-            <span class="level-index">{{ level.index ?? '?' }}</span>
             <span class="level-name">
               <span class="level-title">{{ levelLabel(level) }}</span>
               <span
@@ -92,10 +120,16 @@
         </div>
       </div>
       <p
+        v-if="levels.filter(isMovable).length > 1"
+        class="level-panel-hint"
+      >
+        Highest level first. Drag levels to reorder them; level_index follows the order, with the ground level (0) kept at 0.
+      </p>
+      <p
         v-if="levels.some(level => !level.areaIds.length)"
         class="level-panel-hint"
       >
-        Levels with no outline are only used by stops so far; draw one to give them an area (and an index, if "?").
+        Levels with no outline are only used by stops so far; draw one to give them an area.
       </p>
     </section>
 
@@ -170,13 +204,15 @@
 </template>
 
 <script setup lang="ts">
+import { levelsTopDown } from '~/services/pathways-levels';
 import type { Rapid3LevelTools } from '~/services/rapid3-levels';
 import type { Level } from '~/services/pathways-levels';
 
 // @test unit: "Add level" starts drawing a new level's outline on the map
 // @test unit: each level shows whether it has an outline; levels without one can have one drawn
 // @test unit: level areas missing a level_id are flagged, and "Fill level_id" generates one
-// @test unit: lists levels in level_index order, with an "All levels" option, and selecting one shows only that level
+// @test unit: lists levels highest first, with an "All levels" option, and selecting one shows only that level
+// @test unit: levels with an outline can be reordered by dragging or with the arrow keys, which renumbers level_index
 // @test unit: lists stops with no level, and "Set level" assigns the selected level to them
 
 const props = defineProps<{
@@ -192,6 +228,82 @@ const currentLevelLabel = computed(() => {
   const level = levels.value.find(l => l.levelId === currentLevelId.value);
   return level ? levelLabel(level) : currentLevelId.value;
 });
+
+// Levels in panel order (highest first); only those with an outline can move,
+// since level_index is stored on the outline.
+const displayLevels = computed(() => levelsTopDown(levels.value));
+const movableIds = computed(() => displayLevels.value.filter(isMovable).map(level => level.levelId));
+
+function isMovable(level: Level): boolean {
+  return level.areaIds.length > 0;
+}
+
+/** Moves `levelId` to `position` among the movable levels and renumbers them. */
+function moveTo(levelId: string, position: number) {
+  const ids = movableIds.value.filter(id => id !== levelId);
+  ids.splice(Math.max(0, Math.min(position, ids.length)), 0, levelId);
+  if (ids.join('\n') !== movableIds.value.join('\n')) {
+    props.tools.reorderLevels(ids);
+  }
+}
+
+const handleRefs = new Map<string, HTMLElement>();
+function setHandleRef(levelId: string, el: unknown) {
+  if (el instanceof HTMLElement) handleRefs.set(levelId, el);
+  else handleRefs.delete(levelId);
+}
+
+/** Keyboard reordering from a row's handle; keeps focus on the moved handle. */
+async function move(level: Level, delta: number) {
+  const position = movableIds.value.indexOf(level.levelId) + delta;
+  if (position < 0 || position >= movableIds.value.length) return;
+  moveTo(level.levelId, position);
+  await nextTick();
+  handleRefs.get(level.levelId)?.focus();
+}
+
+const draggingId = ref<string>();
+const dropTarget = ref<{ levelId: string; before: boolean }>();
+
+function onDragStart(event: DragEvent, level: Level) {
+  if (!isMovable(level)) return;
+  draggingId.value = level.levelId;
+  event.dataTransfer?.setData('text/plain', level.levelId);
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+}
+
+function onDragOver(event: DragEvent, level: Level) {
+  if (!draggingId.value) return;
+  event.preventDefault(); // allow dropping here
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+
+  // Levels without an outline can't move, so dropping on one means "at the bottom".
+  if (!isMovable(level)) {
+    const last = movableIds.value.at(-1);
+    dropTarget.value = last ? { levelId: last, before: false } : undefined;
+    return;
+  }
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  dropTarget.value = { levelId: level.levelId, before: event.clientY < rect.top + rect.height / 2 };
+}
+
+function onDrop(event: DragEvent) {
+  event.preventDefault();
+  const levelId = draggingId.value;
+  const target = dropTarget.value;
+  onDragEnd();
+  if (!levelId || !target) return;
+
+  const others = movableIds.value.filter(id => id !== levelId);
+  const targetPosition = others.indexOf(target.levelId);
+  if (targetPosition < 0) return; // dropped on itself
+  moveTo(levelId, target.before ? targetPosition : targetPosition + 1);
+}
+
+function onDragEnd() {
+  draggingId.value = undefined;
+  dropTarget.value = undefined;
+}
 
 function outlineLabel(level: Level): string {
   const count = level.areaIds.length;
@@ -259,12 +371,6 @@ function stopCount(levelId: string): number {
   min-width: 0;
 }
 
-.level-index {
-  min-width: 1.75rem;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
 .level-name {
   display: flex;
   flex: 1;
@@ -291,6 +397,34 @@ function stopCount(levelId: string): number {
 .level-zoom,
 .level-draw {
   border-radius: 0;
+}
+
+.level-handle,
+.level-handle-spacer {
+  flex: 0 0 1.75rem;
+  padding: 0;
+}
+
+.level-handle {
+  border: 0;
+  color: var(--bs-secondary-color);
+  cursor: grab;
+}
+
+.level-row[draggable="true"]:active .level-handle {
+  cursor: grabbing;
+}
+
+.level-dragging {
+  opacity: 0.5;
+}
+
+.level-drop-before {
+  box-shadow: inset 0 2px 0 var(--bs-primary);
+}
+
+.level-drop-after {
+  box-shadow: inset 0 -2px 0 var(--bs-primary);
 }
 
 .level-issues {

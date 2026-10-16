@@ -141,6 +141,47 @@ export function nextLevelIndex(levels: Level[]): number {
   return indexes.length ? Math.floor(Math.max(...indexes)) + 1 : 0;
 }
 
+/**
+ * New level_index values for levels the user has put in `order` (top to
+ * bottom, i.e. highest first). GTFS level_index is relative to ground level
+ * (0), so the ground level keeps 0 and every other level is numbered by its
+ * distance above (+) or below (-) it. Without a level at 0, the level closest
+ * to 0 keeps its index; without any numeric index, the bottom level becomes 0.
+ */
+export function reorderedLevelIndexes(order: Level[]): Map<string, number> {
+  const indexes = new Map<string, number>();
+  if (!order.length) return indexes;
+
+  let anchor = order.findIndex(level => level.index === 0);
+  if (anchor < 0) {
+    let closest = Infinity;
+    order.forEach((level, position) => {
+      if (level.index !== undefined && Math.abs(level.index) < closest) {
+        closest = Math.abs(level.index);
+        anchor = position;
+      }
+    });
+  }
+  if (anchor < 0) anchor = order.length - 1;
+
+  const anchorIndex = order[anchor]!.index ?? 0;
+  order.forEach((level, position) => {
+    indexes.set(level.levelId, anchorIndex + (anchor - position));
+  });
+  return indexes;
+}
+
+/**
+ * Orders levels the way the level panel shows them: drawn levels highest
+ * first (unknown indexes after them), then levels only stops use.
+ */
+export function levelsTopDown(levels: Level[]): Level[] {
+  const drawn = levels.filter(level => level.areaIds.length);
+  const known = drawn.filter(level => level.index !== undefined).sort((a, b) => compareLevels(b, a));
+  const unknown = drawn.filter(level => level.index === undefined);
+  return [...known, ...unknown, ...levels.filter(level => !level.areaIds.length)];
+}
+
 /** The level_index of a level area as a number, if it has a numeric one. */
 export function levelAreaIndex(area: LevelEntity): number | undefined {
   return parseIndex(area.tags?.level_index);
