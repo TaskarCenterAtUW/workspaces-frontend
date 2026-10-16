@@ -2,7 +2,7 @@ import { ref, shallowRef } from 'vue'
 import type { TdeiAuthStore } from '~/services/tdei'
 import pathwaysSchema from '~/services/rapid3-pathways-schema.json'
 import { Rapid3LevelTools } from '~/services/rapid3-levels'
-import { installTagValueLabels } from '~/services/rapid3-tag-labels'
+import { installTagValueLabels, installTagValueSuggestions } from '~/services/rapid3-tag-labels'
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
 declare const Rapid: any
@@ -358,8 +358,10 @@ export class Rapid3Manager {
     //
     if (this.datatype === 'pathways') {
       context.systems.schema.merge(pathwaysSchema)
-      // Label coded GTFS values (e.g. pathway_mode 5 = Elevator) in the tag editor.
+      // Label coded GTFS values (e.g. pathway_mode 5 = Elevator) in the tag editor,
+      // both next to the value and in its dropdown.
       installTagValueLabels()
+      installTagValueSuggestions(context)
     }
   }
 

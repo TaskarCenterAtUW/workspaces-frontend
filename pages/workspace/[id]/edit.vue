@@ -136,4 +136,9 @@ onMounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The dropdown may be attached outside the editor container, so this isn't scoped to it. */
+.combobox-option .gtfs-value-option-label {
+  margin-left: 0.5em;
+  opacity: 0.6;
+}
 </style>

@@ -1,10 +1,59 @@
-import { gtfsValueLabel } from '~/services/gtfs-value-labels';
+import { GTFS_VALUE_LABELS, gtfsValueLabel } from '~/services/gtfs-value-labels';
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
 declare const Rapid: any;
 
 /** Class of the label element added next to a coded value. */
 export const VALUE_LABEL_CLASS = 'gtfs-value-label';
+/** Class of the label shown after a code in the value dropdown. */
+export const OPTION_LABEL_CLASS = 'gtfs-value-option-label';
+
+/** A value suggestion for Rapid's combobox: the code, shown with its meaning. */
+export interface ValueSuggestion {
+  value: string;
+  title: string;
+  display: ($option: any) => void;
+}
+
+/**
+ * Dropdown suggestions for a coded GTFS key (e.g. pathway_mode: "1 Walkway",
+ * "2 Stairs", ...), or undefined for other keys. Picking one enters the code.
+ */
+export function gtfsValueSuggestions(key: string): ValueSuggestion[] | undefined {
+  const labels = GTFS_VALUE_LABELS[key.trim()];
+  if (!labels) return undefined;
+
+  return Object.entries(labels).map(([value, label]) => ({
+    value,
+    title: `${value}: ${label}`,
+    // A display function (not HTML), so labels are set as text.
+    display: ($option: any) => {
+      $option.text(value);
+      $option.append('span').attr('class', OPTION_LABEL_CLASS).text(label);
+    }
+  }));
+}
+
+/**
+ * Makes the raw tag editor's value dropdown list the GTFS codes, with their
+ * meanings, for coded keys. That dropdown asks Rapid's taginfo service for
+ * suggestions, so its `values` lookup is wrapped; other keys go to taginfo.
+ */
+export function installTagValueSuggestions(context: any) {
+  const taginfo = context?.services?.taginfo;
+  if (!taginfo?.values || taginfo.__gtfsValueSuggestions) return;
+  taginfo.__gtfsValueSuggestions = true;
+
+  const values = taginfo.values.bind(taginfo);
+  taginfo.values = (params: { key?: string }, callback: (err: unknown, data?: unknown[]) => void) => {
+    const suggestions = gtfsValueSuggestions(params?.key ?? '');
+    if (suggestions) {
+      callback(null, suggestions);
+    } else {
+      values(params, callback);
+    }
+  };
+}
 
 /**
  * Adds, updates or removes the label next to one raw tag editor row's value,

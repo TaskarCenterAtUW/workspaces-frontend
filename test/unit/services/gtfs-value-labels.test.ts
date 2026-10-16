@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GTFS_VALUE_LABELS, gtfsValueLabel } from '~/services/gtfs-value-labels';
-import { labelTagRow, VALUE_LABEL_CLASS } from '~/services/rapid3-tag-labels';
+import {
+  gtfsValueSuggestions,
+  installTagValueSuggestions,
+  labelTagRow,
+  OPTION_LABEL_CLASS,
+  VALUE_LABEL_CLASS
+} from '~/services/rapid3-tag-labels';
 import pathwaysSchema from '~/services/rapid3-pathways-schema.json';
 
 // Labels for coded GTFS values, shown next to raw tag values in Rapid 3's tag
@@ -103,5 +109,53 @@ describe('tag editor value labels', () => {
       expect(render).toHaveBeenCalledTimes(1);
       expect(rows.map(({ el }) => labelOf(el))).toEqual(['Elevator', undefined]);
     });
+  });
+});
+
+describe('tag editor value dropdown', () => {
+  it('suggests every code for a coded key, each shown with its meaning', () => {
+    const suggestions = gtfsValueSuggestions('pathway_mode')!;
+    expect(suggestions.map(s => [s.value, s.title])).toEqual([
+      ['1', '1: Walkway'], ['2', '2: Stairs'], ['3', '3: Moving sidewalk'], ['4', '4: Escalator'],
+      ['5', '5: Elevator'], ['6', '6: Fare gate'], ['7', '7: Exit gate']
+    ]);
+
+    // Rapid calls display() with a d3 selection of the option element.
+    const option = document.createElement('div');
+    const select = (el: Element): any => ({
+      text: (t: string) => {
+        el.textContent = t;
+        return select(el);
+      },
+      append: (tag: string) => select(el.appendChild(document.createElement(tag))),
+      attr: (name: string, v: string) => {
+        el.setAttribute(name, v);
+        return select(el);
+      }
+    });
+    suggestions[4]!.display(select(option));
+    expect(option.firstChild!.textContent).toBe('5');
+    expect(option.querySelector(`.${OPTION_LABEL_CLASS}`)!.textContent).toBe('Elevator');
+  });
+
+  it('leaves other keys alone', () => {
+    expect(gtfsValueSuggestions('stop_name')).toBeUndefined();
+  });
+
+  it('answers coded keys from the GTFS labels and passes other keys to taginfo', () => {
+    const values = vi.fn((_params: unknown, callback: (err: unknown, data?: unknown[]) => void) => callback(null, [{ value: 'yes' }]));
+    const context = { services: { taginfo: { values } } };
+    installTagValueSuggestions(context);
+    installTagValueSuggestions(context); // second install is a no-op
+
+    const coded = vi.fn();
+    (context.services.taginfo.values as any)({ key: 'is_bidirectional', query: '' }, coded);
+    expect(coded.mock.calls[0]![1].map((s: { value: string }) => s.value)).toEqual(['0', '1']);
+    expect(values).not.toHaveBeenCalled();
+
+    const other = vi.fn();
+    (context.services.taginfo.values as any)({ key: 'surface', query: '' }, other);
+    expect(values).toHaveBeenCalledTimes(1);
+    expect(other).toHaveBeenCalledWith(null, [{ value: 'yes' }]);
   });
 });
