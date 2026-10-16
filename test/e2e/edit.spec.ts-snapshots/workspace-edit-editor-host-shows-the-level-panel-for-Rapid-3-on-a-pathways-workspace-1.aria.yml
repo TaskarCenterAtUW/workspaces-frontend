@@ -5,5 +5,4 @@
     - text: No levels yet. Use
     - strong: Add level
     - text: to outline one on the map.
-  - radiogroup "Show level":
-    - radio "All levels" [checked]
+  - radiogroup "Show level"

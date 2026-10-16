@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildStationIndex,
   collectLevels,
+  isHiddenInView,
   isHiddenOnLevel,
   isLevelArea,
   isPathway,
@@ -15,7 +17,7 @@ import {
   suggestLevelId,
   unleveledStops
 } from '~/services/pathways-levels';
-import type { Level, LevelEntity } from '~/services/pathways-levels';
+import type { Level, LevelEntity, LevelView } from '~/services/pathways-levels';
 
 // A level is an area tagged level_id/level_index/level_name; stops reference it
 // by level_id; pathways take their level(s) from their end stops.
@@ -236,16 +238,23 @@ describe('levelsByStation', () => {
     node('b1', { location_type: '4', parent_station: 'P1', level_id: 'PLAT' })
   ];
 
-  it('lists each station\'s levels highest first, sharing levels, with unlinked levels last', () => {
+  it('lists unlinked levels first, then each station\'s levels highest first, sharing levels', () => {
     expect(groupsOf(twoStations())).toEqual([
+      [undefined, ['NEW']],
       ['Annex', ['STREET']],
-      ['Central', ['STREET', 'CONC', 'PLAT']],
-      [undefined, ['NEW']]
+      ['Central', ['STREET', 'CONC', 'PLAT']]
     ]);
   });
 
+  it('includes stations with no levels yet, and an empty no-station group', () => {
+    expect(groupsOf([
+      node('s1', { location_type: '1', stop_id: 'S1', stop_name: 'Solo' }),
+      node('e1', { location_type: '2', parent_station: 'S1' })
+    ])).toEqual([[undefined, []], ['Solo', []]]);
+  });
+
   it('identifies stations by stop_id', () => {
-    const [annex] = levelsByStation(twoStations());
+    const [, annex] = levelsByStation(twoStations());
     expect(annex!.station).toEqual({ id: 's2', stopId: 'ANNEX', name: 'Annex' });
   });
 
@@ -260,5 +269,48 @@ describe('levelsByStation', () => {
   it('returns a single unnamed group when there are no stations', () => {
     expect(groupsOf([levelArea('w1', { level_id: 'L0', level_index: '0' })])).toEqual([[undefined, ['L0']]]);
     expect(groupsOf([])).toEqual([[undefined, []]]);
+  });
+});
+
+describe('isHiddenInView (station views)', () => {
+  // Central: street entrance e1 (no level) --walkway w1-- node n1 on CONC.
+  // Annex: entrance e2 (no level). Loose stop x1 (no station) --w2-- x2 (no station).
+  // Level boxes: CONC (Central), LOOSE (no station uses it).
+  const entities = [
+    node('s1', { location_type: '1', stop_id: 'CENTRAL', stop_name: 'Central' }),
+    node('s2', { location_type: '1', stop_id: 'ANNEX', stop_name: 'Annex' }),
+    node('e1', { location_type: '2', parent_station: 'CENTRAL' }),
+    node('n1', { location_type: '3', parent_station: 'CENTRAL', level_id: 'CONC' }),
+    node('e2', { location_type: '2', parent_station: 'ANNEX' }),
+    node('x1', { location_type: '0', stop_name: 'Loose', level_id: 'LOOSE' }),
+    node('x2'),
+    node('b1'),
+    way('w1', ['e1', 'b1', 'n1'], { pathway_mode: '1' }),
+    way('w2', ['x1', 'x2'], { pathway_mode: '1' }),
+    levelArea('a1', { level_id: 'CONC', level_index: '-1' }, ['c1', 'c2', 'c3', 'c1']),
+    levelArea('a2', { level_id: 'LOOSE', level_index: '0' }, ['d1', 'd2', 'd3', 'd1']),
+    node('c1'), node('c2'), node('c3'), node('d1'), node('d2'), node('d3')
+  ];
+  const byId = new Map(entities.map(entity => [entity.id, entity]));
+  const parentWays = (n: LevelEntity) => entities.filter(e => e.type === 'way' && e.nodes!.includes(n.id));
+  const index = buildStationIndex(entities);
+  const shown = (view: LevelView) => entities
+    .filter(entity => !isHiddenInView(entity, view, id => byId.get(id), parentWays, index))
+    .map(entity => entity.id)
+    .sort();
+
+  it('"No station" shows stops outside stations, their pathways, and levels no station uses', () => {
+    expect(shown({ kind: 'noStation' })).toEqual(['a2', 'd1', 'd2', 'd3', 'w2', 'x1', 'x2']);
+  });
+
+  it('a station\'s "No level" shows the station, its unleveled stops and their pathways', () => {
+    // n1 is on a level but stays visible as the far end of the walkway from e1.
+    expect(shown({ kind: 'stationNoLevel', stationId: 'CENTRAL' })).toEqual(['b1', 'e1', 'n1', 's1', 'w1']);
+    expect(shown({ kind: 'stationNoLevel', stationId: 'ANNEX' })).toEqual(['e2', 's2']);
+  });
+
+  it('defers to level filtering for level views', () => {
+    expect(shown({ kind: 'level', levelId: 'CONC' })).toContain('n1');
+    expect(shown({ kind: 'level', levelId: 'CONC' })).not.toContain('x1');
   });
 });

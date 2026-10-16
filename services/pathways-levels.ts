@@ -191,22 +191,29 @@ export interface Station {
 }
 
 export interface StationLevelGroup {
-  /** The station, or undefined for levels no station's stops use. */
+  /** The station, or undefined for the levels no station's stops use. */
   station: Station | undefined;
   /** The levels this station's stops are on, highest first (see `levelsTopDown`). */
   levels: Level[];
 }
 
 /**
- * Groups levels by the stations that use them. GTFS levels don't belong to a
- * station; the link is through stops, which have both a level_id and a
- * parent_station. A boarding area's parent_station is its platform, so that
- * one is followed up to the platform's station. A level used by several
- * stations (e.g. a shared street level) is listed under each. Levels no
- * station's stops use (e.g. a just-drawn outline) are grouped last, with no
- * station. Stations are sorted by name.
+ * Which station each stop belongs to. GTFS levels don't belong to a station;
+ * the link is through stops, which have both a level_id and a parent_station.
+ * A boarding area's parent_station is its platform, so that's followed up to
+ * the platform's station. Stations are identified by their stop_id (what
+ * parent_station holds), so a station without one can't have stops.
  */
-export function levelsByStation(entities: LevelEntity[]): StationLevelGroup[] {
+export interface StationIndex {
+  /** Stations by entity ID. */
+  stations: Map<string | number, Station>;
+  /** Stop entity ID -> the stop_id of its station, for stops in a station. */
+  stationOfStop: Map<string | number, string>;
+  /** level_id -> stop_ids of the stations whose stops are on that level. */
+  stationsByLevel: Map<string, Set<string>>;
+}
+
+export function buildStationIndex(entities: LevelEntity[]): StationIndex {
   const stops = stopNodes(entities);
   const byStopId = new Map<string, LevelEntity>();
   for (const stop of stops) {
@@ -215,43 +222,118 @@ export function levelsByStation(entities: LevelEntity[]): StationLevelGroup[] {
   }
 
   const isStation = (entity: LevelEntity | undefined) => entity?.tags?.location_type?.trim() === '1';
-  const stationOf = (stop: LevelEntity): LevelEntity | undefined => {
+  const stations = new Map<string | number, Station>();
+  for (const [stopId, stop] of byStopId) {
+    if (isStation(stop)) {
+      stations.set(stop.id, { id: stop.id, stopId, name: stop.tags?.stop_name?.trim() || stopId });
+    }
+  }
+
+  const stationOfStop = new Map<string | number, string>();
+  const stationsByLevel = new Map<string, Set<string>>();
+  for (const stop of stops) {
+    if (isStation(stop)) continue;
     let parent = byStopId.get(stop.tags?.parent_station?.trim() ?? '');
     if (parent && !isStation(parent) && stop.tags?.location_type?.trim() === '4') {
       parent = byStopId.get(parent.tags?.parent_station?.trim() ?? ''); // boarding area -> platform -> station
     }
-    return isStation(parent) ? parent : undefined;
-  };
+    if (!parent || !isStation(parent)) continue;
 
-  // levelId -> stop_ids of the stations whose stops are on it
-  const stationsByLevel = new Map<string, Set<string>>();
-  for (const stop of stops) {
+    const stationId = parent.tags!.stop_id!.trim();
+    stationOfStop.set(stop.id, stationId);
     const levelId = stopLevelId(stop);
-    const station = levelId && stationOf(stop);
-    if (!levelId || !station) continue;
-    const stationIds = stationsByLevel.get(levelId) ?? new Set<string>();
-    stationIds.add(station.tags!.stop_id!.trim());
-    stationsByLevel.set(levelId, stationIds);
+    if (levelId) {
+      const stationIds = stationsByLevel.get(levelId) ?? new Set<string>();
+      stationIds.add(stationId);
+      stationsByLevel.set(levelId, stationIds);
+    }
   }
 
+  return { stations, stationOfStop, stationsByLevel };
+}
+
+/**
+ * Groups levels by the stations whose stops use them (see `StationIndex`).
+ * The first group, with no station, holds the levels no station's stops use
+ * (e.g. a just-drawn outline); it's always present. Then one group per station
+ * (sorted by name), including stations with no levels yet. A level used by
+ * several stations (e.g. a shared street level) is listed under each.
+ */
+export function levelsByStation(entities: LevelEntity[], index = buildStationIndex(entities)): StationLevelGroup[] {
   const levels = collectLevels(entities);
-  const stations: Station[] = [...new Set([...stationsByLevel.values()].flatMap(ids => [...ids]))]
-    .map((stopId) => {
-      const station = byStopId.get(stopId)!;
-      return { id: station.id, stopId, name: station.tags?.stop_name?.trim() || stopId };
-    })
+  const stations = [...index.stations.values()]
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }) || a.stopId.localeCompare(b.stopId));
 
-  const groups: StationLevelGroup[] = stations.map(station => ({
-    station,
-    levels: levelsTopDown(levels.filter(level => stationsByLevel.get(level.levelId)?.has(station.stopId)))
-  }));
+  return [
+    { station: undefined, levels: levelsTopDown(levels.filter(level => !index.stationsByLevel.has(level.levelId))) },
+    ...stations.map(station => ({
+      station,
+      levels: levelsTopDown(levels.filter(level => index.stationsByLevel.get(level.levelId)?.has(station.stopId)))
+    }))
+  ];
+}
 
-  const unlinked = levels.filter(level => !stationsByLevel.has(level.levelId));
-  if (unlinked.length || !groups.length) {
-    groups.push({ station: undefined, levels: levelsTopDown(unlinked) });
+/**
+ * What the map shows: one level; only features not tied to a station; or one
+ * station's features that have no level (e.g. its street entrances).
+ */
+export type LevelView = { kind: 'level'; levelId: string }
+  | { kind: 'noStation' }
+  | { kind: 'stationNoLevel'; stationId: string };
+
+/**
+ * Decides whether a feature is hidden in a view. Level views follow
+ * `isHiddenOnLevel`. In the station views:
+ * - `noStation` shows stops not in any station, the level areas no station
+ *   uses, and pathways touching a shown stop;
+ * - `stationNoLevel` shows the station itself, its stops with no level_id,
+ *   and pathways touching them; no level areas.
+ * As with levels, a hidden stop stays visible while a shown pathway uses it,
+ * and untagged nodes (bends, box corners) follow the ways they shape.
+ */
+export function isHiddenInView(
+  entity: LevelEntity,
+  view: LevelView,
+  getEntity: (id: string | number) => LevelEntity | undefined,
+  parentWays: (node: LevelEntity) => LevelEntity[],
+  index: StationIndex
+): boolean {
+  if (view.kind === 'level') {
+    return isHiddenOnLevel(entity, view.levelId, getEntity, parentWays);
   }
-  return groups;
+
+  const stopShown = (node: LevelEntity): boolean => {
+    const station = index.stations.get(node.id);
+    if (view.kind === 'noStation') {
+      return !station && !index.stationOfStop.has(node.id);
+    }
+    if (station) return station.stopId === view.stationId;
+    return index.stationOfStop.get(node.id) === view.stationId && !stopLevelId(node);
+  };
+  const pathwayShown = (way: LevelEntity): boolean => [way.nodes![0], way.nodes!.at(-1)]
+    .map(id => getEntity(id!))
+    .some(node => node !== undefined && stopShown(node));
+
+  if (entity.type === 'way') {
+    if (isLevelArea(entity)) {
+      if (view.kind === 'stationNoLevel') return true;
+      const levelId = entity.tags!.level_id?.trim();
+      return Boolean(levelId) && index.stationsByLevel.has(levelId!);
+    }
+    return isPathway(entity) ? !pathwayShown(entity) : false;
+  }
+
+  if (entity.type === 'node') {
+    const parents = parentWays(entity);
+    if (Object.keys(entity.tags ?? {}).length === 0) {
+      return parents.length > 0
+        && parents.every(way => isHiddenInView(way, view, getEntity, parentWays, index));
+    }
+    if (stopShown(entity)) return false;
+    return !parents.some(way => isPathway(way) && pathwayShown(way));
+  }
+
+  return false;
 }
 
 /** The level_index of a level area as a number, if it has a numeric one. */

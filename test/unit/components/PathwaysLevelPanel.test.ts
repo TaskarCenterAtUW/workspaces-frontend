@@ -2,11 +2,11 @@
 
 import { mountSuspended } from '@nuxt/test-utils/runtime';
 import { describe, expect, it, vi } from 'vitest';
-import { nextTick, ref, shallowRef } from 'vue';
+import { computed, nextTick, ref, shallowRef } from 'vue';
 import PathwaysLevelPanel from '~/components/edit/PathwaysLevelPanel.vue';
 
 import { levelsTopDown } from '~/services/pathways-levels';
-import type { Level, StationLevelGroup } from '~/services/pathways-levels';
+import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-levels';
 import type { LevelStop, LevelStopGroup } from '~/services/rapid3-levels';
 
 // The Nuxt env loads services/index, whose clients open IndexedDB caches on import.
@@ -23,10 +23,14 @@ const entrance: LevelStop = { id: 'n3', label: 'Entrance: Main', levelId: undefi
 const roof: Level = { levelId: 'ROOF', index: undefined, name: '', areaIds: [] };
 
 function stubTools(currentLevelId?: string) {
-  const showLevel = vi.fn((levelId: string | undefined) => {
-    tools.currentLevelId.value = levelId;
-  });
+  const view = ref<LevelView | undefined>(currentLevelId ? { kind: 'level', levelId: currentLevelId } : undefined);
   const tools = {
+    view,
+    currentLevelId: computed(() => (view.value?.kind === 'level' ? view.value.levelId : undefined)),
+    showView: vi.fn((next: LevelView | undefined) => {
+      view.value = next;
+    }),
+    noStationStopCount: ref(0),
     levels: shallowRef<Level[]>([concourse, street]),
     levelGroups: shallowRef<StationLevelGroup[]>([{ station: undefined, levels: [street, concourse] }]),
     stopGroups: shallowRef<LevelStopGroup[]>([
@@ -36,8 +40,6 @@ function stubTools(currentLevelId?: string) {
     ]),
     unleveled: shallowRef<LevelStop[]>([entrance]),
     levelAreasMissingId: shallowRef<LevelStop[]>([]),
-    currentLevelId: ref<string | undefined>(currentLevelId),
-    showLevel,
     zoomToLevel: vi.fn(),
     drawLevel: vi.fn(),
     fillLevelId: vi.fn(),
@@ -70,13 +72,13 @@ describe('PathwaysLevelPanel', () => {
     expect(tools.drawLevel).toHaveBeenCalled();
   });
 
-  // @test unit: lists levels highest first, with an "All levels" option, and selecting one shows only that level
-  it('lists levels highest first and shows the one picked', async () => {
+  // @test unit: lists levels highest first, and selecting one shows only that level; selecting it again shows everything
+  it('lists levels highest first and toggles showing the one picked', async () => {
     const tools = stubTools();
     const wrapper = await mountPanel(tools);
 
     const options = wrapper.findAll('[role="radio"]');
-    expect(options[0]!.text()).toBe('All levels');
+    expect(options[0]!.text()).toBe('No station');
     expect(options.slice(1).map(option => ['.level-title', '.badge']
       .map(selector => option.find(selector).text()))).toEqual([
       ['Street (L0)', '1'],
@@ -84,14 +86,43 @@ describe('PathwaysLevelPanel', () => {
     ]);
     // The order conveys the level; the index itself isn't shown.
     expect(options[1]!.find('.level-index').exists()).toBe(false);
-    expect(options[0]!.attributes('aria-checked')).toBe('true');
+    // Nothing is selected at first: everything is shown.
+    expect(options.map(option => option.attributes('aria-checked'))).toEqual(['false', 'false', 'false']);
 
     await options[1]!.trigger('click');
-    expect(tools.showLevel).toHaveBeenCalledWith('L0');
+    expect(tools.showView).toHaveBeenCalledWith({ kind: 'level', levelId: 'L0' });
     expect(wrapper.findAll('[role="radio"]')[1]!.attributes('aria-checked')).toBe('true');
 
-    await wrapper.findAll('[role="radio"]')[0]!.trigger('click');
-    expect(tools.showLevel).toHaveBeenLastCalledWith(undefined);
+    await wrapper.findAll('[role="radio"]')[1]!.trigger('click');
+    expect(tools.showView).toHaveBeenLastCalledWith(undefined);
+  });
+
+  // @test unit: "No station" (at the top, over the levels no station uses) shows only features not tied to a station; it's hidden when there's nothing outside a station
+  it('toggles the No station view', async () => {
+    const tools = stubTools();
+    const wrapper = await mountPanel(tools);
+    const noStation = () => wrapper.findAll('[role="radio"]').find(option => option.text() === 'No station')!;
+
+    await noStation().trigger('click');
+    expect(tools.showView).toHaveBeenLastCalledWith({ kind: 'noStation' });
+    expect(noStation().attributes('aria-checked')).toBe('true');
+    expect(noStation().attributes('title')).toContain('click again to show everything');
+
+    await noStation().trigger('click');
+    expect(tools.showView).toHaveBeenLastCalledWith(undefined);
+  });
+
+  it('hides No station when it has no levels and no stops outside a station', async () => {
+    const tools = stubTools();
+    tools.levelGroups.value = [{ station: undefined, levels: [] }];
+    const wrapper = await mountPanel(tools);
+    const hasNoStation = () => wrapper.findAll('[role="radio"]').some(option => option.text() === 'No station');
+
+    expect(hasNoStation()).toBe(false);
+
+    tools.noStationStopCount.value = 2; // loose stops: still worth a view
+    await nextTick();
+    expect(hasNoStation()).toBe(true);
   });
 
   // @test unit: lists stops with no level, and "Set level" assigns the selected level to them
@@ -250,6 +281,7 @@ describe('PathwaysLevelPanel', () => {
       const tools = stubTools();
       tools.levels.value = [concourse, street, upper];
       tools.levelGroups.value = [
+        { station: undefined, levels: [] },
         { station: annex, levels: [street] },
         { station: central, levels: [upper, street, concourse] }
       ];
@@ -271,7 +303,7 @@ describe('PathwaysLevelPanel', () => {
     it('highlights a shared level under every station when it is shown', async () => {
       const { tools, wrapper } = await mountStations();
 
-      tools.currentLevelId.value = 'L0';
+      tools.view.value = { kind: 'level', levelId: 'L0' };
       await nextTick();
 
       const active = wrapper.findAll('.level-row.active .level-title').map(title => title.text());
@@ -294,6 +326,23 @@ describe('PathwaysLevelPanel', () => {
       expect(annexRow.classes()).not.toContain('level-drop-after');
       await annexRow.trigger('drop');
       expect(tools.reorderLevels).toHaveBeenCalledTimes(1);
+    });
+
+    // @test unit: each station ends with "No level", which shows that station's features that have no level
+    it('ends each station with a No level entry for its unleveled features', async () => {
+      const { tools, wrapper } = await mountStations();
+
+      const entries = wrapper.findAll('[role="group"]')
+        .map(group => group.findAll('[role="radio"]').map(option => option.text()).at(-1));
+      expect(entries).toEqual(['No level', 'No level']);
+
+      const centralNoLevel = wrapper.findAll('[role="group"]')[1]!.findAll('[role="radio"]').at(-1)!;
+      expect(centralNoLevel.attributes('title')).toContain('Central\'s features that have no level');
+      await centralNoLevel.trigger('click');
+      expect(tools.showView).toHaveBeenLastCalledWith({ kind: 'stationNoLevel', stationId: 'CENTRAL' });
+      expect(centralNoLevel.attributes('aria-checked')).toBe('true');
+      // Annex's entry isn't selected by Central's.
+      expect(wrapper.findAll('[role="group"]')[0]!.findAll('[role="radio"]').at(-1)!.attributes('aria-checked')).toBe('false');
     });
 
     it('shows no headings with a single group', async () => {

@@ -28,30 +28,33 @@
         role="radiogroup"
         aria-label="Show level"
       >
-        <button
-          type="button"
-          role="radio"
-          class="list-group-item list-group-item-action"
-          :class="{ active: !currentLevelId }"
-          :aria-checked="!currentLevelId"
-          @click="tools.showLevel(undefined)"
-        >
-          All levels
-        </button>
         <div
-          v-for="group in levelGroups"
+          v-for="group in visibleGroups"
           :key="groupKey(group)"
           class="level-group"
-          :role="showStationHeadings ? 'group' : undefined"
-          :aria-label="showStationHeadings ? stationLabel(group) : undefined"
+          :class="{ 'level-group-no-station': !group.station }"
+          :role="group.station ? 'group' : undefined"
+          :aria-label="group.station?.name"
         >
           <div
-            v-if="showStationHeadings"
+            v-if="group.station"
             class="list-group-item level-group-heading"
-            :title="group.station ? `Station ${group.station.stopId}` : 'Levels no station\'s stops are on yet'"
+            :title="`Station ${group.station.stopId}`"
           >
-            {{ stationLabel(group) }}
+            {{ group.station.name }}
           </div>
+          <button
+            v-else
+            type="button"
+            role="radio"
+            class="list-group-item list-group-item-action level-view-entry"
+            :class="{ active: isViewShown(viewFor(group)) }"
+            :aria-checked="isViewShown(viewFor(group))"
+            :title="viewTitle(group)"
+            @click="toggleView(viewFor(group))"
+          >
+            No station
+          </button>
           <div
             v-for="level in group.levels"
             :key="`${groupKey(group)}:${level.levelId}`"
@@ -101,7 +104,8 @@
               role="radio"
               class="level-row-main"
               :aria-checked="currentLevelId === level.levelId"
-              @click="tools.showLevel(level.levelId)"
+              :title="currentLevelId === level.levelId ? 'Click again to show everything' : undefined"
+              @click="toggleView({ kind: 'level', levelId: level.levelId })"
             >
               <span class="level-title">{{ levelLabel(level) }}</span>
               <span
@@ -146,6 +150,18 @@
               </template>
             </div>
           </div>
+          <button
+            v-if="group.station"
+            type="button"
+            role="radio"
+            class="list-group-item list-group-item-action level-view-entry"
+            :class="{ active: isViewShown(viewFor(group)) }"
+            :aria-checked="isViewShown(viewFor(group))"
+            :title="viewTitle(group)"
+            @click="toggleView(viewFor(group))"
+          >
+            No level
+          </button>
         </div>
       </div>
       <p
@@ -234,12 +250,14 @@
 
 <script setup lang="ts">
 import type { Rapid3LevelTools } from '~/services/rapid3-levels';
-import type { Level, StationLevelGroup } from '~/services/pathways-levels';
+import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-levels';
 
 // @test unit: "Add level" starts drawing a new level's outline on the map
 // @test unit: each level shows whether it has an outline; levels without one can have one drawn
 // @test unit: level areas missing a level_id are flagged, and "Fill level_id" generates one
-// @test unit: lists levels highest first, with an "All levels" option, and selecting one shows only that level
+// @test unit: lists levels highest first, and selecting one shows only that level; selecting it again shows everything
+// @test unit: "No station" (at the top, over the levels no station uses) shows only features not tied to a station; it's hidden when there's nothing outside a station
+// @test unit: each station ends with "No level", which shows that station's features that have no level
 // @test unit: with more than one station, levels are grouped under the stations whose stops use them
 // @test unit: levels with an outline can be reordered by dragging or with the arrow keys, which renumbers level_index
 // @test unit: levels without an outline show a disabled handle saying to add an outline first
@@ -259,17 +277,39 @@ const currentLevelLabel = computed(() => {
   return level ? levelLabel(level) : currentLevelId.value;
 });
 
-// Levels grouped by station, each highest first. Station headings are only
-// shown when there's more than one group.
+// Levels grouped by station, each highest first. The first group (no station)
+// sits under the "No station" entry; each station's group ends with "No level".
 const levelGroups = computed(() => props.tools.levelGroups.value);
-const showStationHeadings = computed(() => levelGroups.value.length > 1);
+
+// "No station" is hidden when it has nothing to list or show: no levels under
+// it and no stops outside a station.
+const visibleGroups = computed(() => levelGroups.value.filter(group => group.station
+  || group.levels.length > 0
+  || props.tools.noStationStopCount.value > 0));
+
+/** The view a group's entry selects: "No station", or a station's "No level". */
+function viewFor(group: StationLevelGroup): LevelView {
+  return group.station ? { kind: 'stationNoLevel', stationId: group.station.stopId } : { kind: 'noStation' };
+}
+
+function isViewShown(view: LevelView): boolean {
+  return JSON.stringify(props.tools.view.value) === JSON.stringify(view);
+}
+
+/** Shows a view, or everything if it's already shown. */
+function toggleView(view: LevelView) {
+  props.tools.showView(isViewShown(view) ? undefined : view);
+}
+
+function viewTitle(group: StationLevelGroup): string {
+  const title = group.station
+    ? `Show ${group.station.name}'s features that have no level, such as its street entrances`
+    : 'Show only features not tied to a station';
+  return isViewShown(viewFor(group)) ? `${title} (click again to show everything)` : title;
+}
 
 function groupKey(group: StationLevelGroup): string {
   return group.station ? `station:${group.station.stopId}` : 'no-station';
-}
-
-function stationLabel(group: StationLevelGroup): string {
-  return group.station?.name ?? 'No station';
 }
 
 // Only levels with an outline can move, since level_index is stored on the outline.
@@ -428,13 +468,23 @@ function stopCount(levelId: string): number {
   border-radius: 0;
 }
 
-.level-group > .list-group-item:first-child {
+.level-group + .level-group > .list-group-item:first-child,
+.level-group > .list-group-item + .list-group-item {
   border-top-width: 0;
+}
+
+.level-group:first-child > .list-group-item:first-child {
+  border-top-left-radius: var(--bs-list-group-border-radius);
+  border-top-right-radius: var(--bs-list-group-border-radius);
 }
 
 .level-group:last-child > .list-group-item:last-child {
   border-bottom-right-radius: var(--bs-list-group-border-radius);
   border-bottom-left-radius: var(--bs-list-group-border-radius);
+}
+
+.level-group-no-station .level-row {
+  padding-left: 1rem; // levels listed under "No station"
 }
 
 .level-group-heading {

@@ -1,17 +1,19 @@
-import { ref, shallowRef } from 'vue';
+import { computed, ref, shallowRef } from 'vue';
 import {
   collectLevels,
-  isHiddenOnLevel,
+  buildStationIndex,
+  isHiddenInView,
   levelAreaIndex,
   levelAreasMissingId,
   levelsByStation,
   nextLevelIndex,
   reorderedLevelIndexes,
+  stopNodes,
   stopsByLevel,
   suggestLevelId,
   unleveledStops
 } from '~/services/pathways-levels';
-import type { Level, StationLevelGroup } from '~/services/pathways-levels';
+import type { Level, LevelView, StationIndex, StationLevelGroup } from '~/services/pathways-levels';
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
 declare const Rapid: any;
@@ -52,7 +54,8 @@ function describeStop(entity: any): LevelStop {
  *
  * Keeps reactive lists of the workspace's levels, its stops grouped by level,
  * and the stops missing a level, refreshed as data loads and edits are made.
- * Selecting a level hides features on other levels (see `isHiddenOnLevel`).
+ * Choosing a view (a level, features with no station, or a station's features
+ * with no level) hides everything else on the map (see `isHiddenInView`).
  * Edits (drawing levels, setting level_ids) go through Rapid's editor, so they
  * can be undone and are uploaded like any other change.
  */
@@ -61,6 +64,8 @@ export class Rapid3LevelTools {
   readonly levels = shallowRef<Level[]>([]);
   /** Levels grouped by the stations whose stops use them (see `levelsByStation`). */
   readonly levelGroups = shallowRef<StationLevelGroup[]>([]);
+  /** How many stops aren't in any station (what the "No station" view shows). */
+  readonly noStationStopCount = ref(0);
   /** Stops grouped by level in level order, unleveled stops last. */
   readonly stopGroups = shallowRef<LevelStopGroup[]>([]);
   /** Stops that should be on a level but have no level_id. */
@@ -68,10 +73,14 @@ export class Rapid3LevelTools {
   /** Level areas without a level_id (so stops can't reference them). */
   readonly levelAreasMissingId = shallowRef<LevelStop[]>([]);
   /** The level being shown, or undefined to show all levels. */
-  readonly currentLevelId = ref<string | undefined>();
+  /** What the map is filtered to, or undefined to show everything. */
+  readonly view = ref<LevelView | undefined>();
+  /** The level being shown, when the view is a level. */
+  readonly currentLevelId = computed(() => (this.view.value?.kind === 'level' ? this.view.value.levelId : undefined));
 
   #context: any;
   #refreshTimer: ReturnType<typeof setTimeout> | undefined;
+  #stationIndex: StationIndex = { stations: new Map(), stationOfStop: new Map(), stationsByLevel: new Map() };
 
   constructor(context: any) {
     this.#context = context;
@@ -94,24 +103,44 @@ export class Rapid3LevelTools {
     const entities = this.#entities();
     const levels = collectLevels(entities);
 
+    this.#stationIndex = buildStationIndex(entities);
     this.levels.value = levels;
-    this.levelGroups.value = levelsByStation(entities);
+    this.levelGroups.value = levelsByStation(entities, this.#stationIndex);
+    const { stations, stationOfStop } = this.#stationIndex;
+    this.noStationStopCount.value = stopNodes(entities)
+      .filter(stop => !stations.has(stop.id) && !stationOfStop.has(stop.id)).length;
     this.stopGroups.value = stopsByLevel(entities)
       .map(({ level, stops }) => ({ level, stops: stops.map(describeStop) }));
     this.unleveled.value = unleveledStops(entities).map(describeStop);
     this.levelAreasMissingId.value = levelAreasMissingId(entities)
       .map(area => ({ id: area.id, label: area.tags?.level_name?.trim() || area.id, levelId: undefined }));
 
-    // Drop a selected level that no longer exists.
-    if (this.currentLevelId.value && !levels.some(level => level.levelId === this.currentLevelId.value)) {
-      this.showLevel(undefined);
+    // Drop a view whose level or station no longer exists.
+    const view = this.view.value;
+    const stale = (view?.kind === 'level' && !levels.some(level => level.levelId === view.levelId))
+      || (view?.kind === 'noStation' && !this.noStationStopCount.value
+        && !this.levelGroups.value[0]?.levels.length)
+      || (view?.kind === 'stationNoLevel'
+        && ![...this.#stationIndex.stations.values()].some(station => station.stopId === view.stationId));
+    if (stale) {
+      this.showView(undefined);
+    } else if (view) {
+      this.#redraw(); // station membership may have changed
     }
   }
 
   /** Shows only features on the given level (and unleveled stops), or every level. */
   showLevel(levelId: string | undefined) {
-    this.currentLevelId.value = levelId;
+    this.showView(levelId ? { kind: 'level', levelId } : undefined);
+  }
 
+  /** Filters the map to a view, or shows everything when undefined. */
+  showView(view: LevelView | undefined) {
+    this.view.value = view;
+    this.#redraw();
+  }
+
+  #redraw() {
     const { filters, gfx } = this.#context.systems;
     filters.emit('filterchange'); // makes the map redraw its OSM layer
     gfx?.immediateRedraw();
@@ -256,9 +285,9 @@ export class Rapid3LevelTools {
     const filterScene = filters.filterScene.bind(filters);
 
     const hiddenByLevel = (entity: any, graph: any): boolean => {
-      const levelId = this.currentLevelId.value;
-      if (!levelId || filters._forceVisible?.has(entity.id)) return false;
-      return isHiddenOnLevel(entity, levelId, id => graph.hasEntity(id), node => graph.parentWays(node));
+      const view = this.view.value;
+      if (!view || filters._forceVisible?.has(entity.id)) return false;
+      return isHiddenInView(entity, view, id => graph.hasEntity(id), node => graph.parentWays(node), this.#stationIndex);
     };
 
     filters.isHidden = (entity: any, graph: any, geometry: string) =>

@@ -239,4 +239,52 @@ describe('Rapid3LevelTools', () => {
     expect(context.systems.editor.perform).not.toHaveBeenCalled();
     expect(context.systems.editor.commit).not.toHaveBeenCalled();
   });
+
+  describe('station views', () => {
+    const withStation = () => [
+      ...station(),
+      node('s1', { location_type: '1', stop_id: 'CENTRAL', stop_name: 'Central' }),
+      node('e1', { location_type: '2', parent_station: 'CENTRAL' })
+    ];
+
+    it('filters the map to one station\'s features with no level', () => {
+      const context = fakeContext(withStation());
+      const tools = new Rapid3LevelTools(context);
+      const all = withStation();
+
+      tools.showView({ kind: 'stationNoLevel', stationId: 'CENTRAL' });
+
+      expect(tools.currentLevelId.value).toBeUndefined();
+      expect(context.systems.filters.filterScene(all, context.graph).map((entity: Entity) => entity.id))
+        .toEqual(['s1', 'e1']);
+    });
+
+    it('lists the station with its (empty) level list after the no-station group', () => {
+      const tools = new Rapid3LevelTools(fakeContext(withStation()));
+
+      expect(tools.levelGroups.value.map(group => group.station?.name)).toEqual([undefined, 'Central']);
+    });
+
+    it('follows the view for the current level', () => {
+      const tools = new Rapid3LevelTools(fakeContext(withStation()));
+
+      tools.showLevel('L0');
+      expect(tools.view.value).toEqual({ kind: 'level', levelId: 'L0' });
+      expect(tools.currentLevelId.value).toBe('L0');
+
+      tools.showView({ kind: 'noStation' });
+      expect(tools.currentLevelId.value).toBeUndefined();
+    });
+
+    it('shows everything again when the viewed station disappears', () => {
+      const context = fakeContext(withStation());
+      const tools = new Rapid3LevelTools(context);
+      tools.showView({ kind: 'stationNoLevel', stationId: 'CENTRAL' });
+
+      context.local.set('s1', undefined); // station deleted
+      tools.refresh();
+
+      expect(tools.view.value).toBeUndefined();
+    });
+  });
 });
