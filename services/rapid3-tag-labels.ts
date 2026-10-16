@@ -13,7 +13,12 @@ export interface ValueSuggestion {
   value: string;
   title: string;
   display: ($option: any) => void;
+  /** Marks suggestions from these lists, so a single one still opens the dropdown. */
+  gtfsChoice: true;
 }
+
+/** Combo fields whose dropdown lists defined values (see installSingleChoiceDropdowns). */
+const CHOICE_FIELD_CLASSES = new Set(['combo-level_id', 'combo-parent_station']);
 
 /**
  * Dropdown suggestions for a coded GTFS key (e.g. pathway_mode: "1 Walkway",
@@ -28,6 +33,7 @@ export function gtfsValueSuggestions(key: string): ValueSuggestion[] | undefined
 export function labeledSuggestions(choices: { value: string; label: string }[]): ValueSuggestion[] {
   return choices.map(({ value, label }) => ({
     value,
+    gtfsChoice: true as const,
     title: `${value}: ${label}`,
     // A display function (not HTML), so labels are set as text.
     display: ($option: any) => {
@@ -88,6 +94,34 @@ export function labelTagRow(row: Element, key: string, value: unknown) {
   }
   span.textContent = label;
   wrap.querySelector('input.value')?.setAttribute('title', `${String(value)}: ${label}`);
+}
+
+/**
+ * Lets the level_id / parent_station dropdowns (and tag editor dropdowns
+ * listing our choices) open with a single choice. Rapid's combobox stays
+ * hidden with fewer than 2 suggestions, so a workspace with one station or one
+ * level would offer nothing, and those fields are read-only. Wraps the
+ * combobox render to lower that minimum to 1 for just these dropdowns.
+ */
+export function installSingleChoiceDropdowns() {
+  const proto = Rapid?.UiCombobox?.prototype;
+  if (!proto?._render || proto.__gtfsSingleChoice) return;
+  proto.__gtfsSingleChoice = true;
+
+  const render = proto._render;
+  proto._render = function (this: any, ...args: unknown[]) {
+    const ours = CHOICE_FIELD_CLASSES.has(this._klass)
+      || (this._suggestions?.length > 0 && this._suggestions.every((s: any) => s?.gtfsChoice));
+    if (!ours) return render.apply(this, args);
+
+    const minItems = this._minItems;
+    this._minItems = Math.min(minItems, 1);
+    try {
+      return render.apply(this, args);
+    } finally {
+      this._minItems = minItems;
+    }
+  };
 }
 
 let installed = false;

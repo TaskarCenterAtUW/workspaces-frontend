@@ -189,3 +189,43 @@ describe('tag editor value dropdown', () => {
     expect(values).not.toHaveBeenCalled();
   });
 });
+
+describe('installSingleChoiceDropdowns', () => {
+  afterEach(() => {
+    delete (globalThis as any).Rapid;
+    vi.resetModules();
+  });
+
+  it('opens our dropdowns with one choice; other dropdowns keep Rapid\'s minimum of 2', async () => {
+    const seenMinimums: number[] = [];
+    class UiCombobox {
+      _klass?: string;
+      _suggestions: unknown[] = [];
+      _minItems = 2;
+      _render() {
+        seenMinimums.push(this._minItems);
+      }
+    }
+    (globalThis as any).Rapid = { UiCombobox };
+
+    vi.resetModules();
+    const { installSingleChoiceDropdowns, labeledSuggestions } = await import('~/services/rapid3-tag-labels');
+    installSingleChoiceDropdowns();
+    installSingleChoiceDropdowns(); // no double wrap
+
+    const combo = (klass: string | undefined, suggestions: unknown[]) =>
+      Object.assign(new UiCombobox(), { _klass: klass, _suggestions: suggestions });
+
+    combo('combo-parent_station', [{ value: 'CENTRAL' }])._render(); // our field
+    combo('combo-level_id', [])._render();
+    combo('tag-value', labeledSuggestions([{ value: 'L1', label: 'Concourse (L1)' }]))._render(); // our list in the tag editor
+    combo('tag-value', [{ value: 'asphalt' }])._render(); // taginfo's
+    combo('combo-surface', [{ value: 'asphalt' }])._render(); // another field
+
+    expect(seenMinimums).toEqual([1, 1, 1, 2, 2]);
+    // The minimum is restored afterwards.
+    const field = combo('combo-parent_station', []);
+    field._render();
+    expect(field._minItems).toBe(2);
+  });
+});

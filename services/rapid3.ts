@@ -2,7 +2,7 @@ import { ref, shallowRef } from 'vue'
 import type { TdeiAuthStore } from '~/services/tdei'
 import pathwaysSchema from '~/services/rapid3-pathways-schema.json'
 import { Rapid3LevelTools } from '~/services/rapid3-levels'
-import { installTagValueLabels, installTagValueSuggestions } from '~/services/rapid3-tag-labels'
+import { installSingleChoiceDropdowns, installTagValueLabels, installTagValueSuggestions } from '~/services/rapid3-tag-labels'
 import { installReferenceValidator, REFERENCE_VALIDATOR_ID, REFERENCE_VALIDATOR_STRINGS } from '~/services/rapid3-validation'
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
@@ -368,6 +368,7 @@ export class Rapid3Manager {
       installTagValueLabels()
       installTagValueSuggestions(context, (key: string) =>
         this.levelTools.value?.referenceChoices(key, context.selectedIDs?.()[0]))
+      installSingleChoiceDropdowns()
       // Flag parent_station / level_id / stop_id values that don't resolve.
       installReferenceValidator(context)
     }
