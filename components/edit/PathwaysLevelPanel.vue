@@ -171,6 +171,12 @@
         </div>
       </div>
       <p
+        v-if="hiddenStationCount > 0"
+        class="level-panel-hint"
+      >
+        {{ hiddenStationCount === 1 ? '1 station is' : `${hiddenStationCount} stations are` }} out of view; pan or zoom the map to list {{ hiddenStationCount === 1 ? 'it' : 'them' }}.
+      </p>
+      <p
         v-if="levels.filter(isMovable).length > 1"
         class="level-panel-hint"
       >
@@ -263,6 +269,7 @@ import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-le
 // @test unit: level areas missing a level_id are flagged, and "Fill level_id" generates one
 // @test unit: lists levels highest first, and selecting one shows only that level; selecting it again shows everything
 // @test unit: "No station" (at the top, over the levels no station uses) shows only features not tied to a station; it's hidden when there's nothing outside a station
+// @test unit: only stations with features in the map view are listed (plus the one being viewed)
 // @test unit: clicking a station's name selects the station in the editor
 // @test unit: each station starts with "Street / No level", which shows that station's features that have no level
 // @test unit: with more than one station, levels are grouped under the stations whose stops use them
@@ -289,10 +296,21 @@ const currentLevelLabel = computed(() => {
 const levelGroups = computed(() => props.tools.levelGroups.value);
 
 // "No station" is hidden when it has nothing to list or show: no levels under
-// it and no stops outside a station.
-const visibleGroups = computed(() => levelGroups.value.filter(group => group.station
-  || group.levels.length > 0
-  || props.tools.noStationStopCount.value > 0));
+// it and no stops outside a station. Stations are listed only while some of
+// their features are in the map view, plus the one being viewed (if any).
+const visibleGroups = computed(() => levelGroups.value.filter(group => (group.station
+  ? isStationListed(group)
+  : group.levels.length > 0 || props.tools.noStationStopCount.value > 0)));
+const hiddenStationCount = computed(() => levelGroups.value.filter(group => group.station).length
+  - visibleGroups.value.filter(group => group.station).length);
+
+function isStationListed(group: StationLevelGroup): boolean {
+  const inView = props.tools.visibleStationIds.value;
+  if (!inView || inView.has(group.station!.stopId)) return true;
+  // Keep the station whose level or "Street / No level" view is shown.
+  return isViewShown(viewFor(group))
+    || group.levels.some(level => level.levelId === currentLevelId.value);
+}
 
 /** The view a group's entry selects: "No station", or a station's "Street / No level". */
 function viewFor(group: StationLevelGroup): LevelView {

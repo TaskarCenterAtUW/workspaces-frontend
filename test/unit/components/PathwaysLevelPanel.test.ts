@@ -31,6 +31,7 @@ function stubTools(currentLevelId?: string) {
       view.value = next;
     }),
     noStationStopCount: ref(0),
+    visibleStationIds: shallowRef<Set<string> | undefined>(undefined),
     levels: shallowRef<Level[]>([concourse, street]),
     levelGroups: shallowRef<StationLevelGroup[]>([{ station: undefined, levels: [street, concourse] }]),
     stopGroups: shallowRef<LevelStopGroup[]>([
@@ -326,6 +327,32 @@ describe('PathwaysLevelPanel', () => {
       expect(annexRow.classes()).not.toContain('level-drop-after');
       await annexRow.trigger('drop');
       expect(tools.reorderLevels).toHaveBeenCalledTimes(1);
+    });
+
+    // @test unit: only stations with features in the map view are listed (plus the one being viewed)
+    it('lists only stations in the map view, keeping the one being viewed', async () => {
+      const { tools, wrapper } = await mountStations();
+      const listed = () => wrapper.findAll('.level-station-link').map(link => link.text());
+      const hint = () => wrapper.findAll('.level-panel-hint').map(p => p.text()).find(text => text.includes('out of view'));
+
+      expect(listed()).toEqual(['Annex', 'Central']); // view not known yet: all
+      expect(hint()).toBeUndefined();
+
+      tools.visibleStationIds.value = new Set(['CENTRAL']);
+      await nextTick();
+      expect(listed()).toEqual(['Central']);
+      expect(hint()).toBe('1 station is out of view; pan or zoom the map to list it.');
+
+      // Annex stays listed while its Street / No level view is shown...
+      tools.view.value = { kind: 'stationNoLevel', stationId: 'ANNEX' };
+      await nextTick();
+      expect(listed()).toEqual(['Annex', 'Central']);
+
+      // ...or while one of its levels is.
+      tools.view.value = { kind: 'level', levelId: 'L0' };
+      tools.visibleStationIds.value = new Set();
+      await nextTick();
+      expect(listed()).toEqual(['Annex', 'Central']); // both use the shared street level
     });
 
     // @test unit: clicking a station's name selects the station in the editor

@@ -3,6 +3,7 @@ import {
   collectLevels,
   buildStationIndex,
   isHiddenInView,
+  isLevelArea,
   levelAreaIndex,
   levelAreasMissingId,
   levelsByStation,
@@ -77,6 +78,11 @@ export class Rapid3LevelTools {
   readonly levelGroups = shallowRef<StationLevelGroup[]>([]);
   /** How many stops aren't in any station (what the "No station" view shows). */
   readonly noStationStopCount = ref(0);
+  /**
+   * stop_ids of the stations with features in the map view (the station, its
+   * stops, or its levels' outlines), or undefined when that isn't known yet.
+   */
+  readonly visibleStationIds = shallowRef<Set<string> | undefined>();
   /** Stops grouped by level in level order, unleveled stops last. */
   readonly stopGroups = shallowRef<LevelStopGroup[]>([]);
   /** Stops that should be on a level but have no level_id. */
@@ -91,6 +97,7 @@ export class Rapid3LevelTools {
 
   #context: any;
   #refreshTimer: ReturnType<typeof setTimeout> | undefined;
+  #viewportTimer: ReturnType<typeof setTimeout> | undefined;
   #stationIndex: StationIndex = { stations: new Map(), stationOfStop: new Map(), stationsByLevel: new Map() };
 
   constructor(context: any) {
@@ -106,6 +113,13 @@ export class Rapid3LevelTools {
     for (const event of ['merge', 'stablechange', 'historyjump']) {
       editor.on(event, scheduleRefresh);
     }
+
+    // Track which stations are in view as the map moves.
+    context.systems.map?.on?.('mapchange', () => {
+      clearTimeout(this.#viewportTimer);
+      this.#viewportTimer = setTimeout(() => this.updateVisibleStations(), 150);
+    });
+
     this.refresh();
   }
 
@@ -125,6 +139,7 @@ export class Rapid3LevelTools {
     this.unleveled.value = unleveledStops(entities).map(describeStop);
     this.levelAreasMissingId.value = levelAreasMissingId(entities)
       .map(area => ({ id: area.id, label: area.tags?.level_name?.trim() || area.id, levelId: undefined }));
+    this.updateVisibleStations();
 
     // Drop a view whose level or station no longer exists.
     const view = this.view.value;
@@ -138,6 +153,28 @@ export class Rapid3LevelTools {
     } else if (view) {
       this.#redraw(); // station membership may have changed
     }
+  }
+
+  /**
+   * Recomputes which stations have features in the map view, from Rapid's
+   * spatial index of what's on screen (the same one it draws from).
+   */
+  updateVisibleStations() {
+    const editor = this.#context.systems.editor;
+    if (typeof editor.intersects !== 'function') return; // can't tell: list every station
+
+    const { stations, stationOfStop, stationsByLevel } = this.#stationIndex;
+    const ids = new Set<string>();
+    for (const entity of editor.intersects()) {
+      const station = stations.get(entity.id);
+      if (station) ids.add(station.stopId);
+      const stationId = stationOfStop.get(entity.id);
+      if (stationId) ids.add(stationId);
+      if (isLevelArea(entity)) {
+        for (const id of stationsByLevel.get(entity.tags.level_id?.trim()) ?? []) ids.add(id);
+      }
+    }
+    this.visibleStationIds.value = ids;
   }
 
   /** Shows only features on the given level (and unleveled stops), or every level. */

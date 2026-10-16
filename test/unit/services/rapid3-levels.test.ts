@@ -287,4 +287,57 @@ describe('Rapid3LevelTools', () => {
       expect(tools.view.value).toBeUndefined();
     });
   });
+
+  describe('stations in view', () => {
+    const twoStations = () => [
+      node('s1', { location_type: '1', stop_id: 'CENTRAL', stop_name: 'Central' }),
+      node('s2', { location_type: '1', stop_id: 'ANNEX', stop_name: 'Annex' }),
+      node('e1', { location_type: '2', parent_station: 'CENTRAL' }),
+      node('n1', { location_type: '3', parent_station: 'ANNEX', level_id: 'L1' }),
+      way('a1', ['d1', 'd2', 'd3', 'd1'], { area: 'yes', level_id: 'L1', level_index: '-1' })
+    ];
+
+    function contextWithView(visibleIds: string[]) {
+      const context = fakeContext(twoStations());
+      const mapListeners: (() => void)[] = [];
+      (context.systems.editor as any).intersects = () => visibleIds.map(id => context.graph.hasEntity(id));
+      (context.systems.map as any).on = (event: string, fn: () => void) => {
+        if (event === 'mapchange') mapListeners.push(fn);
+      };
+      return { context, moveMap: (ids: string[]) => {
+        visibleIds.splice(0, visibleIds.length, ...ids);
+        mapListeners.forEach(fn => fn());
+      } };
+    }
+
+    it('lists the stations whose station, stops or level outlines are on screen', () => {
+      const { context } = contextWithView(['e1']);
+      const tools = new Rapid3LevelTools(context);
+      expect([...tools.visibleStationIds.value!]).toEqual(['CENTRAL']);
+
+      // Annex is in view through the outline of a level its node is on.
+      const { context: other } = contextWithView(['a1']);
+      expect([...new Rapid3LevelTools(other).visibleStationIds.value!]).toEqual(['ANNEX']);
+    });
+
+    it('updates as the map moves', () => {
+      vi.useFakeTimers();
+      try {
+        const { context, moveMap } = contextWithView(['s1']);
+        const tools = new Rapid3LevelTools(context);
+
+        moveMap(['s2']);
+        expect([...tools.visibleStationIds.value!]).toEqual(['CENTRAL']); // batched
+        vi.advanceTimersByTime(150);
+        expect([...tools.visibleStationIds.value!]).toEqual(['ANNEX']);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('leaves stations unfiltered when the view can\'t be checked', () => {
+      const tools = new Rapid3LevelTools(fakeContext(twoStations()));
+      expect(tools.visibleStationIds.value).toBeUndefined();
+    });
+  });
 });
