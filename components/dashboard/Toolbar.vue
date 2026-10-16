@@ -94,7 +94,7 @@
     <nuxt-link
       v-else
       class="btn btn-outline-secondary dashboard-toolbar-button"
-      :to="editRoute"
+      :to="isPathways && rapid3Available ? editRouteRapid3 : editRoute"
     >
       <img
         v-if="isOsw"
@@ -178,6 +178,7 @@ const editHash = computed(() => {
 });
 
 const isOsw = computed(() => props.workspace.type === 'osw');
+const isPathways = computed(() => props.workspace.type === 'pathways');
 const editorLabel = computed(() => {
   switch (props.workspace.type) {
     case 'osw':

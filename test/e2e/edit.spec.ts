@@ -199,6 +199,19 @@ test.describe('workspace edit (editor host)', () => {
     await expect(page.locator('.editorContainer')).toMatchAriaSnapshot();
   });
 
+  // @test e2e: loading this page with editor=rapid3 and a non-osw datatype (e.g. pathways) loads Rapid 3 instead of the Pathways editor (playwright snapshot this)
+  test('editor=rapid3 with datatype=pathways loads Rapid 3', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubAllEditors(page);
+
+    await page.goto('/workspace/1/edit?datatype=pathways&editor=rapid3');
+
+    const editor = page.locator('.editorContainer .fake-editor');
+    await expect(editor).toBeVisible();
+    await expect(editor).toHaveAttribute('aria-label', 'Rapid 3 editor');
+    await expect(page.locator('.editorContainer')).toMatchAriaSnapshot();
+  });
+
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
   test('all API calls conform to the OpenAPI spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
