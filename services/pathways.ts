@@ -10,9 +10,6 @@ import { createEmptyGtfsDataset, createGtfsArchive } from '~/util/gtfs';
 import * as xml from '~/util/xml';
 import type { TdeiAuthStore } from '~/services/tdei';
 
-/** A string-keyed column map with a helper to blank every value between rows. */
-type ResettableMap = Map<string, string> & { reset: () => void };
-
 const CHANGESET_FILE = 'changeset';
 
 const PATHWAYS_FILES = new Set([
@@ -119,40 +116,33 @@ export function pathways2osc(changesetId: number, dataset: Map<string, any[]>) {
   return xml.serialize(oscDoc);
 }
 
-function makeStopColumnMap(): ResettableMap {
-  const map = new Map([
-    ['stop_id', ''],
-    ['stop_name', ''],
-    ['stop_lat', ''],
-    ['stop_lon', ''],
-    ['location_type', ''],
-  ]) as ResettableMap;
+// The stops.txt and pathways.txt columns from the GTFS reference, in spec order.
+// Each is filled from the element's tag of the same name (IDs, coordinates and
+// pathway endpoints are derived from the element instead).
+const STOPS_COLUMNS = [
+  'stop_id', 'stop_code', 'stop_name', 'tts_stop_name', 'stop_desc', 'stop_lat',
+  'stop_lon', 'zone_id', 'stop_url', 'location_type', 'parent_station',
+  'stop_timezone', 'wheelchair_boarding', 'level_id', 'platform_code', 'stop_access'
+];
+const PATHWAYS_COLUMNS = [
+  'pathway_id', 'from_stop_id', 'to_stop_id', 'pathway_mode', 'is_bidirectional',
+  'length', 'traversal_time', 'stair_count', 'max_slope', 'min_width',
+  'signposted_as', 'reversed_signposted_as'
+];
 
-  map.reset = () => {
-    map.forEach((_val, key) => {
-      map.set(key, '');
-    });
-  }
-
-  return map;
+/** Formats one CSV field, quoting it if it contains a comma, quote or line break (RFC 4180). */
+function csvField(value: unknown): string {
+  const text = value === undefined || value === null ? '' : String(value);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-function makePathwayColumnMap(): ResettableMap {
-  const map = new Map([
-    ['pathway_id', ''],
-    ['from_stop_id', ''],
-    ['to_stop_id', ''],
-    ['pathway_mode', ''],
-    ['is_bidirectional', ''],
-  ]) as ResettableMap;
-
-  map.reset = () => {
-    map.forEach((_val, key) => {
-      map.set(key, '');
-    });
+/** Builds a CSV file with the given columns, taking each row's value for each column. */
+function toCsv(columns: string[], rows: Record<string, unknown>[]): string {
+  const lines = [columns.join(',')];
+  for (const row of rows) {
+    lines.push(columns.map(column => csvField(row[column])).join(','));
   }
-
-  return map;
+  return lines.join('\n') + '\n';
 }
 
 // Prefixes for GTFS IDs generated from OSM element IDs, so they can't collide
@@ -201,47 +191,33 @@ export async function buildPathwaysCsvArchive(elements: any[], gtfsFiles?: Map<s
     gtfsFiles = createEmptyGtfsDataset();
   }
 
-  let stopsCsv = 'stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station,level_id\n';
-  let pathwaysCsv = 'pathway_id,from_stop_id,to_stop_id,pathway_mode,is_bidirectional\n';
-
   const nodes = elements.filter(element => element.type === 'node');
-  const ways = elements.filter(element => element.type === 'way');
+  const ways = elements.filter(element => element.type === 'way' && element.nodes?.length >= 2);
 
-  const stopIds = assignGtfsIds(nodes, 'stop_id', GENERATED_STOP_ID_PREFIX);
+  // A GTFS pathway runs between two stops and has no geometry of its own, so only
+  // a way's first and last nodes are its endpoints. Nodes in between that carry
+  // no tags are just bends in the drawn line, not stops.
+  const endpointIds = new Set(ways.flatMap(way => [way.nodes[0], way.nodes.at(-1)]));
+  const stops = nodes.filter(node => endpointIds.has(node.id) || Object.keys(node.tags ?? {}).length > 0);
+
+  const stopIds = assignGtfsIds(stops, 'stop_id', GENERATED_STOP_ID_PREFIX);
   const pathwayIds = assignGtfsIds(ways, 'pathway_id', GENERATED_PATHWAY_ID_PREFIX);
 
-  const stopColumnMap = makeStopColumnMap();
-  const pathwayColumnMap = makePathwayColumnMap();
+  const stopRows = stops.map(element => ({
+    ...element.tags,
+    stop_id: stopIds.get(element.id)!,
+    stop_lat: element.lat,
+    stop_lon: element.lon
+  }));
+  const pathwayRows = ways.map(element => ({
+    ...element.tags,
+    pathway_id: pathwayIds.get(element.id)!,
+    from_stop_id: stopIds.get(element.nodes[0]) ?? '',
+    to_stop_id: stopIds.get(element.nodes.at(-1)) ?? ''
+  }));
 
-  for (const element of nodes) {
-    const tags = element.tags ?? {};
-
-    stopColumnMap.reset();
-    stopColumnMap.set('stop_id', stopIds.get(element.id)!);
-    stopColumnMap.set('stop_lat', element.lat);
-    stopColumnMap.set('stop_lon', element.lon);
-    stopColumnMap.set('stop_name', tags.stop_name);
-    stopColumnMap.set('location_type', tags.location_type);
-    stopColumnMap.set('parent_station', tags.parent_station);
-    stopColumnMap.set('level_id', tags.level_id);
-
-    stopsCsv += Array.from(stopColumnMap.values()).join(',');
-    stopsCsv += '\n';
-  }
-
-  for (const element of ways) {
-    const tags = element.tags ?? {};
-
-    pathwayColumnMap.reset();
-    pathwayColumnMap.set('pathway_id', pathwayIds.get(element.id)!);
-    pathwayColumnMap.set('from_stop_id', stopIds.get(element.nodes[0]) ?? '');
-    pathwayColumnMap.set('to_stop_id', stopIds.get(element.nodes[1]) ?? '');
-    pathwayColumnMap.set('pathway_mode', tags.pathway_mode);
-    pathwayColumnMap.set('is_bidirectional', tags.is_bidirectional);
-
-    pathwaysCsv += Array.from(pathwayColumnMap.values()).join(',');
-    pathwaysCsv += '\n';
-  }
+  const stopsCsv = toCsv(STOPS_COLUMNS, stopRows);
+  const pathwaysCsv = toCsv(PATHWAYS_COLUMNS, pathwayRows);
 
   gtfsFiles.set('pathways.txt', pathwaysCsv);
   gtfsFiles.set('stops.txt', stopsCsv);
