@@ -62,19 +62,7 @@ const station = () => [
 beforeEach(() => {
   (globalThis as any).Rapid = {
     actionChangeTags: (id: string, tags: Record<string, string>) =>
-      (graph: any) => graph.local.entities.set(id, { ...graph.hasEntity(id), tags }),
-    actionAddEntity: (entity: Entity) =>
-      (graph: any) => graph.local.entities.set(entity.id, entity),
-    OsmWay: class {
-      id = 'w-1';
-      type = 'way';
-      nodes: string[];
-      tags: Record<string, string>;
-      constructor(_context: unknown, props: { nodes: string[]; tags: Record<string, string> }) {
-        this.nodes = props.nodes;
-        this.tags = props.tags;
-      }
-    }
+      (graph: any) => graph.local.entities.set(id, { ...graph.hasEntity(id), tags })
   };
 });
 
@@ -146,29 +134,6 @@ describe('Rapid3LevelTools', () => {
     expect(context.systems.editor.commit).toHaveBeenCalledWith({ annotation: 'Set level L0', selectedIDs: ['n3'] });
     expect(context.graph.hasEntity('n3')!.tags).toEqual({ location_type: '2', stop_name: 'Main entrance', level_id: 'L0' });
     expect(tools.unleveled.value).toEqual([]);
-  });
-
-  it('connects two stops with a pathway and selects it', () => {
-    const context = fakeContext(station());
-    const tools = new Rapid3LevelTools(context);
-
-    const wayId = tools.connect('n1', 'n2', '5', true);
-
-    expect(wayId).toBe('w-1');
-    expect(context.local.get('w-1')).toMatchObject({ nodes: ['n1', 'n2'], tags: { pathway_mode: '5', is_bidirectional: '1' } });
-    expect(context.systems.editor.commit).toHaveBeenCalledWith({ annotation: 'Added elevator', selectedIDs: ['w-1'] });
-    expect(context.enter).toHaveBeenCalledWith('select-osm', { selection: { osm: ['w-1'] } });
-  });
-
-  it('always makes exit gates one-way, and refuses to connect a stop to itself', () => {
-    const context = fakeContext(station());
-    const tools = new Rapid3LevelTools(context);
-
-    tools.connect('n1', 'n3', '7', true);
-    expect(context.local.get('w-1')!.tags).toEqual({ pathway_mode: '7', is_bidirectional: '0' });
-
-    expect(tools.connect('n1', 'n1', '1', true)).toBeUndefined();
-    expect(tools.connect('n1', 'missing', '1', true)).toBeUndefined();
   });
 
   it('shows all levels again when the shown level disappears', () => {

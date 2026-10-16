@@ -17,17 +17,6 @@ declare const Rapid: any;
 /** The filter ID Rapid reports for features hidden because they're on another level. */
 export const LEVEL_FILTER_ID = 'gtfs_other_levels';
 
-/** GTFS pathway_mode values offered when connecting two stops. */
-export const PATHWAY_MODES = [
-  { value: '5', label: 'Elevator' },
-  { value: '2', label: 'Stairs' },
-  { value: '4', label: 'Escalator' },
-  { value: '1', label: 'Walkway' },
-  { value: '3', label: 'Moving sidewalk' },
-  { value: '6', label: 'Fare gate' },
-  { value: '7', label: 'Exit gate' }
-];
-
 /** A stop as shown in the level panel. */
 export interface LevelStop {
   id: string;
@@ -62,7 +51,7 @@ function describeStop(entity: any): LevelStop {
  * Keeps reactive lists of the workspace's levels, its stops grouped by level,
  * and the stops missing a level, refreshed as data loads and edits are made.
  * Selecting a level hides features on other levels (see `isHiddenOnLevel`).
- * Edits (setting levels, connecting stops) go through Rapid's editor, so they
+ * Edits (drawing levels, setting level_ids) go through Rapid's editor, so they
  * can be undone and are uploaded like any other change.
  */
 export class Rapid3LevelTools {
@@ -203,32 +192,6 @@ export class Rapid3LevelTools {
       annotation: actions.length === 1 ? `Set level ${levelId}` : `Set level ${levelId} on ${actions.length} stops`,
       selectedIDs: stopIds
     });
-  }
-
-  /**
-   * Creates a pathway between two stops (e.g. an elevator between levels) and
-   * selects it. Exit gates are always one-way, as GTFS requires.
-   * @returns the new way's ID
-   */
-  connect(fromId: string, toId: string, pathwayMode: string, bidirectional: boolean): string | undefined {
-    if (!fromId || !toId || fromId === toId) return undefined;
-
-    const graph = this.#graph();
-    if (!graph.hasEntity(fromId) || !graph.hasEntity(toId)) return undefined;
-
-    const mode = PATHWAY_MODES.find(m => m.value === pathwayMode);
-    const isBidirectional = bidirectional && pathwayMode !== '7';
-    const way = new Rapid.OsmWay(this.#context, {
-      nodes: [fromId, toId],
-      tags: { pathway_mode: pathwayMode, is_bidirectional: isBidirectional ? '1' : '0' }
-    });
-
-    const editor = this.#context.systems.editor;
-    editor.perform(Rapid.actionAddEntity(way));
-    editor.commit({ annotation: `Added ${mode?.label.toLowerCase() ?? 'pathway'}`, selectedIDs: [way.id] });
-    this.#context.enter('select-osm', { selection: { osm: [way.id] } });
-
-    return way.id;
   }
 
   #graph(): any {

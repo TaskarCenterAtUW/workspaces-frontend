@@ -40,8 +40,7 @@ function stubTools(currentLevelId?: string) {
     drawLevel: vi.fn(),
     fillLevelId: vi.fn(),
     select: vi.fn(),
-    assignLevel: vi.fn(),
-    connect: vi.fn(() => 'w-1')
+    assignLevel: vi.fn()
   };
   return tools;
 }
@@ -51,12 +50,12 @@ async function mountPanel(tools: ReturnType<typeof stubTools>) {
 }
 
 describe('PathwaysLevelPanel', () => {
-  // @test unit: "Draw level" starts drawing a level outline on the map
-  it('starts drawing a level from the Draw level button', async () => {
+  // @test unit: "Add level" starts drawing a new level's outline on the map
+  it('starts drawing a new level from the Add level button', async () => {
     const tools = stubTools();
     const wrapper = await mountPanel(tools);
 
-    const draw = wrapper.findAll('button').find(button => button.text() === 'Draw level')!;
+    const draw = wrapper.findAll('button').find(button => button.text() === 'Add level')!;
     await draw.trigger('click');
 
     expect(tools.drawLevel).toHaveBeenCalled();
@@ -106,45 +105,6 @@ describe('PathwaysLevelPanel', () => {
 
     expect(wrapper.find('.level-issue').findAll('button').map(button => button.text())).not.toContain('Set level');
     expect(wrapper.text()).toContain('Pick a level above to assign stops to it.');
-  });
-
-  // @test unit: connecting two stops creates a pathway of the chosen type; exit gates are always one-way
-  it('connects the chosen stops with the chosen pathway type', async () => {
-    const tools = stubTools();
-    const wrapper = await mountPanel(tools);
-
-    const from = wrapper.find('#level-connect-from');
-    expect(from.findAll('optgroup').map(group => group.attributes('label'))).toEqual([
-      '-1 · Concourse (L1)',
-      '0 · Street (L0)',
-      'No level'
-    ]);
-
-    const add = wrapper.findAll('button').find(button => button.text() === 'Add connection')!;
-    expect(add.attributes('disabled')).toBeDefined();
-
-    await from.setValue('n1');
-    await wrapper.find('#level-connect-to').setValue('n2');
-    await wrapper.find('#level-connect-mode').setValue('5');
-    await add.trigger('click');
-
-    expect(tools.connect).toHaveBeenCalledWith('n1', 'n2', '5', true);
-  });
-
-  it('makes exit gates one-way', async () => {
-    const tools = stubTools();
-    const wrapper = await mountPanel(tools);
-
-    await wrapper.find('#level-connect-from').setValue('n1');
-    await wrapper.find('#level-connect-to').setValue('n3');
-    await wrapper.find('#level-connect-mode').setValue('7');
-
-    const twoWay = wrapper.find('#level-connect-bidirectional');
-    expect((twoWay.element as HTMLInputElement).checked).toBe(false);
-    expect(twoWay.attributes('disabled')).toBeDefined();
-
-    await wrapper.findAll('button').find(button => button.text() === 'Add connection')!.trigger('click');
-    expect(tools.connect).toHaveBeenCalledWith('n1', 'n3', '7', false);
   });
 
   // @test unit: each level shows whether it has an outline; levels without one can have one drawn

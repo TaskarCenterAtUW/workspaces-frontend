@@ -11,17 +11,17 @@
         <button
           type="button"
           class="btn btn-sm btn-outline-primary"
-          title="Click the map to place each corner of the level's outline; click the first corner (or press Enter) to finish"
+          title="Add a level by drawing its outline: click the map to place each corner, then click the first corner (or press Enter) to finish"
           @click="tools.drawLevel()"
         >
-          Draw level
+          Add level
         </button>
       </div>
       <p
         v-if="!levels.length"
         class="level-panel-hint"
       >
-        No levels yet. Use <strong>Draw level</strong> to outline one on the map.
+        No levels yet. Use <strong>Add level</strong> to outline one on the map.
       </p>
       <div
         class="list-group level-list"
@@ -166,131 +166,18 @@
         Pick a level above to assign stops to it.
       </p>
     </section>
-
-    <section class="level-panel-section">
-      <h2 class="level-panel-heading">
-        Connect stops
-      </h2>
-      <label
-        class="form-label"
-        for="level-connect-from"
-      >From</label>
-      <select
-        id="level-connect-from"
-        v-model="fromId"
-        class="form-select form-select-sm mb-2"
-      >
-        <option
-          value=""
-          disabled
-        >
-          Choose a stop…
-        </option>
-        <optgroup
-          v-for="group in stopGroups"
-          :key="group.level?.levelId ?? '(none)'"
-          :label="groupLabel(group)"
-        >
-          <option
-            v-for="stop in group.stops"
-            :key="stop.id"
-            :value="stop.id"
-          >
-            {{ stop.label }}
-          </option>
-        </optgroup>
-      </select>
-
-      <label
-        class="form-label"
-        for="level-connect-to"
-      >To</label>
-      <select
-        id="level-connect-to"
-        v-model="toId"
-        class="form-select form-select-sm mb-2"
-      >
-        <option
-          value=""
-          disabled
-        >
-          Choose a stop…
-        </option>
-        <optgroup
-          v-for="group in stopGroups"
-          :key="group.level?.levelId ?? '(none)'"
-          :label="groupLabel(group)"
-        >
-          <option
-            v-for="stop in group.stops"
-            :key="stop.id"
-            :value="stop.id"
-            :disabled="stop.id === fromId"
-          >
-            {{ stop.label }}
-          </option>
-        </optgroup>
-      </select>
-
-      <label
-        class="form-label"
-        for="level-connect-mode"
-      >Type</label>
-      <select
-        id="level-connect-mode"
-        v-model="pathwayMode"
-        class="form-select form-select-sm mb-2"
-      >
-        <option
-          v-for="mode in PATHWAY_MODES"
-          :key="mode.value"
-          :value="mode.value"
-        >
-          {{ mode.label }}
-        </option>
-      </select>
-
-      <div class="form-check mb-2">
-        <input
-          id="level-connect-bidirectional"
-          v-model="bidirectional"
-          class="form-check-input"
-          type="checkbox"
-          :disabled="pathwayMode === EXIT_GATE"
-        >
-        <label
-          class="form-check-label"
-          for="level-connect-bidirectional"
-        >
-          Two-way
-        </label>
-      </div>
-
-      <button
-        type="button"
-        class="btn btn-sm btn-primary"
-        :disabled="!fromId || !toId || fromId === toId"
-        @click="connect"
-      >
-        Add connection
-      </button>
-    </section>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { PATHWAY_MODES } from '~/services/rapid3-levels';
-import type { LevelStopGroup, Rapid3LevelTools } from '~/services/rapid3-levels';
+import type { Rapid3LevelTools } from '~/services/rapid3-levels';
 import type { Level } from '~/services/pathways-levels';
 
-// @test unit: "Draw level" starts drawing a level outline on the map
+// @test unit: "Add level" starts drawing a new level's outline on the map
 // @test unit: each level shows whether it has an outline; levels without one can have one drawn
 // @test unit: level areas missing a level_id are flagged, and "Fill level_id" generates one
 // @test unit: lists levels in level_index order, with an "All levels" option, and selecting one shows only that level
 // @test unit: lists stops with no level, and "Set level" assigns the selected level to them
-// @test unit: connecting two stops creates a pathway of the chosen type; exit gates are always one-way
-
-const EXIT_GATE = '7';
 
 const props = defineProps<{
   tools: Rapid3LevelTools;
@@ -306,16 +193,6 @@ const currentLevelLabel = computed(() => {
   return level ? levelLabel(level) : currentLevelId.value;
 });
 
-const fromId = ref('');
-const toId = ref('');
-const pathwayMode = ref(PATHWAY_MODES[0]!.value);
-const bidirectional = ref(true);
-
-// Exit gates must not be bidirectional (GTFS).
-watch(pathwayMode, (mode) => {
-  if (mode === EXIT_GATE) bidirectional.value = false;
-});
-
 function outlineLabel(level: Level): string {
   const count = level.areaIds.length;
   if (!count) return 'No outline';
@@ -326,22 +203,8 @@ function levelLabel(level: Level): string {
   return level.name ? `${level.name} (${level.levelId})` : level.levelId;
 }
 
-function groupLabel(group: LevelStopGroup): string {
-  if (!group.level) return 'No level';
-  const index = group.level.index ?? '?';
-  return `${index} · ${levelLabel(group.level)}`;
-}
-
 function stopCount(levelId: string): number {
   return stopGroups.value.find(group => group.level?.levelId === levelId)?.stops.length ?? 0;
-}
-
-function connect() {
-  const created = props.tools.connect(fromId.value, toId.value, pathwayMode.value, bidirectional.value);
-  if (created) {
-    fromId.value = '';
-    toId.value = '';
-  }
 }
 </script>
 
