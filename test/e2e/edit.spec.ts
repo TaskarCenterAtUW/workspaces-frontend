@@ -64,6 +64,8 @@ const RAPID2_SCRIPT = (route: Route) => route.fulfill({
 //   - context.systems.l10n              (#preInit overrides OSM-specific strings)
 //   - Rapid.UiSuccess                   (#preInit stubs the community index on its prototype)
 //   - context.systems.imagery / .styles (#preStart merges overrides)
+//   - context.systems.schema            (#preStart merges the pathways schema; the
+//                                        fake records merged assetIDs on window.__schemaMerges)
 const RAPID3_SCRIPT = (route: Route) => route.fulfill({
   contentType: 'application/javascript',
   body: `
@@ -84,7 +86,10 @@ const RAPID3_SCRIPT = (route: Route) => route.fulfill({
           network: { addRequestInterceptor: () => {} },
           l10n: { prependListener: () => {}, localeCode: 'en', _store: new Map() },
           imagery: { merge: () => {}, _overlayLayers: new Set(['mapbox_locator_overlay']) },
-          styles: { merge: () => {} }
+          // Styles merge just before the schema step in #preStart; flag it so tests
+          // can tell the schema step has run.
+          styles: { merge: () => { window.__stylesMerged = true; } },
+          schema: { merge: (input) => { (window.__schemaMerges ||= []).push(input.assetID); } }
         };
       }
     };
@@ -210,6 +215,32 @@ test.describe('workspace edit (editor host)', () => {
     await expect(editor).toBeVisible();
     await expect(editor).toHaveAttribute('aria-label', 'Rapid 3 editor');
     await expect(page.locator('.editorContainer')).toMatchAriaSnapshot();
+  });
+
+  // @test e2e: loading Rapid 3 for a pathways workspace swaps in the GTFS Pathways presets; loading it for an osw workspace keeps the OSM presets
+  test('Rapid 3 merges the GTFS Pathways schema for pathways workspaces', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubAllEditors(page);
+
+    await page.goto('/workspace/1/edit?datatype=pathways&editor=rapid3');
+
+    await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => (window as any).__schemaMerges ?? []))
+      .toEqual(['tdei-pathways-schema']);
+  });
+
+  // @test e2e: loading Rapid 3 for a pathways workspace swaps in the GTFS Pathways presets; loading it for an osw workspace keeps the OSM presets
+  test('Rapid 3 keeps the OSM schema for osw workspaces', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubAllEditors(page);
+
+    await page.goto('/workspace/1/edit?datatype=osw&editor=rapid3');
+
+    await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+    // #preStart runs after the editor paints; once styles are merged, the schema
+    // step (which runs synchronously right after) has had its chance to merge.
+    await expect.poll(() => page.evaluate(() => (window as any).__stylesMerged === true)).toBe(true);
+    expect(await page.evaluate(() => (window as any).__schemaMerges ?? [])).toEqual([]);
   });
 
   // @test e2e: validate that all the API calls used on this page match the Swagger spec

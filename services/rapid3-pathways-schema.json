@@ -1,0 +1,408 @@
+{
+  "assetID": "tdei-pathways-schema",
+  "scopes": [
+    {
+      "scope": "osm",
+      "fields": {
+        "is_bidirectional": {
+          "key": "is_bidirectional",
+          "type": "radio",
+          "autoSuggestions": false,
+          "customValues": false,
+          "options": [
+            "yes",
+            "no"
+          ]
+        },
+        "length": {
+          "key": "length",
+          "type": "number",
+          "autoSuggestions": false
+        },
+        "traversal_time": {
+          "key": "traversal_time",
+          "type": "number",
+          "autoSuggestions": false
+        },
+        "stair_count": {
+          "key": "stair_count",
+          "type": "number",
+          "autoSuggestions": false
+        },
+        "max_slope": {
+          "key": "max_slope",
+          "type": "number",
+          "autoSuggestions": false
+        },
+        "min_width": {
+          "key": "min_width",
+          "type": "number",
+          "autoSuggestions": false
+        },
+        "signposted_as": {
+          "key": "signposted_as",
+          "type": "text",
+          "autoSuggestions": false
+        },
+        "reverse_signposted_as": {
+          "key": "reverse_signposted_as",
+          "type": "text",
+          "autoSuggestions": false
+        },
+        "level_id": {
+          "key": "level_id",
+          "type": "number"
+        },
+        "parent_station": {
+          "key": "parent_station",
+          "type": "number",
+          "prerequisiteTag": {
+            "key": "location_type",
+            "valueNot": 1
+          }
+        },
+        "stop_name": {
+          "key": "stop_name",
+          "type": "text"
+        },
+        "stop_code": {
+          "key": "stop_code",
+          "type": "text"
+        },
+        "tts_stop_name": {
+          "key": "tts_stop_name",
+          "type": "text"
+        },
+        "stop_desc": {
+          "key": "stop_desc",
+          "type": "textarea"
+        },
+        "zone_id": {
+          "key": "zone_id",
+          "type": "combo",
+          "options": [
+            "paid",
+            "unpaid"
+          ],
+          "customValues": true
+        },
+        "stop_url": {
+          "key": "stop_url",
+          "type": "url"
+        },
+        "station_timezone": {
+          "key": "stop_timezone",
+          "type": "text"
+        },
+        "wheelchair_boarding": {
+          "key": "wheelchair_boarding",
+          "type": "combo",
+          "options": [
+            "0 - No information",
+            "1 - Wheelchair Accessible",
+            "2 - Not Wheelchair Accessible"
+          ]
+        },
+        "platform_code": {
+          "key": "platform_code",
+          "type": "text"
+        }
+      },
+      "presets": {
+        "*": null,
+        "platform": {
+          "name": "Platform",
+          "geometry": [
+            "point"
+          ],
+          "fields": [
+            "level_id",
+            "stop_name"
+          ],
+          "moreFields": [
+            "parent_station",
+            "stop_code",
+            "platform_code",
+            "tts_stop_name",
+            "stop_desc",
+            "zone_id",
+            "stop_url",
+            "wheelchair_boarding"
+          ],
+          "tags": {
+            "location_type": "0"
+          },
+          "icon": "temaki-board_light_rail"
+        },
+        "station": {
+          "name": "Station",
+          "geometry": [
+            "point"
+          ],
+          "fields": [
+            "stop_name"
+          ],
+          "moreFields": [
+            "stop_code",
+            "tts_stop_name",
+            "stop_desc",
+            "stop_url",
+            "station_timezone",
+            "wheelchair_boarding"
+          ],
+          "tags": {
+            "location_type": "1"
+          },
+          "icon": "temaki-light_rail"
+        },
+        "entrance_exit": {
+          "name": "Entrance",
+          "geometry": [
+            "point",
+            "vertex"
+          ],
+          "fields": [
+            "stop_name",
+            "level_id",
+            "parent_station"
+          ],
+          "moreFields": [
+            "stop_code",
+            "tts_stop_name",
+            "stop_desc",
+            "stop_url",
+            "wheelchair_boarding"
+          ],
+          "tags": {
+            "location_type": "2"
+          },
+          "icon": "fas-door-open"
+        },
+        "node": {
+          "name": "Generic Node",
+          "geometry": [
+            "point",
+            "vertex"
+          ],
+          "fields": [
+            "level_id",
+            "parent_station"
+          ],
+          "moreFields": [
+            "stop_name",
+            "stop_code",
+            "tts_stop_name",
+            "stop_desc",
+            "zone_id",
+            "stop_url",
+            "wheelchair_boarding"
+          ],
+          "tags": {
+            "location_type": "3"
+          },
+          "icon": "temaki-vertex"
+        },
+        "boarding_area": {
+          "name": "Boarding Area",
+          "geometry": [
+            "point",
+            "vertex"
+          ],
+          "fields": [
+            "level_id",
+            "parent_station",
+            "zone_id"
+          ],
+          "moreFields": [
+            "stop_name",
+            "stop_code",
+            "tts_stop_name",
+            "stop_desc",
+            "stop_url",
+            "wheelchair_boarding"
+          ],
+          "tags": {
+            "location_type": "4"
+          },
+          "icon": "temaki-board_light_rail"
+        },
+        "pathway/walkway": {
+          "name": "walkway",
+          "geometry": [
+            "line"
+          ],
+          "fields": [
+            "level_id",
+            "is_bidirectional",
+            "length",
+            "max_slope"
+          ],
+          "moreFields": [
+            "min_width",
+            "signposted_as",
+            "reverse_signposted_as"
+          ],
+          "tags": {
+            "pathway_mode": "1"
+          },
+          "icon": "temaki-pedestrian_crosswalk"
+        },
+        "pathway/stairs": {
+          "name": "stairs",
+          "geometry": [
+            "line"
+          ],
+          "fields": [
+            "stair_count",
+            "is_bidirectional"
+          ],
+          "moreFields": [
+            "min_width",
+            "signposted_as",
+            "reverse_signposted_as"
+          ],
+          "tags": {
+            "pathway_mode": "2"
+          },
+          "icon": "roentgen-staircase"
+        },
+        "pathway/moving_sidewalk": {
+          "name": "moving sidewalk",
+          "geometry": [
+            "line"
+          ],
+          "fields": [
+            "level_id",
+            "is_bidirectional",
+            "traversal_time",
+            "max_slope"
+          ],
+          "moreFields": [
+            "min_width",
+            "signposted_as",
+            "reverse_signposted_as"
+          ],
+          "tags": {
+            "pathway_mode": "3"
+          },
+          "icon": "fas-running"
+        },
+        "pathway/escalator": {
+          "name": "escalator",
+          "geometry": [
+            "line"
+          ],
+          "fields": [
+            "is_bidirectional",
+            "traversal_time"
+          ],
+          "moreFields": [
+            "min_width",
+            "signposted_as",
+            "reverse_signposted_as"
+          ],
+          "tags": {
+            "pathway_mode": "4"
+          },
+          "icon": "maki-entrance"
+        },
+        "pathway/elevator": {
+          "name": "elevator",
+          "geometry": [
+            "line"
+          ],
+          "fields": [
+            "is_bidirectional",
+            "traversal_time"
+          ],
+          "moreFields": [
+            "min_width",
+            "signposted_as",
+            "reverse_signposted_as"
+          ],
+          "tags": {
+            "pathway_mode": "5"
+          },
+          "icon": "temaki-elevator"
+        },
+        "pathway/fare_gate": {
+          "name": "fare gate",
+          "geometry": [
+            "line"
+          ],
+          "fields": [
+            "level_id",
+            "length",
+            "is_bidirectional"
+          ],
+          "moreFields": [
+            "min_width",
+            "signposted_as",
+            "reverse_signposted_as"
+          ],
+          "tags": {
+            "pathway_mode": "6"
+          },
+          "icon": "temaki-turnstile"
+        },
+        "pathway/exit_gate": {
+          "name": "exit gate",
+          "geometry": [
+            "line"
+          ],
+          "fields": [
+            "length"
+          ],
+          "moreFields": [
+            "level_id",
+            "min_width",
+            "signposted_as",
+            "reverse_signposted_as"
+          ],
+          "tags": {
+            "pathway_mode": "7",
+            "is_bidirectional": "0"
+          },
+          "icon": "roentgen-exit"
+        }
+      },
+      "categories": {
+        "*": null,
+        "category_fare_zone_boundaries": {
+          "icon": "temaki-turnstile",
+          "members": [
+            "pathway/fare_gate",
+            "pathway/exit_gate"
+          ],
+          "name": "Fare Zone Boundaries"
+        },
+        "category_level_traversal": {
+          "icon": "pinhead-triangles_up_down",
+          "members": [
+            "pathway/stairs",
+            "pathway/escalator",
+            "pathway/elevator"
+          ],
+          "name": "Level Traversal"
+        }
+      },
+      "defaults": {
+        "line": [
+          "pathway/walkway",
+          "category_fare_zone_boundaries",
+          "category_level_traversal"
+        ],
+        "point": [
+          "entrance_exit",
+          "platform",
+          "station",
+          "node",
+          "boarding_area"
+        ],
+        "vertex": [
+          "node"
+        ]
+      }
+    }
+  ]
+}

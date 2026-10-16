@@ -3,6 +3,7 @@
 // @test e2e: loading this page with each. value of the "editor" query param (e.g. rapid vs rapid3) loads the correct editor version (playwright snapshot each version's UI)
 // @test e2e: loading this page with the "osw" datatype query param loads the OpenSidewalks editor, and without it loads the Pathways editor (playwright snapshot each editor's UI)
 // @test e2e: loading this page with editor=rapid3 and a non-osw datatype (e.g. pathways) loads Rapid 3 instead of the Pathways editor (playwright snapshot this)
+// @test e2e: loading Rapid 3 for a pathways workspace swaps in the GTFS Pathways presets; loading it for an osw workspace keeps the OSM presets
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
@@ -31,7 +32,11 @@ const isRapid3 = manager === rapid3Manager;
 
 function onEditorLoaded() {
   editorContainer.value!.appendChild(manager.containerNode);
-  manager.init(workspaceId);
+  if (manager === rapid3Manager) {
+    rapid3Manager.init(workspaceId, datatype as string | undefined);
+  } else {
+    manager.init(workspaceId);
+  }
 }
 
 onMounted(() => {
@@ -43,6 +48,13 @@ onMounted(() => {
       window.location.reload()
       return
     }
+  }
+
+  // Rapid 3's schema customizations are per-datatype and can't be undone, so a
+  // Rapid 3 instance set up for one datatype can't be reused for another.
+  if (manager === rapid3Manager && manager.loaded.value && rapid3Manager.datatype !== datatype) {
+    window.location.reload();
+    return;
   }
 
   if (!manager.loaded.value) {

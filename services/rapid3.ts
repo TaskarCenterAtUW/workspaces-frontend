@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import type { TdeiAuthStore } from '~/services/tdei'
+import pathwaysSchema from '~/services/rapid3-pathways-schema.json'
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
 declare const Rapid: any
@@ -27,6 +28,13 @@ export class Rapid3Manager {
 
   /** The Rapid `Context` instance, available after loading completes. */
   rapidContext: any
+
+  /**
+   * The workspace datatype Rapid was initialized for (e.g. 'osw', 'pathways').
+   * Schema customizations are applied once at init and can't be undone, so the
+   * edit page reloads rather than reusing a Rapid instance across datatypes.
+   */
+  datatype: string | undefined
 
   /**
    * @constructor
@@ -116,10 +124,12 @@ export class Rapid3Manager {
    * becomes `true`.
    *
    * @param workspaceId - The numeric ID of the workspace to open for editing.
+   * @param datatype - The workspace datatype; 'pathways' swaps in the GTFS Pathways schema.
    * @returns A promise that resolves once the editor is fully started.
    */
-  init(workspaceId: number) {
+  init(workspaceId: number, datatype?: string) {
     const context = this.rapidContext
+    this.datatype = datatype
     context.workspaceId = workspaceId
     context.tdeiAuth = this.#tdeiAuth
     context.preauth = { url: this.#osmUrl, apiUrl: this.#osmUrl }
@@ -312,6 +322,17 @@ export class Rapid3Manager {
     };
     // Apply these overrides over the styles already loaded during `init`
     styles.merge(styleOverrides)
+
+    //
+    // Customize Schema system (pathways workspaces only)
+    // - Replace the OSM presets and categories with the GTFS Pathways ones, ported
+    //   from the Pathways editor (TaskarCenterAtUW/workspaces-pathways-editor,
+    //   data/pathways*.json). OSM fields are kept, since Rapid's own UI (e.g. the
+    //   changeset comment/source/hashtags fields) relies on them.
+    //
+    if (this.datatype === 'pathways') {
+      context.systems.schema.merge(pathwaysSchema)
+    }
   }
 
   /**
