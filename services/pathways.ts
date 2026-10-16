@@ -155,6 +155,47 @@ function makePathwayColumnMap(): ResettableMap {
   return map;
 }
 
+// Prefixes for GTFS IDs generated from OSM element IDs, so they can't collide
+// with an agency's own (often numeric) IDs and are recognizable in the feed.
+export const GENERATED_STOP_ID_PREFIX = 'ws-n';
+export const GENERATED_PATHWAY_ID_PREFIX = 'ws-w';
+
+/**
+ * Picks a unique GTFS ID for each element, keyed by OSM element ID.
+ *
+ * An element keeps the ID in its `idTag` tag (as imported from GTFS) so that
+ * other files in the feed, e.g. stop_times.txt, still resolve. Elements without
+ * one (drawn in the editor), or whose tag duplicates an earlier element's (e.g.
+ * copy-pasted), get `prefix` + their OSM ID instead.
+ */
+function assignGtfsIds(elements: any[], idTag: string, prefix: string): Map<number, string> {
+  const ids = new Map<number, string>();
+  const used = new Set<string>();
+  const needsId: any[] = [];
+
+  // Tagged IDs first, so a generated ID can never take one an element already has.
+  for (const element of elements) {
+    const tagged = String(element.tags?.[idTag] ?? '').trim();
+    if (tagged && !used.has(tagged)) {
+      ids.set(element.id, tagged);
+      used.add(tagged);
+    } else {
+      needsId.push(element);
+    }
+  }
+
+  for (const element of needsId) {
+    let generated = `${prefix}${element.id}`;
+    for (let n = 2; used.has(generated); n++) {
+      generated = `${prefix}${element.id}-${n}`;
+    }
+    ids.set(element.id, generated);
+    used.add(generated);
+  }
+
+  return ids;
+}
+
 export async function buildPathwaysCsvArchive(elements: any[], gtfsFiles?: Map<string, string>): Promise<Blob> {
   if (!gtfsFiles) {
     gtfsFiles = createEmptyGtfsDataset();
@@ -163,35 +204,43 @@ export async function buildPathwaysCsvArchive(elements: any[], gtfsFiles?: Map<s
   let stopsCsv = 'stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station,level_id\n';
   let pathwaysCsv = 'pathway_id,from_stop_id,to_stop_id,pathway_mode,is_bidirectional\n';
 
-  const stopNodeIdMap = new Map();
+  const nodes = elements.filter(element => element.type === 'node');
+  const ways = elements.filter(element => element.type === 'way');
+
+  const stopIds = assignGtfsIds(nodes, 'stop_id', GENERATED_STOP_ID_PREFIX);
+  const pathwayIds = assignGtfsIds(ways, 'pathway_id', GENERATED_PATHWAY_ID_PREFIX);
+
   const stopColumnMap = makeStopColumnMap();
   const pathwayColumnMap = makePathwayColumnMap();
 
-  for (const element of elements) {
-    if (element.type === 'node') {
-      stopColumnMap.reset();
-      stopColumnMap.set('stop_id', element.tags.stop_id);
-      stopColumnMap.set('stop_lat', element.lat);
-      stopColumnMap.set('stop_lon', element.lon);
-      stopColumnMap.set('stop_name', element.tags.stop_name);
-      stopColumnMap.set('location_type', element.tags.location_type);
-      stopColumnMap.set('parent_station', element.tags.parent_station);
-      stopColumnMap.set('level_id', element.tags.level_id);
+  for (const element of nodes) {
+    const tags = element.tags ?? {};
 
-      stopsCsv += Array.from(stopColumnMap.values()).join(',');
-      stopsCsv += '\n';
-      stopNodeIdMap.set(element.id, element.tags.stop_id);
-    } else {
-      pathwayColumnMap.reset();
-      pathwayColumnMap.set('pathway_id', element.tags.pathway_id);
-      pathwayColumnMap.set('from_stop_id', stopNodeIdMap.get(element.nodes[0]));
-      pathwayColumnMap.set('to_stop_id', stopNodeIdMap.get(element.nodes[1]));
-      pathwayColumnMap.set('pathway_mode', element.tags.pathway_mode);
-      pathwayColumnMap.set('is_bidirectional', element.tags.is_bidirectional);
+    stopColumnMap.reset();
+    stopColumnMap.set('stop_id', stopIds.get(element.id)!);
+    stopColumnMap.set('stop_lat', element.lat);
+    stopColumnMap.set('stop_lon', element.lon);
+    stopColumnMap.set('stop_name', tags.stop_name);
+    stopColumnMap.set('location_type', tags.location_type);
+    stopColumnMap.set('parent_station', tags.parent_station);
+    stopColumnMap.set('level_id', tags.level_id);
 
-      pathwaysCsv += Array.from(pathwayColumnMap.values()).join(',');
-      pathwaysCsv += '\n';
-    }
+    stopsCsv += Array.from(stopColumnMap.values()).join(',');
+    stopsCsv += '\n';
+  }
+
+  for (const element of ways) {
+    const tags = element.tags ?? {};
+
+    pathwayColumnMap.reset();
+    pathwayColumnMap.set('pathway_id', pathwayIds.get(element.id)!);
+    pathwayColumnMap.set('from_stop_id', stopIds.get(element.nodes[0]) ?? '');
+    pathwayColumnMap.set('to_stop_id', stopIds.get(element.nodes[1]) ?? '');
+    pathwayColumnMap.set('pathway_mode', tags.pathway_mode);
+    pathwayColumnMap.set('is_bidirectional', tags.is_bidirectional);
+
+    pathwaysCsv += Array.from(pathwayColumnMap.values()).join(',');
+    pathwaysCsv += '\n';
   }
 
   gtfsFiles.set('pathways.txt', pathwaysCsv);
