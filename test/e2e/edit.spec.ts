@@ -274,6 +274,41 @@ test.describe('workspace edit (editor host)', () => {
     await expect(page.locator('.preset-platform')).toBeVisible();
   });
 
+  // @test e2e: Rapid 3 on a pathways workspace marks the editor as GTFS Pathways (hiding Rapid's generic Point/Line/Area/Relation presets, which GTFS has no equivalent for)
+  test('places a tag value\'s label clear of the dropdown arrow', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubAllEditors(page);
+
+    await page.goto('/workspace/1/edit?datatype=pathways&editor=rapid3');
+    await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+
+    // A raw tag editor row as Rapid renders it (no whitespace between elements,
+    // as d3 builds it), with the combobox caret styled as Rapid's CSS does: 30px
+    // wide, pulled back over the full-width input's right edge.
+    await page.locator('.editorContainer .fake-editor').evaluate((editor) => {
+      editor.insertAdjacentHTML('beforeend', [
+        '<ul style="width: 320px"><li class="tag-row"><div class="inner-wrap" style="display: flex">',
+        '<div class="key-wrap" style="flex: 1 1 50%"><input class="key" value="location_type" style="width: 100%"></div>',
+        '<div class="value-wrap" style="flex: 1 1 50%">',
+        '<input class="value" value="2" style="width: 100%; box-sizing: border-box">',
+        '<div class="combobox-caret" style="display: inline-block; position: relative; width: 30px; height: 30px; ',
+        'margin-left: -30px; vertical-align: middle"></div>',
+        '<span class="gtfs-value-label">Entrance / Exit</span>',
+        '</div></div></li></ul>'
+      ].join(''));
+    });
+
+    const input = (await page.locator('.tag-row input.value').boundingBox())!;
+    const label = (await page.locator('.gtfs-value-label').boundingBox())!;
+    const caret = (await page.locator('.combobox-caret').boundingBox())!;
+    expect(label.width).toBeGreaterThan(0);
+    // The arrow sits on the input's line (overlapping it vertically)...
+    expect(caret.y).toBeLessThan(input.y + input.height);
+    expect(caret.y + caret.height).toBeGreaterThan(input.y);
+    // ...and the label ends before it.
+    expect(label.x + label.width).toBeLessThanOrEqual(caret.x);
+  });
+
   test('keeps the generic presets for Rapid 3 on an osw workspace', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await stubAllEditors(page);

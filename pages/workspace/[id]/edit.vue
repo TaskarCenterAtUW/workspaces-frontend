@@ -127,9 +127,9 @@ onMounted(() => {
 .editorContainer.rapid3 .tag-row .gtfs-value-label {
   position: absolute;
   top: 50%;
-  right: 0.5em;
+  right: calc(30px + 0.25em); /* clear Rapid's 30px-wide dropdown arrow (.combobox-caret) */
   transform: translateY(-50%);
-  max-width: 60%;
+  max-width: calc(100% - 30px - 2.5em); /* leave room for the code itself */
   overflow: hidden;
   font-size: 0.85em;
   opacity: 0.6;
