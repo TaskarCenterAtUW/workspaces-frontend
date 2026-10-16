@@ -50,8 +50,8 @@ const LOCATION_TYPE_NAMES: Record<string, string> = {
   '0': 'Platform',
   '1': 'Station',
   '2': 'Entrance',
-  '3': 'Node',
-  '4': 'Boarding area'
+  '3': 'Generic Node',
+  '4': 'Boarding Area'
 };
 
 function describeStop(entity: any): LevelStop {

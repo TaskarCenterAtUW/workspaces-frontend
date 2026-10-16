@@ -6,20 +6,20 @@
 
 export const GTFS_VALUE_LABELS: Record<string, Record<string, string>> = {
   location_type: {
-    0: 'Stop / platform',
+    0: 'Stop / Platform',
     1: 'Station',
-    2: 'Entrance / exit',
-    3: 'Generic node',
-    4: 'Boarding area'
+    2: 'Entrance / Exit',
+    3: 'Generic Node',
+    4: 'Boarding Area'
   },
   pathway_mode: {
     1: 'Walkway',
     2: 'Stairs',
-    3: 'Moving sidewalk',
+    3: 'Moving Sidewalk',
     4: 'Escalator',
     5: 'Elevator',
-    6: 'Fare gate',
-    7: 'Exit gate'
+    6: 'Fare Gate',
+    7: 'Exit Gate'
   },
   is_bidirectional: {
     0: 'Unidirectional (from -> to only)',

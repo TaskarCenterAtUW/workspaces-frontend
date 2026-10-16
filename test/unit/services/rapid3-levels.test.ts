@@ -76,7 +76,7 @@ describe('Rapid3LevelTools', () => {
 
     expect(tools.levels.value.map(level => level.levelId)).toEqual(['L1', 'L0']);
     expect(tools.stopGroups.value.map(group => [group.level?.levelId, group.stops.map(stop => stop.label)])).toEqual([
-      ['L1', ['Node: n2']],
+      ['L1', ['Generic Node: n2']],
       ['L0', ['Platform: Platform A']],
       [undefined, ['Entrance: Main entrance']]
     ]);

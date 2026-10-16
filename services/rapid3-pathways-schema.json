@@ -241,7 +241,7 @@
           "icon": "temaki-board_light_rail"
         },
         "pathway/walkway": {
-          "name": "walkway",
+          "name": "Walkway",
           "geometry": [
             "line"
           ],
@@ -261,7 +261,7 @@
           "icon": "temaki-pedestrian_crosswalk"
         },
         "pathway/stairs": {
-          "name": "stairs",
+          "name": "Stairs",
           "geometry": [
             "line"
           ],
@@ -280,7 +280,7 @@
           "icon": "roentgen-staircase"
         },
         "pathway/moving_sidewalk": {
-          "name": "moving sidewalk",
+          "name": "Moving Sidewalk",
           "geometry": [
             "line"
           ],
@@ -300,7 +300,7 @@
           "icon": "fas-running"
         },
         "pathway/escalator": {
-          "name": "escalator",
+          "name": "Escalator",
           "geometry": [
             "line"
           ],
@@ -319,7 +319,7 @@
           "icon": "maki-entrance"
         },
         "pathway/elevator": {
-          "name": "elevator",
+          "name": "Elevator",
           "geometry": [
             "line"
           ],
@@ -338,7 +338,7 @@
           "icon": "temaki-elevator"
         },
         "pathway/fare_gate": {
-          "name": "fare gate",
+          "name": "Fare Gate",
           "geometry": [
             "line"
           ],
@@ -357,7 +357,7 @@
           "icon": "temaki-turnstile"
         },
         "pathway/exit_gate": {
-          "name": "exit gate",
+          "name": "Exit Gate",
           "geometry": [
             "line"
           ],
@@ -397,40 +397,30 @@
         }
       },
       "categories": {
-        "*": null,
-        "category_fare_zone_boundaries": {
-          "icon": "temaki-turnstile",
-          "members": [
-            "pathway/fare_gate",
-            "pathway/exit_gate"
-          ],
-          "name": "Fare Zone Boundaries"
-        },
-        "category_level_traversal": {
-          "icon": "pinhead-triangles_up_down",
-          "members": [
-            "pathway/stairs",
-            "pathway/escalator",
-            "pathway/elevator"
-          ],
-          "name": "Level Traversal"
-        }
+        "*": null
       },
       "defaults": {
         "line": [
           "pathway/walkway",
-          "category_fare_zone_boundaries",
-          "category_level_traversal"
+          "pathway/stairs",
+          "pathway/moving_sidewalk",
+          "pathway/escalator",
+          "pathway/elevator",
+          "pathway/fare_gate",
+          "pathway/exit_gate"
         ],
         "point": [
-          "entrance_exit",
           "platform",
           "station",
+          "entrance_exit",
           "node",
           "boarding_area"
         ],
         "vertex": [
-          "node"
+          "platform",
+          "entrance_exit",
+          "node",
+          "boarding_area"
         ],
         "area": [
           "level"

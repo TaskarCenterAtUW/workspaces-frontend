@@ -24,6 +24,7 @@ type SchemaField = { key: string; type: string; options?: string[]; strings?: { 
 const [scope] = pathwaysSchema.scopes;
 const fields = scope!.fields as Record<string, SchemaField>;
 const presets = scope!.presets as Record<string, {
+  name: string;
   fields?: string[];
   moreFields?: string[];
   geometry: string[];
@@ -127,6 +128,24 @@ describe('Rapid 3 pathways schema', () => {
       expect(level.tags).toEqual({ level_index: '*' });
       expect(level.fields!.map(id => fields[id]!.key).sort()).toEqual(['level_id', 'level_index', 'level_name']);
       expect(defaults.area).toEqual(['level']);
+    });
+
+    it('offers every pathway type directly on lines, in pathway_mode order', () => {
+      expect(defaults.line!.map(id => presets[id]!.tags!.pathway_mode)).toEqual(['1', '2', '3', '4', '5', '6', '7']);
+      expect(Object.keys(categories)).toEqual(['*']); // Rapid's OSM categories are removed; none added
+    });
+
+    it('offers the stops that can end a pathway on vertices, and all stops on points, in location_type order', () => {
+      const types = (ids: string[]) => ids.map(id => presets[id]!.tags!.location_type);
+      expect(types(defaults.point!)).toEqual(['0', '1', '2', '3', '4']);
+      expect(types(defaults.vertex!)).toEqual(['0', '2', '3', '4']);
+    });
+
+    it('names presets in Title Case', () => {
+      for (const [id, preset] of Object.entries(presets)) {
+        if (!preset) continue;
+        expect(preset.name.split(' ').every(word => word[0] === word[0]!.toUpperCase()), `${id}: ${preset.name}`).toBe(true);
+      }
     });
 
     it('keeps exit gates unidirectional', () => {

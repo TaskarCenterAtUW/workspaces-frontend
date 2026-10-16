@@ -15,7 +15,7 @@ import pathwaysSchema from '~/services/rapid3-pathways-schema.json';
 describe('gtfsValueLabel', () => {
   it('labels coded values from the GTFS reference', () => {
     expect(gtfsValueLabel('pathway_mode', '5')).toBe('Elevator');
-    expect(gtfsValueLabel('location_type', '2')).toBe('Entrance / exit');
+    expect(gtfsValueLabel('location_type', '2')).toBe('Entrance / Exit');
     expect(gtfsValueLabel('is_bidirectional', ' 0 ')).toBe('Unidirectional (from -> to only)');
   });
 
@@ -116,8 +116,8 @@ describe('tag editor value dropdown', () => {
   it('suggests every code for a coded key, each shown with its meaning', () => {
     const suggestions = gtfsValueSuggestions('pathway_mode')!;
     expect(suggestions.map(s => [s.value, s.title])).toEqual([
-      ['1', '1: Walkway'], ['2', '2: Stairs'], ['3', '3: Moving sidewalk'], ['4', '4: Escalator'],
-      ['5', '5: Elevator'], ['6', '6: Fare gate'], ['7', '7: Exit gate']
+      ['1', '1: Walkway'], ['2', '2: Stairs'], ['3', '3: Moving Sidewalk'], ['4', '4: Escalator'],
+      ['5', '5: Elevator'], ['6', '6: Fare Gate'], ['7', '7: Exit Gate']
     ]);
 
     // Rapid calls display() with a d3 selection of the option element.
