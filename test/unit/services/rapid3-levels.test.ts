@@ -82,6 +82,9 @@ describe('Rapid3LevelTools', () => {
     ]);
     // n3 is an entrance, which may be left without a level (street level).
     expect(tools.unleveled.value).toEqual([]);
+    // No stations in this data, so every level is in one unnamed group.
+    expect(tools.levelGroups.value.map(group => [group.station, group.levels.map(level => level.levelId)]))
+      .toEqual([[undefined, ['L0', 'L1']]]);
   });
 
   it('flags platforms and nodes without a level', () => {

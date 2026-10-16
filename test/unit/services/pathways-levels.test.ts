@@ -6,6 +6,7 @@ import {
   isPathway,
   levelAreaIndex,
   levelAreasMissingId,
+  levelsByStation,
   levelsTopDown,
   nextLevelIndex,
   reorderedLevelIndexes,
@@ -212,5 +213,52 @@ describe('reordering levels', () => {
       node('n1', { level_id: 'LOST', stop_name: 'x' })
     ]);
     expect(levelsTopDown(levels).map(l => l.levelId)).toEqual(['UP', 'STREET', 'DOWN', 'ODD', 'LOST']);
+  });
+});
+
+describe('levelsByStation', () => {
+  const groupsOf = (entities: LevelEntity[]) => levelsByStation(entities)
+    .map(group => [group.station?.name, group.levels.map(level => level.levelId)]);
+
+  // Two stations sharing a street level; Central also has a concourse and a
+  // platform level reached only by a boarding area (-> platform -> station).
+  const twoStations = () => [
+    node('s1', { location_type: '1', stop_id: 'CENTRAL', stop_name: 'Central' }),
+    node('s2', { location_type: '1', stop_id: 'ANNEX', stop_name: 'Annex' }),
+    levelArea('w1', { level_id: 'STREET', level_index: '0' }),
+    levelArea('w2', { level_id: 'CONC', level_index: '-1' }),
+    levelArea('w3', { level_id: 'PLAT', level_index: '-2' }),
+    levelArea('w4', { level_id: 'NEW', level_index: '5' }), // no stops yet
+    node('e1', { location_type: '2', parent_station: 'CENTRAL', level_id: 'STREET' }),
+    node('e2', { location_type: '2', parent_station: 'ANNEX', level_id: 'STREET' }),
+    node('n1', { location_type: '3', parent_station: 'CENTRAL', level_id: 'CONC' }),
+    node('p1', { location_type: '0', parent_station: 'CENTRAL', stop_id: 'P1' }),
+    node('b1', { location_type: '4', parent_station: 'P1', level_id: 'PLAT' })
+  ];
+
+  it('lists each station\'s levels highest first, sharing levels, with unlinked levels last', () => {
+    expect(groupsOf(twoStations())).toEqual([
+      ['Annex', ['STREET']],
+      ['Central', ['STREET', 'CONC', 'PLAT']],
+      [undefined, ['NEW']]
+    ]);
+  });
+
+  it('identifies stations by stop_id', () => {
+    const [annex] = levelsByStation(twoStations());
+    expect(annex!.station).toEqual({ id: 's2', stopId: 'ANNEX', name: 'Annex' });
+  });
+
+  it('ignores parent_station values that are not stations', () => {
+    expect(groupsOf([
+      node('p1', { location_type: '0', stop_id: 'P1' }),
+      node('n1', { location_type: '3', parent_station: 'P1', level_id: 'L1' }),
+      node('n2', { location_type: '3', parent_station: 'MISSING', level_id: 'L2' })
+    ])).toEqual([[undefined, ['L1', 'L2']]]);
+  });
+
+  it('returns a single unnamed group when there are no stations', () => {
+    expect(groupsOf([levelArea('w1', { level_id: 'L0', level_index: '0' })])).toEqual([[undefined, ['L0']]]);
+    expect(groupsOf([])).toEqual([[undefined, []]]);
   });
 });

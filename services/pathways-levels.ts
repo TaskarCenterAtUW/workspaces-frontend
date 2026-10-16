@@ -182,6 +182,78 @@ export function levelsTopDown(levels: Level[]): Level[] {
   return [...known, ...unknown, ...levels.filter(level => !level.areaIds.length)];
 }
 
+export interface Station {
+  /** The station's entity ID. */
+  id: string | number;
+  /** The station's GTFS stop_id, which stops reference as parent_station. */
+  stopId: string;
+  name: string;
+}
+
+export interface StationLevelGroup {
+  /** The station, or undefined for levels no station's stops use. */
+  station: Station | undefined;
+  /** The levels this station's stops are on, highest first (see `levelsTopDown`). */
+  levels: Level[];
+}
+
+/**
+ * Groups levels by the stations that use them. GTFS levels don't belong to a
+ * station; the link is through stops, which have both a level_id and a
+ * parent_station. A boarding area's parent_station is its platform, so that
+ * one is followed up to the platform's station. A level used by several
+ * stations (e.g. a shared street level) is listed under each. Levels no
+ * station's stops use (e.g. a just-drawn outline) are grouped last, with no
+ * station. Stations are sorted by name.
+ */
+export function levelsByStation(entities: LevelEntity[]): StationLevelGroup[] {
+  const stops = stopNodes(entities);
+  const byStopId = new Map<string, LevelEntity>();
+  for (const stop of stops) {
+    const stopId = stop.tags?.stop_id?.trim();
+    if (stopId && !byStopId.has(stopId)) byStopId.set(stopId, stop);
+  }
+
+  const isStation = (entity: LevelEntity | undefined) => entity?.tags?.location_type?.trim() === '1';
+  const stationOf = (stop: LevelEntity): LevelEntity | undefined => {
+    let parent = byStopId.get(stop.tags?.parent_station?.trim() ?? '');
+    if (parent && !isStation(parent) && stop.tags?.location_type?.trim() === '4') {
+      parent = byStopId.get(parent.tags?.parent_station?.trim() ?? ''); // boarding area -> platform -> station
+    }
+    return isStation(parent) ? parent : undefined;
+  };
+
+  // levelId -> stop_ids of the stations whose stops are on it
+  const stationsByLevel = new Map<string, Set<string>>();
+  for (const stop of stops) {
+    const levelId = stopLevelId(stop);
+    const station = levelId && stationOf(stop);
+    if (!levelId || !station) continue;
+    const stationIds = stationsByLevel.get(levelId) ?? new Set<string>();
+    stationIds.add(station.tags!.stop_id!.trim());
+    stationsByLevel.set(levelId, stationIds);
+  }
+
+  const levels = collectLevels(entities);
+  const stations: Station[] = [...new Set([...stationsByLevel.values()].flatMap(ids => [...ids]))]
+    .map((stopId) => {
+      const station = byStopId.get(stopId)!;
+      return { id: station.id, stopId, name: station.tags?.stop_name?.trim() || stopId };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }) || a.stopId.localeCompare(b.stopId));
+
+  const groups: StationLevelGroup[] = stations.map(station => ({
+    station,
+    levels: levelsTopDown(levels.filter(level => stationsByLevel.get(level.levelId)?.has(station.stopId)))
+  }));
+
+  const unlinked = levels.filter(level => !stationsByLevel.has(level.levelId));
+  if (unlinked.length || !groups.length) {
+    groups.push({ station: undefined, levels: levelsTopDown(unlinked) });
+  }
+  return groups;
+}
+
 /** The level_index of a level area as a number, if it has a numeric one. */
 export function levelAreaIndex(area: LevelEntity): number | undefined {
   return parseIndex(area.tags?.level_index);

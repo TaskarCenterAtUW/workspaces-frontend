@@ -39,88 +39,112 @@
           All levels
         </button>
         <div
-          v-for="level in displayLevels"
-          :key="level.levelId"
-          class="list-group-item level-row"
-          :class="{
-            'active': currentLevelId === level.levelId,
-            'level-dragging': draggingId === level.levelId,
-            'level-drop-before': dropTarget?.levelId === level.levelId && dropTarget.before,
-            'level-drop-after': dropTarget?.levelId === level.levelId && !dropTarget.before
-          }"
-          :draggable="isMovable(level)"
-          @dragstart="onDragStart($event, level)"
-          @dragover="onDragOver($event, level)"
-          @drop="onDrop($event)"
-          @dragend="onDragEnd"
+          v-for="group in levelGroups"
+          :key="groupKey(group)"
+          class="level-group"
+          :role="showStationHeadings ? 'group' : undefined"
+          :aria-label="showStationHeadings ? stationLabel(group) : undefined"
         >
-          <button
-            v-if="isMovable(level)"
-            :ref="(el) => setHandleRef(level.levelId, el)"
-            type="button"
-            class="btn btn-sm level-handle"
-            :title="`Drag (or use the arrow keys) to move ${levelLabel(level)} up or down`"
-            :aria-label="`Move ${levelLabel(level)}; use the up and down arrow keys`"
-            @keydown.up.prevent="move(level, -1)"
-            @keydown.down.prevent="move(level, 1)"
-          >
-            <app-icon
-              variant="drag_indicator"
-              no-margin
-            />
-          </button>
-          <span
-            v-else
-            class="level-handle level-handle-spacer"
-          />
-          <button
-            type="button"
-            role="radio"
-            class="level-row-main"
-            :aria-checked="currentLevelId === level.levelId"
-            @click="tools.showLevel(level.levelId)"
-          >
-            <span class="level-title">{{ levelLabel(level) }}</span>
-            <span
-              class="badge text-bg-light"
-              :title="`${stopCount(level.levelId)} stops`"
-            >{{ stopCount(level.levelId) }}</span>
-          </button>
-          <button
-            type="button"
-            class="btn btn-sm level-zoom"
-            :title="`Zoom to ${levelLabel(level)}`"
-            :aria-label="`Zoom to ${levelLabel(level)}`"
-            @click="tools.zoomToLevel(level.levelId)"
-          >
-            <app-icon
-              variant="zoom_in"
-              no-margin
-            />
-          </button>
           <div
-            class="level-outline"
-            :class="{ 'level-outline-missing': !level.areaIds.length }"
+            v-if="showStationHeadings"
+            class="list-group-item level-group-heading"
+            :title="group.station ? `Station ${group.station.stopId}` : 'Levels no station\'s stops are on yet'"
           >
-            <template v-if="level.areaIds.length">
-              {{ outlineLabel(level) }}
-            </template>
-            <template v-else>
-              No outline,
-              <button
-                type="button"
-                class="btn btn-link level-draw"
-                :title="`Draw an outline for ${levelLabel(level)}`"
-                :aria-label="`Draw an outline for ${levelLabel(level)}`"
-                @click="tools.drawLevel(level)"
-              >
-                <app-icon
-                  variant="edit"
-                  no-margin
-                />
-                add one
-              </button>
-            </template>
+            {{ stationLabel(group) }}
+          </div>
+          <div
+            v-for="level in group.levels"
+            :key="`${groupKey(group)}:${level.levelId}`"
+            class="list-group-item level-row"
+            :class="{
+              'active': currentLevelId === level.levelId,
+              'level-dragging': isDragging(group, level),
+              'level-drop-before': isDropTarget(group, level, true),
+              'level-drop-after': isDropTarget(group, level, false)
+            }"
+            :draggable="isMovable(level)"
+            @dragstart="onDragStart($event, group, level)"
+            @dragover="onDragOver($event, group, level)"
+            @drop="onDrop($event, group)"
+            @dragend="onDragEnd"
+          >
+            <button
+              v-if="isMovable(level)"
+              :ref="(el) => setHandleRef(group, level, el)"
+              type="button"
+              class="btn btn-sm level-handle"
+              :title="`Drag (or use the arrow keys) to move ${levelLabel(level)} up or down`"
+              :aria-label="`Move ${levelLabel(level)}; use the up and down arrow keys`"
+              @keydown.up.prevent="move(group, level, -1)"
+              @keydown.down.prevent="move(group, level, 1)"
+            >
+              <app-icon
+                variant="drag_indicator"
+                no-margin
+              />
+            </button>
+            <button
+              v-else
+              type="button"
+              class="btn btn-sm level-handle level-handle-disabled"
+              aria-disabled="true"
+              :title="`Add an outline to ${levelLabel(level)} before moving it`"
+              :aria-label="`Can't move ${levelLabel(level)} until it has an outline`"
+            >
+              <app-icon
+                variant="drag_indicator"
+                no-margin
+              />
+            </button>
+            <button
+              type="button"
+              role="radio"
+              class="level-row-main"
+              :aria-checked="currentLevelId === level.levelId"
+              @click="tools.showLevel(level.levelId)"
+            >
+              <span class="level-title">{{ levelLabel(level) }}</span>
+              <span
+                class="badge text-bg-light"
+                :title="`${stopCount(level.levelId)} stops`"
+              >{{ stopCount(level.levelId) }}</span>
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm level-zoom"
+              :title="`Zoom to ${levelLabel(level)}`"
+              :aria-label="`Zoom to ${levelLabel(level)}`"
+              @click="tools.zoomToLevel(level.levelId)"
+            >
+              <app-icon
+                variant="zoom_in"
+                no-margin
+              />
+            </button>
+            <div
+              class="level-outline"
+              :class="{ 'level-outline-missing': !level.areaIds.length }"
+            >
+              <template v-if="level.areaIds.length">
+                {{ outlineLabel(level) }}
+              </template>
+              <template v-else>
+                No outline,
+                <button
+                  type="button"
+                  class="btn btn-link level-draw"
+                  :title="`Draw an outline for ${levelLabel(level)}`"
+                  :aria-label="`Draw an outline for ${levelLabel(level)}`"
+                  @click="tools.drawLevel(level)"
+                >
+                  <app-icon
+                    variant="edit"
+                    no-margin
+                  />
+                  add one
+                </button>
+              </template>
+            </div>
           </div>
         </div>
       </div>
@@ -128,7 +152,7 @@
         v-if="levels.filter(isMovable).length > 1"
         class="level-panel-hint"
       >
-        Highest level first. Drag levels to reorder them; level_index follows the order, with the ground level (0) kept at 0.
+        Highest level first. Drag levels to reorder them (within a station); level_index follows the order, with the ground level (0) kept at 0.
       </p>
       <p
         v-if="levels.some(level => !level.areaIds.length)"
@@ -209,15 +233,16 @@
 </template>
 
 <script setup lang="ts">
-import { levelsTopDown } from '~/services/pathways-levels';
 import type { Rapid3LevelTools } from '~/services/rapid3-levels';
-import type { Level } from '~/services/pathways-levels';
+import type { Level, StationLevelGroup } from '~/services/pathways-levels';
 
 // @test unit: "Add level" starts drawing a new level's outline on the map
 // @test unit: each level shows whether it has an outline; levels without one can have one drawn
 // @test unit: level areas missing a level_id are flagged, and "Fill level_id" generates one
 // @test unit: lists levels highest first, with an "All levels" option, and selecting one shows only that level
+// @test unit: with more than one station, levels are grouped under the stations whose stops use them
 // @test unit: levels with an outline can be reordered by dragging or with the arrow keys, which renumbers level_index
+// @test unit: levels without an outline show a disabled handle saying to add an outline first
 // @test unit: lists stops with no level, and "Set level" assigns the selected level to them
 
 const props = defineProps<{
@@ -234,79 +259,113 @@ const currentLevelLabel = computed(() => {
   return level ? levelLabel(level) : currentLevelId.value;
 });
 
-// Levels in panel order (highest first); only those with an outline can move,
-// since level_index is stored on the outline.
-const displayLevels = computed(() => levelsTopDown(levels.value));
-const movableIds = computed(() => displayLevels.value.filter(isMovable).map(level => level.levelId));
+// Levels grouped by station, each highest first. Station headings are only
+// shown when there's more than one group.
+const levelGroups = computed(() => props.tools.levelGroups.value);
+const showStationHeadings = computed(() => levelGroups.value.length > 1);
 
+function groupKey(group: StationLevelGroup): string {
+  return group.station ? `station:${group.station.stopId}` : 'no-station';
+}
+
+function stationLabel(group: StationLevelGroup): string {
+  return group.station?.name ?? 'No station';
+}
+
+// Only levels with an outline can move, since level_index is stored on the outline.
 function isMovable(level: Level): boolean {
   return level.areaIds.length > 0;
 }
 
-/** Moves `levelId` to `position` among the movable levels and renumbers them. */
-function moveTo(levelId: string, position: number) {
-  const ids = movableIds.value.filter(id => id !== levelId);
+function movableIds(group: StationLevelGroup): string[] {
+  return group.levels.filter(isMovable).map(level => level.levelId);
+}
+
+/** Moves `levelId` to `position` among the group's movable levels and renumbers them. */
+function moveTo(group: StationLevelGroup, levelId: string, position: number) {
+  const current = movableIds(group);
+  const ids = current.filter(id => id !== levelId);
   ids.splice(Math.max(0, Math.min(position, ids.length)), 0, levelId);
-  if (ids.join('\n') !== movableIds.value.join('\n')) {
+  if (ids.join('\n') !== current.join('\n')) {
     props.tools.reorderLevels(ids);
   }
 }
 
 const handleRefs = new Map<string, HTMLElement>();
-function setHandleRef(levelId: string, el: unknown) {
-  if (el instanceof HTMLElement) handleRefs.set(levelId, el);
-  else handleRefs.delete(levelId);
+function handleKey(group: StationLevelGroup, level: Level): string {
+  return `${groupKey(group)}:${level.levelId}`;
+}
+function setHandleRef(group: StationLevelGroup, level: Level, el: unknown) {
+  if (el instanceof HTMLElement) handleRefs.set(handleKey(group, level), el);
+  else handleRefs.delete(handleKey(group, level));
 }
 
 /** Keyboard reordering from a row's handle; keeps focus on the moved handle. */
-async function move(level: Level, delta: number) {
-  const position = movableIds.value.indexOf(level.levelId) + delta;
-  if (position < 0 || position >= movableIds.value.length) return;
-  moveTo(level.levelId, position);
+async function move(group: StationLevelGroup, level: Level, delta: number) {
+  if (!isMovable(level)) return;
+  const ids = movableIds(group);
+  const position = ids.indexOf(level.levelId) + delta;
+  if (position < 0 || position >= ids.length) return;
+  const key = handleKey(group, level);
+  moveTo(group, level.levelId, position);
   await nextTick();
-  handleRefs.get(level.levelId)?.focus();
+  handleRefs.get(key)?.focus();
 }
 
-const draggingId = ref<string>();
-const dropTarget = ref<{ levelId: string; before: boolean }>();
+// Dragging stays within one station's group.
+const dragging = ref<{ group: string; levelId: string }>();
+const dropTarget = ref<{ group: string; levelId: string; before: boolean }>();
 
-function onDragStart(event: DragEvent, level: Level) {
+function isDragging(group: StationLevelGroup, level: Level): boolean {
+  return dragging.value?.group === groupKey(group) && dragging.value.levelId === level.levelId;
+}
+
+function isDropTarget(group: StationLevelGroup, level: Level, before: boolean): boolean {
+  const target = dropTarget.value;
+  return target?.group === groupKey(group) && target.levelId === level.levelId && target.before === before;
+}
+
+function onDragStart(event: DragEvent, group: StationLevelGroup, level: Level) {
   if (!isMovable(level)) return;
-  draggingId.value = level.levelId;
+  dragging.value = { group: groupKey(group), levelId: level.levelId };
   event.dataTransfer?.setData('text/plain', level.levelId);
   if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
 }
 
-function onDragOver(event: DragEvent, level: Level) {
-  if (!draggingId.value) return;
-  event.preventDefault(); // allow dropping here
+function onDragOver(event: DragEvent, group: StationLevelGroup, level: Level) {
+  if (dragging.value?.group !== groupKey(group)) return; // not droppable here
+  event.preventDefault();
   if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
 
   // Levels without an outline can't move, so dropping on one means "at the bottom".
   if (!isMovable(level)) {
-    const last = movableIds.value.at(-1);
-    dropTarget.value = last ? { levelId: last, before: false } : undefined;
+    const last = movableIds(group).at(-1);
+    dropTarget.value = last ? { group: groupKey(group), levelId: last, before: false } : undefined;
     return;
   }
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  dropTarget.value = { levelId: level.levelId, before: event.clientY < rect.top + rect.height / 2 };
+  dropTarget.value = {
+    group: groupKey(group),
+    levelId: level.levelId,
+    before: event.clientY < rect.top + rect.height / 2
+  };
 }
 
-function onDrop(event: DragEvent) {
+function onDrop(event: DragEvent, group: StationLevelGroup) {
   event.preventDefault();
-  const levelId = draggingId.value;
+  const levelId = dragging.value?.levelId;
   const target = dropTarget.value;
   onDragEnd();
-  if (!levelId || !target) return;
+  if (!levelId || target?.group !== groupKey(group)) return;
 
-  const others = movableIds.value.filter(id => id !== levelId);
+  const others = movableIds(group).filter(id => id !== levelId);
   const targetPosition = others.indexOf(target.levelId);
   if (targetPosition < 0) return; // dropped on itself
-  moveTo(levelId, target.before ? targetPosition : targetPosition + 1);
+  moveTo(group, levelId, target.before ? targetPosition : targetPosition + 1);
 }
 
 function onDragEnd() {
-  draggingId.value = undefined;
+  dragging.value = undefined;
   dropTarget.value = undefined;
 }
 
@@ -363,6 +422,31 @@ function stopCount(levelId: string): number {
   font-size: 0.8rem;
 }
 
+// Rows sit inside per-station wrappers, so Bootstrap's sibling-based list-group
+// borders and corner rounding need restating across the wrappers.
+.level-group > .list-group-item {
+  border-radius: 0;
+}
+
+.level-group > .list-group-item:first-child {
+  border-top-width: 0;
+}
+
+.level-group:last-child > .list-group-item:last-child {
+  border-bottom-right-radius: var(--bs-list-group-border-radius);
+  border-bottom-left-radius: var(--bs-list-group-border-radius);
+}
+
+.level-group-heading {
+  padding: 0.5rem 0.5rem 0.25rem;
+  background: var(--bs-secondary-bg);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+}
+
 .level-row {
   display: grid;
   grid-template-areas:
@@ -388,8 +472,9 @@ function stopCount(levelId: string): number {
   cursor: grab;
 }
 
-.level-handle-spacer {
-  cursor: default;
+.level-handle-disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
 }
 
 .level-row[draggable="true"]:active .level-handle {

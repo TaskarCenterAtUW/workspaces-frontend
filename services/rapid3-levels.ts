@@ -4,13 +4,14 @@ import {
   isHiddenOnLevel,
   levelAreaIndex,
   levelAreasMissingId,
+  levelsByStation,
   nextLevelIndex,
   reorderedLevelIndexes,
   stopsByLevel,
   suggestLevelId,
   unleveledStops
 } from '~/services/pathways-levels';
-import type { Level } from '~/services/pathways-levels';
+import type { Level, StationLevelGroup } from '~/services/pathways-levels';
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
 declare const Rapid: any;
@@ -58,6 +59,8 @@ function describeStop(entity: any): LevelStop {
 export class Rapid3LevelTools {
   /** Known levels, sorted by level_index. */
   readonly levels = shallowRef<Level[]>([]);
+  /** Levels grouped by the stations whose stops use them (see `levelsByStation`). */
+  readonly levelGroups = shallowRef<StationLevelGroup[]>([]);
   /** Stops grouped by level in level order, unleveled stops last. */
   readonly stopGroups = shallowRef<LevelStopGroup[]>([]);
   /** Stops that should be on a level but have no level_id. */
@@ -92,6 +95,7 @@ export class Rapid3LevelTools {
     const levels = collectLevels(entities);
 
     this.levels.value = levels;
+    this.levelGroups.value = levelsByStation(entities);
     this.stopGroups.value = stopsByLevel(entities)
       .map(({ level, stops }) => ({ level, stops: stops.map(describeStop) }));
     this.unleveled.value = unleveledStops(entities).map(describeStop);

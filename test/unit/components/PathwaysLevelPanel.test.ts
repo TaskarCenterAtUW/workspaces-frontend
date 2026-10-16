@@ -2,10 +2,11 @@
 
 import { mountSuspended } from '@nuxt/test-utils/runtime';
 import { describe, expect, it, vi } from 'vitest';
-import { ref, shallowRef } from 'vue';
+import { nextTick, ref, shallowRef } from 'vue';
 import PathwaysLevelPanel from '~/components/edit/PathwaysLevelPanel.vue';
 
-import type { Level } from '~/services/pathways-levels';
+import { levelsTopDown } from '~/services/pathways-levels';
+import type { Level, StationLevelGroup } from '~/services/pathways-levels';
 import type { LevelStop, LevelStopGroup } from '~/services/rapid3-levels';
 
 // The Nuxt env loads services/index, whose clients open IndexedDB caches on import.
@@ -27,6 +28,7 @@ function stubTools(currentLevelId?: string) {
   });
   const tools = {
     levels: shallowRef<Level[]>([concourse, street]),
+    levelGroups: shallowRef<StationLevelGroup[]>([{ station: undefined, levels: [street, concourse] }]),
     stopGroups: shallowRef<LevelStopGroup[]>([
       { level: concourse, stops: [node] },
       { level: street, stops: [platform] },
@@ -44,6 +46,12 @@ function stubTools(currentLevelId?: string) {
     reorderLevels: vi.fn()
   };
   return tools;
+}
+
+/** Sets the stub's levels, all in one unnamed group (no stations). */
+function setLevels(tools: ReturnType<typeof stubTools>, levels: Level[]) {
+  tools.levels.value = levels;
+  tools.levelGroups.value = [{ station: undefined, levels: levelsTopDown(levels) }];
 }
 
 async function mountPanel(tools: ReturnType<typeof stubTools>) {
@@ -113,7 +121,7 @@ describe('PathwaysLevelPanel', () => {
   // @test unit: each level shows whether it has an outline; levels without one can have one drawn
   it('shows which levels have an outline and offers to draw the missing ones', async () => {
     const tools = stubTools();
-    tools.levels.value = [concourse, street, roof];
+    setLevels(tools, [concourse, street, roof]);
     const wrapper = await mountPanel(tools);
 
     const rows = wrapper.findAll('.level-row');
@@ -133,7 +141,7 @@ describe('PathwaysLevelPanel', () => {
 
   it('counts multiple outlines for one level', async () => {
     const tools = stubTools();
-    tools.levels.value = [{ ...street, areaIds: ['a0', 'a9'] }];
+    setLevels(tools, [{ ...street, areaIds: ['a0', 'a9'] }]);
     const wrapper = await mountPanel(tools);
 
     expect(wrapper.find('.level-outline').text()).toBe('2 outlines');
@@ -157,7 +165,7 @@ describe('PathwaysLevelPanel', () => {
 
     async function mountThreeLevels() {
       const tools = stubTools();
-      tools.levels.value = [concourse, street, upper, roof];
+      setLevels(tools, [concourse, street, upper, roof]);
       const wrapper = await mountPanel(tools);
       const row = (levelId: string) => wrapper.findAll('.level-row')
         .find(r => r.find('.level-title').text().includes(levelId))!;
@@ -168,8 +176,20 @@ describe('PathwaysLevelPanel', () => {
       const { wrapper, row } = await mountThreeLevels();
 
       expect(wrapper.findAll('.level-row').map(r => r.attributes('draggable'))).toEqual(['true', 'true', 'true', 'false']);
-      expect(row('ROOF').find('button.level-handle').exists()).toBe(false);
-      expect(row('UP').find('button.level-handle').exists()).toBe(true);
+      expect(row('UP').find('button.level-handle').attributes('aria-disabled')).toBeUndefined();
+    });
+
+    // @test unit: levels without an outline show a disabled handle saying to add an outline first
+    it('shows a disabled handle on levels without an outline', async () => {
+      const { tools, row } = await mountThreeLevels();
+
+      const handle = row('ROOF').find('button.level-handle');
+      expect(handle.attributes('aria-disabled')).toBe('true');
+      expect(handle.attributes('title')).toBe('Add an outline to ROOF before moving it');
+
+      await handle.trigger('keydown', { key: 'ArrowUp' });
+      await handle.trigger('keydown', { key: 'ArrowDown' });
+      expect(tools.reorderLevels).not.toHaveBeenCalled();
     });
 
     it('moves a level down with the arrow keys and keeps focus on it', async () => {
@@ -217,6 +237,70 @@ describe('PathwaysLevelPanel', () => {
       await row('ROOF').trigger('drop');
 
       expect(tools.reorderLevels).toHaveBeenCalledWith(['L0', 'L1', 'UP']);
+    });
+  });
+
+  // @test unit: with more than one station, levels are grouped under the stations whose stops use them
+  describe('stations', () => {
+    const central = { id: 's1', stopId: 'CENTRAL', name: 'Central' };
+    const annex = { id: 's2', stopId: 'ANNEX', name: 'Annex' };
+    const upper: Level = { levelId: 'UP', index: 1, name: 'Upper', areaIds: ['a2'] };
+
+    async function mountStations() {
+      const tools = stubTools();
+      tools.levels.value = [concourse, street, upper];
+      tools.levelGroups.value = [
+        { station: annex, levels: [street] },
+        { station: central, levels: [upper, street, concourse] }
+      ];
+      return { tools, wrapper: await mountPanel(tools) };
+    }
+
+    it('lists each station\'s levels under its name, repeating shared levels', async () => {
+      const { wrapper } = await mountStations();
+
+      const groups = wrapper.findAll('[role="group"]');
+      expect(groups.map(group => group.attributes('aria-label'))).toEqual(['Annex', 'Central']);
+      expect(groups.map(group => group.findAll('.level-title').map(title => title.text()))).toEqual([
+        ['Street (L0)'],
+        ['Upper (UP)', 'Street (L0)', 'Concourse (L1)']
+      ]);
+      expect(wrapper.findAll('.level-group-heading').map(heading => heading.text())).toEqual(['Annex', 'Central']);
+    });
+
+    it('highlights a shared level under every station when it is shown', async () => {
+      const { tools, wrapper } = await mountStations();
+
+      tools.currentLevelId.value = 'L0';
+      await nextTick();
+
+      const active = wrapper.findAll('.level-row.active .level-title').map(title => title.text());
+      expect(active).toEqual(['Street (L0)', 'Street (L0)']);
+    });
+
+    it('reorders only within a station', async () => {
+      const { tools, wrapper } = await mountStations();
+      const central = wrapper.findAll('[role="group"]')[1]!;
+      const rows = central.findAll('.level-row');
+
+      await rows[0]!.find('button.level-handle').trigger('keydown', { key: 'ArrowDown' });
+      expect(tools.reorderLevels).toHaveBeenCalledWith(['L0', 'UP', 'L1']);
+
+      // Dragging a Central level over Annex's group isn't a drop target.
+      const annexRow = wrapper.findAll('[role="group"]')[0]!.find('.level-row');
+      await rows[0]!.trigger('dragstart', { dataTransfer: { setData: vi.fn() } });
+      await annexRow.trigger('dragover', { clientY: 0, dataTransfer: {} });
+      expect(annexRow.classes()).not.toContain('level-drop-before');
+      expect(annexRow.classes()).not.toContain('level-drop-after');
+      await annexRow.trigger('drop');
+      expect(tools.reorderLevels).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows no headings with a single group', async () => {
+      const wrapper = await mountPanel(stubTools());
+
+      expect(wrapper.find('.level-group-heading').exists()).toBe(false);
+      expect(wrapper.find('[role="group"]').exists()).toBe(false);
     });
   });
 });
