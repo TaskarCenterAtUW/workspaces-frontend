@@ -4,6 +4,7 @@ import {
   collectLevels,
   isHiddenInView,
   isHiddenOnLevel,
+  isOutsideView,
   isLevelArea,
   isPathway,
   levelAreaIndex,
@@ -337,5 +338,29 @@ describe('levelBoxCorners', () => {
 
   it('returns no corners for no points', () => {
     expect(levelBoxCorners([])).toEqual([]);
+  });
+});
+
+describe('isOutsideView', () => {
+  const entities = [
+    node('s1', { location_type: '1', stop_id: 'CENTRAL' }),
+    node('e1', { location_type: '2', parent_station: 'CENTRAL' }),
+    node('n1', { location_type: '3', parent_station: 'CENTRAL', level_id: 'L1' }),
+    node('x1', { stop_name: 'Loose', level_id: 'L0' }),
+    node('u1')
+  ];
+  const index = buildStationIndex(entities);
+  const outside = (view: LevelView) => entities.filter(e => isOutsideView(e, view, index)).map(e => e.id);
+
+  it('on a level, is true for stops on other levels only', () => {
+    expect(outside({ kind: 'level', levelId: 'L0' })).toEqual(['n1']);
+  });
+
+  it('for "No station", is true for stations and their stops', () => {
+    expect(outside({ kind: 'noStation' })).toEqual(['s1', 'e1', 'n1']);
+  });
+
+  it('for a station\'s "Street / No level", is true for its leveled stops and anything else', () => {
+    expect(outside({ kind: 'stationNoLevel', stationId: 'CENTRAL' })).toEqual(['n1', 'x1']);
   });
 });

@@ -282,6 +282,28 @@ export type LevelView = { kind: 'level'; levelId: string }
   | { kind: 'stationNoLevel'; stationId: string };
 
 /**
+ * Whether a stop belongs to something other than what the view shows: another
+ * level, or (in station views) another station or a level. Such a stop is
+ * only on the map as the far end of a shown pathway, so the editor fades it.
+ * Untagged nodes and stops with no level in a level view aren't outside.
+ */
+export function isOutsideView(node: LevelEntity, view: LevelView, index: StationIndex): boolean {
+  if (node.type !== 'node' || !Object.keys(node.tags ?? {}).length) return false;
+
+  if (view.kind === 'level') {
+    const nodeLevel = stopLevelId(node);
+    return Boolean(nodeLevel) && nodeLevel !== view.levelId;
+  }
+
+  const station = index.stations.get(node.id);
+  if (view.kind === 'noStation') {
+    return Boolean(station) || index.stationOfStop.has(node.id);
+  }
+  if (station) return station.stopId !== view.stationId;
+  return index.stationOfStop.get(node.id) !== view.stationId || Boolean(stopLevelId(node));
+}
+
+/**
  * Decides whether a feature is hidden in a view. Level views follow
  * `isHiddenOnLevel`. In the station views:
  * - `noStation` shows stops not in any station, the level areas no station
@@ -302,14 +324,10 @@ export function isHiddenInView(
     return isHiddenOnLevel(entity, view.levelId, getEntity, parentWays);
   }
 
-  const stopShown = (node: LevelEntity): boolean => {
-    const station = index.stations.get(node.id);
-    if (view.kind === 'noStation') {
-      return !station && !index.stationOfStop.has(node.id);
-    }
-    if (station) return station.stopId === view.stationId;
-    return index.stationOfStop.get(node.id) === view.stationId && !stopLevelId(node);
-  };
+  // An untagged pathway end belongs to no station: shown only by "No station".
+  const stopShown = (node: LevelEntity): boolean => (Object.keys(node.tags ?? {}).length
+    ? !isOutsideView(node, view, index)
+    : view.kind === 'noStation');
   const pathwayShown = (way: LevelEntity): boolean => [way.nodes![0], way.nodes!.at(-1)]
     .map(id => getEntity(id!))
     .some(node => node !== undefined && stopShown(node));

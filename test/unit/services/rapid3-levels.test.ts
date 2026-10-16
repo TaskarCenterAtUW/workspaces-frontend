@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LEVEL_FILTER_ID, Rapid3LevelTools } from '~/services/rapid3-levels';
+import { FAR_END_ALPHA, LEVEL_FILTER_ID, Rapid3LevelTools } from '~/services/rapid3-levels';
 
 // Rapid3LevelTools against a minimal fake of the Rapid 3 context: a two-layer
 // graph (base + local edits), an editor that applies the actions it's given,
@@ -493,6 +493,53 @@ describe('Rapid3LevelTools', () => {
 
       expect(tools.outlineLevels(['L0', 'NOPE'])).toEqual([]);
       expect(context.systems.editor.perform).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('fading far ends of connections', () => {
+    // L0 platform n1 --elevator w9-- n2 on L1: on L0, n2 is drawn only as the far end.
+    const data = () => [...station(), way('w9', ['n1', 'n2'], { pathway_mode: '5' })];
+
+    function fakeOsmLayer() {
+      class PixiLayerOsm {
+        features = new Map<string, any>();
+        render() {}
+      }
+      (globalThis as any).Rapid.PixiLayerOsm = PixiLayerOsm;
+      const layer = new PixiLayerOsm();
+      for (const id of ['n1', 'n2', 'n3']) {
+        layer.features.set(`osm-${id}`, { type: 'Point', data: { id }, container: { alpha: 1 } });
+      }
+      layer.features.set('osm-w9', { type: 'Line', data: { id: 'w9' }, container: { alpha: 1 } });
+      return layer;
+    }
+    const alphas = (layer: any) => Object.fromEntries([...layer.features.values()].map((f: any) => [f.data.id, f.container.alpha]));
+
+    it('fades stops outside the shown level, and restores them', () => {
+      const layer = fakeOsmLayer();
+      const tools = new Rapid3LevelTools(fakeContext(data()));
+
+      layer.render();
+      expect(alphas(layer)).toEqual({ n1: 1, n2: 1, n3: 1, w9: 1 }); // everything shown
+
+      tools.showLevel('L0');
+      layer.render();
+      // n2 is on L1; n3 (an entrance with no level) isn't outside; lines aren't faded.
+      expect(alphas(layer)).toEqual({ n1: 1, n2: FAR_END_ALPHA, n3: 1, w9: 1 });
+
+      tools.showView(undefined);
+      layer.render();
+      expect(alphas(layer)).toEqual({ n1: 1, n2: 1, n3: 1, w9: 1 });
+    });
+
+    it('leaves opacity it didn\'t set alone', () => {
+      const layer = fakeOsmLayer();
+      new Rapid3LevelTools(fakeContext(data()));
+      layer.features.get('osm-n1').container.alpha = 0.5; // set by Rapid
+
+      layer.render();
+
+      expect(layer.features.get('osm-n1').container.alpha).toBe(0.5);
     });
   });
 });

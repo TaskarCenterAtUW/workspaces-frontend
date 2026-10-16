@@ -4,6 +4,7 @@ import {
   buildStationIndex,
   isHiddenInView,
   isLevelArea,
+  isOutsideView,
   levelAreaIndex,
   levelAreasMissingId,
   levelBoxCorners,
@@ -24,6 +25,44 @@ declare const Rapid: any;
 
 /** The filter ID Rapid reports for features hidden because they're on another level. */
 export const LEVEL_FILTER_ID = 'gtfs_other_levels';
+
+/** Opacity of stops on the map only as the far end of a shown connection. */
+export const FAR_END_ALPHA = 0.35;
+
+/** The active level tools' far-end check, read by the wrapped OSM layer render. */
+const farEndHook: { isFarEnd?: (entityId: string) => boolean } = {};
+
+/**
+ * Fades stops that are outside the current view (another level or station) but
+ * still drawn as the far end of a connection that is in it. Rapid styles points
+ * by their tags alone, so this wraps the OSM layer's render: after each frame,
+ * matching point features get a lower container opacity, and points faded
+ * before are restored. Installed once per page.
+ */
+export function installFarEndFading() {
+  const proto = typeof Rapid === 'undefined' ? undefined : Rapid.PixiLayerOsm?.prototype;
+  if (!proto?.render || proto.__gtfsFarEndFading) return;
+  proto.__gtfsFarEndFading = true;
+
+  const render = proto.render;
+  const faded = new WeakSet<object>();
+  proto.render = function (this: any, ...args: unknown[]) {
+    const result = render.apply(this, args);
+    const isFarEnd = farEndHook.isFarEnd;
+    for (const feature of this.features?.values?.() ?? []) {
+      if (feature.type !== 'Point' || !feature.container) continue;
+      const id = feature.data?.id;
+      if (isFarEnd && id && isFarEnd(id)) {
+        feature.container.alpha = FAR_END_ALPHA;
+        faded.add(feature);
+      } else if (faded.has(feature)) {
+        feature.container.alpha = 1;
+        faded.delete(feature);
+      }
+    }
+    return result;
+  };
+}
 
 /** Every entity in a Rapid graph: loaded data plus local edits (minus local deletions). */
 export function graphEntities(graph: any): any[] {
@@ -129,6 +168,8 @@ export class Rapid3LevelTools {
   constructor(context: any) {
     this.#context = context;
     this.#installLevelFilter();
+    farEndHook.isFarEnd = id => this.#isFarEnd(id);
+    installFarEndFading();
 
     // Data arrives in many small merges while loading; batch the refreshes.
     const editor = context.systems.editor;
@@ -472,6 +513,13 @@ export class Rapid3LevelTools {
       annotation: actions.length === 1 ? `Set level ${levelId}` : `Set level ${levelId} on ${actions.length} stops`,
       selectedIDs: stopIds
     });
+  }
+
+  /** Whether a stop is drawn only as the far end of a connection in the current view. */
+  #isFarEnd(entityId: string): boolean {
+    const view = this.view.value;
+    const entity = view && this.#graph().hasEntity(entityId);
+    return Boolean(entity) && isOutsideView(entity, view!, this.#stationIndex);
   }
 
   #graph(): any {
