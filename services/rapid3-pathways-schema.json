@@ -10,9 +10,15 @@
           "autoSuggestions": false,
           "customValues": false,
           "options": [
-            "yes",
-            "no"
-          ]
+            "1",
+            "0"
+          ],
+          "strings": {
+            "options": {
+              "1": "Bidirectional",
+              "0": "Unidirectional (from -> to only)"
+            }
+          }
         },
         "length": {
           "key": "length",
@@ -44,22 +50,18 @@
           "type": "text",
           "autoSuggestions": false
         },
-        "reverse_signposted_as": {
-          "key": "reverse_signposted_as",
+        "reversed_signposted_as": {
+          "key": "reversed_signposted_as",
           "type": "text",
           "autoSuggestions": false
         },
         "level_id": {
           "key": "level_id",
-          "type": "number"
+          "type": "text"
         },
         "parent_station": {
           "key": "parent_station",
-          "type": "number",
-          "prerequisiteTag": {
-            "key": "location_type",
-            "valueNot": 1
-          }
+          "type": "text"
         },
         "stop_name": {
           "key": "stop_name",
@@ -79,12 +81,7 @@
         },
         "zone_id": {
           "key": "zone_id",
-          "type": "combo",
-          "options": [
-            "paid",
-            "unpaid"
-          ],
-          "customValues": true
+          "type": "text"
         },
         "stop_url": {
           "key": "stop_url",
@@ -98,10 +95,18 @@
           "key": "wheelchair_boarding",
           "type": "combo",
           "options": [
-            "0 - No information",
-            "1 - Wheelchair Accessible",
-            "2 - Not Wheelchair Accessible"
-          ]
+            "0",
+            "1",
+            "2"
+          ],
+          "customValues": false,
+          "strings": {
+            "options": {
+              "0": "No information",
+              "1": "Wheelchair accessible",
+              "2": "Not wheelchair accessible"
+            }
+          }
         },
         "platform_code": {
           "key": "platform_code",
@@ -113,7 +118,8 @@
         "platform": {
           "name": "Platform",
           "geometry": [
-            "point"
+            "point",
+            "vertex"
           ],
           "fields": [
             "level_id",
@@ -232,7 +238,6 @@
             "line"
           ],
           "fields": [
-            "level_id",
             "is_bidirectional",
             "length",
             "max_slope"
@@ -240,7 +245,7 @@
           "moreFields": [
             "min_width",
             "signposted_as",
-            "reverse_signposted_as"
+            "reversed_signposted_as"
           ],
           "tags": {
             "pathway_mode": "1"
@@ -259,7 +264,7 @@
           "moreFields": [
             "min_width",
             "signposted_as",
-            "reverse_signposted_as"
+            "reversed_signposted_as"
           ],
           "tags": {
             "pathway_mode": "2"
@@ -272,7 +277,6 @@
             "line"
           ],
           "fields": [
-            "level_id",
             "is_bidirectional",
             "traversal_time",
             "max_slope"
@@ -280,7 +284,7 @@
           "moreFields": [
             "min_width",
             "signposted_as",
-            "reverse_signposted_as"
+            "reversed_signposted_as"
           ],
           "tags": {
             "pathway_mode": "3"
@@ -299,7 +303,7 @@
           "moreFields": [
             "min_width",
             "signposted_as",
-            "reverse_signposted_as"
+            "reversed_signposted_as"
           ],
           "tags": {
             "pathway_mode": "4"
@@ -318,7 +322,7 @@
           "moreFields": [
             "min_width",
             "signposted_as",
-            "reverse_signposted_as"
+            "reversed_signposted_as"
           ],
           "tags": {
             "pathway_mode": "5"
@@ -331,14 +335,13 @@
             "line"
           ],
           "fields": [
-            "level_id",
             "length",
             "is_bidirectional"
           ],
           "moreFields": [
             "min_width",
             "signposted_as",
-            "reverse_signposted_as"
+            "reversed_signposted_as"
           ],
           "tags": {
             "pathway_mode": "6"
@@ -354,10 +357,9 @@
             "length"
           ],
           "moreFields": [
-            "level_id",
             "min_width",
             "signposted_as",
-            "reverse_signposted_as"
+            "reversed_signposted_as"
           ],
           "tags": {
             "pathway_mode": "7",

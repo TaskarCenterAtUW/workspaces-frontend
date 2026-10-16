@@ -237,6 +237,22 @@ export class Rapid3Manager {
           l10n._store.set(`${c}.core.${k}`, v);
         }
       }
+
+      // Rapid reads field option labels only from its translation strings, so copy
+      // the pathways schema's `strings.options` labels (e.g. is_bidirectional 0/1)
+      // into the tagging strings that its radio/combo fields look up.
+      if (this.datatype === 'pathways') {
+        type LabeledField = { strings?: { options?: Record<string, string> } };
+        const fields = pathwaysSchema.scopes[0]!.fields as Record<string, LabeledField>;
+        for (const c of codes) {
+          for (const [fieldID, field] of Object.entries(fields)) {
+            for (const [value, label] of Object.entries(field.strings?.options ?? {})) {
+              // Array path: a dotted string would parse values like '0' as array indexes.
+              l10n._store.set([c, 'tagging', 'presets', 'fields', fieldID, 'options', value], label);
+            }
+          }
+        }
+      }
     });
   }
 
