@@ -92,7 +92,17 @@ describe('Rapid3LevelTools', () => {
       ['L0', ['Platform: Platform A']],
       [undefined, ['Entrance: Main entrance']]
     ]);
-    expect(tools.unleveled.value.map(stop => stop.id)).toEqual(['n3']);
+    // n3 is an entrance, which may be left without a level (street level).
+    expect(tools.unleveled.value).toEqual([]);
+  });
+
+  it('flags platforms and nodes without a level', () => {
+    const tools = new Rapid3LevelTools(fakeContext([
+      ...station(),
+      node('n8', { location_type: '0', stop_name: 'Platform B' })
+    ]));
+
+    expect(tools.unleveled.value.map(stop => stop.label)).toEqual(['Platform: Platform B']);
   });
 
   it('hides other levels in the rendered scene and in hit tests while a level is shown', () => {
@@ -173,25 +183,60 @@ describe('Rapid3LevelTools', () => {
     expect(tools.currentLevelId.value).toBeUndefined();
   });
 
-  it('starts drawing a level outline tagged one index above the highest level', () => {
+  it('starts drawing a new level one index above the highest, with a generated level_id', () => {
     const context = fakeContext(station());
     const drawMode = { defaultTags: { area: 'yes' } };
     context.enter.mockReturnValue(drawMode);
     const tools = new Rapid3LevelTools(context);
+    tools.showLevel('L0');
 
     tools.drawLevel();
 
     expect(context.enter).toHaveBeenCalledWith('draw-area');
-    expect(drawMode.defaultTags).toEqual({ area: 'yes', level_index: '1' });
+    // Index 1 is next; "L1" is already taken (by the -1 level), so it gets a suffix.
+    expect(drawMode.defaultTags).toEqual({ area: 'yes', level_id: 'L1-2', level_index: '1' });
+    // A brand-new level isn't in the list yet, so show everything while drawing it.
+    expect(tools.currentLevelId.value).toBeUndefined();
   });
 
-  it('starts the first level at index 0', () => {
+  it('starts the first level at index 0 as L0', () => {
     const context = fakeContext([node('n1', { stop_name: 'A' })]);
     const drawMode = { defaultTags: {} };
     context.enter.mockReturnValue(drawMode);
 
     new Rapid3LevelTools(context).drawLevel();
 
-    expect(drawMode.defaultTags).toEqual({ area: 'yes', level_index: '0' });
+    expect(drawMode.defaultTags).toEqual({ area: 'yes', level_id: 'L0', level_index: '0' });
+  });
+
+  it('outlines an existing level that only stops use, keeping its level_id', () => {
+    const context = fakeContext([...station(), node('n9', { level_id: 'ROOF', stop_name: 'Roof' })]);
+    const drawMode = { defaultTags: {} };
+    context.enter.mockReturnValue(drawMode);
+    const tools = new Rapid3LevelTools(context);
+    const roof = tools.levels.value.find(level => level.levelId === 'ROOF')!;
+    expect(roof.areaIds).toEqual([]);
+
+    tools.drawLevel(roof);
+
+    expect(drawMode.defaultTags).toEqual({ area: 'yes', level_id: 'ROOF', level_index: '1' });
+    expect(tools.currentLevelId.value).toBe('ROOF');
+  });
+
+  it('fills a generated level_id on a level area missing one', () => {
+    const context = fakeContext([
+      ...station(),
+      way('a2', ['e1', 'e2', 'e3', 'e1'], { area: 'yes', level_index: '-1', level_name: 'Lower' })
+    ]);
+    const tools = new Rapid3LevelTools(context);
+    expect(tools.levelAreasMissingId.value.map(area => area.id)).toEqual(['a2']);
+
+    expect(tools.fillLevelId('a2')).toBe('L-1');
+    tools.refresh();
+
+    expect(context.graph.hasEntity('a2')!.tags!.level_id).toBe('L-1');
+    expect(context.systems.editor.commit).toHaveBeenCalledWith({ annotation: 'Set level_id L-1', selectedIDs: ['a2'] });
+    expect(tools.levelAreasMissingId.value).toEqual([]);
+    expect(tools.fillLevelId('a2')).toBeUndefined(); // already has one
   });
 });

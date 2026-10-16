@@ -4,9 +4,12 @@ import {
   isHiddenOnLevel,
   isLevelArea,
   isPathway,
+  levelAreaIndex,
   levelAreasMissingId,
+  nextLevelIndex,
   stopNodes,
   stopsByLevel,
+  suggestLevelId,
   unleveledStops
 } from '~/services/pathways-levels';
 import type { LevelEntity } from '~/services/pathways-levels';
@@ -81,7 +84,7 @@ describe('collectLevels', () => {
 });
 
 describe('unleveled stops', () => {
-  it('flags stops without a level_id, except stations', () => {
+  it('flags stops without a level_id, except stations and entrances', () => {
     const entities = [
       node('n1', { location_type: '0', stop_name: 'P1' }),
       node('n2', { location_type: '0', level_id: 'L1' }),
@@ -91,7 +94,7 @@ describe('unleveled stops', () => {
       node('n6'), node('n7'),
       way('w1', ['n6', 'n7'])
     ];
-    expect(ids(unleveledStops(entities))).toEqual(['n1', 'n4', 'n5', 'n6', 'n7']);
+    expect(ids(unleveledStops(entities))).toEqual(['n1', 'n5', 'n6', 'n7']);
   });
 
   it('groups stops by level in level order, with unleveled stops last', () => {
@@ -149,5 +152,28 @@ describe('isHiddenOnLevel', () => {
       expect(isHiddenOnLevel(entity, 'L0', id => lookup.get(id), () => []), String(entity.id)).toBe(false);
     }
     expect(hidden('L0')).not.toContain('n5');
+  });
+});
+
+describe('generated level IDs', () => {
+  it('suggests L<index>, adding a suffix when it is taken', () => {
+    expect(suggestLevelId(0, [])).toBe('L0');
+    expect(suggestLevelId(-1, ['L0'])).toBe('L-1');
+    expect(suggestLevelId(2, ['L2', 'L2-2'])).toBe('L2-3');
+  });
+
+  it('puts the next level one above the highest index, or at 0', () => {
+    const levels = collectLevels([
+      levelArea('w1', { level_id: 'A', level_index: '-2' }),
+      levelArea('w2', { level_id: 'B', level_index: '1.5' }),
+      levelArea('w3', { level_id: 'C', level_index: 'roof' })
+    ]);
+    expect(nextLevelIndex(levels)).toBe(2);
+    expect(nextLevelIndex([])).toBe(0);
+  });
+
+  it('reads a level area index only when it is numeric', () => {
+    expect(levelAreaIndex(levelArea('w1', { level_index: '-1' }))).toBe(-1);
+    expect(levelAreaIndex(levelArea('w2', { level_index: 'roof' }))).toBeUndefined();
   });
 });

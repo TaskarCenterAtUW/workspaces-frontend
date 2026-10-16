@@ -28,8 +28,12 @@ export interface Level {
   areaIds: (string | number)[];
 }
 
-/** location_type values for stops that sit on a level (everything but stations). */
-const LEVELED_LOCATION_TYPES = new Set(['', '0', '2', '3', '4']);
+/**
+ * location_type values for stops that should be on a level. Stations (1) span
+ * levels, and entrances (2) are where riders come in from the street, so a
+ * missing level_id isn't flagged for either (GTFS makes level_id optional).
+ */
+const LEVELED_LOCATION_TYPES = new Set(['', '0', '3', '4']);
 
 export function isLevelArea(entity: LevelEntity): boolean {
   return entity.type === 'way' && entity.tags?.level_index !== undefined;
@@ -58,7 +62,7 @@ export function stopLevelId(entity: LevelEntity): string | undefined {
   return levelId || undefined;
 }
 
-/** Stops that should be on a level but have no level_id (stations are exempt). */
+/** Stops that should be on a level but have no level_id (stations and entrances are exempt). */
 export function unleveledStops<T extends LevelEntity>(entities: T[]): T[] {
   return stopNodes(entities).filter(stop => !stopLevelId(stop)
     && LEVELED_LOCATION_TYPES.has(stop.tags?.location_type?.trim() ?? ''));
@@ -115,6 +119,31 @@ export function collectLevels(entities: LevelEntity[]): Level[] {
   }
 
   return [...levels.values()].sort(compareLevels);
+}
+
+/**
+ * A readable level_id for a level at `index` (e.g. "L0", "L-1", "L2.5") that no
+ * existing level uses; a numeric suffix is added if it's taken ("L0-2").
+ */
+export function suggestLevelId(index: number, existingIds: Iterable<string>): string {
+  const taken = new Set(existingIds);
+  const base = `L${index}`;
+  let candidate = base;
+  for (let n = 2; taken.has(candidate); n++) {
+    candidate = `${base}-${n}`;
+  }
+  return candidate;
+}
+
+/** The next level_index above every known level (0 when there are none). */
+export function nextLevelIndex(levels: Level[]): number {
+  const indexes = levels.map(level => level.index).filter((index): index is number => index !== undefined);
+  return indexes.length ? Math.floor(Math.max(...indexes)) + 1 : 0;
+}
+
+/** The level_index of a level area as a number, if it has a numeric one. */
+export function levelAreaIndex(area: LevelEntity): number | undefined {
+  return parseIndex(area.tags?.level_index);
 }
 
 /** Level areas that can't be referenced because they have no level_id. */

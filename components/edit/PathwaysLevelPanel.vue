@@ -52,8 +52,30 @@
             @click="tools.showLevel(level.levelId)"
           >
             <span class="level-index">{{ level.index ?? '?' }}</span>
-            <span class="level-name">{{ levelLabel(level) }}</span>
-            <span class="badge text-bg-light">{{ stopCount(level.levelId) }}</span>
+            <span class="level-name">
+              <span class="level-title">{{ levelLabel(level) }}</span>
+              <span
+                class="level-outline"
+                :class="{ 'level-outline-missing': !level.areaIds.length }"
+              >{{ outlineLabel(level) }}</span>
+            </span>
+            <span
+              class="badge text-bg-light"
+              :title="`${stopCount(level.levelId)} stops`"
+            >{{ stopCount(level.levelId) }}</span>
+          </button>
+          <button
+            v-if="!level.areaIds.length"
+            type="button"
+            class="btn btn-sm btn-outline-primary level-draw"
+            :title="`Draw an outline for ${levelLabel(level)}`"
+            :aria-label="`Draw an outline for ${levelLabel(level)}`"
+            @click="tools.drawLevel(level)"
+          >
+            <app-icon
+              variant="edit"
+              no-margin
+            />
           </button>
           <button
             type="button"
@@ -73,7 +95,7 @@
         v-if="levels.some(level => !level.areaIds.length)"
         class="level-panel-hint"
       >
-        Levels with index "?" are used by stops but not drawn yet.
+        Levels with no outline are only used by stops so far; draw one to give them an area (and an index, if "?").
       </p>
     </section>
 
@@ -126,6 +148,14 @@
             @click="tools.select(area.id)"
           >
             Level area {{ area.label }} has no level_id
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            title="Give this level area a generated level_id"
+            @click="tools.fillLevelId(area.id)"
+          >
+            Fill level_id
           </button>
         </li>
       </ul>
@@ -254,6 +284,8 @@ import type { LevelStopGroup, Rapid3LevelTools } from '~/services/rapid3-levels'
 import type { Level } from '~/services/pathways-levels';
 
 // @test unit: "Draw level" starts drawing a level outline on the map
+// @test unit: each level shows whether it has an outline; levels without one can have one drawn
+// @test unit: level areas missing a level_id are flagged, and "Fill level_id" generates one
 // @test unit: lists levels in level_index order, with an "All levels" option, and selecting one shows only that level
 // @test unit: lists stops with no level, and "Set level" assigns the selected level to them
 // @test unit: connecting two stops creates a pathway of the chosen type; exit gates are always one-way
@@ -283,6 +315,12 @@ const bidirectional = ref(true);
 watch(pathwayMode, (mode) => {
   if (mode === EXIT_GATE) bidirectional.value = false;
 });
+
+function outlineLabel(level: Level): string {
+  const count = level.areaIds.length;
+  if (!count) return 'No outline';
+  return count === 1 ? 'Outline drawn' : `${count} outlines`;
+}
 
 function levelLabel(level: Level): string {
   return level.name ? `${level.name} (${level.levelId})` : level.levelId;
@@ -365,13 +403,30 @@ function connect() {
 }
 
 .level-name {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.level-title,
+.level-outline {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.level-zoom {
+.level-outline {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.level-outline-missing {
+  font-style: italic;
+}
+
+.level-zoom,
+.level-draw {
   border-radius: 0;
 }
 

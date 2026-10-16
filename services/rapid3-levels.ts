@@ -2,8 +2,11 @@ import { ref, shallowRef } from 'vue';
 import {
   collectLevels,
   isHiddenOnLevel,
+  levelAreaIndex,
   levelAreasMissingId,
+  nextLevelIndex,
   stopsByLevel,
+  suggestLevelId,
   unleveledStops
 } from '~/services/pathways-levels';
 import type { Level } from '~/services/pathways-levels';
@@ -136,19 +139,44 @@ export class Rapid3LevelTools {
   }
 
   /**
-   * Starts drawing a level outline: Rapid's area drawing mode, with the new
-   * area pre-tagged as a level one index above the highest existing one. Once
-   * it's finished, Rapid selects it so level_id and level_name can be filled in.
+   * Starts drawing a level outline: Rapid's area drawing mode, with the new area
+   * pre-tagged as a level. Pass an existing level (e.g. one only stops use so
+   * far) to outline it; otherwise it's a new level one index above the highest,
+   * with a generated level_id. Once finished, Rapid selects the new area so its
+   * tags (e.g. level_name) can be edited.
    */
-  drawLevel() {
-    const indexes = this.levels.value.map(level => level.index).filter((i): i is number => i !== undefined);
-    const nextIndex = indexes.length ? Math.floor(Math.max(...indexes)) + 1 : 0;
+  drawLevel(level?: Level) {
+    const index = level?.index ?? nextLevelIndex(this.levels.value);
+    const levelId = level?.levelId
+      ?? suggestLevelId(index, this.levels.value.map(l => l.levelId));
+
+    // Show the level being outlined (or everything, for a brand-new level) so
+    // the new area isn't hidden by the level filter once it's drawn.
+    this.showLevel(level?.levelId);
 
     // DrawAreaMode resets its defaultTags on enter, so set them on the entered mode.
     const mode = this.#context.enter('draw-area');
     if (mode) {
-      mode.defaultTags = { area: 'yes', level_index: String(nextIndex) };
+      mode.defaultTags = { area: 'yes', level_id: levelId, level_index: String(index) };
     }
+  }
+
+  /**
+   * Gives a level area that has no level_id a generated one, based on its
+   * level_index, so stops can reference it.
+   * @returns the new level_id
+   */
+  fillLevelId(areaId: string): string | undefined {
+    const area = this.#graph().hasEntity(areaId);
+    if (!area || area.tags?.level_id?.trim()) return undefined;
+
+    const index = levelAreaIndex(area) ?? nextLevelIndex(this.levels.value);
+    const levelId = suggestLevelId(index, this.levels.value.map(level => level.levelId));
+
+    const editor = this.#context.systems.editor;
+    editor.perform(Rapid.actionChangeTags(areaId, { ...area.tags, level_id: levelId }));
+    editor.commit({ annotation: `Set level_id ${levelId}`, selectedIDs: [areaId] });
+    return levelId;
   }
 
   /** Selects a feature in the editor and brings it into view. */
