@@ -542,4 +542,36 @@ describe('Rapid3LevelTools', () => {
       expect(layer.features.get('osm-n1').container.alpha).toBe(0.5);
     });
   });
+
+  describe('selecting level outlines', () => {
+    it('selects a level\'s outline without moving the map', () => {
+      const context = fakeContext(station());
+      const tools = new Rapid3LevelTools(context);
+
+      tools.selectLevelOutline('L0');
+
+      expect(context.enter).toHaveBeenCalledWith('select-osm', { selection: { osm: ['a0'] } });
+      expect(context.systems.map.fitEntitiesEase).not.toHaveBeenCalled();
+    });
+
+    it('does nothing for a level without an outline', () => {
+      const context = fakeContext([...station(), node('n9', { level_id: 'ROOF', stop_name: 'Roof' })]);
+      new Rapid3LevelTools(context).selectLevelOutline('ROOF');
+
+      expect(context.enter).not.toHaveBeenCalled();
+    });
+
+    it('deselects only when level outlines are what\'s selected', () => {
+      const context = fakeContext(station());
+      const tools = new Rapid3LevelTools(context);
+
+      (context as any).selectedIDs = () => ['n1'];
+      tools.selectLevelOutline();
+      expect(context.enter).not.toHaveBeenCalled();
+
+      (context as any).selectedIDs = () => ['a0'];
+      tools.selectLevelOutline();
+      expect(context.enter).toHaveBeenCalledWith('browse');
+    });
+  });
 });

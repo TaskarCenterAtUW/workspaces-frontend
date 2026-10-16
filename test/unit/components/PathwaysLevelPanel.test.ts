@@ -47,7 +47,8 @@ function stubTools(currentLevelId?: string) {
     select: vi.fn(),
     assignLevel: vi.fn(),
     reorderLevels: vi.fn(),
-    outlineLevels: vi.fn()
+    outlineLevels: vi.fn(),
+    selectLevelOutline: vi.fn()
   };
   return tools;
 }
@@ -93,10 +94,12 @@ describe('PathwaysLevelPanel', () => {
 
     await options[1]!.trigger('click');
     expect(tools.showView).toHaveBeenCalledWith({ kind: 'level', levelId: 'L0' });
+    expect(tools.selectLevelOutline).toHaveBeenCalledWith('L0'); // opens its outline in the sidebar
     expect(wrapper.findAll('[role="radio"]')[1]!.attributes('aria-checked')).toBe('true');
 
     await wrapper.findAll('[role="radio"]')[1]!.trigger('click');
     expect(tools.showView).toHaveBeenLastCalledWith(undefined);
+    expect(tools.selectLevelOutline).toHaveBeenLastCalledWith(undefined);
   });
 
   // @test unit: "No station" (at the top, over the levels no station uses) shows only features not tied to a station; it's hidden when there's nothing outside a station
@@ -107,6 +110,7 @@ describe('PathwaysLevelPanel', () => {
 
     await noStation().trigger('click');
     expect(tools.showView).toHaveBeenLastCalledWith({ kind: 'noStation' });
+    expect(tools.selectLevelOutline).not.toHaveBeenCalled(); // not a level
     expect(noStation().attributes('aria-checked')).toBe('true');
     expect(noStation().attributes('title')).toContain('click again to show everything');
 

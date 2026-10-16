@@ -489,6 +489,27 @@ export class Rapid3LevelTools {
     this.refresh(); // show the new order now, not after the batched refresh
   }
 
+  /**
+   * Selects a level's outline(s) in the editor, opening it in the sidebar,
+   * without moving the map. With no level, deselects level outlines if they're
+   * what's selected (e.g. when the level stops being shown).
+   */
+  selectLevelOutline(levelId?: string) {
+    if (levelId) {
+      const level = this.levels.value.find(l => l.levelId === levelId);
+      if (level?.areaIds.length) {
+        this.#context.enter('select-osm', { selection: { osm: level.areaIds.map(String) } });
+      }
+      return;
+    }
+
+    const outlineIds = new Set(this.levels.value.flatMap(level => level.areaIds.map(String)));
+    const selected: string[] = this.#context.selectedIDs?.() ?? [];
+    if (selected.length && selected.every(id => outlineIds.has(id))) {
+      this.#context.enter('browse');
+    }
+  }
+
   /** Selects a feature in the editor and brings it into view. */
   select(entityId: string) {
     const entity = this.#graph().hasEntity(entityId);

@@ -275,7 +275,7 @@ import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-le
 // @test unit: "Add level" starts drawing a new level's outline on the map
 // @test unit: each level shows whether it has an outline; "add one" boxes a level's stops, and "Outline all" does every level without one
 // @test unit: level areas missing a level_id are flagged, and "Fill level_id" generates one
-// @test unit: lists levels highest first, and selecting one shows only that level; selecting it again shows everything
+// @test unit: lists levels highest first, and selecting one shows only that level and selects its outline; selecting it again shows everything
 // @test unit: "No station" (at the top, over the levels no station uses) shows only features not tied to a station; it's hidden when there's nothing outside a station
 // @test unit: only stations with features in the map view are listed (plus the one being viewed)
 // @test unit: clicking a station's name selects the station in the editor
@@ -329,9 +329,16 @@ function isViewShown(view: LevelView): boolean {
   return JSON.stringify(props.tools.view.value) === JSON.stringify(view);
 }
 
-/** Shows a view, or everything if it's already shown. */
+/**
+ * Shows a view, or everything if it's already shown. Showing a level also
+ * selects its outline (opening it in the sidebar); hiding it deselects it.
+ */
 function toggleView(view: LevelView) {
-  props.tools.showView(isViewShown(view) ? undefined : view);
+  const turningOff = isViewShown(view);
+  props.tools.showView(turningOff ? undefined : view);
+  if (view.kind === 'level') {
+    props.tools.selectLevelOutline(turningOff ? undefined : view.levelId);
+  }
 }
 
 function viewTitle(group: StationLevelGroup): string {
