@@ -328,21 +328,36 @@ describe('PathwaysLevelPanel', () => {
       expect(tools.reorderLevels).toHaveBeenCalledTimes(1);
     });
 
-    // @test unit: each station ends with "No level", which shows that station's features that have no level
-    it('ends each station with a No level entry for its unleveled features', async () => {
+    // @test unit: clicking a station's name selects the station in the editor
+    it('selects the station when its name is clicked', async () => {
       const { tools, wrapper } = await mountStations();
 
-      const entries = wrapper.findAll('[role="group"]')
-        .map(group => group.findAll('[role="radio"]').map(option => option.text()).at(-1));
-      expect(entries).toEqual(['No level', 'No level']);
+      const central = wrapper.findAll('.level-station-link').find(link => link.text() === 'Central')!;
+      expect(central.attributes('title')).toBe('Select Central (stop_id CENTRAL) to see or edit it');
+      await central.trigger('click');
 
-      const centralNoLevel = wrapper.findAll('[role="group"]')[1]!.findAll('[role="radio"]').at(-1)!;
+      expect(tools.select).toHaveBeenCalledWith('s1');
+    });
+
+    // @test unit: each station starts with "Street / No level", which shows that station's features that have no level
+    it('starts each station with a Street / No level entry for its unleveled features', async () => {
+      const { tools, wrapper } = await mountStations();
+      const stationRadios = (i: number) => wrapper.findAll('[role="group"]')[i]!.findAll('[role="radio"]');
+
+      // First under each station, above its levels.
+      expect([0, 1].map(i => stationRadios(i).map(option => option.text().replace(/\s+/g, ' ')))).toEqual([
+        ['Street / No level', expect.stringContaining('Street (L0)')],
+        ['Street / No level', expect.stringContaining('Upper (UP)'), expect.stringContaining('Street (L0)'),
+          expect.stringContaining('Concourse (L1)')]
+      ]);
+
+      const centralNoLevel = stationRadios(1)[0]!;
       expect(centralNoLevel.attributes('title')).toContain('Central\'s features that have no level');
       await centralNoLevel.trigger('click');
       expect(tools.showView).toHaveBeenLastCalledWith({ kind: 'stationNoLevel', stationId: 'CENTRAL' });
       expect(centralNoLevel.attributes('aria-checked')).toBe('true');
       // Annex's entry isn't selected by Central's.
-      expect(wrapper.findAll('[role="group"]')[0]!.findAll('[role="radio"]').at(-1)!.attributes('aria-checked')).toBe('false');
+      expect(stationRadios(0)[0]!.attributes('aria-checked')).toBe('false');
     });
 
     it('shows no headings with a single group', async () => {

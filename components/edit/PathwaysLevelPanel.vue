@@ -39,10 +39,28 @@
           <div
             v-if="group.station"
             class="list-group-item level-group-heading"
-            :title="`Station ${group.station.stopId}`"
           >
-            {{ group.station.name }}
+            <button
+              type="button"
+              class="btn btn-link level-station-link"
+              :title="`Select ${group.station.name} (stop_id ${group.station.stopId}) to see or edit it`"
+              @click="tools.select(String(group.station.id))"
+            >
+              {{ group.station.name }}
+            </button>
           </div>
+          <button
+            v-if="group.station"
+            type="button"
+            role="radio"
+            class="list-group-item list-group-item-action level-view-entry"
+            :class="{ active: isViewShown(viewFor(group)) }"
+            :aria-checked="isViewShown(viewFor(group))"
+            :title="viewTitle(group)"
+            @click="toggleView(viewFor(group))"
+          >
+            Street / No level
+          </button>
           <button
             v-else
             type="button"
@@ -150,18 +168,6 @@
               </template>
             </div>
           </div>
-          <button
-            v-if="group.station"
-            type="button"
-            role="radio"
-            class="list-group-item list-group-item-action level-view-entry"
-            :class="{ active: isViewShown(viewFor(group)) }"
-            :aria-checked="isViewShown(viewFor(group))"
-            :title="viewTitle(group)"
-            @click="toggleView(viewFor(group))"
-          >
-            No level
-          </button>
         </div>
       </div>
       <p
@@ -257,7 +263,8 @@ import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-le
 // @test unit: level areas missing a level_id are flagged, and "Fill level_id" generates one
 // @test unit: lists levels highest first, and selecting one shows only that level; selecting it again shows everything
 // @test unit: "No station" (at the top, over the levels no station uses) shows only features not tied to a station; it's hidden when there's nothing outside a station
-// @test unit: each station ends with "No level", which shows that station's features that have no level
+// @test unit: clicking a station's name selects the station in the editor
+// @test unit: each station starts with "Street / No level", which shows that station's features that have no level
 // @test unit: with more than one station, levels are grouped under the stations whose stops use them
 // @test unit: levels with an outline can be reordered by dragging or with the arrow keys, which renumbers level_index
 // @test unit: levels without an outline show a disabled handle saying to add an outline first
@@ -278,7 +285,7 @@ const currentLevelLabel = computed(() => {
 });
 
 // Levels grouped by station, each highest first. The first group (no station)
-// sits under the "No station" entry; each station's group ends with "No level".
+// sits under the "No station" entry; each station's group starts with "Street / No level".
 const levelGroups = computed(() => props.tools.levelGroups.value);
 
 // "No station" is hidden when it has nothing to list or show: no levels under
@@ -287,7 +294,7 @@ const visibleGroups = computed(() => levelGroups.value.filter(group => group.sta
   || group.levels.length > 0
   || props.tools.noStationStopCount.value > 0));
 
-/** The view a group's entry selects: "No station", or a station's "No level". */
+/** The view a group's entry selects: "No station", or a station's "Street / No level". */
 function viewFor(group: StationLevelGroup): LevelView {
   return group.station ? { kind: 'stationNoLevel', stationId: group.station.stopId } : { kind: 'noStation' };
 }
@@ -485,6 +492,15 @@ function stopCount(levelId: string): number {
 
 .level-group-no-station .level-row {
   padding-left: 1rem; // levels listed under "No station"
+}
+
+.level-station-link {
+  padding: 0;
+  border: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-transform: inherit;
 }
 
 .level-group-heading {
