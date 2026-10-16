@@ -4,6 +4,7 @@
 // @test e2e: loading this page with the "osw" datatype query param loads the OpenSidewalks editor, and without it loads the Pathways editor (playwright snapshot each editor's UI)
 // @test e2e: loading this page with editor=rapid3 and a non-osw datatype (e.g. pathways) loads Rapid 3 instead of the Pathways editor (playwright snapshot this)
 // @test e2e: loading Rapid 3 for a pathways workspace swaps in the GTFS Pathways presets; loading it for an osw workspace keeps the OSM presets
+// @test e2e: Rapid 3 on a pathways workspace marks the editor as GTFS Pathways (hiding Rapid's generic Point/Line/Area/Relation presets, which GTFS has no equivalent for)
 // @test e2e: Rapid 3 on a pathways workspace shows a level panel next to the editor; other editors and datatypes don't
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
@@ -12,7 +13,7 @@
     <div
       ref="editorContainer"
       class="editorContainer"
-      :class="{ rapid3: isRapid3 }"
+      :class="{ 'rapid3': isRapid3, 'gtfs-pathways': isRapid3 && datatype === 'pathways' }"
     />
     <edit-pathways-level-panel
       v-if="levelTools"
@@ -140,5 +141,15 @@ onMounted(() => {
 .combobox-option .gtfs-value-option-label {
   margin-left: 0.5em;
   opacity: 0.6;
+}
+/* GTFS Pathways has no generic point, line, area or relation (e.g. a generic
+   node is location_type=3), so hide Rapid's built-in fallback presets from the
+   preset picker. Rapid always appends them and can't drop them from the schema;
+   their list items are classed by preset ID. */
+.editorContainer.gtfs-pathways .preset-list-item.preset-point,
+.editorContainer.gtfs-pathways .preset-list-item.preset-line,
+.editorContainer.gtfs-pathways .preset-list-item.preset-area,
+.editorContainer.gtfs-pathways .preset-list-item.preset-relation {
+  display: none;
 }
 </style>

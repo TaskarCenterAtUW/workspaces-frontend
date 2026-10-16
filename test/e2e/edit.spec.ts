@@ -255,6 +255,38 @@ test.describe('workspace edit (editor host)', () => {
     expect(await page.evaluate(() => (window as any).__schemaMerges ?? [])).toEqual([]);
   });
 
+  // @test e2e: Rapid 3 on a pathways workspace marks the editor as GTFS Pathways (hiding Rapid's generic Point/Line/Area/Relation presets, which GTFS has no equivalent for)
+  test('hides Rapid\'s generic fallback presets for Rapid 3 on a pathways workspace', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubAllEditors(page);
+
+    await page.goto('/workspace/1/edit?datatype=pathways&editor=rapid3');
+    await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+
+    // Stand-in preset list items, classed the way Rapid classes them.
+    await page.locator('.editorContainer .fake-editor').evaluate((editor) => {
+      editor.insertAdjacentHTML('beforeend', ['point', 'line', 'area', 'relation', 'platform']
+        .map(id => `<div class="preset-list-item preset-${id}">${id}</div>`).join(''));
+    });
+    for (const id of ['point', 'line', 'area', 'relation']) {
+      await expect(page.locator(`.preset-${id}`)).toBeHidden();
+    }
+    await expect(page.locator('.preset-platform')).toBeVisible();
+  });
+
+  test('keeps the generic presets for Rapid 3 on an osw workspace', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubAllEditors(page);
+
+    await page.goto('/workspace/1/edit?datatype=osw&editor=rapid3');
+    await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+
+    await page.locator('.editorContainer .fake-editor').evaluate((editor) => {
+      editor.insertAdjacentHTML('beforeend', '<div class="preset-list-item preset-point">point</div>');
+    });
+    await expect(page.locator('.preset-point')).toBeVisible();
+  });
+
   // @test e2e: Rapid 3 on a pathways workspace shows a level panel next to the editor; other editors and datatypes don't
   test('shows the level panel for Rapid 3 on a pathways workspace', async ({ page }) => {
     await seedAuthenticatedSession(page);
