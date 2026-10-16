@@ -7,6 +7,7 @@ import {
   levelAreaIndex,
   levelAreasMissingId,
   levelsByStation,
+  levelsTopDown,
   nextLevelIndex,
   reorderedLevelIndexes,
   stopNodes,
@@ -33,6 +34,15 @@ export function graphEntities(graph: any): any[] {
   return entities;
 }
 
+/** A defined value offered for a reference field (level_id, parent_station). */
+export interface ReferenceChoice {
+  value: string;
+  label: string;
+}
+
+/** The fields whose choices are the workspace's defined levels / stations / platforms. */
+export const REFERENCE_FIELDS = ['level_id', 'parent_station'] as const;
+
 /** A stop as shown in the level panel. */
 export interface LevelStop {
   id: string;
@@ -53,6 +63,15 @@ const LOCATION_TYPE_NAMES: Record<string, string> = {
   '3': 'Generic Node',
   '4': 'Boarding Area'
 };
+
+/** "Name (ID)", or just the ID when there's no separate name. */
+function choice(value: string, name?: string): ReferenceChoice {
+  return { value, label: name && name !== value ? `${name} (${value})` : value };
+}
+
+function byLabel(a: ReferenceChoice, b: ReferenceChoice): number {
+  return a.label.localeCompare(b.label, undefined, { numeric: true });
+}
 
 function describeStop(entity: any): LevelStop {
   const tags = entity.tags ?? {};
@@ -99,6 +118,8 @@ export class Rapid3LevelTools {
   #refreshTimer: ReturnType<typeof setTimeout> | undefined;
   #viewportTimer: ReturnType<typeof setTimeout> | undefined;
   #stationIndex: StationIndex = { stations: new Map(), stationOfStop: new Map(), stationsByLevel: new Map() };
+  /** Platforms with a stop_id (what a boarding area's parent_station can name). */
+  #platforms: ReferenceChoice[] = [];
 
   constructor(context: any) {
     this.#context = context;
@@ -139,6 +160,11 @@ export class Rapid3LevelTools {
     this.unleveled.value = unleveledStops(entities).map(describeStop);
     this.levelAreasMissingId.value = levelAreasMissingId(entities)
       .map(area => ({ id: area.id, label: area.tags?.level_name?.trim() || area.id, levelId: undefined }));
+    this.#platforms = stopNodes(entities)
+      .filter(stop => ['', '0'].includes(stop.tags?.location_type?.trim() ?? '') && stop.tags?.stop_id?.trim())
+      .map(stop => choice(stop.tags.stop_id.trim(), stop.tags.stop_name?.trim()))
+      .sort(byLabel);
+    this.#labelReferenceChoices();
     this.updateVisibleStations();
 
     // Drop a view whose level or station no longer exists.
@@ -152,6 +178,51 @@ export class Rapid3LevelTools {
       this.showView(undefined);
     } else if (view) {
       this.#redraw(); // station membership may have changed
+    }
+  }
+
+  /**
+   * The defined values a reference field can take: drawn levels for level_id
+   * (highest first); stations for parent_station, or platforms when the
+   * feature is a boarding area. Undefined for other keys.
+   * @param entityId - the feature being edited, if known
+   */
+  referenceChoices(key: string, entityId?: string): ReferenceChoice[] | undefined {
+    if (key === 'level_id') {
+      return levelsTopDown(this.levels.value.filter(level => level.areaIds.length))
+        .map(level => choice(level.levelId, level.name));
+    }
+    if (key === 'parent_station') {
+      const entity = entityId ? this.#graph().hasEntity(entityId) : undefined;
+      if (entity?.tags?.location_type?.trim() === '4') return this.#platforms;
+      return [...this.#stationIndex.stations.values()]
+        .map(station => choice(station.stopId, station.name))
+        .sort(byLabel);
+    }
+    return undefined;
+  }
+
+  /**
+   * Gives Rapid display labels for the reference fields' choices, so a field
+   * shows "Concourse (L1)" for level_id L1. Rapid's combo fields read option
+   * labels from its tagging strings; these are set for the current locale and
+   * English (the fallback), and kept current as levels and stations change.
+   */
+  #labelReferenceChoices() {
+    const l10n = this.#context.systems.l10n;
+    if (!l10n?._store) return;
+
+    const choices: Record<string, ReferenceChoice[]> = {
+      level_id: this.referenceChoices('level_id')!,
+      parent_station: [...this.referenceChoices('parent_station')!, ...this.#platforms]
+    };
+    for (const code of new Set(['en', l10n.localeCode].filter(Boolean))) {
+      for (const [field, list] of Object.entries(choices)) {
+        for (const { value, label } of list) {
+          // Array path: dots or digits in an ID must not split the path.
+          l10n._store.set([code, 'tagging', 'presets', 'fields', field, 'options', value], label);
+        }
+      }
     }
   }
 

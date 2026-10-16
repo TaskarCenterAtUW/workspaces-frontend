@@ -340,4 +340,49 @@ describe('Rapid3LevelTools', () => {
       expect(tools.visibleStationIds.value).toBeUndefined();
     });
   });
+
+  describe('reference field choices', () => {
+    const data = () => [
+      ...station(), // levels L0 (Street) and L1 (Concourse), both drawn
+      node('n9', { level_id: 'ROOF', stop_name: 'Roof' }), // level with no outline
+      node('s1', { location_type: '1', stop_id: 'CENTRAL', stop_name: 'Central' }),
+      node('s2', { location_type: '1', stop_id: 'ANNEX' }),
+      node('p1', { location_type: '0', stop_id: 'P1', stop_name: 'Platform 1', parent_station: 'CENTRAL' }),
+      node('p2', { stop_id: 'P2', parent_station: 'CENTRAL' }), // empty location_type = platform
+      node('b1', { location_type: '4', parent_station: 'P1' })
+    ];
+
+    it('offers drawn levels for level_id, highest first', () => {
+      const tools = new Rapid3LevelTools(fakeContext(data()));
+      expect(tools.referenceChoices('level_id')).toEqual([
+        { value: 'L0', label: 'Street (L0)' },
+        { value: 'L1', label: 'Concourse (L1)' }
+      ]);
+    });
+
+    it('offers stations for parent_station, or platforms for a boarding area', () => {
+      const tools = new Rapid3LevelTools(fakeContext(data()));
+      expect(tools.referenceChoices('parent_station', 'p1')).toEqual([
+        { value: 'ANNEX', label: 'ANNEX' },
+        { value: 'CENTRAL', label: 'Central (CENTRAL)' }
+      ]);
+      expect(tools.referenceChoices('parent_station', 'b1')).toEqual([
+        { value: 'P2', label: 'P2' },
+        { value: 'P1', label: 'Platform 1 (P1)' }
+      ]);
+      expect(tools.referenceChoices('stop_name')).toBeUndefined();
+    });
+
+    it('labels the choices in Rapid\'s strings so fields show names', () => {
+      const context = fakeContext(data());
+      const set = vi.fn();
+      (context.systems as any).l10n = { localeCode: 'en-GB', _store: { set } };
+
+      new Rapid3LevelTools(context);
+
+      expect(set).toHaveBeenCalledWith(['en', 'tagging', 'presets', 'fields', 'level_id', 'options', 'L1'], 'Concourse (L1)');
+      expect(set).toHaveBeenCalledWith(['en-GB', 'tagging', 'presets', 'fields', 'parent_station', 'options', 'CENTRAL'], 'Central (CENTRAL)');
+      expect(set).toHaveBeenCalledWith(['en', 'tagging', 'presets', 'fields', 'parent_station', 'options', 'P1'], 'Platform 1 (P1)');
+    });
+  });
 });

@@ -115,11 +115,16 @@ describe('Rapid 3 pathways schema', () => {
       }
     });
 
-    it('treats ID references as free text', () => {
-      for (const fieldID of ['level_id', 'parent_station', 'zone_id']) {
-        expect(fields[fieldID]!.type, fieldID).toBe('text');
+    it('offers only defined values for level_id and parent_station, keeping IDs as entered', () => {
+      // Their choices come from the workspace at edit time (Rapid3LevelTools.referenceChoices).
+      for (const fieldID of ['level_id', 'parent_station']) {
+        expect(fields[fieldID], fieldID).toMatchObject({ type: 'combo', customValues: false, snake_case: false, caseSensitive: true });
         expect(fields[fieldID]!.options, fieldID).toBeUndefined();
       }
+    });
+
+    it('treats zone_id as free text', () => {
+      expect(fields.zone_id).toEqual({ key: 'zone_id', type: 'text' });
     });
 
     it('defines a Level area preset with the levels.txt columns', () => {

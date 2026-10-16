@@ -57,11 +57,17 @@
         },
         "level_id": {
           "key": "level_id",
-          "type": "text"
+          "type": "combo",
+          "customValues": false,
+          "snake_case": false,
+          "caseSensitive": true
         },
         "parent_station": {
           "key": "parent_station",
-          "type": "text"
+          "type": "combo",
+          "customValues": false,
+          "snake_case": false,
+          "caseSensitive": true
         },
         "stop_name": {
           "key": "stop_name",

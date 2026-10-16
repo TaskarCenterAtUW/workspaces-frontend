@@ -366,7 +366,8 @@ export class Rapid3Manager {
       // Label coded GTFS values (e.g. pathway_mode 5 = Elevator) in the tag editor,
       // both next to the value and in its dropdown.
       installTagValueLabels()
-      installTagValueSuggestions(context)
+      installTagValueSuggestions(context, (key: string) =>
+        this.levelTools.value?.referenceChoices(key, context.selectedIDs?.()[0]))
       // Flag parent_station / level_id / stop_id values that don't resolve.
       installReferenceValidator(context)
     }

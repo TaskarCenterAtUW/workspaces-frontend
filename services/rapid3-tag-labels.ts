@@ -21,9 +21,12 @@ export interface ValueSuggestion {
  */
 export function gtfsValueSuggestions(key: string): ValueSuggestion[] | undefined {
   const labels = GTFS_VALUE_LABELS[key.trim()];
-  if (!labels) return undefined;
+  return labels ? labeledSuggestions(Object.entries(labels).map(([value, label]) => ({ value, label }))) : undefined;
+}
 
-  return Object.entries(labels).map(([value, label]) => ({
+/** Dropdown suggestions for values with labels, each shown as the value then its label. */
+export function labeledSuggestions(choices: { value: string; label: string }[]): ValueSuggestion[] {
+  return choices.map(({ value, label }) => ({
     value,
     title: `${value}: ${label}`,
     // A display function (not HTML), so labels are set as text.
@@ -35,18 +38,25 @@ export function gtfsValueSuggestions(key: string): ValueSuggestion[] | undefined
 }
 
 /**
- * Makes the raw tag editor's value dropdown list the GTFS codes, with their
- * meanings, for coded keys. That dropdown asks Rapid's taginfo service for
- * suggestions, so its `values` lookup is wrapped; other keys go to taginfo.
+ * Makes value dropdowns list GTFS codes, with their meanings, for coded keys,
+ * and the workspace's defined values for reference keys (`choicesFor`, e.g.
+ * levels for level_id). Both the raw tag editor's value dropdown and combo
+ * fields without fixed options ask Rapid's taginfo service for suggestions,
+ * so its `values` lookup is wrapped; other keys still go to taginfo.
  */
-export function installTagValueSuggestions(context: any) {
+export function installTagValueSuggestions(
+  context: any,
+  choicesFor?: (key: string) => { value: string; label: string }[] | undefined
+) {
   const taginfo = context?.services?.taginfo;
   if (!taginfo?.values || taginfo.__gtfsValueSuggestions) return;
   taginfo.__gtfsValueSuggestions = true;
 
   const values = taginfo.values.bind(taginfo);
   taginfo.values = (params: { key?: string }, callback: (err: unknown, data?: unknown[]) => void) => {
-    const suggestions = gtfsValueSuggestions(params?.key ?? '');
+    const key = params?.key ?? '';
+    const choices = choicesFor?.(key);
+    const suggestions = gtfsValueSuggestions(key) ?? (choices ? labeledSuggestions(choices) : undefined);
     if (suggestions) {
       callback(null, suggestions);
     } else {

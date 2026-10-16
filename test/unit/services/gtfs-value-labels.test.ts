@@ -158,4 +158,34 @@ describe('tag editor value dropdown', () => {
     expect(values).toHaveBeenCalledTimes(1);
     expect(other).toHaveBeenCalledWith(null, [{ value: 'yes' }]);
   });
+
+  it('answers reference keys with the defined choices, labeled', () => {
+    const values = vi.fn();
+    const context = { services: { taginfo: { values } } };
+    const choicesFor = vi.fn((key: string) => (key === 'level_id' ? [{ value: 'L1', label: 'Concourse (L1)' }] : undefined));
+    installTagValueSuggestions(context, choicesFor);
+
+    const callback = vi.fn();
+    (context.services.taginfo.values as any)({ key: 'level_id', query: '' }, callback);
+    expect(callback.mock.calls[0]![1].map((s: { value: string; title: string }) => [s.value, s.title]))
+      .toEqual([['L1', 'L1: Concourse (L1)']]);
+
+    // Coded keys still get the GTFS labels; other keys still go to taginfo.
+    (context.services.taginfo.values as any)({ key: 'pathway_mode', query: '' }, callback);
+    expect(callback.mock.calls[1]![1]).toHaveLength(7);
+    (context.services.taginfo.values as any)({ key: 'surface', query: '' }, callback);
+    expect(values).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers no choices (rather than taginfo\'s) when nothing is defined yet', () => {
+    const values = vi.fn();
+    const context = { services: { taginfo: { values } } };
+    installTagValueSuggestions(context, () => []);
+
+    const callback = vi.fn();
+    (context.services.taginfo.values as any)({ key: 'parent_station', query: '' }, callback);
+
+    expect(callback).toHaveBeenCalledWith(null, []);
+    expect(values).not.toHaveBeenCalled();
+  });
 });
