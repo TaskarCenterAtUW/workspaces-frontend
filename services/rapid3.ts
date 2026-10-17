@@ -2,11 +2,35 @@ import { ref, shallowRef } from 'vue'
 import type { TdeiAuthStore } from '~/services/tdei'
 import pathwaysSchema from '~/services/rapid3-pathways-schema.json'
 import { Rapid3LevelTools } from '~/services/rapid3-levels'
-import { installSingleChoiceDropdowns, installTagValueLabels, installTagValueSuggestions } from '~/services/rapid3-tag-labels'
-import { installReferenceValidator, REFERENCE_VALIDATOR_ID, REFERENCE_VALIDATOR_STRINGS } from '~/services/rapid3-validation'
+import { installComboDescriptions, installSingleChoiceDropdowns, installTagValueLabels, installTagValueSuggestions } from '~/services/rapid3-tag-labels'
+import {
+  COMPLETENESS_VALIDATOR_ID,
+  COMPLETENESS_VALIDATOR_STRINGS,
+  CONNECTIVITY_VALIDATOR_ID,
+  CONNECTIVITY_VALIDATOR_STRINGS,
+  installCompletenessValidator,
+  installConnectivityValidator,
+  installReferenceValidator,
+  installRequiredFieldsValidator,
+  installLevelsValidator,
+  installWorkspaceRevalidation,
+  showRulesInIssuesPane,
+  LEVELS_VALIDATOR_ID,
+  LEVELS_VALIDATOR_STRINGS,
+  REFERENCE_VALIDATOR_ID,
+  REFERENCE_VALIDATOR_STRINGS,
+  REQUIRED_FIELDS_VALIDATOR_ID,
+  REQUIRED_FIELDS_VALIDATOR_STRINGS
+} from '~/services/rapid3-validation'
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
 declare const Rapid: any
+
+/** How long to wait before each retry of a failed whole-workspace load. */
+const WHOLE_LOAD_RETRY_DELAYS_MS = [2000, 5000]
+
+/** How long the whole-workspace request may take (Rapid's default is 30 s, too short for a big workspace). */
+const WHOLE_LOAD_TIMEOUT_MS = 5 * 60 * 1000
 
 /**
  * Manages the lifecycle of an embedded Rapid v3.x editor instance.
@@ -150,8 +174,119 @@ export class Rapid3Manager {
       .then(() => {
         if (datatype === 'pathways') {
           this.levelTools.value = new Rapid3LevelTools(context)
+          this.#loadWholeWorkspace(workspaceId, { outlineMissingLevels: true })
+          this.#reloadWholeWorkspaceAfterResets()
         }
       })
+  }
+
+  /**
+   * Loads all of a workspace's data into the editor at once, instead of only
+   * the tiles the map has shown, so lists drawn from the data (the level_id
+   * and parent_station choices, the level panel) cover the whole dataset.
+   * Used for pathways workspaces, which are small; OSW ones can be too big.
+   * Tiles loaded later skip what's already here.
+   */
+  /**
+   * Reloads the whole workspace after each Rapid reset. A reset drops all
+   * loaded data: restoring unsaved edits resets and then brings back only the
+   * edited features (and what they need), and switching workspaces resets too.
+   * Without this, stations outside the view would be missing afterward, so
+   * their stops and levels would lose their station in the level panel.
+   */
+  #reloadWholeWorkspaceAfterResets() {
+    const context = this.rapidContext
+    const reset = context.resetAsync.bind(context)
+    let lastReset: Promise<void> | undefined
+    context.resetAsync = () => {
+      const resetting = reset()
+      // Concurrent calls share one reset (Rapid memoizes it): reload once.
+      if (resetting !== lastReset) {
+        lastReset = resetting
+        resetting
+          .then(() => this.#loadWholeWorkspace(context.workspaceId))
+          .catch(() => {}) // the caller sees the reset's own failure
+      }
+      return resetting
+    }
+  }
+
+  /**
+   * @param options.outlineMissingLevels - once loaded, outline the levels that
+   *   have stops but no outline (one undoable edit). Only on first opening the
+   *   editor, and not while Rapid offers to restore unsaved edits: an edit then
+   *   could interleave with the restored history. Reloads after a reset
+   *   (restore, workspace switch) leave them to the level panel's warning.
+   */
+  async #loadWholeWorkspace(workspaceId: number, options: { outlineMissingLevels?: boolean } = {}, attempt = 0) {
+    const tools = this.levelTools.value
+    const setStatus = (status: 'loading' | 'loaded' | 'failed') => {
+      if (tools && this.rapidContext.workspaceId === workspaceId) tools.workspaceLoad.value = status
+    }
+    if (tools) tools.retryWorkspaceLoad = () => this.#loadWholeWorkspace(workspaceId, options)
+    setStatus('loading')
+
+    // A failed load (e.g. a timeout on a big workspace) is retried after 2 s and 5 s.
+    const retryOrFail = (err: unknown) => {
+      const delay = WHOLE_LOAD_RETRY_DELAYS_MS[attempt]
+      if (delay === undefined || this.rapidContext.workspaceId !== workspaceId) {
+        console.error('Failed to load the whole workspace into Rapid3:', err)
+        setStatus('failed')
+        return
+      }
+      setTimeout(() => this.#loadWholeWorkspace(workspaceId, options, attempt + 1), delay)
+    }
+
+    let bbox: string | undefined
+    try {
+      const { osmClient } = await import('~/services/index')
+      bbox = await osmClient.getExportBbox(workspaceId)
+    } catch (err) {
+      retryOrFail(err)
+      return
+    }
+    if (this.rapidContext.workspaceId !== workspaceId) return
+    if (!bbox) {
+      setStatus('loaded') // no bbox: nothing to load beyond what's viewed
+      return
+    }
+
+    // Requested through Rapid's network system and OSM parser worker, like
+    // `osm.loadFromAPI`, but (1) with a longer timeout, and (2) without
+    // skipping features the parser has "seen". Rapid marks features seen as it
+    // parses a response, even one whose request was then cancelled (panning
+    // cancels tile requests) or timed out, so they're dropped from every later
+    // response and never load until the page reloads. Loading everything here
+    // (merging what's already loaded is harmless) brings those back too.
+    const context = this.rapidContext
+    const osm = context.services.osm
+    const json = osm.preferJSON ? '.json' : ''
+    const connection = osm._connectionID
+    context.systems.network.fetchEnvelope(`${osm._apiroot}/api/0.6/map${json}?bbox=${bbox}`, {
+      requestID: `osm-whole-workspace-${workspaceId}-${Date.now()}`,
+      listenerID: 'osmService:fetchAndParse',
+      listenerData: { format: json ? 'json' : 'xml', parserOptions: { skipSeen: false } },
+      resultPriority: 'normal',
+      timeout: WHOLE_LOAD_TIMEOUT_MS
+    }).then((envelope: any) => {
+      // Rapid reset mid-load (e.g. restoring edits), which starts a new load.
+      if (osm._connectionID !== connection || context.workspaceId !== workspaceId) return
+      if (!envelope.ok) {
+        retryOrFail(envelope)
+        return
+      }
+      setStatus('loaded')
+      const results = envelope.value
+      if (Array.isArray(results?.data)) {
+        context.systems.editor.merge(results.data, results.seenIDs)
+        if (options.outlineMissingLevels && !context.systems.editor.canRestoreBackup) {
+          this.levelTools.value?.outlineMissingLevels()
+        }
+      }
+    }).catch((err: any) => {
+      if (osm._connectionID !== connection || context.workspaceId !== workspaceId) return
+      retryOrFail(err)
+    })
   }
 
   /**
@@ -194,10 +329,13 @@ export class Rapid3Manager {
     // Customize OSM service
     // - Override the `authenticated` check to use TDEI auth state
     // - Stub out`getUserDetailsAsync` (not needed for workspace-based changeset uploads).
+    // - Stub out `getUserChangesetsAsync` too: with no user it rejects ("No user"), and
+    //   the save panel calls it (for recent-comment suggestions) without catching.
     //
     const osm = context.services.osm
     osm._oauth.authenticated = () => this.#tdeiAuth.ok
     osm.getUserDetailsAsync = () => Promise.resolve(null)
+    osm.getUserChangesetsAsync = () => Promise.resolve([])
 
     //
     // Customize UiSuccess screen (post-save)
@@ -265,6 +403,18 @@ export class Rapid3Manager {
           // Name the GTFS reference validator in Rapid's Issues panel (rule list).
           for (const [key, text] of Object.entries(REFERENCE_VALIDATOR_STRINGS)) {
             l10n._store.set([c, 'core', 'issues', REFERENCE_VALIDATOR_ID, key], text);
+          }
+          for (const [key, text] of Object.entries(REQUIRED_FIELDS_VALIDATOR_STRINGS)) {
+            l10n._store.set([c, 'core', 'issues', REQUIRED_FIELDS_VALIDATOR_ID, key], text);
+          }
+          for (const [key, text] of Object.entries(COMPLETENESS_VALIDATOR_STRINGS)) {
+            l10n._store.set([c, 'core', 'issues', COMPLETENESS_VALIDATOR_ID, key], text);
+          }
+          for (const [key, text] of Object.entries(CONNECTIVITY_VALIDATOR_STRINGS)) {
+            l10n._store.set([c, 'core', 'issues', CONNECTIVITY_VALIDATOR_ID, key], text);
+          }
+          for (const [key, text] of Object.entries(LEVELS_VALIDATOR_STRINGS)) {
+            l10n._store.set([c, 'core', 'issues', LEVELS_VALIDATOR_ID, key], text);
           }
         }
       }
@@ -369,8 +519,23 @@ export class Rapid3Manager {
       installTagValueSuggestions(context, (key: string) =>
         this.levelTools.value?.referenceChoices(key, context.selectedIDs?.()[0]))
       installSingleChoiceDropdowns()
+      // Show levels' stations (and names) in the Fields section's level_id dropdown too.
+      installComboDescriptions((key: string) =>
+        this.levelTools.value?.referenceChoices(key, context.selectedIDs?.()[0]))
       // Flag parent_station / level_id / stop_id values that don't resolve.
-      installReferenceValidator(context)
+      installReferenceValidator(context, () => this.levelTools.value)
+      // Flag stops, pathways and levels missing a field GTFS requires.
+      installRequiredFieldsValidator(context)
+      // Flag pathways whose ends aren't stops, empty levels and empty stations.
+      installCompletenessValidator(context)
+      // Flag platforms riders can't reach or leave, missing step-free routes and pathway mistakes.
+      installConnectivityValidator(context)
+      // Level problems (formerly the Stations panel's warnings), with fixes.
+      installLevelsValidator(context, () => this.levelTools.value)
+      // Re-run those workspace-spanning checks everywhere after each edit, not just near it.
+      installWorkspaceRevalidation(context)
+      // List those rules in Rapid's Issues pane, and show their issues on existing data.
+      showRulesInIssuesPane(context)
     }
   }
 
@@ -392,6 +557,7 @@ export class Rapid3Manager {
       oldURL: window.location.href,
     }))
 
+    // For pathways, the reset reloads the whole new workspace (see #reloadWholeWorkspaceAfterResets).
     return this.rapidContext.resetAsync()
   }
 

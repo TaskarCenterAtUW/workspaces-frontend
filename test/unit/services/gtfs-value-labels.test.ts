@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GTFS_VALUE_LABELS, gtfsValueLabel } from '~/services/gtfs-value-labels';
 import {
+  describeComboItems,
   gtfsValueSuggestions,
   installTagValueSuggestions,
   labelTagRow,
@@ -177,6 +178,41 @@ describe('tag editor value dropdown', () => {
     expect(values).toHaveBeenCalledTimes(1);
   });
 
+  it('narrows reference choices to those matching what\'s typed, by ID or name', () => {
+    const values = vi.fn();
+    const context = { services: { taginfo: { values } } };
+    installTagValueSuggestions(context, () => [
+      { value: 'J02_L0', label: 'Street (J02_L0)', description: 'Street · Van Dorn St' },
+      { value: 'J02_L1', label: 'Mezzanine (J02_L1)' },
+      { value: 'N01_L0', label: 'Street (N01_L0)' }
+    ]);
+    const typed = (query: string) => {
+      const callback = vi.fn();
+      (context.services.taginfo.values as any)({ key: 'level_id', query }, callback);
+      return callback.mock.calls[0]![1].map((s: { value: string }) => s.value);
+    };
+
+    expect(typed('j02')).toEqual(['J02_L0', 'J02_L1']);
+    expect(typed('van dorn')).toEqual(['J02_L0']); // by station, from the description
+    expect(typed('mezz')).toEqual(['J02_L1']);
+    expect(typed('')).toEqual(['J02_L0', 'J02_L1', 'N01_L0']);
+    expect(typed('zzz')).toEqual([]);
+    expect(values).not.toHaveBeenCalled();
+  });
+
+  it('shows a choice\'s description beside its value in the dropdown, if it has one', () => {
+    const values = vi.fn();
+    const context = { services: { taginfo: { values } } };
+    installTagValueSuggestions(context, () => [
+      { value: 'J02_L0', label: 'J02_L0', description: 'Van Dorn St' },
+      { value: 'P1', label: 'Platform 1 (P1)' }
+    ]);
+    const callback = vi.fn();
+    (context.services.taginfo.values as any)({ key: 'level_id', query: '' }, callback);
+    expect(callback.mock.calls[0]![1].map((s: { title: string }) => s.title))
+      .toEqual(['J02_L0: Van Dorn St', 'P1: Platform 1 (P1)']);
+  });
+
   it('offers no choices (rather than taginfo\'s) when nothing is defined yet', () => {
     const values = vi.fn();
     const context = { services: { taginfo: { values } } };
@@ -227,5 +263,93 @@ describe('installSingleChoiceDropdowns', () => {
     const field = combo('combo-parent_station', []);
     field._render();
     expect(field._minItems).toBe(2);
+  });
+});
+
+describe('level descriptions in the Fields section\'s combo dropdowns', () => {
+  afterEach(() => {
+    delete (globalThis as any).Rapid;
+    vi.resetModules();
+  });
+
+  /** A fake d3 option: records its text and the label span appended to it. */
+  function fakeOption() {
+    const option = { text: '', spans: [] as { cls: string; text: string }[] };
+    const $option = {
+      text: (value: string) => {
+        option.text = value;
+        return $option;
+      },
+      append: () => {
+        const span = { cls: '', text: '' };
+        option.spans.push(span);
+        const $span = {
+          attr: (_: string, value: string) => {
+            span.cls = value;
+            return $span;
+          },
+          text: (value: string) => {
+            span.text = value;
+            return $span;
+          }
+        };
+        return $span;
+      }
+    };
+    return { option, $option };
+  }
+
+  it('shows each choice\'s description beside its value, keeping the picked label', () => {
+    const items = [
+      { key: 'J02_L0', value: 'J02_L0', display: 'J02_L0', title: 'J02_L0' },
+      { key: 'L1', value: 'Concourse (L1)', display: 'Concourse (L1)', title: 'Concourse (L1)' },
+      { key: 'OTHER', value: 'OTHER', display: 'OTHER', title: 'OTHER' }
+    ];
+    describeComboItems(items, [
+      { value: 'J02_L0', description: 'Van Dorn St' },
+      { value: 'L1', description: 'Concourse · Central' },
+      { value: 'OTHER' } // no description: left as Rapid drew it
+    ]);
+
+    const { option, $option } = fakeOption();
+    (items[0]!.display as unknown as (o: unknown) => void)($option);
+    expect(option).toEqual({ text: 'J02_L0', spans: [{ cls: OPTION_LABEL_CLASS, text: 'Van Dorn St' }] });
+    expect(items[1]!.title).toBe('L1: Concourse · Central');
+    expect(items[1]!.value).toBe('Concourse (L1)'); // what the field shows once picked
+    expect(items[2]!.display).toBe('OTHER');
+    describeComboItems(undefined, []);
+    describeComboItems(items, undefined);
+  });
+
+  it('wraps the combo field\'s lookup, reaching fields created later (which bind it), once', async () => {
+    const fetched: unknown[][] = [];
+    class UiFieldCombo {
+      key: string;
+      constructor(key: string) {
+        this.key = key;
+        this._setTaginfoValues = this._setTaginfoValues.bind(this); // as Rapid does
+      }
+
+      _setTaginfoValues(_q: string, callback?: (data: unknown[]) => void) {
+        const data = [{ key: 'L1', value: 'Concourse (L1)', display: 'Concourse (L1)' }];
+        fetched.push(data);
+        callback?.(data);
+      }
+    }
+    (globalThis as any).Rapid = { UiFieldCombo };
+    const { installComboDescriptions } = await import('~/services/rapid3-tag-labels');
+    const choicesFor = vi.fn((key: string) => (key === 'level_id' ? [{ value: 'L1', label: 'Concourse (L1)', description: 'Central' }] : undefined));
+
+    installComboDescriptions(choicesFor);
+    installComboDescriptions(choicesFor); // no double wrap
+    const callback = vi.fn();
+    new UiFieldCombo('level_id')._setTaginfoValues('', callback);
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback.mock.calls[0]![0][0].title).toBe('L1: Central');
+    expect(typeof callback.mock.calls[0]![0][0].display).toBe('function');
+
+    new UiFieldCombo('surface')._setTaginfoValues('', callback);
+    expect(callback.mock.calls[1]![0][0].display).toBe('Concourse (L1)'); // other fields untouched
+    expect(choicesFor).toHaveBeenCalledTimes(2);
   });
 });

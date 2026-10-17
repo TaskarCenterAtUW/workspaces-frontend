@@ -6,6 +6,7 @@ import {
 } from '@zip.js/zip.js';
 
 import { parseCsv } from '~/util/csv';
+import { pathwayIdGenerator, stopIdGenerator } from '~/services/gtfs-ids';
 import { isLevelArea, isPathway, stopNodes } from '~/services/pathways-levels';
 import { createEmptyGtfsDataset, createGtfsArchive } from '~/util/gtfs';
 import * as xml from '~/util/xml';
@@ -159,9 +160,15 @@ export const GENERATED_LEVEL_ID_PREFIX = 'ws-l';
  * An element keeps the ID in its `idTag` tag (as imported from GTFS) so that
  * other files in the feed, e.g. stop_times.txt, still resolve. Elements without
  * one (drawn in the editor), or whose tag duplicates an earlier element's (e.g.
- * copy-pasted), get `prefix` + their OSM ID instead.
+ * copy-pasted), get the ID `generate` makes for them (unique among `used`),
+ * or else `prefix` + their OSM ID.
  */
-function assignGtfsIds(elements: any[], idTag: string, prefix: string): Map<number, string> {
+function assignGtfsIds(
+  elements: any[],
+  idTag: string,
+  prefix: string,
+  generate?: (element: any, used: Set<string>) => string | undefined
+): Map<number, string> {
   const ids = new Map<number, string>();
   const used = new Set<string>();
   const needsId: any[] = [];
@@ -178,7 +185,7 @@ function assignGtfsIds(elements: any[], idTag: string, prefix: string): Map<numb
   }
 
   for (const element of needsId) {
-    let generated = `${prefix}${element.id}`;
+    let generated = generate?.(element, used) ?? `${prefix}${element.id}`;
     for (let n = 2; used.has(generated); n++) {
       generated = `${prefix}${element.id}-${n}`;
     }
@@ -236,8 +243,10 @@ export async function buildPathwaysCsvArchive(elements: any[], gtfsFiles?: Map<s
   const ways = elements.filter(isPathway);
   const stops = stopNodes(elements);
 
-  const stopIds = assignGtfsIds(stops, 'stop_id', GENERATED_STOP_ID_PREFIX);
-  const pathwayIds = assignGtfsIds(ways, 'pathway_id', GENERATED_PATHWAY_ID_PREFIX);
+  // Stops and pathways in a station follow the workspace's ID pattern (see
+  // gtfs-ids.ts); ones outside any station get ws-n<id> / ws-w<id>.
+  const stopIds = assignGtfsIds(stops, 'stop_id', GENERATED_STOP_ID_PREFIX, stopIdGenerator(elements));
+  const pathwayIds = assignGtfsIds(ways, 'pathway_id', GENERATED_PATHWAY_ID_PREFIX, pathwayIdGenerator(elements));
 
   const stopRows = stops.map(element => ({
     ...element.tags,

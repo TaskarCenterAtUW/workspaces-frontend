@@ -94,33 +94,34 @@ describe('referenceProblems', () => {
 });
 
 describe('suggestedStopIds', () => {
-  it('suggests stop_ids for stations and platforms without one, from their names', () => {
+  it('suggests STN_<code> for stations (from stop_code, else name) and names for platforms', () => {
     const suggestions = suggestedStopIds([
       node('s1', { location_type: '1', stop_name: 'Central Station' }),
       node('s2', { location_type: '1' }),
+      node('s4', { location_type: '1', stop_name: 'Van Dorn St', stop_code: 'j02' }),
       node('p1', { location_type: '0', stop_name: 'Platform 1' }),
       node('p2', { stop_name: '  ' }), // empty location_type = platform
       node('e1', { location_type: '2', stop_name: 'Main entrance' }), // entrances aren't parents
       node('s3', { location_type: '1', stop_id: 'HAS_ONE' })
     ]);
     expect(Object.fromEntries(suggestions)).toEqual({
-      s1: 'CENTRAL_STATION', s2: 'STATION', p1: 'PLATFORM_1', p2: 'PLATFORM'
+      s1: 'STN_CENTRAL_STATION', s2: 'STN_STATION', s4: 'STN_J02', p1: 'PLATFORM_1', p2: 'PLATFORM'
     });
   });
 
   it('keeps suggestions unique, avoiding existing stop_ids', () => {
     const suggestions = suggestedStopIds([
-      node('s0', { location_type: '1', stop_id: 'CENTRAL' }),
+      node('s0', { location_type: '1', stop_id: 'STN_CENTRAL' }),
       node('s1', { location_type: '1', stop_name: 'Central' }),
       node('s2', { location_type: '1', stop_name: 'central!' })
     ]);
-    expect([...suggestions.values()]).toEqual(['CENTRAL_2', 'CENTRAL_3']);
+    expect([...suggestions.values()]).toEqual(['STN_CENTRAL_2', 'STN_CENTRAL_3']);
   });
 
   it('lets a parent_station name a station\'s suggested stop_id without a warning', () => {
     const entities = [
       node('s1', { location_type: '1', stop_name: 'Central' }),
-      node('e1', { location_type: '2', parent_station: 'CENTRAL' })
+      node('e1', { location_type: '2', parent_station: 'STN_CENTRAL' })
     ];
     expect(referenceProblems(entities[1]!, buildReferenceIndex(entities))).toEqual([]);
   });

@@ -115,10 +115,11 @@ describe('Rapid 3 pathways schema', () => {
       }
     });
 
-    it('offers only defined values for level_id and parent_station, keeping IDs as entered', () => {
-      // Their choices come from the workspace at edit time (Rapid3LevelTools.referenceChoices).
+    it('lets level_id and parent_station be typed to narrow their choices, keeping IDs as entered', () => {
+      // Their choices come from the workspace at edit time (Rapid3LevelTools.referenceChoices);
+      // a typed value that matches none is flagged by the reference validator.
       for (const fieldID of ['level_id', 'parent_station']) {
-        expect(fields[fieldID], fieldID).toMatchObject({ type: 'combo', customValues: false, snake_case: false, caseSensitive: true });
+        expect(fields[fieldID], fieldID).toMatchObject({ type: 'combo', customValues: true, snake_case: false, caseSensitive: true });
         expect(fields[fieldID]!.options, fieldID).toBeUndefined();
       }
     });

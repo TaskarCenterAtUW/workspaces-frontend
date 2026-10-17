@@ -1,27 +1,50 @@
 <template>
   <aside
     class="level-panel"
-    aria-label="Levels"
+    aria-label="Stations"
   >
     <section class="level-panel-section">
       <div class="level-panel-header">
         <h2 class="level-panel-heading">
-          Levels
+          Stations In View
         </h2>
         <button
+          v-if="unoutlinedIds.length"
           type="button"
           class="btn btn-sm btn-outline-primary"
-          title="Add a level by drawing its outline: click the map to place each corner, then click the first corner (or press Enter) to finish"
-          @click="tools.drawLevel()"
+          :title="`Draw a box around the stops of each level that has no outline yet (${unoutlinedIds.length})`"
+          @click="tools.outlineLevels(unoutlinedIds)"
         >
-          Add level
+          Outline all ({{ unoutlinedIds.length }})
         </button>
       </div>
+      <p
+        v-if="tools.workspaceLoad.value === 'loading'"
+        class="level-panel-hint"
+        role="status"
+      >
+        Loading the whole workspace&hellip; until it's loaded, stations outside the areas you've viewed are missing, so their levels may show under "No station".
+      </p>
+      <p
+        v-else-if="tools.workspaceLoad.value === 'failed'"
+        class="level-panel-hint level-panel-load-failed"
+        role="alert"
+      >
+        Couldn't load the whole workspace, so stations outside the areas you've viewed are missing and their levels may show under "No station".
+        <button
+          v-if="tools.retryWorkspaceLoad"
+          type="button"
+          class="btn btn-link btn-sm level-load-retry"
+          @click="tools.retryWorkspaceLoad()"
+        >
+          Retry
+        </button>
+      </p>
       <p
         v-if="!levels.length"
         class="level-panel-hint"
       >
-        No levels yet. Use <strong>Add level</strong> to outline one on the map.
+        No levels yet. Levels appear here once stops have a level_id.
       </p>
       <div
         class="list-group level-list"
@@ -48,21 +71,82 @@
             >
               {{ group.station.name }}
             </button>
+            <button
+              type="button"
+              class="btn btn-sm level-zoom"
+              :title="`Zoom to ${group.station.name}`"
+              :aria-label="`Zoom to ${group.station.name}`"
+              @click="tools.zoomToStation(group.station.stopId)"
+            >
+              <app-icon
+                variant="zoom_in"
+                no-margin
+              />
+            </button>
           </div>
-          <button
+          <div
             v-if="group.station"
-            type="button"
-            role="radio"
-            class="list-group-item list-group-item-action level-view-entry"
+            class="list-group-item level-view-row"
             :class="{ active: isViewShown(viewFor(group)) }"
-            :aria-checked="isViewShown(viewFor(group))"
-            :title="viewTitle(group)"
-            @click="toggleView(viewFor(group))"
           >
-            Street / No level
-          </button>
+            <button
+              type="button"
+              class="btn btn-sm level-expand"
+              :aria-expanded="isExpanded(group, undefined)"
+              :aria-label="`${isExpanded(group, undefined) ? 'Hide' : 'Show'} ${group.station.name}'s stops with no level`"
+              :title="`${isExpanded(group, undefined) ? 'Hide' : 'Show'} ${group.station.name}'s stops with no level`"
+              :disabled="!stopsIn(group, undefined).length"
+              @click="toggleExpanded(group, undefined)"
+            >
+              <app-icon
+                :variant="isExpanded(group, undefined) ? 'expand_more' : 'chevron_right'"
+                no-margin
+              />
+            </button>
+            <button
+              type="button"
+              role="radio"
+              class="level-view-entry level-view-main"
+              :aria-checked="isViewShown(viewFor(group))"
+              :title="viewTitle(group)"
+              @click="toggleView(viewFor(group))"
+            >
+              Street / No level
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm level-zoom"
+              :title="`Zoom to ${group.station.name}'s features with no level`"
+              :aria-label="`Zoom to ${group.station.name}'s features with no level`"
+              @click="tools.zoomToStation(group.station.stopId, { noLevel: true })"
+            >
+              <app-icon
+                variant="zoom_in"
+                no-margin
+              />
+            </button>
+          </div>
+          <ul
+            v-if="group.station && isExpanded(group, undefined)"
+            class="list-group-item level-stops"
+            :aria-label="`${group.station.name}'s stops with no level`"
+          >
+            <li
+              v-for="stop in stopsIn(group, undefined)"
+              :key="stop.id"
+            >
+              <button
+                type="button"
+                class="level-stop"
+                :title="`Select ${stop.label}`"
+                @click="tools.select(stop.id)"
+              >
+                {{ stop.label }}
+              </button>
+            </li>
+          </ul>
           <button
-            v-else
+            v-if="!group.station"
             type="button"
             role="radio"
             class="list-group-item list-group-item-action level-view-entry"
@@ -73,101 +157,135 @@
           >
             No station
           </button>
-          <div
+          <template
             v-for="level in group.levels"
             :key="`${groupKey(group)}:${level.levelId}`"
-            class="list-group-item level-row"
-            :class="{
-              'active': currentLevelId === level.levelId,
-              'level-dragging': isDragging(group, level),
-              'level-drop-before': isDropTarget(group, level, true),
-              'level-drop-after': isDropTarget(group, level, false)
-            }"
-            :draggable="isMovable(level)"
-            @dragstart="onDragStart($event, group, level)"
-            @dragover="onDragOver($event, group, level)"
-            @drop="onDrop($event, group)"
-            @dragend="onDragEnd"
           >
-            <button
-              v-if="isMovable(level)"
-              :ref="(el) => setHandleRef(group, level, el)"
-              type="button"
-              class="btn btn-sm level-handle"
-              :title="`Drag (or use the arrow keys) to move ${levelLabel(level)} up or down`"
-              :aria-label="`Move ${levelLabel(level)}; use the up and down arrow keys`"
-              @keydown.up.prevent="move(group, level, -1)"
-              @keydown.down.prevent="move(group, level, 1)"
-            >
-              <app-icon
-                variant="drag_indicator"
-                no-margin
-              />
-            </button>
-            <button
-              v-else
-              type="button"
-              class="btn btn-sm level-handle level-handle-disabled"
-              aria-disabled="true"
-              :title="`Add an outline to ${levelLabel(level)} before moving it`"
-              :aria-label="`Can't move ${levelLabel(level)} until it has an outline`"
-            >
-              <app-icon
-                variant="drag_indicator"
-                no-margin
-              />
-            </button>
-            <button
-              type="button"
-              role="radio"
-              class="level-row-main"
-              :aria-checked="currentLevelId === level.levelId"
-              :title="currentLevelId === level.levelId ? 'Click again to show everything' : undefined"
-              @click="toggleView({ kind: 'level', levelId: level.levelId })"
-            >
-              <span class="level-title">{{ levelLabel(level) }}</span>
-              <span
-                class="badge text-bg-light"
-                :title="`${stopCount(level.levelId)} stops`"
-              >{{ stopCount(level.levelId) }}</span>
-            </button>
-            <button
-              type="button"
-              class="btn btn-sm level-zoom"
-              :title="`Zoom to ${levelLabel(level)}`"
-              :aria-label="`Zoom to ${levelLabel(level)}`"
-              @click="tools.zoomToLevel(level.levelId)"
-            >
-              <app-icon
-                variant="zoom_in"
-                no-margin
-              />
-            </button>
             <div
-              class="level-outline"
-              :class="{ 'level-outline-missing': !level.areaIds.length }"
+              class="list-group-item level-row"
+              :class="{
+                'active': currentLevelId === level.levelId,
+                'level-dragging': isDragging(group, level),
+                'level-drop-before': isDropTarget(group, level, true),
+                'level-drop-after': isDropTarget(group, level, false)
+              }"
+              :draggable="isMovable(level)"
+              @dragstart="onDragStart($event, group, level)"
+              @dragover="onDragOver($event, group, level)"
+              @drop="onDrop($event, group)"
+              @dragend="onDragEnd"
             >
-              <template v-if="level.areaIds.length">
-                {{ outlineLabel(level) }}
-              </template>
-              <template v-else>
-                No outline,
+              <button
+                v-if="isMovable(level)"
+                :ref="(el) => setHandleRef(group, level, el)"
+                type="button"
+                class="btn btn-sm level-handle"
+                :title="`Drag (or use the arrow keys) to move ${levelLabel(level)} up or down`"
+                :aria-label="`Move ${levelLabel(level)}; use the up and down arrow keys`"
+                @keydown.up.prevent="move(group, level, -1)"
+                @keydown.down.prevent="move(group, level, 1)"
+              >
+                <app-icon
+                  variant="drag_indicator"
+                  no-margin
+                />
+              </button>
+              <button
+                v-else
+                type="button"
+                class="btn btn-sm level-handle level-handle-disabled"
+                aria-disabled="true"
+                :title="`Add an outline to ${levelLabel(level)} before moving it`"
+                :aria-label="`Can't move ${levelLabel(level)} until it has an outline`"
+              >
+                <app-icon
+                  variant="drag_indicator"
+                  no-margin
+                />
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm level-expand"
+                :aria-expanded="isExpanded(group, level.levelId)"
+                :aria-label="`${isExpanded(group, level.levelId) ? 'Hide' : 'Show'} the stops on ${levelLabel(level)}`"
+                :title="`${isExpanded(group, level.levelId) ? 'Hide' : 'Show'} the stops on ${levelLabel(level)}`"
+                :disabled="!stopsIn(group, level.levelId).length"
+                @click="toggleExpanded(group, level.levelId)"
+              >
+                <app-icon
+                  :variant="isExpanded(group, level.levelId) ? 'expand_more' : 'chevron_right'"
+                  no-margin
+                />
+              </button>
+              <button
+                type="button"
+                role="radio"
+                class="level-row-main"
+                :aria-checked="currentLevelId === level.levelId"
+                :title="currentLevelId === level.levelId ? 'Click again to show everything' : undefined"
+                @click="toggleView({ kind: 'level', levelId: level.levelId })"
+              >
+                <span class="level-title">{{ levelLabel(level) }}</span>
+                <span class="level-counts">
+                  <span
+                    class="badge text-bg-light"
+                    :title="`${stopsIn(group, level.levelId).length} nodes on this level`"
+                  >{{ stopsIn(group, level.levelId).length }} node{{ stopsIn(group, level.levelId).length !== 1 ? 's' : '' }}</span>
+                  <span
+                    class="badge text-bg-light"
+                    :title="`${edgesIn(group, level.levelId)} pathways (edges) touching this level`"
+                  >{{ edgesIn(group, level.levelId) }} edge{{ edgesIn(group, level.levelId) !== 1 ? 's' : '' }}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm level-refit"
+                :class="{ 'level-refit-needed': oversizedAreaIds(level.levelId).length > 0 }"
+                :disabled="!!refitBlocker(level)"
+                :title="refitBlocker(level) ?? (oversizedAreaIds(level.levelId).length
+                  ? `${levelLabel(level)}'s outline is much bigger than its stops need: reshape it into a box around them`
+                  : `Reshape ${levelLabel(level)}'s outline into a box around its stops`)"
+                :aria-label="`Refit ${levelLabel(level)}'s outline to its stops`"
+                @click="tools.refitLevelArea(String(level.areaIds[0]))"
+              >
+                <app-icon
+                  variant="fit_screen"
+                  no-margin
+                />
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm level-zoom"
+                :title="`Zoom to ${levelLabel(level)}`"
+                :aria-label="`Zoom to ${levelLabel(level)}`"
+                @click="tools.zoomToLevel(level.levelId)"
+              >
+                <app-icon
+                  variant="zoom_in"
+                  no-margin
+                />
+              </button>
+            </div>
+            <ul
+              v-if="isExpanded(group, level.levelId)"
+              class="list-group-item level-stops"
+              :aria-label="`Stops on ${levelLabel(level)}`"
+            >
+              <li
+                v-for="stop in stopsIn(group, level.levelId)"
+                :key="stop.id"
+              >
                 <button
                   type="button"
-                  class="btn btn-link level-draw"
-                  :title="`Add an outline around ${levelLabel(level)}'s stops (you can reshape it)`"
-                  :aria-label="`Add an outline for ${levelLabel(level)}`"
-                  @click="tools.outlineLevels([level.levelId])"
+                  class="level-stop"
+                  :title="`Select ${stop.label}`"
+                  @click="tools.select(stop.id)"
                 >
-                  <app-icon
-                    variant="edit"
-                    no-margin
-                  />
-                  add one
+                  {{ stop.label }}
                 </button>
-              </template>
-            </div>
-          </div>
+              </li>
+            </ul>
+          </template>
         </div>
       </div>
       <p
@@ -176,114 +294,28 @@
       >
         {{ hiddenStationCount === 1 ? '1 station is' : `${hiddenStationCount} stations are` }} out of view; pan or zoom the map to list {{ hiddenStationCount === 1 ? 'it' : 'them' }}.
       </p>
-      <p
-        v-if="levels.filter(isMovable).length > 1"
-        class="level-panel-hint"
-      >
-        Highest level first. Drag levels to reorder them (within a station); level_index follows the order, with the ground level (0) kept at 0.
-      </p>
-      <p
-        v-if="unoutlinedIds.length"
-        class="level-panel-hint"
-      >
-        {{ unoutlinedIds.length === 1 ? '1 level has' : `${unoutlinedIds.length} levels have` }} no outline yet (GTFS levels need one).
-        <button
-          v-if="unoutlinedIds.length > 1"
-          type="button"
-          class="btn btn-link btn-sm level-outline-all"
-          @click="tools.outlineLevels(unoutlinedIds)"
-        >
-          Outline all
-        </button>
-      </p>
-    </section>
-
-    <section
-      v-if="unleveled.length || levelAreasMissingId.length"
-      class="level-panel-section"
-    >
-      <h2 class="level-panel-heading text-warning-emphasis">
-        Missing level ({{ unleveled.length }})
-      </h2>
-      <button
-        v-if="currentLevelId && unleveled.length > 1"
-        type="button"
-        class="btn btn-sm btn-outline-primary mb-2"
-        @click="tools.assignLevel(unleveled.map(stop => stop.id), currentLevelId)"
-      >
-        Set all to {{ currentLevelLabel }}
-      </button>
-      <ul class="list-group level-issues">
-        <li
-          v-for="stop in unleveled"
-          :key="stop.id"
-          class="list-group-item level-issue"
-        >
-          <button
-            type="button"
-            class="btn btn-link btn-sm level-issue-link"
-            @click="tools.select(stop.id)"
-          >
-            {{ stop.label }}
-          </button>
-          <button
-            v-if="currentLevelId"
-            type="button"
-            class="btn btn-sm btn-outline-primary"
-            :title="`Set level to ${currentLevelLabel}`"
-            @click="tools.assignLevel([stop.id], currentLevelId)"
-          >
-            Set level
-          </button>
-        </li>
-        <li
-          v-for="area in levelAreasMissingId"
-          :key="area.id"
-          class="list-group-item level-issue"
-        >
-          <button
-            type="button"
-            class="btn btn-link btn-sm level-issue-link"
-            @click="tools.select(area.id)"
-          >
-            Level area {{ area.label }} has no level_id
-          </button>
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-primary"
-            title="Give this level area a generated level_id"
-            @click="tools.fillLevelId(area.id)"
-          >
-            Fill level_id
-          </button>
-        </li>
-      </ul>
-      <p
-        v-if="!currentLevelId && unleveled.length"
-        class="level-panel-hint"
-      >
-        Pick a level above to assign stops to it.
-      </p>
     </section>
   </aside>
 </template>
 
 <script setup lang="ts">
-import type { Rapid3LevelTools } from '~/services/rapid3-levels';
+import type { LevelStop, Rapid3LevelTools } from '~/services/rapid3-levels';
 import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-levels';
 
-// @test unit: "Add level" starts drawing a new level's outline on the map
-// @test unit: each level shows whether it has an outline; "add one" boxes a level's stops, and "Outline all" does every level without one
-// @test unit: level areas missing a level_id are flagged, and "Fill level_id" generates one
-// @test unit: lists levels highest first, and selecting one shows only that level and selects its outline; selecting it again shows everything
+// @test unit: every level row has "Refit", which reshapes its outline into a box around its stops; disabled (saying why) without one outline and some stops
+// @test unit: each level shows its name, node count and edge (pathway) count; "Outline all" by the heading boxes every level that has no outline (level problems are Rapid issues, see services/rapid3-validation.ts)
+// @test unit: an outline much bigger than its stops need has its level's "Refit" highlighted
+// @test unit: each level (and "Street / No level") expands to list its stops in that station; clicking one selects it
+// @test unit: lists levels lowest first, and selecting one shows only that level and selects its outline; selecting it again shows everything
 // @test unit: "No station" (at the top, over the levels no station uses) shows only features not tied to a station; it's hidden when there's nothing outside a station
-// @test unit: only stations with features in the map view are listed (plus the one being viewed)
+// @test unit: only stations with features in the map view are listed, even the one being viewed
 // @test unit: clicking a station's name selects the station in the editor
 // @test unit: each station starts with "Street / No level", which shows that station's features that have no level
+// @test unit: the station heading and "Street / No level" each have a zoom button (the whole station, or its features with no level)
 // @test unit: with more than one station, levels are grouped under the stations whose stops use them
 // @test unit: levels with an outline can be reordered by dragging or with the arrow keys, which renumbers level_index
 // @test unit: levels without an outline show a disabled handle saying to add an outline first
-// @test unit: lists stops with no level, and "Set level" assigns the selected level to them
+// @test unit: while the whole workspace is loading, a note says levels may show under "No station"; if it fails, a note offers "Retry"
 
 const props = defineProps<{
   tools: Rapid3LevelTools;
@@ -291,21 +323,18 @@ const props = defineProps<{
 
 const levels = computed(() => props.tools.levels.value);
 const stopGroups = computed(() => props.tools.stopGroups.value);
-const unleveled = computed(() => props.tools.unleveled.value);
-const levelAreasMissingId = computed(() => props.tools.levelAreasMissingId.value);
+const largeLevelAreas = computed(() => props.tools.largeLevelAreas.value);
 const currentLevelId = computed(() => props.tools.currentLevelId.value);
-const currentLevelLabel = computed(() => {
-  const level = levels.value.find(l => l.levelId === currentLevelId.value);
-  return level ? levelLabel(level) : currentLevelId.value;
-});
+// Levels stops use that have no outline yet ("Outline all" boxes them).
+const unoutlinedIds = computed(() => levels.value.filter(level => !level.areaIds.length).map(level => level.levelId));
 
-// Levels grouped by station, each highest first. The first group (no station)
+// Levels grouped by station, each lowest first. The first group (no station)
 // sits under the "No station" entry; each station's group starts with "Street / No level".
 const levelGroups = computed(() => props.tools.levelGroups.value);
 
 // "No station" is hidden when it has nothing to list or show: no levels under
 // it and no stops outside a station. Stations are listed only while some of
-// their features are in the map view, plus the one being viewed (if any).
+// their features are in the map view, even the one being viewed.
 const visibleGroups = computed(() => levelGroups.value.filter(group => (group.station
   ? isStationListed(group)
   : group.levels.length > 0 || props.tools.noStationStopCount.value > 0)));
@@ -314,10 +343,7 @@ const hiddenStationCount = computed(() => levelGroups.value.filter(group => grou
 
 function isStationListed(group: StationLevelGroup): boolean {
   const inView = props.tools.visibleStationIds.value;
-  if (!inView || inView.has(group.station!.stopId)) return true;
-  // Keep the station whose level or "Street / No level" view is shown.
-  return isViewShown(viewFor(group))
-    || group.levels.some(level => level.levelId === currentLevelId.value);
+  return !inView || inView.has(group.station!.stopId);
 }
 
 /** The view a group's entry selects: "No station", or a station's "Street / No level". */
@@ -353,8 +379,6 @@ function groupKey(group: StationLevelGroup): string {
 }
 
 // Only levels with an outline can move, since level_index is stored on the outline.
-// Levels stops use that have no outline yet ("add one" / "Outline all" box them).
-const unoutlinedIds = computed(() => levels.value.filter(level => !level.areaIds.length).map(level => level.levelId));
 
 function isMovable(level: Level): boolean {
   return level.areaIds.length > 0;
@@ -452,10 +476,52 @@ function onDragEnd() {
   dropTarget.value = undefined;
 }
 
-function outlineLabel(level: Level): string {
-  const count = level.areaIds.length;
-  if (!count) return 'No outline';
-  return count === 1 ? 'Outline drawn' : `${count} outlines`;
+/** The level's outlines that are much bigger than its stops need. */
+function oversizedAreaIds(levelId: string): string[] {
+  return largeLevelAreas.value.filter(area => area.oversized && area.levelId === levelId).map(area => String(area.id));
+}
+
+/** Why a level's outline can't be refit to its stops, if it can't. */
+function refitBlocker(level: Level): string | undefined {
+  if (!level.areaIds.length) return `${levelLabel(level)} has no outline to refit yet`;
+  if (level.areaIds.length > 1) return `${levelLabel(level)} has ${level.areaIds.length} outlines; refitting would stack them into one box`;
+  if (!stopCount(level.levelId)) return `${levelLabel(level)} has no stops to fit its outline to`;
+  return undefined;
+}
+
+/**
+ * The stops on a level (or, for undefined, with no level) in a group: that
+ * station's, or for "No station", those in no station.
+ */
+function stopsIn(group: StationLevelGroup, levelId: string | undefined): LevelStop[] {
+  const stops = stopGroups.value.find(stopGroup => stopGroup.level?.levelId === levelId)?.stops ?? [];
+  const stationId = group.station?.stopId;
+  return stops.filter(stop => (stationId ? Boolean(stop.stationIds?.includes(stationId)) : !stop.stationIds?.length));
+}
+
+/**
+ * How many pathways (edges) touch a level in a group: those with an end on the
+ * level in that station, or for "No station", with no end in any station.
+ */
+function edgesIn(group: StationLevelGroup, levelId: string): number {
+  const pathways = props.tools.levelPathways.value.get(levelId) ?? [];
+  const stationId = group.station?.stopId;
+  return pathways.filter(pathway => (stationId ? pathway.stationIds.includes(stationId) : !pathway.stationIds.length)).length;
+}
+
+// Levels (and "Street / No level" rows) whose stops are listed, by group and level.
+const expanded = ref(new Set<string>());
+const expandKey = (group: StationLevelGroup, levelId: string | undefined) => `${groupKey(group)}|${levelId ?? ''}`;
+
+function isExpanded(group: StationLevelGroup, levelId: string | undefined): boolean {
+  return expanded.value.has(expandKey(group, levelId));
+}
+
+function toggleExpanded(group: StationLevelGroup, levelId: string | undefined) {
+  const next = new Set(expanded.value);
+  const key = expandKey(group, levelId);
+  if (!next.delete(key)) next.add(key);
+  expanded.value = next;
 }
 
 function levelLabel(level: Level): string {
@@ -486,7 +552,12 @@ function stopCount(levelId: string): number {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.5rem;
   margin-bottom: 0.5rem;
+}
+
+.level-panel-header .level-panel-heading {
+  margin-bottom: 0;
 }
 
 .level-panel-heading {
@@ -495,8 +566,14 @@ function stopCount(levelId: string): number {
   margin-bottom: 0.5rem;
 }
 
-.level-panel-header .level-panel-heading {
-  margin-bottom: 0;
+.level-panel-load-failed {
+  color: var(--bs-danger-text-emphasis);
+}
+
+.level-load-retry {
+  padding: 0;
+  font-size: inherit;
+  vertical-align: baseline;
 }
 
 .level-panel-hint {
@@ -540,7 +617,11 @@ function stopCount(levelId: string): number {
 }
 
 .level-group-heading {
-  padding: 0.5rem 0.5rem 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  padding: 0.5rem 0.25rem 0.25rem 0.5rem;
   background: var(--bs-secondary-bg);
   font-size: 0.75rem;
   font-weight: 600;
@@ -549,12 +630,31 @@ function stopCount(levelId: string): number {
   color: var(--bs-secondary-color);
 }
 
+// "Street / No level": the view toggle, with a zoom button beside it.
+.level-view-row {
+  display: flex;
+  align-items: center;
+  padding: 0 0.25rem 0 0;
+}
+
+.level-view-row:not(.active):hover {
+  background: var(--bs-tertiary-bg);
+}
+
+.level-view-main {
+  flex: 1;
+  min-width: 0;
+  padding: var(--bs-list-group-item-padding-y) var(--bs-list-group-item-padding-x);
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
 .level-row {
   display: grid;
-  grid-template-areas:
-    "handle main zoom"
-    "handle outline zoom";
-  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  grid-template-areas: "handle expand main refit zoom";
+  grid-template-columns: 1.5rem auto minmax(0, 1fr) auto auto;
   align-items: center;
   column-gap: 0.25rem;
   padding: 0.375rem 0.25rem;
@@ -566,7 +666,9 @@ function stopCount(levelId: string): number {
 
 .level-handle {
   grid-area: handle;
-  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   border: 0;
   color: inherit;
@@ -586,8 +688,9 @@ function stopCount(levelId: string): number {
 .level-row-main {
   grid-area: main;
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
   min-width: 0;
   padding: 0;
   border: 0;
@@ -597,46 +700,88 @@ function stopCount(levelId: string): number {
 }
 
 .level-title {
-  flex: 1;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.level-zoom {
-  grid-area: zoom;
+// The node and edge pills, on a line under the level's name.
+.level-counts {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.level-expand {
+  grid-area: expand;
+  display: flex;
+  align-items: center;
+  padding: 0;
   border: 0;
   color: inherit;
 }
 
-.level-outline {
-  grid-area: outline;
+.level-expand:disabled {
+  opacity: 0.3;
+}
+
+// A level's stops, listed under it.
+.level-stops {
+  margin: 0;
+  padding: 0.125rem 0 0.25rem 2.75rem;
+  list-style: none;
+  font-size: 0.8rem;
+}
+
+.level-stop {
+  display: block;
+  width: 100%;
+  padding: 0.0625rem 0;
   overflow: hidden;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.75rem;
-  opacity: 0.75;
 }
 
-.level-outline-all {
-  padding: 0;
-  font-size: inherit;
-  vertical-align: baseline;
+.level-stop:hover {
+  color: var(--bs-link-hover-color);
+  text-decoration: underline;
 }
 
-.level-outline-missing {
-  font-style: italic;
-}
-
-.level-draw {
-  padding: 0;
+.level-refit {
+  grid-area: refit;
+  display: flex;
+  align-items: center;
+  padding: 0 0.25rem;
   border: 0;
-  font-size: inherit;
-  font-style: normal;
-  vertical-align: baseline;
+  color: inherit;
 }
 
-.level-row.active .level-draw {
+.level-refit:disabled {
+  opacity: 0.35;
+}
+
+// Much bigger than its stops need: styled like the warnings.
+.level-refit-needed {
+  background: #ffc;
+  box-shadow: inset 0 0 0 1px #fb2;
+  color: #b15500;
+}
+
+.level-refit-needed:hover {
+  background: #fafa30;
+  color: #7f3d00;
+}
+
+.level-zoom {
+  grid-area: zoom;
+  display: flex;
+  align-items: center;
+  padding: 0 0.25rem;
+  border: 0;
   color: inherit;
 }
 
@@ -650,25 +795,5 @@ function stopCount(levelId: string): number {
 
 .level-drop-after {
   box-shadow: inset 0 -2px 0 var(--bs-primary);
-}
-
-.level-issues {
-  max-height: 14rem;
-  overflow-y: auto;
-}
-
-.level-issue {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.25rem 0.5rem;
-}
-
-.level-issue-link {
-  padding: 0;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 </style>

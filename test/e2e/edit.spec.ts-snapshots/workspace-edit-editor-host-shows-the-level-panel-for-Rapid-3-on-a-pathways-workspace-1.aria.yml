@@ -1,8 +1,4 @@
-- complementary "Levels":
-  - heading "Levels" [level=2]
-  - button "Add level"
-  - paragraph:
-    - text: No levels yet. Use
-    - strong: Add level
-    - text: to outline one on the map.
+- complementary "Stations":
+  - heading "Stations In View" [level=2]
+  - paragraph: No levels yet. Levels appear here once stops have a level_id.
   - radiogroup "Show level"

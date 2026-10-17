@@ -56,6 +56,34 @@ describe('buildPathwaysCsvArchive GTFS IDs', () => {
     expect(pathways.map(endpoints)).toEqual([['ws-w10', 'ws-n1', 'ws-n2']]);
   });
 
+  it('generates STN_<code> IDs for stations without one, from stop_code or name', async () => {
+    const { stops } = await exportFeed([
+      node(1, { location_type: '1', stop_code: 'J02', stop_name: 'Van Dorn' }),
+      node(2, { location_type: '1', stop_name: 'Van Dorn' }),
+      node(3, { location_type: '1', stop_name: 'Van-Dorn' }),
+      node(4, { location_type: '1', stop_id: 'STN_X' })
+    ]);
+
+    expect(stops.map(row => row.stop_id)).toEqual(['STN_J02', 'STN_VAN_DORN', 'STN_VAN_DORN_2', 'STN_X']);
+  });
+
+  it('names stops and pathways in a station after its code, like the imported feed', async () => {
+    const { stops, pathways } = await exportFeed([
+      node(1, { location_type: '1', stop_id: 'STN_N06' }),
+      node(2, { location_type: '2', parent_station: 'STN_N06' }),
+      node(3, { location_type: '0', parent_station: 'STN_N06', stop_id: 'PF_N06_1' }),
+      node(4, { location_type: '0', parent_station: 'STN_N06' }),
+      way(10, [2, 3], { pathway_id: 'N06_191067', pathway_mode: '1', is_bidirectional: '1' }),
+      way(11, [2, 4], { pathway_mode: '1', is_bidirectional: '1' })
+    ]);
+
+    expect(stops.map(row => row.stop_id)).toEqual(['STN_N06', 'ENT_N06_1', 'PF_N06_1', 'PF_N06_2']);
+    expect(pathways.map(endpoints)).toEqual([
+      ['N06_191067', 'ENT_N06_1', 'PF_N06_1'],
+      ['N06_191068', 'ENT_N06_1', 'PF_N06_2']
+    ]);
+  });
+
   it('links pathways to stops whatever order the elements arrive in', async () => {
     const { pathways } = await exportFeed([
       way(10, [1, 2], { pathway_id: 'PW_1' }),

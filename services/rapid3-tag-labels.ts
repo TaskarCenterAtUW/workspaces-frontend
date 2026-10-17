@@ -30,17 +30,20 @@ export function gtfsValueSuggestions(key: string): ValueSuggestion[] | undefined
 }
 
 /** Dropdown suggestions for values with labels, each shown as the value then its label. */
-export function labeledSuggestions(choices: { value: string; label: string }[]): ValueSuggestion[] {
-  return choices.map(({ value, label }) => ({
-    value,
-    gtfsChoice: true as const,
-    title: `${value}: ${label}`,
-    // A display function (not HTML), so labels are set as text.
-    display: ($option: any) => {
-      $option.text(value);
-      $option.append('span').attr('class', OPTION_LABEL_CLASS).text(label);
-    }
-  }));
+export function labeledSuggestions(choices: { value: string; label: string; description?: string }[]): ValueSuggestion[] {
+  return choices.map(({ value, label, description }) => {
+    const text = description ?? label;
+    return {
+      value,
+      gtfsChoice: true as const,
+      title: `${value}: ${text}`,
+      // A display function (not HTML), so labels are set as text.
+      display: ($option: any) => {
+        $option.text(value);
+        $option.append('span').attr('class', OPTION_LABEL_CLASS).text(text);
+      }
+    };
+  });
 }
 
 /**
@@ -59,9 +62,9 @@ export function installTagValueSuggestions(
   taginfo.__gtfsValueSuggestions = true;
 
   const values = taginfo.values.bind(taginfo);
-  taginfo.values = (params: { key?: string }, callback: (err: unknown, data?: unknown[]) => void) => {
+  taginfo.values = (params: { key?: string; query?: string }, callback: (err: unknown, data?: unknown[]) => void) => {
     const key = params?.key ?? '';
-    const choices = choicesFor?.(key);
+    const choices = matchingChoices(choicesFor?.(key), params?.query);
     const suggestions = gtfsValueSuggestions(key) ?? (choices ? labeledSuggestions(choices) : undefined);
     if (suggestions) {
       callback(null, suggestions);
@@ -69,6 +72,21 @@ export function installTagValueSuggestions(
       values(params, callback);
     }
   };
+}
+
+/**
+ * The choices whose value, label or description contains what's been typed
+ * (ignoring case), so typing "j02" narrows a long level list to J02's levels,
+ * and "van dorn" to that station's. All of them when nothing's typed.
+ */
+export function matchingChoices<T extends { value: string; label: string; description?: string }>(
+  choices: T[] | undefined,
+  query?: string
+): T[] | undefined {
+  const q = query?.trim().toLowerCase();
+  if (!choices || !q) return choices;
+  return choices.filter(({ value, label, description }) =>
+    [value, label, description ?? ''].some(text => text.toLowerCase().includes(q)));
 }
 
 /**
@@ -100,8 +118,8 @@ export function labelTagRow(row: Element, key: string, value: unknown) {
  * Lets the level_id / parent_station dropdowns (and tag editor dropdowns
  * listing our choices) open with a single choice. Rapid's combobox stays
  * hidden with fewer than 2 suggestions, so a workspace with one station or one
- * level would offer nothing, and those fields are read-only. Wraps the
- * combobox render to lower that minimum to 1 for just these dropdowns.
+ * level (or typing that narrows the list to one match) would offer nothing.
+ * Wraps the combobox render to lower that minimum to 1 for just these dropdowns.
  */
 export function installSingleChoiceDropdowns() {
   const proto = Rapid?.UiCombobox?.prototype;
@@ -122,6 +140,53 @@ export function installSingleChoiceDropdowns() {
       this._minItems = minItems;
     }
   };
+}
+
+/**
+ * Shows each choice's description (e.g. a level's name and stations) beside
+ * its value in the Fields section's combo dropdowns too. Those build their
+ * options from Rapid's option strings (our "Name (ID)" labels), not from the
+ * suggestions' own display, so this wraps the combo field's taginfo lookup to
+ * restyle the options it returns. The value the field shows once picked is
+ * unchanged. Combo fields are created as the editor draws them, after this is
+ * installed, so wrapping the class reaches them all. Installed once per page.
+ * @param choicesFor - the defined choices for a key, if any (see installTagValueSuggestions)
+ */
+export function installComboDescriptions(
+  choicesFor: (key: string) => { value: string; label: string; description?: string }[] | undefined
+) {
+  const proto = Rapid?.UiFieldCombo?.prototype;
+  if (!proto?._setTaginfoValues || proto.__gtfsComboDescriptions) return;
+  proto.__gtfsComboDescriptions = true;
+
+  const setTaginfoValues = proto._setTaginfoValues;
+  proto._setTaginfoValues = function (this: any, q: string, callback?: (data: any[]) => void) {
+    return setTaginfoValues.call(this, q, (data: any[]) => {
+      describeComboItems(data, choicesFor(this.key ?? ''));
+      callback?.(data);
+    });
+  };
+}
+
+/**
+ * Restyles combo items (in place) for choices with a description: the value,
+ * then the description beside it, as the raw tag editor's dropdown shows them.
+ */
+export function describeComboItems(
+  items: { key: string; display?: unknown; title?: string }[] | undefined,
+  choices: { value: string; description?: string }[] | undefined
+) {
+  if (!items || !choices) return;
+  const descriptions = new Map(choices.filter(c => c.description).map(c => [c.value, c.description!]));
+  for (const item of items) {
+    const description = descriptions.get(item.key);
+    if (!description) continue;
+    item.title = `${item.key}: ${description}`;
+    item.display = ($option: any) => {
+      $option.text(item.key);
+      $option.append('span').attr('class', OPTION_LABEL_CLASS).text(description);
+    };
+  }
 }
 
 let installed = false;

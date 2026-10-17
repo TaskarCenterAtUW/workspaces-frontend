@@ -3,7 +3,8 @@
 // one stop. Editor-agnostic (plain { id, type, tags } entities); Rapid 3 shows
 // the results as validation issues (services/rapid3-validation.ts).
 
-import { isLevelArea, stopLevelId, stopNodes } from '~/services/pathways-levels';
+import { stopIdGenerator } from '~/services/gtfs-ids';
+import { idPart, isLevelArea, stopLevelId, stopNodes } from '~/services/pathways-levels';
 import type { LevelEntity } from '~/services/pathways-levels';
 
 export interface ReferenceIndex {
@@ -24,7 +25,7 @@ export interface ReferenceProblem {
   hash: string;
 }
 
-const TYPE_NAMES: Record<string, string> = {
+export const TYPE_NAMES: Record<string, string> = {
   '': 'stop',
   '0': 'platform',
   '1': 'station',
@@ -46,9 +47,11 @@ const PARENT_TYPES = new Set(['0', '1']);
 
 /**
  * stop_ids to give stations and platforms that don't have one yet, so they can
- * be chosen as a parent_station: their stop_name in upper snake case (e.g.
- * "Central Station" -> CENTRAL_STATION), or STATION / PLATFORM, made unique
- * with a numeric suffix. Deterministic for the same data, so the editor and the
+ * be chosen as a parent_station, following the workspace's pattern (see
+ * gtfs-ids.ts): STN_<code> for a station (from its stop_code or name), and
+ * PF_<code>_<n> for a platform in a station. A platform in no station gets its
+ * stop_name in upper snake case (e.g. "Platform A" -> PLATFORM_A) or PLATFORM,
+ * made unique with a numeric suffix. Deterministic for the same data, so the editor and the
  * reference checks agree on them before they're written.
  * @returns entity ID -> suggested stop_id
  */
@@ -57,14 +60,19 @@ export function suggestedStopIds(entities: LevelEntity[]): Map<string | number, 
   const taken = new Set(stops.map(stop => stop.tags?.stop_id?.trim()).filter(Boolean) as string[]);
   const suggestions = new Map<string | number, string>();
 
+  const generate = stopIdGenerator(entities);
+  // A platform outside any station gets one from its name, e.g. PLATFORM_A.
+  const uniqueName = (stop: LevelEntity) => {
+    const base = idPart(stop.tags?.stop_name) || 'PLATFORM';
+    let candidate = base;
+    for (let n = 2; taken.has(candidate); n++) candidate = `${base}_${n}`;
+    return candidate;
+  };
   const needIds = stops
     .filter(stop => !stop.tags?.stop_id?.trim() && PARENT_TYPES.has(locationType(stop)))
     .sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
   for (const stop of needIds) {
-    const fromName = (stop.tags?.stop_name ?? '').trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-    const base = fromName || (locationType(stop) === '1' ? 'STATION' : 'PLATFORM');
-    let candidate = base;
-    for (let n = 2; taken.has(candidate); n++) candidate = `${base}_${n}`;
+    const candidate = generate(stop, taken) ?? uniqueName(stop);
     taken.add(candidate);
     suggestions.set(stop.id, candidate);
   }

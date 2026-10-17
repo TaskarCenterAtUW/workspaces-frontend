@@ -2,20 +2,29 @@ import { describe, expect, it } from 'vitest';
 import {
   buildStationIndex,
   collectLevels,
+  distanceMeters,
+  farStops,
+  highlightedStationIds,
   isHiddenInView,
   isHiddenOnLevel,
   isOutsideView,
   isLevelArea,
   isPathway,
+  LARGE_LEVEL_METERS,
+  OVERSIZED_LEVEL,
+  largeLevelAreas,
   levelAreaIndex,
   levelAreasMissingId,
   levelBoxCorners,
   levelsByStation,
-  levelsTopDown,
+  levelsLowestFirst,
   nextLevelIndex,
   reorderedLevelIndexes,
+  spanMeters,
   stopNodes,
   stopsByLevel,
+  stationCode,
+  stationStopIdBase,
   suggestLevelId,
   unleveledStops
 } from '~/services/pathways-levels';
@@ -163,10 +172,25 @@ describe('isHiddenOnLevel', () => {
 });
 
 describe('generated level IDs', () => {
-  it('suggests L<index>, adding a suffix when it is taken', () => {
+  it('suggests L<index> for a level with no station, adding a suffix when it is taken', () => {
     expect(suggestLevelId(0, [])).toBe('L0');
     expect(suggestLevelId(-1, ['L0'])).toBe('L-1');
     expect(suggestLevelId(2, ['L2', 'L2-2'])).toBe('L2-3');
+  });
+
+  it('prefixes the codes of the level\'s stations, joined by "_"', () => {
+    expect(suggestLevelId(0, [], ['STN_J02'])).toBe('J02_L0');
+    expect(suggestLevelId(-1, [], ['STN_K01', 'STN_J02', 'STN_J02'])).toBe('J02_K01_L-1'); // sorted, once each
+    expect(suggestLevelId(0, ['J02_L0'], ['STN_J02'])).toBe('J02_L0-2');
+    expect(suggestLevelId(1, [], ['CENTRAL'])).toBe('CENTRAL_L1'); // a stop_id without STN_ is its own code
+  });
+
+  it('builds station stop_ids as STN_<code>', () => {
+    expect(stationCode('STN_J02')).toBe('J02');
+    expect(stationCode('J02')).toBe('J02');
+    expect(stationStopIdBase({ stop_code: 'j02', stop_name: 'Van Dorn St' })).toBe('STN_J02');
+    expect(stationStopIdBase({ stop_name: 'Van Dorn St.' })).toBe('STN_VAN_DORN_ST');
+    expect(stationStopIdBase({})).toBe('STN_STATION');
   });
 
   it('puts the next level one above the highest index, or at 0', () => {
@@ -192,23 +216,23 @@ describe('reordering levels', () => {
 
   it('keeps the ground level at 0 and numbers the rest by distance from it', () => {
     // New level N (index 2) dragged to just below Street.
-    expect(renumber([level('UP', 1), level('STREET', 0), level('N', 2), level('CONC', -1)]))
+    expect(renumber([level('CONC', -1), level('N', 2), level('STREET', 0), level('UP', 1)]))
       .toEqual({ UP: 1, STREET: 0, N: -1, CONC: -2 });
   });
 
   it('keeps 0 on the ground level even when the ground level is the one moved', () => {
-    expect(renumber([level('CONC', -1), level('STREET', 0)])).toEqual({ CONC: 1, STREET: 0 });
+    expect(renumber([level('STREET', 0), level('CONC', -1)])).toEqual({ CONC: 1, STREET: 0 });
   });
 
   it('anchors on the level closest to 0 when none is at 0', () => {
-    expect(renumber([level('A', 3), level('B', -2), level('C', 1.5)])).toEqual({ A: 3.5, B: 2.5, C: 1.5 });
+    expect(renumber([level('C', 1.5), level('B', -2), level('A', 3)])).toEqual({ A: 3.5, B: 2.5, C: 1.5 });
   });
 
-  it('makes the bottom level 0 when no level has a numeric index', () => {
-    expect(renumber([level('A'), level('B')])).toEqual({ A: 1, B: 0 });
+  it('makes the lowest level 0 when no level has a numeric index', () => {
+    expect(renumber([level('B'), level('A')])).toEqual({ A: 1, B: 0 });
   });
 
-  it('lists drawn levels highest first, then unknown indexes, then levels with no outline', () => {
+  it('lists drawn levels lowest first, then unknown indexes, then levels with no outline', () => {
     const levels = collectLevels([
       levelArea('w1', { level_id: 'STREET', level_index: '0' }),
       levelArea('w2', { level_id: 'UP', level_index: '1' }),
@@ -216,7 +240,7 @@ describe('reordering levels', () => {
       levelArea('w4', { level_id: 'DOWN', level_index: '-1' }),
       node('n1', { level_id: 'LOST', stop_name: 'x' })
     ]);
-    expect(levelsTopDown(levels).map(l => l.levelId)).toEqual(['UP', 'STREET', 'DOWN', 'ODD', 'LOST']);
+    expect(levelsLowestFirst(levels).map(l => l.levelId)).toEqual(['DOWN', 'STREET', 'UP', 'ODD', 'LOST']);
   });
 });
 
@@ -240,11 +264,11 @@ describe('levelsByStation', () => {
     node('b1', { location_type: '4', parent_station: 'P1', level_id: 'PLAT' })
   ];
 
-  it('lists unlinked levels first, then each station\'s levels highest first, sharing levels', () => {
+  it('lists unlinked levels first, then each station\'s levels lowest first, sharing levels', () => {
     expect(groupsOf(twoStations())).toEqual([
       [undefined, ['NEW']],
       ['Annex', ['STREET']],
-      ['Central', ['STREET', 'CONC', 'PLAT']]
+      ['Central', ['PLAT', 'CONC', 'STREET']]
     ]);
   });
 
@@ -362,5 +386,125 @@ describe('isOutsideView', () => {
 
   it('for a station\'s "Street / No level", is true for its leveled stops and anything else', () => {
     expect(outside({ kind: 'stationNoLevel', stationId: 'CENTRAL' })).toEqual(['n1', 'x1']);
+  });
+});
+
+describe('large level outlines', () => {
+  // ~0.001° of latitude is ~111 m.
+  const locs: Record<string, [number, number]> = {
+    sa: [0, 0], sb: [0.001, 0], sc: [0.001, 0.001], // small: ~111 m across
+    ba: [0, 0], bb: [0.02, 0], bc: [0.02, 0.001], // big: ~2.2 km across
+    ma: [0, 0], mb: [0.005, 0], mc: [0.005, 0.001] // ~557 m across
+  };
+  const locOf = (id: string | number) => locs[String(id)];
+
+  it('measures the longer side of the box around some locations, in meters', () => {
+    expect(spanMeters([])).toBe(0);
+    expect(spanMeters([[0, 0], [0, 0.001]])).toBeCloseTo(111.3, 0);
+    expect(spanMeters([[0, 0], [0.01, 0.001]])).toBeCloseTo(1113.2, 0);
+    // A degree of longitude is shorter away from the equator.
+    expect(spanMeters([[0, 60], [0.01, 60]])).toBeCloseTo(556.6, 0);
+  });
+
+  it('flags level outlines at least 500 m across, largest first', () => {
+    expect(LARGE_LEVEL_METERS).toBe(500);
+    const entities = [
+      levelArea('w1', { level_id: 'SMALL', level_index: '0' }, ['sa', 'sb', 'sc', 'sa']),
+      levelArea('w2', { level_id: 'MID', level_index: '1' }, ['ma', 'mb', 'mc', 'ma']),
+      levelArea('w3', { level_id: 'BIG', level_index: '2' }, ['ba', 'bb', 'bc', 'ba']),
+      way('p1', ['ba', 'bb'], { pathway_mode: '1' }) // a long pathway isn't a level
+    ];
+    expect(largeLevelAreas(entities, locOf).map(({ area, meters }) => [area.id, Math.round(meters)]))
+      .toEqual([['w3', 2226], ['w2', 557]]);
+    expect(largeLevelAreas(entities, locOf, 1000).map(({ area }) => area.id)).toEqual(['w3']);
+  });
+
+  it('also flags outlines much bigger than their level\'s stops need, at any size', () => {
+    expect(OVERSIZED_LEVEL).toEqual({ ratio: 2, excessMeters: 100 });
+    const stop = (id: string, levelId: string, loc: [number, number]) =>
+      ({ ...node(id, { location_type: '3', level_id: levelId }), loc });
+    const corners: Record<string, [number, number]> = {
+      // ~334 m wide, around a STRAY level whose stops are ~11 m apart (~31 m boxed)
+      ra: [0, 0], rb: [0.003, 0], rc: [0.003, 0.0001],
+      // ~67 m wide, around a SNUG level whose stops are ~11 m apart: only ~36 m extra
+      sa: [0, 0], sb: [0.0006, 0], sc: [0.0006, 0.0001],
+      // ~612 m wide, around a WIDE level whose stops really span ~556 m
+      wa: [0, 0], wb: [0.0055, 0], wc: [0.0055, 0.0001]
+    };
+    const entities = [
+      levelArea('w1', { level_id: 'STRAY', level_index: '0' }, ['ra', 'rb', 'rc', 'ra']),
+      levelArea('w2', { level_id: 'SNUG', level_index: '1' }, ['sa', 'sb', 'sc', 'sa']),
+      levelArea('w3', { level_id: 'WIDE', level_index: '2' }, ['wa', 'wb', 'wc', 'wa']),
+      stop('n1', 'STRAY', [0, 0]), stop('n2', 'STRAY', [0.0001, 0]),
+      stop('n3', 'SNUG', [0, 0]), stop('n4', 'SNUG', [0.0001, 0]),
+      stop('n5', 'WIDE', [0, 0]), stop('n6', 'WIDE', [0.005, 0])
+    ];
+    expect(largeLevelAreas(entities, id => corners[String(id)]).map(({ area, meters, stopsMeters, oversized }) =>
+      [area.id, Math.round(meters), Math.round(stopsMeters!), oversized]))
+      .toEqual([
+        ['w3', 612, 577, false], // big, but its stops need it: flagged for size only
+        ['w1', 334, 31, true] // under 500 m, but ~10x its stops
+      ]);
+  });
+
+  it('ignores corners whose location isn\'t known', () => {
+    const entities = [levelArea('w1', { level_id: 'X', level_index: '0' }, ['ba', 'missing', 'bc', 'ba'])];
+    expect(largeLevelAreas(entities, locOf).map(({ area }) => area.id)).toEqual(['w1']);
+    expect(largeLevelAreas([levelArea('w2', { level_id: 'Y', level_index: '0' }, ['q', 'r', 's', 'q'])], locOf)).toEqual([]);
+  });
+});
+
+describe('stops far from their level', () => {
+  const stopAt = (id: string, levelId: string, loc: [number, number]) =>
+    ({ ...node(id, { location_type: '3', level_id: levelId }), loc });
+
+  it('measures distances in meters', () => {
+    expect(distanceMeters([0, 0], [0, 0.001])).toBeCloseTo(111.3, 0);
+    expect(distanceMeters([0, 60], [0.002, 60])).toBeCloseTo(111.3, 0);
+  });
+
+  it('flags stops at least 500 m from the middle of their level, farthest first', () => {
+    const entities = [
+      stopAt('a', 'L0', [0, 0]), stopAt('b', 'L0', [0.0005, 0]), stopAt('c', 'L0', [0, 0.0005]),
+      stopAt('stray', 'L0', [0.02, 0]), // ~2.2 km east
+      stopAt('near', 'L0', [0.003, 0]), // ~334 m: fine
+      stopAt('d', 'L1', [0, 0]), stopAt('e', 'L1', [0.0005, 0]), stopAt('f', 'L1', [0, 0.0005]),
+      stopAt('lost', 'L1', [0, -0.006]) // ~668 m south
+    ];
+    expect(farStops(entities).map(({ stop, levelId, meters }) => [stop.id, levelId, Math.round(meters)]))
+      .toEqual([['stray', 'L0', 2171], ['lost', 'L1', 668]]);
+  });
+
+  it('needs three located stops on a level to tell which is out of place', () => {
+    expect(farStops([stopAt('a', 'L0', [0, 0]), stopAt('b', 'L0', [0.02, 0])])).toEqual([]);
+    expect(farStops([stopAt('a', 'L0', [0, 0]), stopAt('b', 'L0', [0.0005, 0]), node('c', { location_type: '3', level_id: 'L0' })]))
+      .toEqual([]);
+  });
+});
+
+describe('highlightedStationIds', () => {
+  const index = buildStationIndex([
+    node('s1', { location_type: '1', stop_id: 'CENTRAL', stop_name: 'Central' }),
+    node('s2', { location_type: '1', stop_id: 'ANNEX', stop_name: 'Annex' }),
+    node('e1', { location_type: '2', parent_station: 'CENTRAL', level_id: 'STREET' }),
+    node('e2', { location_type: '2', parent_station: 'ANNEX', level_id: 'STREET' }),
+    node('n1', { location_type: '3', parent_station: 'CENTRAL', level_id: 'CONC' })
+  ]);
+  const ids = (view: LevelView | undefined, selected: string[] = []) => [...highlightedStationIds(view, selected, index)].sort();
+
+  it('highlights the station whose Street / No level view is shown', () => {
+    expect(ids({ kind: 'stationNoLevel', stationId: 'CENTRAL' })).toEqual(['CENTRAL']);
+  });
+
+  it('highlights every station whose stops use the level shown', () => {
+    expect(ids({ kind: 'level', levelId: 'CONC' })).toEqual(['CENTRAL']);
+    expect(ids({ kind: 'level', levelId: 'STREET' })).toEqual(['ANNEX', 'CENTRAL']);
+  });
+
+  it('highlights a station selected in the editor, but not other selections', () => {
+    expect(ids(undefined, ['s2'])).toEqual(['ANNEX']);
+    expect(ids(undefined, ['e1', 'n1'])).toEqual([]);
+    expect(ids({ kind: 'noStation' })).toEqual([]);
+    expect(ids(undefined)).toEqual([]);
   });
 });

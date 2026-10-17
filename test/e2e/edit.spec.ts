@@ -330,7 +330,7 @@ test.describe('workspace edit (editor host)', () => {
     await page.goto('/workspace/1/edit?datatype=pathways&editor=rapid3');
 
     await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
-    const panel = page.getByRole('complementary', { name: 'Levels' });
+    const panel = page.getByRole('complementary', { name: 'Stations' });
     await expect(panel).toBeVisible();
     await expect(panel).toMatchAriaSnapshot();
   });
@@ -344,7 +344,7 @@ test.describe('workspace edit (editor host)', () => {
       await page.goto(`/workspace/1/edit?${query}`);
 
       await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
-      await expect(page.getByRole('complementary', { name: 'Levels' })).toHaveCount(0);
+      await expect(page.getByRole('complementary', { name: 'Stations' })).toHaveCount(0);
     });
   }
 

@@ -121,13 +121,39 @@ export function collectLevels(entities: LevelEntity[]): Level[] {
   return [...levels.values()].sort(compareLevels);
 }
 
+/** Station stop_ids look like "STN_<code>" (e.g. STN_J02); level_ids build on the code. */
+export const STATION_ID_PREFIX = 'STN_';
+
+/** A station's code: its stop_id without the "STN_" prefix (J02 for STN_J02). */
+export function stationCode(stopId: string): string {
+  return stopId.startsWith(STATION_ID_PREFIX) ? stopId.slice(STATION_ID_PREFIX.length) : stopId;
+}
+
+/** Text as an ID part: upper case, with runs of other characters as "_" ("Van Dorn St." -> "VAN_DORN_ST"). */
+export function idPart(text: string | undefined): string {
+  return (text ?? '').trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
 /**
- * A readable level_id for a level at `index` (e.g. "L0", "L-1", "L2.5") that no
- * existing level uses; a numeric suffix is added if it's taken ("L0-2").
+ * The stop_id a station without one should get: "STN_" + its stop_code, or
+ * its name when it has no code (e.g. STN_J02, STN_VAN_DORN_ST).
  */
-export function suggestLevelId(index: number, existingIds: Iterable<string>): string {
+export function stationStopIdBase(tags: Record<string, string> | undefined): string {
+  return `${STATION_ID_PREFIX}${idPart(tags?.stop_code) || idPart(tags?.stop_name) || 'STATION'}`;
+}
+
+/**
+ * A level_id for a level at `index` that no existing level uses: the codes of
+ * the stations whose stops are on it, then "_L" and the index (J02_L0, or
+ * J02_K01_L-1 for a level two stations share), or just "L0" with no station.
+ * A numeric suffix is added if it's taken ("J02_L0-2").
+ * @param stationIds - the stop_ids of the level's stations
+ */
+export function suggestLevelId(index: number, existingIds: Iterable<string>, stationIds: Iterable<string> = []): string {
   const taken = new Set(existingIds);
-  const base = `L${index}`;
+  const codes = [...new Set([...stationIds].map(stationCode))]
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const base = codes.length ? `${codes.join('_')}_L${index}` : `L${index}`;
   let candidate = base;
   for (let n = 2; taken.has(candidate); n++) {
     candidate = `${base}-${n}`;
@@ -142,11 +168,11 @@ export function nextLevelIndex(levels: Level[]): number {
 }
 
 /**
- * New level_index values for levels the user has put in `order` (top to
- * bottom, i.e. highest first). GTFS level_index is relative to ground level
+ * New level_index values for levels the user has put in `order` (as the panel
+ * lists them, lowest first). GTFS level_index is relative to ground level
  * (0), so the ground level keeps 0 and every other level is numbered by its
  * distance above (+) or below (-) it. Without a level at 0, the level closest
- * to 0 keeps its index; without any numeric index, the bottom level becomes 0.
+ * to 0 keeps its index; without any numeric index, the lowest level becomes 0.
  */
 export function reorderedLevelIndexes(order: Level[]): Map<string, number> {
   const indexes = new Map<string, number>();
@@ -162,22 +188,22 @@ export function reorderedLevelIndexes(order: Level[]): Map<string, number> {
       }
     });
   }
-  if (anchor < 0) anchor = order.length - 1;
+  if (anchor < 0) anchor = 0;
 
   const anchorIndex = order[anchor]!.index ?? 0;
   order.forEach((level, position) => {
-    indexes.set(level.levelId, anchorIndex + (anchor - position));
+    indexes.set(level.levelId, anchorIndex + (position - anchor));
   });
   return indexes;
 }
 
 /**
- * Orders levels the way the level panel shows them: drawn levels highest
+ * Orders levels the way the level panel shows them: drawn levels lowest
  * first (unknown indexes after them), then levels only stops use.
  */
-export function levelsTopDown(levels: Level[]): Level[] {
+export function levelsLowestFirst(levels: Level[]): Level[] {
   const drawn = levels.filter(level => level.areaIds.length);
-  const known = drawn.filter(level => level.index !== undefined).sort((a, b) => compareLevels(b, a));
+  const known = drawn.filter(level => level.index !== undefined).sort(compareLevels);
   const unknown = drawn.filter(level => level.index === undefined);
   return [...known, ...unknown, ...levels.filter(level => !level.areaIds.length)];
 }
@@ -193,7 +219,7 @@ export interface Station {
 export interface StationLevelGroup {
   /** The station, or undefined for the levels no station's stops use. */
   station: Station | undefined;
-  /** The levels this station's stops are on, highest first (see `levelsTopDown`). */
+  /** The levels this station's stops are on, lowest first (see `levelsLowestFirst`). */
   levels: Level[];
 }
 
@@ -240,6 +266,7 @@ export function buildStationIndex(entities: LevelEntity[]): StationIndex {
     if (!parent || !isStation(parent)) continue;
 
     const stationId = parent.tags!.stop_id!.trim();
+
     stationOfStop.set(stop.id, stationId);
     const levelId = stopLevelId(stop);
     if (levelId) {
@@ -250,6 +277,41 @@ export function buildStationIndex(entities: LevelEntity[]): StationIndex {
   }
 
   return { stations, stationOfStop, stationsByLevel };
+}
+
+/** A lon/lat bounding box: `min` is the southwest corner, `max` the northeast. */
+export interface LonLatBox {
+  min: [number, number];
+  max: [number, number];
+}
+
+/**
+ * The area each station covers, by stop_id: the box around its station point
+ * and the stops in it. Level outlines aren't counted, since a level shared by
+ * several stations (and its outline) can span all of them.
+ */
+export function stationExtents(entities: (LevelEntity & { loc?: [number, number] })[], index: StationIndex): Map<string, LonLatBox> {
+  const boxes = new Map<string, LonLatBox>();
+  const add = (stopId: string, loc: [number, number] | undefined) => {
+    if (!loc) return;
+    const box = boxes.get(stopId);
+    if (!box) {
+      boxes.set(stopId, { min: [loc[0], loc[1]], max: [loc[0], loc[1]] });
+      return;
+    }
+    box.min = [Math.min(box.min[0], loc[0]), Math.min(box.min[1], loc[1])];
+    box.max = [Math.max(box.max[0], loc[0]), Math.max(box.max[1], loc[1])];
+  };
+  for (const entity of entities) {
+    const stopId = index.stations.get(entity.id)?.stopId ?? index.stationOfStop.get(entity.id);
+    if (stopId) add(stopId, entity.loc);
+  }
+  return boxes;
+}
+
+/** Whether two lon/lat boxes overlap (touching counts). */
+export function boxesOverlap(a: LonLatBox, b: LonLatBox): boolean {
+  return a.min[0] <= b.max[0] && a.max[0] >= b.min[0] && a.min[1] <= b.max[1] && a.max[1] >= b.min[1];
 }
 
 /**
@@ -265,10 +327,10 @@ export function levelsByStation(entities: LevelEntity[], index = buildStationInd
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }) || a.stopId.localeCompare(b.stopId));
 
   return [
-    { station: undefined, levels: levelsTopDown(levels.filter(level => !index.stationsByLevel.has(level.levelId))) },
+    { station: undefined, levels: levelsLowestFirst(levels.filter(level => !index.stationsByLevel.has(level.levelId))) },
     ...stations.map(station => ({
       station,
-      levels: levelsTopDown(levels.filter(level => index.stationsByLevel.get(level.levelId)?.has(station.stopId)))
+      levels: levelsLowestFirst(levels.filter(level => index.stationsByLevel.get(level.levelId)?.has(station.stopId)))
     }))
   ];
 }
@@ -458,4 +520,126 @@ export function isHiddenOnLevel(
   }
 
   return false;
+}
+
+/** Level outlines at least this many meters across are flagged to be checked. */
+export const LARGE_LEVEL_METERS = 500;
+
+/**
+ * An outline is also flagged as bigger than it needs to be when it's at least
+ * `ratio` times, and `excessMeters` more than, the box around its level's stops
+ * (e.g. still stretched after a stray stop was fixed), at any size.
+ */
+export const OVERSIZED_LEVEL = { ratio: 2, excessMeters: 100 };
+
+/** How far across the box around these locations is, in meters: its longer side. */
+export function spanMeters(locs: [number, number][]): number {
+  if (!locs.length) return 0;
+  const lons = locs.map(([lon]) => lon);
+  const lats = locs.map(([, lat]) => lat);
+  const midLat = ((Math.min(...lats) + Math.max(...lats)) / 2) * Math.PI / 180;
+  const width = (Math.max(...lons) - Math.min(...lons)) * METERS_PER_DEGREE * Math.cos(midLat);
+  const height = (Math.max(...lats) - Math.min(...lats)) * METERS_PER_DEGREE;
+  return Math.max(width, height);
+}
+
+/**
+ * Level outlines that are probably wrong, largest first: those at least
+ * `minMeters` across (e.g. a box around a level shared by stations far apart),
+ * and those much bigger than the box around their level's stops (`oversized`,
+ * see `OVERSIZED_LEVEL`). `stopsMeters` is how far across that box (padded like
+ * a new outline) is, if the level has located stops.
+ * @param locOf - a node's [lon, lat], if known
+ */
+export function largeLevelAreas<T extends LevelEntity & { loc?: [number, number] }>(
+  entities: T[],
+  locOf: (nodeId: string | number) => [number, number] | undefined,
+  minMeters = LARGE_LEVEL_METERS
+): { area: T; meters: number; stopsMeters: number | undefined; oversized: boolean }[] {
+  const stopLocs = new Map<string, [number, number][]>();
+  for (const stop of stopNodes(entities)) {
+    const levelId = stopLevelId(stop);
+    if (levelId && stop.loc) stopLocs.set(levelId, [...(stopLocs.get(levelId) ?? []), stop.loc]);
+  }
+
+  return entities
+    .filter(isLevelArea)
+    .map((area) => {
+      const locs = (area.nodes ?? []).map(locOf).filter((loc): loc is [number, number] => Boolean(loc));
+      const meters = spanMeters(locs);
+      const levelId = area.tags?.level_id?.trim();
+      const levelStops = levelId ? stopLocs.get(levelId) : undefined;
+      const stopsMeters = levelStops ? spanMeters(levelBoxCorners(levelStops)) : undefined;
+      const oversized = stopsMeters !== undefined
+        && meters >= stopsMeters * OVERSIZED_LEVEL.ratio
+        && meters - stopsMeters >= OVERSIZED_LEVEL.excessMeters;
+      return { area, meters, stopsMeters, oversized };
+    })
+    .filter(({ meters, oversized }) => meters >= minMeters || oversized)
+    .sort((a, b) => b.meters - a.meters);
+}
+
+/** Distance between two locations, in meters (flat-earth, fine at station scale). */
+export function distanceMeters([lon1, lat1]: [number, number], [lon2, lat2]: [number, number]): number {
+  const midLat = ((lat1 + lat2) / 2) * Math.PI / 180;
+  const dx = (lon2 - lon1) * METERS_PER_DEGREE * Math.cos(midLat);
+  const dy = (lat2 - lat1) * METERS_PER_DEGREE;
+  return Math.hypot(dx, dy);
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
+}
+
+/**
+ * Stops far from the rest of their level: at least `minMeters` from the
+ * median location of the level's stops (so one stray stop can't pull the
+ * middle toward itself), farthest first. Such a stop is often why a level's
+ * outline is very large. Levels need 3 or more located stops to tell which
+ * one is out of place.
+ */
+export function farStops<T extends LevelEntity & { loc?: [number, number] }>(
+  entities: T[],
+  minMeters = LARGE_LEVEL_METERS
+): { stop: T; levelId: string; meters: number }[] {
+  const byLevel = new Map<string, T[]>();
+  for (const stop of stopNodes(entities)) {
+    const levelId = stopLevelId(stop);
+    if (levelId && stop.loc) byLevel.set(levelId, [...(byLevel.get(levelId) ?? []), stop]);
+  }
+
+  const far: { stop: T; levelId: string; meters: number }[] = [];
+  for (const [levelId, stops] of byLevel) {
+    if (stops.length < 3) continue;
+    const middle: [number, number] = [median(stops.map(stop => stop.loc![0])), median(stops.map(stop => stop.loc![1]))];
+    for (const stop of stops) {
+      const meters = distanceMeters(stop.loc!, middle);
+      if (meters >= minMeters) far.push({ stop, levelId, meters });
+    }
+  }
+  return far.sort((a, b) => b.meters - a.meters);
+}
+
+/**
+ * The stations (by stop_id) to highlight on the map: the one whose
+ * "Street / No level" view is shown, those whose stops use the level shown,
+ * and any station selected in the editor.
+ */
+export function highlightedStationIds(
+  view: LevelView | undefined,
+  selectedIds: (string | number)[],
+  index: StationIndex
+): Set<string> {
+  const ids = new Set<string>();
+  if (view?.kind === 'stationNoLevel') ids.add(view.stationId);
+  if (view?.kind === 'level') {
+    for (const id of index.stationsByLevel.get(view.levelId) ?? []) ids.add(id);
+  }
+  for (const id of selectedIds) {
+    const station = index.stations.get(id);
+    if (station) ids.add(station.stopId);
+  }
+  return ids;
 }

@@ -58,18 +58,18 @@
         "level_id": {
           "key": "level_id",
           "type": "combo",
-          "customValues": false,
+          "customValues": true,
           "snake_case": false,
           "caseSensitive": true,
-          "placeholder": "Pick a level (levels need an outline)"
+          "placeholder": "Type or pick a level (levels need an outline)"
         },
         "parent_station": {
           "key": "parent_station",
           "type": "combo",
-          "customValues": false,
+          "customValues": true,
           "snake_case": false,
           "caseSensitive": true,
-          "placeholder": "Pick a station (a platform, for boarding areas)"
+          "placeholder": "Type or pick a station (a platform, for boarding areas)"
         },
         "stop_id": {
           "key": "stop_id",
