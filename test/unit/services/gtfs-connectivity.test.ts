@@ -41,7 +41,8 @@ describe('connectivityProblems', () => {
       ['p1', 'no_way_out', 'warning'],
       ['p2', 'unreachable', 'warning'],
       ['p3', 'unreachable', 'warning'],
-      ['x', 'dead_end', 'warning'] // (only one pathway reaches it)
+      ['x', 'dead_end', 'warning'], // (only one pathway reaches it)
+      ['x', 'unreachable', 'warning'] // generic nodes are checked too
     ]);
   });
 
@@ -52,7 +53,7 @@ describe('connectivityProblems', () => {
       pathway('w1', 'e', 'p1', '2'), // stairs only
       pathway('w2', 'e', 'p2', '5'), // elevator only
       pathway('w3', 'p2', 'b', '1')
-    ])).toEqual([
+    ]).filter(([, subtype]) => subtype !== 'elevator_end_no_level')).toEqual([
       ['b', 'elevator_only', 'suggestion'],
       ['p1', 'no_step_free', 'suggestion'],
       ['p2', 'elevator_only', 'suggestion']
@@ -185,5 +186,35 @@ describe('connectivityProblems', () => {
     const area = (levelId: string) => node('b', { location_type: '4', parent_station: 'P1', level_id: levelId });
     expect(only([station, platform, area('L2')], 'boarding_area_level')).toEqual([['b', 'boarding_area_level']]);
     expect(only([station, platform, area('L1')], 'boarding_area_level')).toEqual([]);
+  });
+
+  it('applies MobilityData\'s pathway rules (as TDEI\'s validator, 8.0.1, does)', () => {
+    const platform = node('p', { location_type: '0', parent_station: 'S', stop_id: 'P1', level_id: 'L1' });
+    const area = node('b', { location_type: '4', parent_station: 'P1', level_id: 'L1' });
+    expect(only([
+      station, stop('e', '2', 'L0'), stop('n', '3', 'L0'), platform, area,
+      node('street', { location_type: '0', parent_station: 'S', stop_access: '1', level_id: 'L0' }),
+      node('lift', { location_type: '3', parent_station: 'S' }), // no level_id
+      pathway('w1', 'e', 's', '1'), // to the station
+      pathway('w2', 'n', 'p', '1'), // to a platform with boarding areas
+      pathway('w3', 'n', 'b', '1'),
+      { id: 'w4', type: 'way', nodes: ['n', 'k', 'n'], tags: { pathway_mode: '1', is_bidirectional: '1' } }, // loop
+      pathway('w5', 'e', 'street', '1'), // to a stop reached from the street
+      pathway('w6', 'n', 'lift', '5') // an elevator end without a level
+    ], 'pathway_to_station', 'pathway_to_platform_with_boarding_areas', 'pathway_loop', 'pathway_to_street_access_stop',
+    'elevator_end_no_level')).toEqual([
+      ['lift', 'elevator_end_no_level'],
+      ['w1', 'pathway_to_station'],
+      ['w2', 'pathway_to_platform_with_boarding_areas'],
+      ['w4', 'pathway_loop'],
+      ['w5', 'pathway_to_street_access_stop']
+    ]);
+  });
+
+  it('skips platforms with boarding areas when checking reachability, as riders board from those', () => {
+    const platform = node('p', { location_type: '0', parent_station: 'S', stop_id: 'P1' });
+    const area = node('b', { location_type: '4', parent_station: 'P1' });
+    expect(only([station, stop('e', '2'), platform, area, pathway('w1', 'e', 'b', '1')], 'unreachable', 'isolated'))
+      .toEqual([]); // the platform itself has no pathway, which is right
   });
 });

@@ -197,9 +197,10 @@ describe('installConnectivityValidator', () => {
 
   it('has help for every subtype', () => {
     expect(Object.keys(CONNECTIVITY_HELP).sort()).toEqual([
-      'boarding_area_level', 'dead_end', 'duplicate_pathway', 'duplicate_pathway_id', 'elevator_only',
-      'escalator_two_way', 'exit_gate_two_way', 'isolated', 'length_mismatch', 'level_unreachable',
-      'no_entrance', 'no_step_free', 'no_way_out', 'same_level', 'stair_count_direction',
+      'boarding_area_level', 'dead_end', 'duplicate_pathway', 'duplicate_pathway_id', 'elevator_end_no_level',
+      'elevator_only', 'escalator_two_way', 'exit_gate_two_way', 'isolated', 'length_mismatch', 'level_unreachable',
+      'no_entrance', 'no_step_free', 'no_way_out', 'pathway_loop', 'pathway_to_platform_with_boarding_areas',
+      'pathway_to_station', 'pathway_to_street_access_stop', 'same_level', 'stair_count_direction',
       'traversal_time_mismatch', 'unreachable', 'walkway_changes_level'
     ]);
   });

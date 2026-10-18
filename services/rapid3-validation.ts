@@ -298,7 +298,16 @@ export const CONNECTIVITY_HELP: Record<string, string> = {
   walkway_changes_level: 'Riders change level by stairs, escalator or elevator. Check the pathway type or its '
     + 'stops\' level_id. If it\'s a ramp, set max_slope.',
   boarding_area_level: 'A boarding area is part of its platform, so it should be on the same level. Check the '
-    + 'level_id of both.'
+    + 'level_id of both.',
+  pathway_to_station: 'In GTFS, a pathway can\'t end at a station (location_type 1): it connects the station\'s '
+    + 'entrances, platforms, generic nodes and boarding areas. TDEI\'s validator rejects this.',
+  pathway_to_platform_with_boarding_areas: 'When a platform has boarding areas, pathways must lead to the boarding '
+    + 'areas, not to the platform. TDEI\'s validator rejects this.',
+  pathway_loop: 'A pathway should connect two different stops.',
+  pathway_to_street_access_stop: 'A stop with stop_access 1 is reached from the street, not by the station\'s '
+    + 'pathways, so no pathway should connect to it. Remove the pathway, or change stop_access.',
+  elevator_end_no_level: 'With an elevator, the stops it connects need a level_id, so riders know which level '
+    + 'they\'re going to. TDEI\'s validator rejects this.'
 };
 
 /** Rapid validator ID for GTFS level checks (also its key in Rapid's issue strings). */
