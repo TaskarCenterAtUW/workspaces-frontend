@@ -26,6 +26,7 @@ import {
 } from '~/services/pathways-levels';
 import type { Level, LevelView, LonLatBox, StationIndex, StationLevelGroup } from '~/services/pathways-levels';
 import { suggestedStopIds } from '~/services/gtfs-references';
+import { gtfsValueLabel } from '~/services/gtfs-value-labels';
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
 declare const Rapid: any;
@@ -144,7 +145,17 @@ export interface FarStop extends LevelStop {
 /** A pathway, with the stations (stop_ids) of its end stops. */
 export interface LevelPathway {
   id: string;
+  /** Its type and end stops, e.g. "Stairs: Mezzanine ↔ Platform C". */
+  label: string;
   stationIds: string[];
+}
+
+/** A pathway's type and end stops: "↔" if it runs both ways, "→" if one way. */
+function describePathway(way: any, from: any, to: any): string {
+  const mode = gtfsValueLabel('pathway_mode', way.tags?.pathway_mode?.trim()) ?? 'Pathway';
+  const name = (end: any) => end?.tags?.stop_name?.trim() || end?.tags?.stop_id?.trim() || end?.id || '?';
+  const arrow = way.tags?.is_bidirectional?.trim() === '0' ? '→' : '↔';
+  return `${mode}: ${name(from)} ${arrow} ${name(to)}`;
 }
 
 export interface LevelStopGroup {
@@ -244,8 +255,8 @@ export class Rapid3LevelTools {
   /** Stops grouped by level in level order, unleveled stops last. */
   readonly stopGroups = shallowRef<LevelStopGroup[]>([]);
   /**
-   * Pathways by the levels they touch (a level of either end stop), each with
-   * the stations (stop_ids) of its end stops.
+   * Pathways by the levels they touch (a level of either end stop; "" for an
+   * end stop with no level), each with the stations (stop_ids) of its end stops.
    */
   readonly levelPathways = shallowRef<Map<string, LevelPathway[]>>(new Map());
   /** Stops that should be on a level but have no level_id. */
@@ -336,8 +347,13 @@ export class Rapid3LevelTools {
     const levelPathways = new Map<string, LevelPathway[]>();
     for (const way of entities.filter(isPathway)) {
       const ends = [way.nodes[0], way.nodes.at(-1)].map(id => byId.get(id)).filter(Boolean);
-      const pathway = { id: String(way.id), stationIds: [...new Set(ends.flatMap(end => stationIdsOf(end.id)))] };
-      for (const levelId of new Set(ends.map(end => stopLevelId(end)).filter(Boolean) as string[])) {
+      const pathway = {
+        id: String(way.id),
+        label: describePathway(way, ends[0], ends[1]),
+        stationIds: [...new Set(ends.flatMap(end => stationIdsOf(end.id)))]
+      };
+      const stops = ends.filter(end => Object.keys(end.tags ?? {}).length);
+      for (const levelId of new Set(stops.map(end => stopLevelId(end) ?? ''))) {
         levelPathways.set(levelId, [...(levelPathways.get(levelId) ?? []), pathway]);
       }
     }
@@ -921,6 +937,15 @@ export class Rapid3LevelTools {
     if (selected.length && selected.every(id => outlineIds.has(id))) {
       this.#context.enter('browse');
     }
+  }
+
+  /**
+   * Highlights features on the map (or stops highlighting them), as Rapid
+   * does when hovering an issue.
+   */
+  highlight(entityIds: string[], highlighted: boolean) {
+    if (!entityIds.length) return;
+    Rapid.utilHighlightEntities?.(this.#context, entityIds, highlighted);
   }
 
   /** Selects a feature in the editor and brings it into view. */

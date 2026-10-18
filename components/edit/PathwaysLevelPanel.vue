@@ -68,6 +68,10 @@
               class="btn btn-link level-station-link"
               :title="`Select ${group.station.name} (stop_id ${group.station.stopId}) to see or edit it`"
               @click="tools.select(String(group.station.id))"
+              @mouseenter="hover([String(group.station.id)])"
+              @mouseleave="hover([])"
+              @focus="hover([String(group.station.id)])"
+              @blur="hover([])"
             >
               {{ group.station.name }}
             </button>
@@ -95,7 +99,7 @@
               :aria-expanded="isExpanded(group, undefined)"
               :aria-label="`${isExpanded(group, undefined) ? 'Hide' : 'Show'} ${group.station.name}'s stops with no level`"
               :title="`${isExpanded(group, undefined) ? 'Hide' : 'Show'} ${group.station.name}'s stops with no level`"
-              :disabled="!stopsIn(group, undefined).length"
+              :disabled="!stopsIn(group, undefined).length && !edgesIn(group, undefined).length"
               @click="toggleExpanded(group, undefined)"
             >
               <app-icon
@@ -126,25 +130,15 @@
               />
             </button>
           </div>
-          <ul
+          <edit-pathways-level-contents
             v-if="group.station && isExpanded(group, undefined)"
-            class="list-group-item level-stops"
-            :aria-label="`${group.station.name}'s stops with no level`"
-          >
-            <li
-              v-for="stop in stopsIn(group, undefined)"
-              :key="stop.id"
-            >
-              <button
-                type="button"
-                class="level-stop"
-                :title="`Select ${stop.label}`"
-                @click="tools.select(stop.id)"
-              >
-                {{ stop.label }}
-              </button>
-            </li>
-          </ul>
+            :nodes="stopsIn(group, undefined)"
+            :edges="edgesIn(group, undefined)"
+            :label="`Contents of ${group.station.name}'s Street / No level`"
+            :scope="`with no level in ${group.station.name}`"
+            @select="(id) => tools.select(id)"
+            @hover="(id) => hover(id ? [id] : [])"
+          />
           <button
             v-if="!group.station"
             type="button"
@@ -209,7 +203,7 @@
                 :aria-expanded="isExpanded(group, level.levelId)"
                 :aria-label="`${isExpanded(group, level.levelId) ? 'Hide' : 'Show'} the stops on ${levelLabel(level)}`"
                 :title="`${isExpanded(group, level.levelId) ? 'Hide' : 'Show'} the stops on ${levelLabel(level)}`"
-                :disabled="!stopsIn(group, level.levelId).length"
+                :disabled="!stopsIn(group, level.levelId).length && !edgesIn(group, level.levelId).length"
                 @click="toggleExpanded(group, level.levelId)"
               >
                 <app-icon
@@ -224,6 +218,10 @@
                 :aria-checked="currentLevelId === level.levelId"
                 :title="currentLevelId === level.levelId ? 'Click again to show everything' : undefined"
                 @click="toggleView({ kind: 'level', levelId: level.levelId })"
+                @mouseenter="hover(level.areaIds.map(String))"
+                @mouseleave="hover([])"
+                @focus="hover(level.areaIds.map(String))"
+                @blur="hover([])"
               >
                 <span class="level-title">{{ levelLabel(level) }}</span>
                 <span class="level-counts">
@@ -233,8 +231,8 @@
                   >{{ stopsIn(group, level.levelId).length }} node{{ stopsIn(group, level.levelId).length !== 1 ? 's' : '' }}</span>
                   <span
                     class="badge text-bg-light"
-                    :title="`${edgesIn(group, level.levelId)} pathways (edges) touching this level`"
-                  >{{ edgesIn(group, level.levelId) }} edge{{ edgesIn(group, level.levelId) !== 1 ? 's' : '' }}</span>
+                    :title="`${edgesIn(group, level.levelId).length} pathways (edges) touching this level`"
+                  >{{ edgesIn(group, level.levelId).length }} edge{{ edgesIn(group, level.levelId).length !== 1 ? 's' : '' }}</span>
                 </span>
               </button>
               <button
@@ -266,25 +264,15 @@
                 />
               </button>
             </div>
-            <ul
+            <edit-pathways-level-contents
               v-if="isExpanded(group, level.levelId)"
-              class="list-group-item level-stops"
-              :aria-label="`Stops on ${levelLabel(level)}`"
-            >
-              <li
-                v-for="stop in stopsIn(group, level.levelId)"
-                :key="stop.id"
-              >
-                <button
-                  type="button"
-                  class="level-stop"
-                  :title="`Select ${stop.label}`"
-                  @click="tools.select(stop.id)"
-                >
-                  {{ stop.label }}
-                </button>
-              </li>
-            </ul>
+              :nodes="stopsIn(group, level.levelId)"
+              :edges="edgesIn(group, level.levelId)"
+              :label="`Contents of ${levelLabel(level)}`"
+              :scope="`on ${levelLabel(level)}`"
+              @select="(id) => tools.select(id)"
+              @hover="(id) => hover(id ? [id] : [])"
+            />
           </template>
         </div>
       </div>
@@ -299,17 +287,18 @@
 </template>
 
 <script setup lang="ts">
-import type { LevelStop, Rapid3LevelTools } from '~/services/rapid3-levels';
+import type { LevelPathway, LevelStop, Rapid3LevelTools } from '~/services/rapid3-levels';
 import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-levels';
 
 // @test unit: every level row has "Refit", which reshapes its outline into a box around its stops; disabled (saying why) without one outline and some stops
 // @test unit: each level shows its name, node count and edge (pathway) count; "Outline all" by the heading boxes every level that has no outline (level problems are Rapid issues, see services/rapid3-validation.ts)
 // @test unit: an outline much bigger than its stops need has its level's "Refit" highlighted
-// @test unit: each level (and "Street / No level") expands to list its stops in that station; clicking one selects it
+// @test unit: each level (and "Street / No level") expands to list its nodes and edges in that station, under their own categories; clicking one selects it
 // @test unit: lists levels lowest first, and selecting one shows only that level and selects its outline; selecting it again shows everything
 // @test unit: "No station" (at the top, over the levels no station uses) shows only features not tied to a station; it's hidden when there's nothing outside a station
 // @test unit: only stations with features in the map view are listed, even the one being viewed
 // @test unit: clicking a station's name selects the station in the editor
+// @test unit: pointing at a station's name, a level or a listed node or edge highlights it on the map
 // @test unit: each station starts with "Street / No level", which shows that station's features that have no level
 // @test unit: the station heading and "Street / No level" each have a zoom button (the whole station, or its features with no level)
 // @test unit: with more than one station, levels are grouped under the stations whose stops use them
@@ -500,14 +489,26 @@ function stopsIn(group: StationLevelGroup, levelId: string | undefined): LevelSt
 }
 
 /**
- * How many pathways (edges) touch a level in a group: those with an end on the
- * level in that station, or for "No station", with no end in any station.
+ * The pathways (edges) touching a level (or, for undefined, a stop with no
+ * level) in a group: those with an end in that station, or for "No station",
+ * with no end in any station.
  */
-function edgesIn(group: StationLevelGroup, levelId: string): number {
-  const pathways = props.tools.levelPathways.value.get(levelId) ?? [];
+function edgesIn(group: StationLevelGroup, levelId: string | undefined): LevelPathway[] {
+  const pathways = props.tools.levelPathways.value.get(levelId ?? '') ?? [];
   const stationId = group.station?.stopId;
-  return pathways.filter(pathway => (stationId ? pathway.stationIds.includes(stationId) : !pathway.stationIds.length)).length;
+  return pathways.filter(pathway => (stationId ? pathway.stationIds.includes(stationId) : !pathway.stationIds.length));
 }
+
+// Features highlighted on the map while their row is pointed at or focused.
+// Cleared before highlighting others, and when the panel goes away (a row
+// removed while hovered never gets its mouseleave).
+let highlighted: string[] = [];
+function hover(ids: string[]) {
+  props.tools.highlight(highlighted, false);
+  highlighted = ids;
+  props.tools.highlight(highlighted, true);
+}
+onBeforeUnmount(() => hover([]));
 
 // Levels (and "Street / No level" rows) whose stops are listed, by group and level.
 const expanded = ref(new Set<string>());
@@ -518,6 +519,7 @@ function isExpanded(group: StationLevelGroup, levelId: string | undefined): bool
 }
 
 function toggleExpanded(group: StationLevelGroup, levelId: string | undefined) {
+  hover([]); // a hovered item may be about to disappear
   const next = new Set(expanded.value);
   const key = expandKey(group, levelId);
   if (!next.delete(key)) next.add(key);
@@ -655,7 +657,7 @@ function stopCount(levelId: string): number {
   display: grid;
   grid-template-areas: "handle expand main refit zoom";
   grid-template-columns: 1.5rem auto minmax(0, 1fr) auto auto;
-  align-items: center;
+  align-items: start; // the buttons line up with the level's name, above its pills
   column-gap: 0.25rem;
   padding: 0.375rem 0.25rem;
 }
@@ -723,32 +725,6 @@ function stopCount(levelId: string): number {
 
 .level-expand:disabled {
   opacity: 0.3;
-}
-
-// A level's stops, listed under it.
-.level-stops {
-  margin: 0;
-  padding: 0.125rem 0 0.25rem 2.75rem;
-  list-style: none;
-  font-size: 0.8rem;
-}
-
-.level-stop {
-  display: block;
-  width: 100%;
-  padding: 0.0625rem 0;
-  overflow: hidden;
-  border: 0;
-  background: none;
-  color: inherit;
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.level-stop:hover {
-  color: var(--bs-link-hover-color);
-  text-decoration: underline;
 }
 
 .level-refit {

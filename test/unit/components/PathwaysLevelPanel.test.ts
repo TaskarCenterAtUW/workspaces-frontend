@@ -51,6 +51,7 @@ function stubTools(currentLevelId?: string) {
     drawLevel: vi.fn(),
     fillLevelId: vi.fn(),
     select: vi.fn(),
+    highlight: vi.fn(),
     assignLevel: vi.fn(),
     reorderLevels: vi.fn(),
     outlineLevels: vi.fn(),
@@ -407,8 +408,8 @@ describe('PathwaysLevelPanel', () => {
       expect(tools.showView).not.toHaveBeenCalled(); // zooming doesn't change the view
     });
 
-    // @test unit: each level (and "Street / No level") expands to list its stops in that station; clicking one selects it
-    it('lists a level\'s stops in that station under it, and selects one when clicked', async () => {
+    // @test unit: each level (and "Street / No level") expands to list its nodes and edges in that station, under their own categories; clicking one selects it
+    it('lists a level\'s nodes and edges in that station under it, and selects one when clicked', async () => {
       const { tools, wrapper } = await mountStations();
       tools.stopGroups.value = [
         { level: street, stops: [
@@ -418,33 +419,72 @@ describe('PathwaysLevelPanel', () => {
         { level: concourse, stops: [] },
         { level: undefined, stops: [{ id: 'c9', label: 'Station: Central', levelId: undefined, stationIds: ['CENTRAL'] }] }
       ];
+      tools.levelPathways.value = new Map([
+        ['L0', [
+          { id: 'w1', label: 'Stairs: North ↔ Mezzanine', stationIds: ['CENTRAL'] },
+          { id: 'w2', label: 'Walkway: North ↔ Annex', stationIds: ['CENTRAL', 'ANNEX'] },
+          { id: 'w3', label: 'Walkway: Annex ↔ Annex', stationIds: ['ANNEX'] }
+        ]],
+        ['', [{ id: 'w9', label: 'Walkway: Station ↔ North', stationIds: ['CENTRAL'] }]]
+      ]);
       await nextTick();
       const central = () => wrapper.findAll('[role="group"]').find(g => g.attributes('aria-label') === 'Central')!;
       const row = (levelId: string) => central().findAll('.level-row').find(r => r.find('.level-title').text().includes(levelId))!;
+      const items = (label: string) => central().find(`[aria-label="${label}"]`).findAll('.level-item').map(b => b.text());
 
       // Collapsed at first; counts are this station's nodes and edges.
-      tools.levelPathways.value = new Map([['L0', [
-        { id: 'w1', stationIds: ['CENTRAL'] }, { id: 'w2', stationIds: ['CENTRAL', 'ANNEX'] }, { id: 'w3', stationIds: ['ANNEX'] }
-      ]]]);
-      await nextTick();
-      expect(central().find('.level-stops').exists()).toBe(false);
+      expect(central().find('.level-contents').exists()).toBe(false);
       expect(row('L0').findAll('.badge').map(badge => badge.text())).toEqual(['1 node', '2 edges']);
       expect(row('L1').findAll('.badge').map(badge => badge.text())).toEqual(['0 nodes', '0 edges']);
       expect(row('L1').find('.level-expand').attributes('disabled')).toBeDefined(); // nothing to list
 
       await row('L0').find('.level-expand').trigger('click');
       expect(row('L0').find('.level-expand').attributes('aria-expanded')).toBe('true');
-      const listed = central().find('[aria-label="Stops on Street (L0)"]');
-      expect(listed.findAll('.level-stop').map(b => b.text())).toEqual(['Entrance: Central North']); // not Annex's
-      await listed.find('.level-stop').trigger('click');
+      const contents = central().find('[aria-label="Contents of Street (L0)"]');
+      expect(contents.findAll('.level-category-toggle').map(b => b.text())).toEqual(['Nodes (1)', 'Edges (2)']);
+      expect(items('Nodes on Street (L0)')).toEqual(['Entrance: Central North']); // not Annex's
+      expect(items('Edges on Street (L0)')).toEqual(['Stairs: North ↔ Mezzanine', 'Walkway: North ↔ Annex']);
+      await contents.find('.level-item').trigger('click');
       expect(tools.select).toHaveBeenCalledWith('c1');
+      expect(tools.select.mock.contexts.at(-1)).toBe(tools); // called on the tools, not detached
 
-      // "Street / No level" lists the station's stops with no level.
+      // "Street / No level" lists the station's nodes and edges with no level.
       await central().find('.level-view-row .level-expand').trigger('click');
-      expect(central().find('[aria-label="Central\'s stops with no level"]').text()).toBe('Station: Central');
+      expect(items('Nodes with no level in Central')).toEqual(['Station: Central']);
+      expect(items('Edges with no level in Central')).toEqual(['Walkway: Station ↔ North']);
 
       await row('L0').find('.level-expand').trigger('click');
-      expect(central().find('[aria-label="Stops on Street (L0)"]').exists()).toBe(false);
+      expect(central().find('[aria-label="Contents of Street (L0)"]').exists()).toBe(false);
+    });
+
+    // @test unit: pointing at a station's name, a level or a listed node or edge highlights it on the map
+    it('highlights a station, a level\'s outline, or a listed item on the map while pointed at', async () => {
+      const { tools, wrapper } = await mountStations();
+      tools.stopGroups.value = [{ level: street, stops: [{ id: 'c1', label: 'Entrance: North', levelId: 'L0', stationIds: ['CENTRAL'] }] }];
+      await nextTick();
+      const central = () => wrapper.findAll('[role="group"]').find(g => g.attributes('aria-label') === 'Central')!;
+      const calls = () => tools.highlight.mock.calls.filter(([ids]) => ids.length).map(([ids, on]) => [ids, on]);
+
+      await central().find('.level-station-link').trigger('mouseenter');
+      expect(calls().at(-1)).toEqual([['s1'], true]);
+      await central().find('.level-station-link').trigger('mouseleave');
+      expect(calls().at(-1)).toEqual([['s1'], false]);
+
+      const streetRow = central().findAll('.level-row').find(r => r.find('.level-title').text().includes('L0'))!;
+      await streetRow.find('.level-row-main').trigger('focus');
+      expect(calls().at(-1)).toEqual([['a0'], true]); // its outline
+
+      // A listed node, unhighlighted when its level collapses under the pointer.
+      await streetRow.find('.level-expand').trigger('click');
+      await central().find('.level-item').trigger('mouseenter');
+      expect(calls().at(-1)).toEqual([['c1'], true]);
+      await streetRow.find('.level-expand').trigger('click');
+      expect(calls().at(-1)).toEqual([['c1'], false]);
+
+      // And whatever's highlighted is cleared when the panel goes away.
+      await central().find('.level-station-link').trigger('mouseenter');
+      wrapper.unmount();
+      expect(calls().at(-1)).toEqual([['s1'], false]);
     });
 
     // @test unit: clicking a station's name selects the station in the editor

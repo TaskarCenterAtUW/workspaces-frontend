@@ -492,6 +492,16 @@ describe('Rapid3LevelTools', () => {
     });
   });
 
+  it('labels pathways by type and end stops, "→" for one-way, and groups ends with no level under ""', () => {
+    const tools = new Rapid3LevelTools(fakeContext([
+      node('a', { location_type: '2', stop_name: 'Main' }),
+      node('b', { location_type: '3', stop_id: 'NODE_1', level_id: 'L1' }),
+      way('p1', ['a', 'b'], { pathway_mode: '7', is_bidirectional: '0' })
+    ]));
+    expect(tools.levelPathways.value.get('')!.map(pathway => pathway.label)).toEqual(['Exit Gate: Main → NODE_1']);
+    expect(tools.levelPathways.value.get('L1')!.map(pathway => pathway.id)).toEqual(['p1']);
+  });
+
   it('counts the pathways touching each level, with their stations', () => {
     const tools = new Rapid3LevelTools(fakeContext([
       node('s1', { location_type: '1', stop_id: 'CENTRAL' }),
@@ -506,6 +516,8 @@ describe('Rapid3LevelTools', () => {
     const counted = Object.fromEntries([...tools.levelPathways.value].map(([levelId, pathways]) =>
       [levelId, pathways.map(pathway => `${pathway.id}:${pathway.stationIds.join(',')}`)]));
     expect(counted).toEqual({ L0: ['p1:CENTRAL'], L1: ['p1:CENTRAL', 'p2:CENTRAL', 'p3:'] });
+    // Labeled by type and end stops; one-way pathways get "→".
+    expect(tools.levelPathways.value.get('L1')!.map(pathway => pathway.label)).toEqual(['Stairs: a ↔ b', 'Walkway: b ↔ c', 'Walkway: c ↔ bend']);
   });
 
   it('makes no edit when the order is unchanged', () => {
@@ -698,6 +710,17 @@ describe('Rapid3LevelTools', () => {
       tools.showView({ kind: 'stationNoLevel', stationId: 'CENTRAL' });
       expect(group.children).toEqual([]);
     });
+  });
+
+  it('highlights features through Rapid\'s utilHighlightEntities', () => {
+    const context = fakeContext(station());
+    const tools = new Rapid3LevelTools(context);
+    const highlight = vi.fn();
+    (globalThis as any).Rapid.utilHighlightEntities = highlight;
+
+    tools.highlight(['n1', 'w1'], true);
+    tools.highlight([], false); // nothing to do
+    expect(highlight.mock.calls).toEqual([[context, ['n1', 'w1'], true]]);
   });
 
   it('zooms to a station, or to its features with no level', () => {
