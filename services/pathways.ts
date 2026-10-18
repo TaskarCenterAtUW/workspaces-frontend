@@ -10,7 +10,7 @@ import { pathwayIdGenerator, stopIdGenerator } from '~/services/gtfs-ids';
 import { isLevelArea, isPathway, stopNodes } from '~/services/pathways-levels';
 import { createEmptyGtfsDataset, createGtfsArchive } from '~/util/gtfs';
 import * as xml from '~/util/xml';
-import type { TdeiAuthStore } from '~/services/tdei';
+import type { TdeiAuthStore, TdeiClient } from '~/services/tdei';
 
 const CHANGESET_FILE = 'changeset';
 
@@ -226,10 +226,33 @@ async function buildLevelsCsv(levelAreas: any[], originalCsv?: string): Promise<
     ...untagged.map(area => [generatedIds.get(area.id)!, area] as [string, any])
   ];
   for (const [levelId, area] of drawn) {
-    rows.set(levelId, { ...area.tags, level_id: levelId });
+    // An outline without a level_name keeps the original's.
+    const originalName = String(rows.get(levelId)?.level_name ?? '').trim();
+    const name = String(area.tags.level_name ?? '').trim() || originalName;
+    rows.set(levelId, { ...area.tags, level_id: levelId, level_name: name });
   }
 
   return rows.size ? toCsv(LEVELS_COLUMNS, [...rows.values()]) : undefined;
+}
+
+/**
+ * The TDEI dataset a pathways workspace was made from, if it still exists:
+ * its ID, and all of its GTFS files as text (not just stops, pathways and
+ * levels, so an export keeps agency.txt, routes.txt, stop_times.txt, ...).
+ * Both exports (Download and Export to TDEI) build on it, so they match.
+ */
+export async function fetchDerivedPathwaysDataset(
+  tdeiClient: TdeiClient,
+  tdeiRecordId: string | undefined
+): Promise<{ datasetId?: string; files?: Map<string, string> }> {
+  if (!tdeiRecordId || typeof await tdeiClient.getDatasetInfo(tdeiRecordId) !== 'object') {
+    return {};
+  }
+
+  const zip = await tdeiClient.downloadPathwaysDataset(tdeiRecordId);
+  const { dataset } = await tdeiClient.openDatasetArchive(zip);
+  const files = dataset ? await openTdeiPathwaysArchive(dataset, false, false) as Map<string, string> : undefined;
+  return { datasetId: tdeiRecordId, files };
 }
 
 export async function buildPathwaysCsvArchive(elements: any[], gtfsFiles?: Map<string, string>): Promise<Blob> {

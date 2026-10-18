@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { buildPathwaysCsvArchive, openTdeiPathwaysArchive } from '~/services/pathways';
+import { describe, expect, it, vi } from 'vitest';
+import { TdeiExporter, TdeiExporterContext } from '~/services/export/tdei';
+import { buildPathwaysCsvArchive, fetchDerivedPathwaysDataset, openTdeiPathwaysArchive } from '~/services/pathways';
+import { WorkspacesClient } from '~/services/workspaces';
+import { createGtfsArchive } from '~/util/gtfs';
 
 // buildPathwaysCsvArchive turns workspace OSM elements back into GTFS
 // stops.txt/pathways.txt. Imported features carry their GTFS IDs as tags and
@@ -263,5 +266,77 @@ describe('buildPathwaysCsvArchive levels', () => {
     const { levels } = await exportFeed([node(1, { stop_id: 'A' })]);
 
     expect(levels).toBeUndefined();
+  });
+});
+
+describe('both exports build on the original dataset', () => {
+  // An original TDEI dataset: a GTFS zip with levels and the rest of a feed.
+  async function originalDatasetZip() {
+    return await createGtfsArchive(new Map([
+      ['agency.txt', 'agency_id,agency_name,agency_url,agency_timezone\nWMATA,Metro,https://wmata.com,America/New_York\n'],
+      ['stop_times.txt', 'trip_id,stop_id,stop_sequence\nT1,PF_N06_1,1\n'],
+      ['stops.txt', 'stop_id,stop_name\nOLD,Old\n'],
+      ['levels.txt', 'level_id,level_index,level_name\nN06_L1,1,Mezzanine\nN06_L2,0,Platform\n']
+    ]));
+  }
+
+  function fakeTdeiClient(exists = true) {
+    return {
+      getDatasetInfo: vi.fn(async () => (exists ? { tdei_dataset_id: 'D1' } : undefined)),
+      downloadPathwaysDataset: vi.fn(async () => originalDatasetZip()),
+      openDatasetArchive: vi.fn(async (zip: Blob) => ({ dataset: zip })),
+      uploadPathwaysDataset: vi.fn(async () => 'job-1')
+    };
+  }
+
+  // The workspace redraws N06_L1 and adds a stop; N06_L2 has no outline here.
+  const elements = [
+    node(1, { location_type: '0', stop_id: 'PF_N06_1', level_id: 'N06_L1' }),
+    { type: 'way', id: 5, nodes: [11, 12, 13, 11], tags: { level_id: 'N06_L1', level_index: '2', level_name: 'Upper' } }
+  ];
+  const workspace = { id: 7, type: 'pathways', tdeiRecordId: 'D1', tdeiServiceId: 'S1', tdeiProjectGroupId: 'PG' } as any;
+  const osmClient = { getWorkspaceData: vi.fn(async () => elements) } as any;
+  const read = async (archive: Blob) => Object.fromEntries(await openTdeiPathwaysArchive(archive, false, false));
+
+  it('fetches the original dataset\'s files, if it still exists', async () => {
+    expect(await fetchDerivedPathwaysDataset(fakeTdeiClient() as any, undefined)).toEqual({});
+    expect(await fetchDerivedPathwaysDataset(fakeTdeiClient(false) as any, 'D1')).toEqual({});
+
+    const { datasetId, files } = await fetchDerivedPathwaysDataset(fakeTdeiClient() as any, 'D1');
+    expect(datasetId).toBe('D1');
+    expect([...files!.keys()].sort()).toEqual(['agency.txt', 'levels.txt', 'stop_times.txt', 'stops.txt']);
+  });
+
+  it('keeps the original\'s other files and levels in a Download', async () => {
+    const download = await read(await new WorkspacesClient('http://api.test/', 'http://api.test/', fakeTdeiClient() as any, osmClient)
+      .exportWorkspaceArchive(workspace));
+
+    expect(download['agency.txt']).toContain('WMATA,Metro');
+    expect(download['stop_times.txt']).toContain('T1,PF_N06_1,1');
+    expect(download['levels.txt']).toContain('N06_L1,2,Upper'); // redrawn
+    expect(download['levels.txt']).toContain('N06_L2,0,Platform'); // kept, though it has no outline
+    expect(download['stops.txt']).not.toContain('OLD'); // stops come from the workspace
+  });
+
+  it('builds the same files for a Download as for Export to TDEI', async () => {
+    const tdeiClient = fakeTdeiClient();
+    await new TdeiExporter(tdeiClient as any, osmClient, new TdeiExporterContext())._exportPathwaysToTdei(workspace, {}, undefined);
+    const uploaded = await read((tdeiClient.uploadPathwaysDataset.mock.calls[0] as unknown[])[3] as Blob);
+    expect((tdeiClient.uploadPathwaysDataset.mock.calls[0] as unknown[])[0]).toBe('D1'); // derived from it
+
+    const download = await read(await new WorkspacesClient('http://api.test/', 'http://api.test/', fakeTdeiClient() as any, osmClient)
+      .exportWorkspaceArchive(workspace));
+    expect(download).toEqual(uploaded);
+  });
+});
+
+describe('original level names', () => {
+  it('keeps the original level_name when an outline has none', async () => {
+    const original = 'level_id,level_index,level_name\nN12_L0,0,Street\n';
+    const { levels } = await exportFeed(
+      [{ type: 'way', id: 5, nodes: [11, 12, 13, 11], tags: { level_id: 'N12_L0', level_index: '0' } }],
+      new Map([['levels.txt', original]])
+    );
+    expect(levels).toEqual([{ level_id: 'N12_L0', level_index: '0', level_name: 'Street' }]);
   });
 });

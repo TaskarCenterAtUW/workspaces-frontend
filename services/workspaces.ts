@@ -5,7 +5,7 @@ import {
   type FetchConfig,
   type HttpBody,
 } from '~/services/http';
-import { buildPathwaysCsvArchive } from '~/services/pathways';
+import { buildPathwaysCsvArchive, fetchDerivedPathwaysDataset } from '~/services/pathways';
 import { compareStringAsc } from '~/util/compare';
 
 import type { ICancelableClient } from '~/services/loading';
@@ -231,8 +231,11 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
 
   async exportWorkspaceArchive(workspace: Workspace): Promise<Blob> {
     if (workspace.type === 'pathways') {
+      // Built exactly as Export to TDEI builds it: on top of the dataset the
+      // workspace came from (its levels and other GTFS files), if it still exists.
       const elements = await this.#osmClient.getWorkspaceData(workspace.id);
-      return await buildPathwaysCsvArchive(elements);
+      const { files } = await fetchDerivedPathwaysDataset(this.#tdeiClient, workspace.tdeiRecordId);
+      return await buildPathwaysCsvArchive(elements, files);
     }
 
     const osmXml = await this.#osmClient.exportWorkspaceXml(workspace.id);
