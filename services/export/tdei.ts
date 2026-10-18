@@ -90,6 +90,8 @@ export class TdeiExporter {
     try {
       return await this._run(workspace, metadata, options);
     } catch (e: any) {
+      // The message shown keeps only e.toString(); log the error for its stack.
+      console.error(`TDEI export failed while: ${this._context.status}`, e);
       if (e instanceof TdeiExporterValidationError) {
         this._context.error = e.message;
       } else {

@@ -340,3 +340,35 @@ describe('original level names', () => {
     expect(levels).toEqual([{ level_id: 'N12_L0', level_index: '0', level_name: 'Street' }]);
   });
 });
+
+describe('buildPathwaysCsvArchive with edge cases', () => {
+  const node = (id: number, tags?: Record<string, string>, lat = 38.9, lon = -77.0) => ({ type: 'node', id, lat, lon, ...(tags ? { tags } : {}) });
+  const way = (id: number, nodes: number[], tags?: Record<string, string>) => ({ type: 'way', id, nodes, ...(tags ? { tags } : {}) });
+
+  it('exports edge-case data without crashing', async () => {
+    const elements: any[] = [
+      node(1, { location_type: '1', stop_id: 'STN_N06', stop_name: 'Wiehle' }),
+      node(2, { location_type: '0', stop_id: 'PF_N06_C', parent_station: 'STN_N06', level_id: 'N06_L2' }),
+      node(3, { location_type: '2', stop_id: 'ENT_N06_N', parent_station: 'STN_N06', level_id: 'N06_L1' }),
+      node(4, { location_type: '3', stop_id: 'NODE_N06_MZ', parent_station: 'STN_N06', level_id: 'N06_L1' }),
+      node(5, { location_type: '4', parent_station: 'PF_N06_C', level_id: 'N06_L2' }), // boarding area via platform
+      node(6, { location_type: '4', parent_station: 'NOPE' }), // dangling
+      node(7, { location_type: '0', parent_station: 'STN_MISSING' }), // station not loaded
+      node(8, { location_type: '1' }), // station without stop_id
+      node(9, { location_type: '3', parent_station: '' }),
+      node(10), node(11), node(12), node(13), node(14),
+      way(20, [3, 10, 4], { pathway_mode: '1', is_bidirectional: '1', pathway_id: 'N06_1' }),
+      way(21, [4, 2], { pathway_mode: '2', is_bidirectional: '1' }),
+      way(22, [5, 99], { pathway_mode: '1', is_bidirectional: '1' }), // end node missing from the data
+      way(23, [11, 12, 13, 14, 11], { area: 'yes', level_id: 'N06_L1', level_index: '1', level_name: 'Mezz' }),
+      way(24, [11, 12, 13, 14, 11], { level_index: '0' }),
+      way(25, [10]) // one node
+    ];
+    const original = new Map([
+      ['levels.txt', 'level_id,level_index,level_name\nN06_L1,1,Mezzanine\nN06_L2,0,Platform\n'],
+      ['agency.txt', 'agency_id,agency_name\nWMATA,Metro\n']
+    ]);
+    await expect(buildPathwaysCsvArchive(elements, original)).resolves.toBeInstanceOf(Blob);
+    await expect(buildPathwaysCsvArchive(elements)).resolves.toBeInstanceOf(Blob);
+  });
+});
