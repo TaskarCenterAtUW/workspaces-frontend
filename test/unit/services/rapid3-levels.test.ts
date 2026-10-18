@@ -520,6 +520,24 @@ describe('Rapid3LevelTools', () => {
     expect(tools.levelPathways.value.get('L1')!.map(pathway => pathway.label)).toEqual(['Stairs: a ↔ b', 'Walkway: b ↔ c', 'Walkway: c ↔ bend']);
   });
 
+  it('renumbers levels 0, 1, 2... in the given order, every outline of each, as one edit', () => {
+    const context = fakeContext([
+      way('a1', ['d1', 'd2', 'd3', 'd1'], { area: 'yes', level_id: 'N12_L1', level_index: '272' }),
+      way('a2', ['d1', 'd2', 'd3', 'd1'], { area: 'yes', level_id: 'N12_L0', level_index: '274' }),
+      way('a3', ['d1', 'd2', 'd3', 'd1'], { area: 'yes', level_id: 'N12_L0', level_index: '274' }), // a second outline
+      way('a4', ['d1', 'd2', 'd3', 'd1'], { area: 'yes', level_id: 'N12_L2', level_index: '2' }) // already right
+    ]);
+    const tools = new Rapid3LevelTools(context);
+
+    tools.renumberLevels(['N12_L0', 'N12_L1', 'N12_L2']);
+
+    const index = (id: string) => context.graph.hasEntity(id)!.tags!.level_index;
+    expect(['a1', 'a2', 'a3', 'a4'].map(index)).toEqual(['1', '0', '0', '2']);
+    expect(context.systems.editor.perform).toHaveBeenCalledTimes(1);
+    expect(context.systems.editor.perform.mock.calls[0]).toHaveLength(3); // a4 unchanged
+    expect(context.systems.editor.commit).toHaveBeenCalledWith({ annotation: 'Renumbered levels', selectedIDs: [] });
+  });
+
   it('makes no edit when the order is unchanged', () => {
     const context = fakeContext(station());
     const tools = new Rapid3LevelTools(context);
@@ -976,6 +994,28 @@ describe('Rapid3LevelTools', () => {
       at(node('r2', { level_id: 'ROOF', stop_name: 'Roof B' }), [-122.299, 47.601]),
       at(node('m1', { level_id: 'MEZ', stop_name: 'Mezzanine' }), [-122.3, 47.6])
     ];
+
+    it('numbers new outlines by station: above that station\'s levels, in the panel\'s order', () => {
+      const context = fakeContext([
+        node('s1', { location_type: '1', stop_id: 'STN_N06' }),
+        node('s2', { location_type: '1', stop_id: 'STN_K01' }),
+        // N06: L1 is drawn (index 0); L2 and L3 have no outline.
+        way('a1', ['d1', 'd2', 'd3', 'd1'], { area: 'yes', level_id: 'N06_L1', level_index: '0' }),
+        at(node('d1'), [0, 0]), at(node('d2'), [0.001, 0]), at(node('d3'), [0.001, 0.001]),
+        at(node('n1', { location_type: '3', parent_station: 'STN_N06', level_id: 'N06_L1' }), [0, 0]),
+        at(node('n3', { location_type: '3', parent_station: 'STN_N06', level_id: 'N06_L3' }), [0, 0]),
+        at(node('n2', { location_type: '3', parent_station: 'STN_N06', level_id: 'N06_L2' }), [0, 0]),
+        // K01 has nothing drawn yet, and a far higher index elsewhere doesn't matter.
+        at(node('k1', { location_type: '3', parent_station: 'STN_K01', level_id: 'K01_L1' }), [1, 1]),
+        way('a9', ['d1', 'd2', 'd3', 'd1'], { area: 'yes', level_id: 'X_L9', level_index: '274' })
+      ]);
+      const tools = new Rapid3LevelTools(context);
+
+      expect(tools.outlineMissingLevels()).toBe(3);
+      const indexOf = (levelId: string) => graphEntities(context.graph)
+        .find(e => e.type === 'way' && e.tags?.level_id === levelId && e.id.startsWith('w-'))!.tags!.level_index;
+      expect([indexOf('N06_L2'), indexOf('N06_L3'), indexOf('K01_L1')]).toEqual(['1', '2', '0']);
+    });
 
     it('boxes a level\'s stops in a new outline, stacked on top, and selects it', () => {
       const context = fakeContext(data());

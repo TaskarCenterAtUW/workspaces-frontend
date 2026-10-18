@@ -12,7 +12,7 @@
           v-if="unoutlinedIds.length"
           type="button"
           class="btn btn-sm btn-outline-primary"
-          :title="`Draw a box around the stops of each level that has no outline yet (${unoutlinedIds.length})`"
+          :title="`Draw a box around the stops of each level that has no outline yet (${unoutlinedIds.length}); each goes above its station's other levels, then drag to put it in order`"
           @click="tools.outlineLevels(unoutlinedIds)"
         >
           Outline all ({{ unoutlinedIds.length }})

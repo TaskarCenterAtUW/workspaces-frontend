@@ -36,6 +36,8 @@ const TIMED_MODES = new Set(['3', '4']);
 /** A tagged length is flagged when it's outside these multiples of the drawn length, and this far off. */
 const LENGTH_RATIO = { min: 0.5, max: 2 };
 const LENGTH_SLACK_METERS = 10;
+/** Pathways joining the same stops the same way are duplicates if their drawn lengths are within this fraction. */
+const DUPLICATE_LENGTH_TOLERANCE = 0.1;
 /** Plausible speeds, in m/s, for a traversal_time over the drawn length. */
 const SPEED_RANGE = { min: 0.1, max: 5 };
 
@@ -91,21 +93,21 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
     .filter(level => level.index !== undefined)
     .map(level => [level.levelId, level.index!]));
   const locOf = (id: string | number) => (byId.get(id) as { loc?: [number, number] } | undefined)?.loc;
-  const pairs = new Map<string, (string | number)[]>();
+  const pairs = new Map<string, { id: string | number; drawn: number | undefined }[]>();
   for (const way of entities.filter(isPathway)) {
     const tags = way.tags ?? {};
     const mode = tags.pathway_mode?.trim() ?? '';
     const [from, to] = [way.nodes![0]!, way.nodes!.at(-1)!];
 
-    // The same two stops joined twice the same way (same type, same direction).
-    const twoWay = tags.is_bidirectional?.trim() !== '0';
-    const key = `${mode}|${twoWay ? [String(from), String(to)].sort().join('|') : `${from}>${to}`}`;
-    pairs.set(key, [...(pairs.get(key) ?? []), way.id]);
-
     const locs = way.nodes!.map(locOf);
     const drawn = locs.every(Boolean)
       ? locs.slice(1).reduce((sum, loc, i) => sum + distanceMeters(locs[i]!, loc!), 0)
       : undefined;
+
+    // The same two stops joined twice the same way (same type, same direction).
+    const twoWay = tags.is_bidirectional?.trim() !== '0';
+    const key = `${mode}|${twoWay ? [String(from), String(to)].sort().join('|') : `${from}>${to}`}`;
+    pairs.set(key, [...(pairs.get(key) ?? []), { id: way.id, drawn }]);
     const length = Number(tags.length);
     if (drawn && FLAT_MODES.has(mode) && tags.length?.trim() && Number.isFinite(length)
       && (length < drawn * LENGTH_RATIO.min || length > drawn * LENGTH_RATIO.max)
@@ -148,10 +150,19 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
       });
     }
   }
-  for (const ids of pairs.values()) {
-    if (ids.length < 2) continue;
-    for (const id of ids) {
-      add(id, { subtype: 'duplicate_pathway', severity: 'warning', message: 'Another pathway of the same type joins the same two stops' });
+  // ...and drawn about as long (so separate routes between them, e.g. around
+  // either side of a mezzanine, aren't flagged). An unmeasurable one matches.
+  const similarLength = (a: number | undefined, b: number | undefined) =>
+    a === undefined || b === undefined || Math.min(a, b) >= Math.max(a, b) * (1 - DUPLICATE_LENGTH_TOLERANCE);
+  for (const group of pairs.values()) {
+    for (const pathway of group) {
+      if (group.some(other => other !== pathway && similarLength(pathway.drawn, other.drawn))) {
+        add(pathway.id, {
+          subtype: 'duplicate_pathway',
+          severity: 'warning',
+          message: 'Another pathway of the same type joins the same two stops along about the same route'
+        });
+      }
     }
   }
 

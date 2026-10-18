@@ -132,6 +132,18 @@ describe('connectivityProblems', () => {
     ], 'duplicate_pathway')).toEqual([['w1', 'duplicate_pathway'], ['w2', 'duplicate_pathway']]);
   });
 
+  it('flags them only when they\'re drawn about the same length', () => {
+    const ends = [at(stop('e', '2'), [0, 0]), at(stop('p', '0'), [0.001, 0])];
+    const routes = [
+      pathway('w1', 'e', 'p', '1'), // straight: ~111 m
+      { id: 'w2', type: 'way', nodes: ['e', 'k1', 'p'], tags: { pathway_mode: '1', is_bidirectional: '1' } }, // ~114 m: a copy
+      { id: 'w3', type: 'way', nodes: ['e', 'k2', 'p'], tags: { pathway_mode: '1', is_bidirectional: '1' } } // ~245 m: another route
+    ];
+    expect(only([
+      station, ...ends, at(node('k1'), [0.0005, 0.0001]), at(node('k2'), [0.0005, 0.001]), ...routes
+    ], 'duplicate_pathway')).toEqual([['w1', 'duplicate_pathway'], ['w2', 'duplicate_pathway']]);
+  });
+
   it('suggests checking a length or traversal_time that doesn\'t fit the drawing', () => {
     // e to p is drawn about 111 m (0.001° of longitude at the equator).
     const ends = [at(stop('e', '2'), [0, 0]), at(stop('p', '0'), [0.001, 0])];

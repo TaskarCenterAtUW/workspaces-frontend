@@ -323,7 +323,7 @@ describe('installLevelsValidator', () => {
 
   function install() {
     const validators = new Map<string, any>();
-    const tools = { assignLevel: vi.fn(), fillLevelId: vi.fn(), refitLevelArea: vi.fn(), outlineLevels: vi.fn() };
+    const tools = { assignLevel: vi.fn(), fillLevelId: vi.fn(), refitLevelArea: vi.fn(), outlineLevels: vi.fn(), renumberLevels: vi.fn() };
     installLevelsValidator({ systems: { validator: { _validators: validators } } }, () => tools as any);
     const graph = { ...fakeGraph(features), hasEntity: (id: string) => features.find(f => f.id === id) };
     const issuesOf = (id: string) => validators.get(LEVELS_VALIDATOR_ID)(features.find(f => f.id === id), graph).issues;
@@ -360,13 +360,45 @@ describe('installLevelsValidator', () => {
     expect(tools.refitLevelArea).toHaveBeenCalledWith('a1');
   });
 
+  it('flags a station whose levels aren\'t numbered 0, 1, 2..., offering to renumber them', () => {
+    const { tools, issuesOf } = install();
+    // Wiehle's only indexed level is N06_L1, at index 1.
+    const issue = issuesOf('s1').find((found: any) => found.subtype === 'station_level_order');
+    expect(issue.message()).toBe('Station Wiehle\'s only level is numbered 1, not 0');
+    const [fix] = issue.dynamicFixes();
+    expect(fix.title).toBe('Renumber its level 0');
+    fix.onClick();
+    expect(tools.renumberLevels).toHaveBeenCalledWith(['N06_L1']);
+  });
+
+  it('offers to refit the level a stop is outside of', () => {
+    const validators = new Map<string, any>();
+    const tools = { refitLevelArea: vi.fn() };
+    installLevelsValidator({ systems: { validator: { _validators: validators } } }, () => tools as any);
+    const shapes: (Entity & { loc?: [number, number] })[] = [
+      { id: 'b1', type: 'way', nodes: ['k1', 'k2', 'k3', 'k4', 'k1'], tags: { level_id: 'L1', level_index: '0' } },
+      { id: 'k1', type: 'node', loc: [0, 0] }, { id: 'k2', type: 'node', loc: [1, 0] },
+      { id: 'k3', type: 'node', loc: [1, 1] }, { id: 'k4', type: 'node', loc: [0, 1] },
+      { id: 'n1', type: 'node', tags: { location_type: '3', level_id: 'L1' }, loc: [5, 5] }
+    ];
+    const graph = { ...fakeGraph(shapes), hasEntity: (id: string) => shapes.find(f => f.id === id) };
+    const issue = validators.get(LEVELS_VALIDATOR_ID)(shapes[5], graph).issues.find((found: any) => found.subtype === 'outside_level');
+    expect(issue.message()).toBe('This generic node is outside level L1\'s outline');
+    const [fix] = issue.dynamicFixes();
+    expect(fix.title).toBe('Refit level L1 to its stops');
+    fix.onClick();
+    expect(tools.refitLevelArea).toHaveBeenCalledWith('b1');
+  });
+
   it('offers no fixes before the level tools exist, and has help for every subtype', () => {
     const validators = new Map<string, any>();
     installLevelsValidator({ systems: { validator: { _validators: validators } } }, () => undefined);
     const graph = { ...fakeGraph(features), hasEntity: (id: string) => features.find(f => f.id === id) };
     const [issue] = validators.get(LEVELS_VALIDATOR_ID)(features[3], graph).issues;
     expect(issue.dynamicFixes()).toEqual([]);
-    expect(Object.keys(LEVELS_HELP).sort()).toEqual(['far_stop', 'large_outline', 'level_area_no_id', 'missing_level']);
+    expect(Object.keys(LEVELS_HELP).sort()).toEqual([
+      'far_stop', 'large_outline', 'level_area_no_id', 'missing_level', 'outside_level', 'station_level_order'
+    ]);
   });
 });
 

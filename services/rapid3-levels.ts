@@ -181,6 +181,32 @@ function byLabel(a: ReferenceChoice, b: ReferenceChoice): number {
   return a.label.localeCompare(b.label, undefined, { numeric: true });
 }
 
+/**
+ * level_indexes for levels being given their first outline, following the
+ * panel's order within each station: levels that already have an index keep
+ * it, and the new ones (listed after them, in level_id order) take the next
+ * numbers above the highest index among the levels of the same station(s), or
+ * from 0 in a station with none yet. A level in no station counts the other
+ * levels in no station. Dragging levels in the panel then sets the real order.
+ */
+export function stationLevelIndexes(entities: any[], levels: Level[], newLevelIds: string[]): Map<string, number> {
+  const { stationsByLevel } = buildStationIndex(entities);
+  const stationsOf = (levelId: string) => stationsByLevel.get(levelId) ?? new Set<string>();
+  const sharesStation = (a: string, b: string) => {
+    const [sa, sb] = [stationsOf(a), stationsOf(b)];
+    return sa.size || sb.size ? [...sa].some(id => sb.has(id)) : true;
+  };
+
+  const indexes = new Map<string, number>();
+  const known = new Map(levels.filter(level => level.index !== undefined).map(level => [level.levelId, level.index!]));
+  const order = levelsLowestFirst(levels).map(level => level.levelId).filter(id => newLevelIds.includes(id));
+  for (const levelId of [...order, ...newLevelIds.filter(id => !order.includes(id))]) {
+    const peers = [...known, ...indexes].filter(([other]) => other !== levelId && sharesStation(levelId, other));
+    indexes.set(levelId, peers.length ? Math.floor(Math.max(...peers.map(([, index]) => index))) + 1 : 0);
+  }
+  return indexes;
+}
+
 /** An outline's corner node IDs, without repeating the first at the end. */
 function outlineRing(area: any): string[] {
   return area.nodes[0] === area.nodes.at(-1) ? area.nodes.slice(0, -1) : [...area.nodes];
@@ -828,15 +854,19 @@ export class Rapid3LevelTools {
     const known = new Map(levels.map(level => [level.levelId, level]));
     const outlined = [...new Set(levelIds)].filter(id => known.has(id) && !known.get(id)!.areaIds.length && byLevel.has(id));
 
-    let index = nextLevelIndex(levels);
+    // Each new outline's level_index follows the panel's order within its
+    // station(s): above the highest level there, in the order the panel lists
+    // levels that have no index yet (see `stationLevelIndexes`).
+    const indexes = stationLevelIndexes(entities, levels, outlined);
     const actions: unknown[] = [];
     const wayIds: string[] = [];
     for (const levelId of outlined) {
+      const tags: Record<string, string> = { area: 'yes', level_id: levelId, level_index: String(indexes.get(levelId)) };
       const corners = levelBoxCorners(byLevel.get(levelId)!)
         .map(loc => new Rapid.OsmNode(this.#context, { loc }));
       const way = new Rapid.OsmWay(this.#context, {
         nodes: [...corners.map(node => node.id), corners[0].id],
-        tags: { area: 'yes', level_id: levelId, level_index: String(index++) }
+        tags
       });
       actions.push(...corners.map(node => Rapid.actionAddEntity(node)), Rapid.actionAddEntity(way));
       wayIds.push(way.id);
@@ -896,12 +926,28 @@ export class Rapid3LevelTools {
    * each level whose index changes is updated, as one undoable edit.
    */
   reorderLevels(levelIdsLowestFirst: string[]) {
-    const byId = new Map(this.levels.value.map(level => [level.levelId, level]));
-    const order = levelIdsLowestFirst
-      .map(id => byId.get(id))
-      .filter((level): level is Level => Boolean(level?.areaIds.length));
-    const indexes = reorderedLevelIndexes(order);
+    const order = this.#outlinedLevels(levelIdsLowestFirst);
+    this.#setLevelIndexes(order, reorderedLevelIndexes(order), 'Reordered levels');
+  }
 
+  /**
+   * Numbers a station's levels 0, 1, 2... in the given order (lowest first, as
+   * the panel lists them), e.g. when they were numbered across the whole feed.
+   * Every outline of each level whose index changes is updated, as one edit.
+   */
+  renumberLevels(levelIdsLowestFirst: string[]) {
+    const order = this.#outlinedLevels(levelIdsLowestFirst);
+    const indexes = new Map(order.map((level, position) => [level.levelId, position]));
+    this.#setLevelIndexes(order, indexes, 'Renumbered levels');
+  }
+
+  /** The given levels that have an outline (where level_index is stored), in order. */
+  #outlinedLevels(levelIds: string[]): Level[] {
+    const byId = new Map(this.levels.value.map(level => [level.levelId, level]));
+    return levelIds.map(id => byId.get(id)).filter((level): level is Level => Boolean(level?.areaIds.length));
+  }
+
+  #setLevelIndexes(order: Level[], indexes: Map<string, number>, annotation: string) {
     const graph = this.#graph();
     const actions = order
       .filter(level => indexes.get(level.levelId) !== level.index)
@@ -914,7 +960,7 @@ export class Rapid3LevelTools {
 
     const editor = this.#context.systems.editor;
     editor.perform(...actions);
-    editor.commit({ annotation: 'Reordered levels', selectedIDs: [] });
+    editor.commit({ annotation, selectedIDs: [] });
     this.refresh(); // show the new order now, not after the batched refresh
   }
 
