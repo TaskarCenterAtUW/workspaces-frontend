@@ -322,12 +322,12 @@ describe('installLevelsValidator', () => {
     at({ id: 'c1', type: 'node' }, [0, 0]), at({ id: 'c2', type: 'node' }, [0.02, 0]), at({ id: 'c3', type: 'node' }, [0.02, 0.001]) // ~2 km
   ];
 
-  function install() {
+  function install(entities = features) {
     const validators = new Map<string, any>();
     const tools = { assignLevel: vi.fn(), fillLevelId: vi.fn(), refitLevelArea: vi.fn(), outlineLevels: vi.fn(), renumberLevels: vi.fn() };
     installLevelsValidator({ systems: { validator: { _validators: validators } } }, () => tools as any);
-    const graph = { ...fakeGraph(features), hasEntity: (id: string) => features.find(f => f.id === id) };
-    const issuesOf = (id: string) => validators.get(LEVELS_VALIDATOR_ID)(features.find(f => f.id === id), graph).issues;
+    const graph = { ...fakeGraph(entities), hasEntity: (id: string) => entities.find(f => f.id === id) };
+    const issuesOf = (id: string) => validators.get(LEVELS_VALIDATOR_ID)(entities.find(f => f.id === id), graph).issues;
     return { tools, issuesOf, validators };
   }
 
@@ -361,11 +361,12 @@ describe('installLevelsValidator', () => {
     expect(tools.refitLevelArea).toHaveBeenCalledWith('a1');
   });
 
-  it('flags a station whose levels aren\'t numbered 0, 1, 2..., offering to renumber them', () => {
-    const { tools, issuesOf } = install();
-    // Wiehle's only indexed level is N06_L1, at index 1.
+  it('flags a station whose levels are numbered far from street level, offering to renumber them', () => {
+    // Wiehle's only indexed level is N06_L1; number it as if counted across the whole feed.
+    const { tools, issuesOf } = install(features.map(feature =>
+      (feature.id === 'a1' ? { ...feature, tags: { ...feature.tags, level_index: '201' } } : feature)));
     const issue = issuesOf('s1').find((found: any) => found.subtype === 'station_level_order');
-    expect(issue.message()).toBe('Station Wiehle\'s only level is numbered 1, not 0');
+    expect(issue.message()).toBe('Station Wiehle\'s only level is numbered 201, far from street level (0)');
     const [fix] = issue.dynamicFixes();
     expect(fix.title).toBe('Renumber its level 0');
     fix.onClick();

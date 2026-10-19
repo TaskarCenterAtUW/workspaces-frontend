@@ -35,8 +35,16 @@ export interface Level {
  */
 const LEVELED_LOCATION_TYPES = new Set(['', '0', '3', '4']);
 
+/**
+ * A level outline: a way with a level_index, or a closed area with a level_id
+ * whose level_index is missing (still a level, not a pathway).
+ */
 export function isLevelArea(entity: LevelEntity): boolean {
-  return entity.type === 'way' && entity.tags?.level_index !== undefined;
+  if (entity.type !== 'way') return false;
+  if (entity.tags?.level_index !== undefined) return true;
+  const nodes = entity.nodes ?? [];
+  return entity.tags?.area === 'yes' && Boolean(entity.tags?.level_id?.trim())
+    && nodes.length >= 4 && nodes[0] === nodes.at(-1);
 }
 
 /** A way that is a GTFS pathway: any way that isn't a level area and has two ends. */
@@ -195,6 +203,23 @@ export function reorderedLevelIndexes(order: Level[]): Map<string, number> {
     indexes.set(level.levelId, anchorIndex + (position - anchor));
   });
   return indexes;
+}
+
+/**
+ * How far from street level (0) a level_index can plausibly be. Indexes farther
+ * than this were counted across the whole feed rather than within a station.
+ */
+export const MAX_LEVEL_DISTANCE = 20;
+
+/**
+ * level_index values that fix a station's numbering, in `order` (lowest first,
+ * as the panel lists them): like `reorderedLevelIndexes`, but indexes farther
+ * than MAX_LEVEL_DISTANCE from 0 are ignored, so a station numbered across
+ * the whole feed starts again from 0.
+ */
+export function renumberedLevelIndexes(order: Level[]): Map<string, number> {
+  const plausible = (level: Level) => level.index !== undefined && Math.abs(level.index) <= MAX_LEVEL_DISTANCE;
+  return reorderedLevelIndexes(order.map(level => (plausible(level) ? level : { ...level, index: undefined })));
 }
 
 /**

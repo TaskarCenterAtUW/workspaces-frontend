@@ -15,6 +15,7 @@ import {
   levelsByStation,
   levelsLowestFirst,
   nextLevelIndex,
+  renumberedLevelIndexes,
   reorderedLevelIndexes,
   stationExtents,
   isPathway,
@@ -703,7 +704,14 @@ export class Rapid3LevelTools {
   #refitActions({ area, corners }: { area: any; corners: [number, number][] }): unknown[] {
     const ring = outlineRing(area);
     const actions: unknown[] = [];
-    if (ring.length === 4 && new Set(ring).size === 4) {
+    // A corner that's also a stop or part of another way must not move with the outline.
+    const graph = this.#graph();
+    const ownCorner = (nodeId: string) => {
+      const node = graph.hasEntity(nodeId);
+      return node && !Object.keys(node.tags ?? {}).length
+        && graph.parentWays(node).every((way: any) => way.id === area.id);
+    };
+    if (ring.length === 4 && new Set(ring).size === 4 && ring.every(ownCorner)) {
       // Walking the ring onto the corners in order keeps it a simple box.
       ring.forEach((nodeId, i) => actions.push(Rapid.actionMoveNode(nodeId, corners[i])));
     } else {
@@ -931,14 +939,14 @@ export class Rapid3LevelTools {
   }
 
   /**
-   * Numbers a station's levels 0, 1, 2... in the given order (lowest first, as
-   * the panel lists them), e.g. when they were numbered across the whole feed.
-   * Every outline of each level whose index changes is updated, as one edit.
+   * Renumbers a station's levels one apart in the given order (lowest first, as
+   * the panel lists them), e.g. when two share a number or they were numbered
+   * across the whole feed — see `renumberedLevelIndexes`. Every outline of each
+   * level whose index changes is updated, as one edit.
    */
   renumberLevels(levelIdsLowestFirst: string[]) {
     const order = this.#outlinedLevels(levelIdsLowestFirst);
-    const indexes = new Map(order.map((level, position) => [level.levelId, position]));
-    this.#setLevelIndexes(order, indexes, 'Renumbered levels');
+    this.#setLevelIndexes(order, renumberedLevelIndexes(order), 'Renumbered levels');
   }
 
   /** The given levels that have an outline (where level_index is stored), in order. */

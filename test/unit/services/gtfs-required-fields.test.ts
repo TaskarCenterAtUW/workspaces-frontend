@@ -34,6 +34,7 @@ describe('requiredFieldProblems', () => {
   it('requires a level_index value on level outlines, but not pathway fields', () => {
     expect(missing(way({ level_index: '', level_id: 'L1' }, ['a', 'b', 'c', 'a']))).toEqual([['level_index', 'This level needs a level_index']]);
     expect(missing(way({ level_index: '0', level_id: 'L1' }, ['a', 'b', 'c', 'a']))).toEqual([]);
+    expect(missing(way({ area: 'yes', level_id: 'L1' }, ['a', 'b', 'c', 'a']))).toEqual([['level_index', 'This level needs a level_index']]);
   });
 
   it('doesn\'t require IDs, which the export generates', () => {

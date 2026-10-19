@@ -326,6 +326,23 @@ describe('Rapid3LevelTools', () => {
       expect(tools.largeLevelAreas.value).toEqual([]); // the warning clears
     });
 
+    it('gives a four-corner outline new corners instead of moving a stop or another way\'s node', () => {
+      const context = fakeContext([
+        ...stops(),
+        outline('a0', ['c1', 'c2', 'c3', 'c4', 'c1'], { area: 'yes', level_id: 'L0', level_index: '0' }),
+        way('w9', ['c2', 'x1']), // c2 is shared with another way
+        at(node('c1', { location_type: '3', level_id: 'L0' }), [0, 0]), // c1 is a stop
+        at(node('c2'), [0.02, 0]), at(node('c3'), [0.02, 0.001]), at(node('c4'), [0, 0.001]), at(node('x1'), [0, 0.01])
+      ]);
+      const tools = new Rapid3LevelTools(context);
+
+      expect(tools.refitLevelArea('a0')).toBe(true);
+      expect(context.graph.hasEntity('a0')!.nodes!.slice(0, 4).every(id => id.startsWith('n-'))).toBe(true);
+      expect(locOf(context, 'c1')).toEqual([0, 0]); // the stop didn't move
+      expect(locOf(context, 'c2')).toEqual([0.02, 0]); // nor did w9
+      expect(context.graph.hasEntity('c3')).toBeUndefined(); // unused corners are deleted
+    });
+
     it('gives a reshaped outline four new corners, deleting old ones nothing else uses', () => {
       const context = fakeContext([
         ...stops(),
@@ -536,6 +553,20 @@ describe('Rapid3LevelTools', () => {
     expect(context.systems.editor.perform).toHaveBeenCalledTimes(1);
     expect(context.systems.editor.perform.mock.calls[0]).toHaveLength(3); // a4 unchanged
     expect(context.systems.editor.commit).toHaveBeenCalledWith({ annotation: 'Renumbered levels', selectedIDs: [] });
+  });
+
+  it('renumbers around street level, keeping below-ground levels negative', () => {
+    const context = fakeContext([
+      way('a1', ['d1', 'd2', 'd3', 'd1'], { area: 'yes', level_id: 'B_L0', level_index: '0' }),
+      way('a2', ['d1', 'd2', 'd3', 'd1'], { area: 'yes', level_id: 'B_L1', level_index: '0' }), // shares 0
+      way('a3', ['d1', 'd2', 'd3', 'd1'], { area: 'yes', level_id: 'B_L2', level_index: '-1' })
+    ]);
+    const tools = new Rapid3LevelTools(context);
+
+    tools.renumberLevels(['B_L2', 'B_L0', 'B_L1']);
+
+    const index = (id: string) => context.graph.hasEntity(id)!.tags!.level_index;
+    expect(['a3', 'a1', 'a2'].map(index)).toEqual(['-1', '0', '1']);
   });
 
   it('makes no edit when the order is unchanged', () => {

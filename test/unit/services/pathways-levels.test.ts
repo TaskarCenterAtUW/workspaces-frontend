@@ -49,6 +49,14 @@ describe('level areas, pathways and stops', () => {
     expect(isPathway(way('w3', ['n1']))).toBe(false);
   });
 
+  it('treats a closed area with a level_id but no level_index as a level area, not a pathway', () => {
+    const outline = way('w1', ['n1', 'n2', 'n3', 'n1'], { area: 'yes', level_id: 'L1' });
+    expect(isLevelArea(outline)).toBe(true);
+    expect(isPathway(outline)).toBe(false);
+    expect(isLevelArea(way('w2', ['n1', 'n2', 'n3', 'n1'], { area: 'yes' }))).toBe(false); // no level_id
+    expect(isLevelArea(way('w3', ['n1', 'n2', 'n3'], { area: 'yes', level_id: 'L1' }))).toBe(false); // not closed
+  });
+
   it('counts pathway ends and tagged nodes as stops, but not untagged geometry', () => {
     const entities = [
       node('n1'), node('n2'), node('n3'), // n2 is a bend

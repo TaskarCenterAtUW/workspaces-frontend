@@ -159,9 +159,10 @@ export const GENERATED_LEVEL_ID_PREFIX = 'ws-l';
  *
  * An element keeps the ID in its `idTag` tag (as imported from GTFS) so that
  * other files in the feed, e.g. stop_times.txt, still resolve. Elements without
- * one (drawn in the editor), or whose tag duplicates an earlier element's (e.g.
+ * one (drawn in the editor), or whose tag duplicates an older element's (e.g.
  * copy-pasted), get the ID `generate` makes for them (unique among `used`),
- * or else `prefix` + their OSM ID.
+ * or else `prefix` + their OSM ID. The oldest element (lowest OSM ID, so the
+ * imported one rather than a later copy) keeps a duplicated ID.
  */
 function assignGtfsIds(
   elements: any[],
@@ -174,7 +175,8 @@ function assignGtfsIds(
   const needsId: any[] = [];
 
   // Tagged IDs first, so a generated ID can never take one an element already has.
-  for (const element of elements) {
+  const oldestFirst = [...elements].sort((a, b) => Number(a.id) - Number(b.id));
+  for (const element of oldestFirst) {
     const tagged = String(element.tags?.[idTag] ?? '').trim();
     if (tagged && !used.has(tagged)) {
       ids.set(element.id, tagged);

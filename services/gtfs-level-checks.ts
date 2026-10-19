@@ -14,6 +14,7 @@ import {
   largeLevelAreas,
   levelAreasMissingId,
   levelsLowestFirst,
+  MAX_LEVEL_DISTANCE,
   stopLevelId,
   unleveledStops
 } from '~/services/pathways-levels';
@@ -72,18 +73,27 @@ export function levelProblems(
     });
   }
 
-  // Each station's levels should be numbered 0, 1, 2... up from street level,
-  // not by a count across the whole feed (or with gaps or repeats).
+  // GTFS numbers levels from street level: 0 at the street, positive above and
+  // negative below (gaps are fine). A station's levels each need their own
+  // number, and numbers far from 0 were counted across the whole feed.
   for (const station of stations.values()) {
     const ordered = levels.filter(level => level.index !== undefined && stationsByLevel.get(level.levelId)?.has(station.stopId));
     if (!ordered.length) continue;
     const indexes = ordered.map(level => level.index!);
-    if (indexes.every((index, i) => index === i)) continue;
+    const repeated = [...new Set(indexes.filter((index, i) => indexes.indexOf(index) !== i))];
+    const farFromStreet = Math.min(...indexes.map(Math.abs)) > MAX_LEVEL_DISTANCE;
+    if (!repeated.length && !farFromStreet) continue;
+    let message: string;
+    if (repeated.length) {
+      message = `Station ${station.name} has more than one level numbered ${repeated.join(' and ')}`;
+    } else if (indexes.length === 1) {
+      message = `Station ${station.name}'s only level is numbered ${indexes[0]}, far from street level (0)`;
+    } else {
+      message = `Station ${station.name}'s levels are numbered ${indexes[0]} to ${indexes.at(-1)}, far from street level (0)`;
+    }
     add(station.id, {
       subtype: 'station_level_order',
-      message: indexes.length === 1
-        ? `Station ${station.name}'s only level is numbered ${indexes[0]}, not 0`
-        : `Station ${station.name}'s levels are numbered ${indexes[0]} to ${indexes.at(-1)}, not 0 to ${indexes.length - 1}`,
+      message,
       hash: 'station_level_order',
       stationLevelIds: ordered.map(level => level.levelId)
     });
@@ -166,13 +176,22 @@ export function levelProblems(
   return problems;
 }
 
-/** Whether a [lon, lat] point is inside a closed ring of [lon, lat] points (ray casting). */
+/** Whether a [lon, lat] point is inside or on the edge of a closed ring of [lon, lat] points (ray casting). */
 export function pointInRing([x, y]: [number, number], ring: [number, number][]): boolean {
   let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
     const [xi, yi] = ring[i]!;
     const [xj, yj] = ring[j]!;
+    if (onSegment([x, y], [xi, yi], [xj, yj])) return true;
     if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
   }
   return inside;
+}
+
+/** Whether point p lies on the segment from a to b. */
+function onSegment([x, y]: [number, number], [ax, ay]: [number, number], [bx, by]: [number, number]): boolean {
+  const cross = (bx - ax) * (y - ay) - (by - ay) * (x - ax);
+  const scale = Math.max(Math.abs(bx - ax), Math.abs(by - ay), 1e-12);
+  if (Math.abs(cross) > 1e-12 * scale) return false;
+  return x >= Math.min(ax, bx) && x <= Math.max(ax, bx) && y >= Math.min(ay, by) && y <= Math.max(ay, by);
 }

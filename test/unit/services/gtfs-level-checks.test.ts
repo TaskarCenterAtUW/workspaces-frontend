@@ -20,23 +20,29 @@ const orderProblems = (entities: LevelEntity[]) => [...levelProblems(entities, (
   .flatMap(([id, problems]) => problems.filter(p => p.subtype === 'station_level_order').map(p => [id, p.message, p.stationLevelIds]));
 
 describe('station level order', () => {
-  it('accepts levels numbered 0, 1, 2... within each station', () => {
+  it('accepts levels numbered from street level, below-ground ones negative, with or without gaps', () => {
     expect(orderProblems([
       ...station('N06', [['N06_L1', '1'], ['N06_L0', '0'], ['N06_L2', '2']]),
-      ...station('K01', [['K01_L0', '0']])
+      ...station('K01', [['K01_L0', '0']]),
+      ...station('C', [['C_L1', '-1'], ['C_L2', '-2']]), // all below ground
+      ...station('A', [['A_L0', '0'], ['A_L3', '-3']]), // a gap
+      ...station('D', [['D_L1', '1']]) // no level at 0
     ])).toEqual([]);
   });
 
   it('flags levels numbered across the whole feed, lowest first', () => {
     expect(orderProblems(station('N12', [['N12_L0', '274'], ['N12_L1', '272'], ['N12_L2', '273']]))).toEqual([
-      ['s-N12', 'Station N12\'s levels are numbered 272 to 274, not 0 to 2', ['N12_L1', 'N12_L2', 'N12_L0']]
+      ['s-N12', 'Station N12\'s levels are numbered 272 to 274, far from street level (0)', ['N12_L1', 'N12_L2', 'N12_L0']]
+    ]);
+    expect(orderProblems(station('K', [['K_L0', '40']]))).toEqual([
+      ['s-K', 'Station K\'s only level is numbered 40, far from street level (0)', ['K_L0']]
     ]);
   });
 
-  it('flags gaps, repeats, and numbering that doesn\'t start at 0', () => {
-    expect(orderProblems(station('A', [['A_L0', '0'], ['A_L2', '2']]))).toHaveLength(1);
-    expect(orderProblems(station('B', [['B_L0', '0'], ['B_L1', '0']]))).toHaveLength(1);
-    expect(orderProblems(station('C', [['C_L1', '-1'], ['C_L0', '0']]))).toHaveLength(1);
+  it('flags levels sharing a number', () => {
+    expect(orderProblems(station('B', [['B_L0', '0'], ['B_L1', '0'], ['B_L2', '-1']]))).toEqual([
+      ['s-B', 'Station B has more than one level numbered 0', ['B_L2', 'B_L0', 'B_L1']]
+    ]);
   });
 
   it('ignores stations with no indexed levels', () => {
@@ -63,6 +69,14 @@ describe('outside the level\'s outline', () => {
     const ring: Loc[] = [[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]];
     expect(pointInRing([1, 1], ring)).toBe(true);
     expect(pointInRing([3, 1], ring)).toBe(false);
+  });
+
+  it('counts a point on a ring\'s edge or corner as inside', () => {
+    const ring: Loc[] = [[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]];
+    expect(pointInRing([2, 1], ring)).toBe(true);
+    expect(pointInRing([1, 0], ring)).toBe(true);
+    expect(pointInRing([0, 2], ring)).toBe(true);
+    expect(pointInRing([2.0001, 1], ring)).toBe(false);
   });
 
   it('flags a stop outside its level\'s outline, offering a refit for a single box', () => {

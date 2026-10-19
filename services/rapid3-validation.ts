@@ -360,7 +360,7 @@ export function installLevelsValidator(context: any, getTools: () => Rapid3Level
       case 'station_level_order':
         return [new Rapid.ValidationFix({
           title: (problem.stationLevelIds?.length ?? 0) > 1
-            ? `Renumber levels 0 to ${problem.stationLevelIds!.length - 1} in the panel's order`
+            ? 'Renumber levels in the panel\'s order'
             : 'Renumber its level 0',
           onClick: () => getTools()?.renumberLevels(problem.stationLevelIds ?? [])
         })];
@@ -402,8 +402,9 @@ export const LEVELS_HELP: Record<string, string> = {
     + 'stretched it, or the level is shared by stations far apart. Refit reshapes it into a box around its stops.',
   far_stop: 'This stop is far from the other stops on its level. Check its location, or whether its level_id '
     + 'should be another level.',
-  station_level_order: 'A station\'s levels should be numbered 0, 1, 2... up from street level. Drag them into '
-    + 'the right order in the Stations panel, then renumber them.',
+  station_level_order: 'GTFS numbers a station\'s levels from street level: 0 at the street, positive above and '
+    + 'negative below, each level with its own number. Drag them into the right order in the Stations panel, then '
+    + 'renumber them.',
   outside_level: 'Everything on a level should be inside its outline. Move it, check its level_id, or reshape the '
     + 'outline (Refit boxes a level\'s stops again).'
 };

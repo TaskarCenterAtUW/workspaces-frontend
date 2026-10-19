@@ -97,6 +97,25 @@ describe('buildPathwaysCsvArchive GTFS IDs', () => {
     expect(pathways.map(endpoints)).toEqual([['PW_1', 'A', 'ws-n2']]);
   });
 
+  it('keeps a duplicated ID on the oldest feature, wherever its copy is listed', async () => {
+    const { stops } = await exportFeed([
+      node(9, { stop_id: 'A' }), // a later copy, listed first
+      node(1, { stop_id: 'A' })
+    ]);
+
+    expect(stops.map(row => row.stop_id)).toEqual(['ws-n9', 'A']); // in listed order; the imported stop keeps A
+  });
+
+  it('exports a level outline missing its level_index as a level, not a pathway', async () => {
+    const { stops, pathways } = await exportFeed([
+      way(20, [5, 6, 7, 5], { area: 'yes', level_id: 'L1' }),
+      node(5), node(6), node(7)
+    ]);
+
+    expect(pathways).toEqual([]);
+    expect(stops).toEqual([]);
+  });
+
   it('keeps a duplicated ID on the first feature and generates IDs for the copies', async () => {
     const { stops, pathways } = await exportFeed([
       node(1, { stop_id: 'A' }),
