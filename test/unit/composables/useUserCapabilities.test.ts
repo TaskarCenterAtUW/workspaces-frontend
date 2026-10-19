@@ -31,5 +31,7 @@ describe('hasCreationRole', () => {
     expect(hasCreationRole(['osw_data_generator'], 'osw')).toBe(true);
     expect(hasCreationRole(['pathways_data_generator'], 'osw')).toBe(false);
     expect(hasCreationRole(['poc'], 'osw')).toBe(true);
+    expect(hasCreationRole(['member', 'poc', 'pathways_data_generator'], 'osw')).toBe(true);
+    expect(hasCreationRole(['POC', 'Member'], 'osw')).toBe(true);
   });
 });

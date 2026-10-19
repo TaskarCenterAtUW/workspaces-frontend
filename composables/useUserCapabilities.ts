@@ -4,13 +4,14 @@ import type { TdeiProjectGroup } from '~/types/tdei';
 
 // hasCreationRole checks if the user has the creation role for a given project group and dataset type
 export function hasCreationRole(roles: string[] = [], type?: string): boolean {
-  if (roles.includes('poc') || roles.includes('tdei-admin')) {
+  const normalized = roles.map(r => r.trim().toLowerCase());
+  if (normalized.includes('poc') || normalized.includes('tdei-admin')) {
     return true;
   }
   if (type) {
-    return roles.includes(`${type}_data_generator`);
+    return normalized.includes(`${type.trim().toLowerCase()}_data_generator`);
   }
-  return roles.some(r => r.endsWith('_data_generator'));
+  return normalized.some(r => r.endsWith('_data_generator'));
 }
 
 export function useUserCapabilities() {

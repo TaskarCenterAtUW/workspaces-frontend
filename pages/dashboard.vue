@@ -28,21 +28,31 @@
         />
         Create Workspace
       </nuxt-link>
-      <button
+      <div
         v-else-if="canCreateAnyWorkspace"
-        type="button"
-        class="btn btn-primary dashboard-create-button disabled"
-        disabled
-        aria-disabled="true"
-        title="You do not have permission to create workspaces in this project group"
+        class="dashboard-create-button-wrapper"
+        tabindex="0"
       >
-        <app-icon
-          variant="add"
-          size="22"
-          no-margin
-        />
-        Create Workspace
-      </button>
+        <button
+          type="button"
+          class="btn btn-primary dashboard-create-button disabled"
+          disabled
+          aria-disabled="true"
+        >
+          <app-icon
+            variant="add"
+            size="22"
+            no-margin
+          />
+          Create Workspace
+        </button>
+        <span
+          class="dashboard-disabled-tooltip"
+          role="tooltip"
+        >
+          You do not have permission to create workspaces in this project group
+        </span>
+      </div>
     </header>
     <section
       v-if="requestedWorkspaceNotFound"
@@ -712,6 +722,50 @@ $dashboard-create-button-radius: 0.375rem;
   border-radius: $dashboard-create-button-radius;
   box-shadow: $control-shadow;
   white-space: nowrap;
+}
+
+.dashboard-create-button-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: not-allowed;
+
+  .dashboard-create-button.disabled {
+    pointer-events: none;
+  }
+
+  .dashboard-disabled-tooltip {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    z-index: $zindex-tooltip;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.75rem;
+    color: $text-tooltip;
+    background: $surface-tooltip;
+    border-radius: $border-radius;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    pointer-events: none;
+    box-shadow: $box-shadow-sm;
+
+    &::after {
+      content: "";
+      position: absolute;
+      bottom: 100%;
+      right: 1.5rem;
+      border: 0.3rem solid transparent;
+      border-bottom-color: $surface-tooltip;
+    }
+  }
+
+  &:hover .dashboard-disabled-tooltip,
+  &:focus-within .dashboard-disabled-tooltip {
+    opacity: 1;
+    visibility: visible;
+  }
 }
 
 .dashboard-empty-state {
