@@ -478,6 +478,14 @@ async function ignore() {
   margin-top: 1.25rem;
 }
 
+/* The dataset being conflated, set off as its own shaded section */
+.conflation-dataset {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  background: var(--bs-tertiary-bg);
+}
+
 .conflation-panel-header {
   display: flex;
   align-items: center;
