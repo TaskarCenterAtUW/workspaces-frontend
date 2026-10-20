@@ -334,7 +334,7 @@ export function createConflationService(deps: ConflationDeps) {
         && !(source.suggestions.byTile.get(key) ?? []).some(s => this._needsReview(source, s))).length;
       const skipped = [...source.suggestions.items.values()].filter(s => this._skipped(source, s)).length;
       const review = source.review;
-      const at = review?.searching ?? (review?.current ? review.tile : 0);
+      const at = review?.searching ?? review?.tile ?? 0;
       const current = source.dataTiles.length ? at + 1 : 0;
       return { tiles: source.dataTiles.length, current, reviewed, skipped };
     }
@@ -453,7 +453,10 @@ export function createConflationService(deps: ConflationDeps) {
         tile += direction;
         current = undefined;
       }
-      // Nothing further that way; stay where we were.
+      // Nothing further that way: every tile that way was searched, so review sits at that end of the
+      // spiral (the tile count reads the last tile, or the first), ready to search back from there.
+      review.tile = direction > 0 ? Math.max(tiles.length - 1, 0) : 0;
+      review.current = undefined;
       review.searching = undefined;
       this.emit('reviewchange');
       return { tile: review.tile + 1, tiles: tiles.length, index: 0, count: 0 };
