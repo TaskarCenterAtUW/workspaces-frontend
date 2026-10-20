@@ -195,7 +195,7 @@
         </div>
 
         <div
-          v-show="!searching"
+          v-if="!searching"
           class="d-flex gap-2 align-items-center"
         >
           <button
