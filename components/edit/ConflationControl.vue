@@ -81,19 +81,6 @@
             Remove
           </button>
         </div>
-        <div class="form-check mt-1">
-          <input
-            id="conflation-show-removed"
-            class="form-check-input"
-            type="checkbox"
-            :checked="dataset.showRemoved"
-            @change="toggleRemoved(($event.target as HTMLInputElement).checked)"
-          >
-          <label
-            class="form-check-label"
-            for="conflation-show-removed"
-          >Show dropped edges (duplicates, in grey)</label>
-        </div>
       </section>
 
       <section
@@ -266,7 +253,6 @@
 // @test unit: adding a dataset ID calls the conflation service with the ID and snapping distance, then shows that dataset in place of the form
 // @test unit: a failed download shows its error and leaves the form usable
 // @test unit: "Go to it" centres the map on the dataset; "Remove" stops conflating it and brings the form back
-// @test unit: "Show dropped edges" shows and hides the TDEI edges the union dropped
 // @test unit: total tiles, tiles reviewed and the progress bar follow the service's review counts as they change
 // @test unit: Next and Previous step through pending suggestions spiralling out from the map centre, restarting with the chosen rotation on "Start from map centre" or a rotation change
 // @test unit: the item under review shows what it would write and how it joins the workspace; Accept accepts it, Ignore ignores it and moves to the next
@@ -280,7 +266,6 @@ const props = defineProps<{
   service: {
     addDatasetAsync(id: string, proximity: number): Promise<{ datasetID: string; nodes: number; edges: number; bounds: Bounds }>;
     removeDataset(datasetID: string): void;
-    showRemoved(datasetID: string, show: boolean): void;
     startReview(datasetID: string, rotation: Rotation): void;
     reviewStepAsync(datasetID: string, direction: 1 | -1, onSearch?: (tile: number, tiles: number) => void): Promise<ReviewPosition>;
     reviewStats(datasetID: string): ReviewStats;
@@ -310,7 +295,6 @@ interface Dataset {
   nodes: number;
   edges: number;
   bounds: Bounds;
-  showRemoved: boolean;
 }
 
 const datasetId = ref('');
@@ -343,7 +327,7 @@ async function add() {
   error.value = '';
   try {
     const added = await props.service.addDatasetAsync(id, proximity.value || 0.5);
-    dataset.value = { ...added, tdeiDatasetId: id, showRemoved: false };
+    dataset.value = { ...added, tdeiDatasetId: id };
     datasetId.value = '';
     started = false;
     refresh();
@@ -360,12 +344,6 @@ function remove() {
   props.service.removeDataset(dataset.value.datasetID);
   dataset.value = null;
   refresh();
-}
-
-function toggleRemoved(show: boolean) {
-  if (!dataset.value) return;
-  props.service.showRemoved(dataset.value.datasetID, show);
-  dataset.value.showRemoved = show;
 }
 
 function zoomTo([w, s, e, n]: Bounds) {
