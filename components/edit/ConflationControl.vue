@@ -113,6 +113,39 @@
           {{ added.tdeiDatasetId }}
         </option>
       </select>
+      <div
+        class="btn-group btn-group-sm w-100 mb-2"
+        role="group"
+        aria-label="Direction to spiral out from the map centre"
+      >
+        <template
+          v-for="option in ROTATIONS"
+          :key="option.value"
+        >
+          <input
+            :id="`conflation-rotation-${option.value}`"
+            v-model="rotation"
+            type="radio"
+            class="btn-check"
+            name="conflation-rotation"
+            :value="option.value"
+            :disabled="reviewing"
+            @change="restart"
+          >
+          <label
+            class="btn btn-outline-secondary"
+            :for="`conflation-rotation-${option.value}`"
+          >{{ option.label }}</label>
+        </template>
+      </div>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary w-100 mb-2"
+        :disabled="reviewing"
+        @click="restart"
+      >
+        Start from map centre
+      </button>
       <div class="d-flex gap-2">
         <button
           type="button"
@@ -131,6 +164,34 @@
           Next
         </button>
       </div>
+      <div
+        v-if="progress"
+        class="mt-2"
+      >
+        <div
+          v-for="bar in progressBars"
+          :key="bar.label"
+          class="conflation-progress"
+        >
+          <div class="d-flex justify-content-between">
+            <span>{{ bar.label }}</span>
+            <span>{{ bar.value }} of {{ bar.max }}</span>
+          </div>
+          <div
+            class="progress"
+            role="progressbar"
+            :aria-label="bar.label"
+            :aria-valuenow="bar.value"
+            aria-valuemin="0"
+            :aria-valuemax="bar.max"
+          >
+            <div
+              class="progress-bar"
+              :style="{ width: `${bar.max ? (100 * bar.value) / bar.max : 0}%` }"
+            />
+          </div>
+        </div>
+      </div>
       <p
         class="conflation-hint mt-2 mb-0"
         role="status"
@@ -147,8 +208,11 @@
 // @test unit: "Go to it" centres the map on the dataset
 // @test unit: "Show dropped edges" shows and hides the TDEI edges the union dropped, for that dataset
 // @test unit: Next and Previous step through the chosen dataset's pending suggestions, showing the tile and position, or that none are left that way
+// @test unit: review starts from the map centre the first time, and again (with the chosen rotation) on "Start from map centre" or a rotation change
+// @test unit: progress bars show the area reached of the areas with TDEI data (moving while searching) and the suggestion reached of those pending in that area
 
 import type { ReviewPosition } from '~/services/conflation/rapid-service';
+import type { Rotation } from '~/services/conflation/review';
 import type { Bounds } from '~/services/conflation/suggestions';
 
 const props = defineProps<{
@@ -157,6 +221,7 @@ const props = defineProps<{
     addDatasetAsync(id: string, proximity: number): Promise<{ datasetID: string; nodes: number; edges: number; bounds: Bounds }>;
     showRemoved(datasetID: string, show: boolean): void;
     reviewStepAsync(datasetID: string, direction: 1 | -1, onSearch?: (tile: number, tiles: number) => void): Promise<ReviewPosition>;
+    startReview(datasetID: string, rotation: Rotation): void;
   };
   /** Rapid's map, to move to an added dataset. */
   map?: { centerZoomEase(loc: [number, number], zoom: number): unknown };
@@ -196,14 +261,42 @@ async function add() {
 
 const reviewDatasetID = ref('');
 const reviewing = ref(false);
-const reviewStatus = ref('Step through the suggestions one at a time; each opens in the sidebar to accept or ignore.');
+const reviewStatus = ref('Step through the suggestions one at a time, spiralling out from the map centre; each opens in the sidebar to accept or ignore.');
+const ROTATIONS: { value: Rotation; label: string }[] = [
+  { value: 'clockwise', label: 'Clockwise' },
+  { value: 'counterclockwise', label: 'Counterclockwise' }
+];
+const rotation = ref<Rotation>('clockwise');
+/** Datasets whose review has started (from the map centre at the time). */
+const started = new Set<string>();
+
+/** Where review is up to: area reached of all areas, and suggestion reached of those pending there. */
+const progress = ref<{ tile: number; tiles: number; index: number; count: number } | null>(null);
+const progressBars = computed(() => (progress.value
+  ? [
+      { label: 'Areas', value: progress.value.tile, max: progress.value.tiles },
+      { label: 'This area', value: progress.value.index, max: progress.value.count }
+    ]
+  : []));
+
+/** Starts review over from the map's current centre, with the chosen rotation. */
+function restart() {
+  if (!reviewDatasetID.value) return;
+  props.service.startReview(reviewDatasetID.value, rotation.value);
+  started.add(reviewDatasetID.value);
+  progress.value = null;
+  reviewStatus.value = `Starting from the map centre, ${rotation.value}. Press Next.`;
+}
 
 async function step(direction: 1 | -1) {
+  if (!started.has(reviewDatasetID.value)) restart();
   reviewing.value = true;
   try {
     const at = await props.service.reviewStepAsync(reviewDatasetID.value, direction, (tile, tiles) => {
       reviewStatus.value = `Looking for suggestions: area ${tile} of ${tiles}…`;
+      progress.value = { tile, tiles, index: 0, count: 0 };
     });
+    progress.value = { tile: at.tile, tiles: at.tiles, index: at.index, count: at.count };
     reviewStatus.value = at.suggestionID
       ? `Suggestion ${at.index} of ${at.count} in area ${at.tile} of ${at.tiles}.`
       : direction > 0 ? 'No more suggestions after this one.' : 'No suggestions before this one.';
@@ -254,5 +347,13 @@ function zoomTo([w, s, e, n]: Bounds) {
 
 .conflation-dataset + .conflation-dataset {
   margin-top: 0.75rem;
+}
+
+.conflation-progress + .conflation-progress {
+  margin-top: 0.5rem;
+}
+
+.conflation-progress .progress {
+  height: 0.5rem;
 }
 </style>

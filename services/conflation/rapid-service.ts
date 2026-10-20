@@ -18,6 +18,8 @@ import { Ds2Data, ds1FromWays, expand, readOswArchive, tileBounds, tilesFor } fr
 import type { WorkspaceWay } from '~/services/conflation/inputs';
 import { isUnionMetadata, tileRemoved, tileSuggestions } from '~/services/conflation/suggestions';
 import type { Bounds, EdgeSuggestion, RemovedPiece, SuggestedEnd, Suggestion, TagSuggestion } from '~/services/conflation/suggestions';
+import { aroundOrder, spiralTiles } from '~/services/conflation/review';
+import type { Rotation } from '~/services/conflation/review';
 import { unionDatasets } from '~/services/conflation/union';
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
@@ -56,11 +58,21 @@ interface Source {
   suggestions: Layer<Suggestion>;
   /** View-only: TDEI edge pieces dropped as duplicates or for lacking endpoints. */
   removed: Layer<RemovedPiece>;
-  /** Tiles with TDEI data, in review order, and where review is up to. */
-  review: { tiles: [number, number][]; tile: number; current?: Suggestion };
+  /** Where review is up to: spiralling out from `centre`, `tiles` in that order. Unset until review starts. */
+  review?: Review;
 }
 
 const removedDatasetID = (datasetID: string) => `${datasetID}-removed`;
+
+interface Review {
+  centre: LonLat;
+  rotation: Rotation;
+  /** Tiles with TDEI data, spiralling out from the centre. */
+  tiles: [number, number][];
+  tile: number;
+  current?: Suggestion;
+  order: (a: Suggestion, b: Suggestion) => number;
+}
 
 /** Where review is up to in a dataset's suggestions. */
 export interface ReviewPosition {
@@ -81,12 +93,6 @@ const TILE_WAIT_MS = 15000;
 function locOf(s: Suggestion): LonLat {
   return s.kind === 'tags' ? s.loc : (s.interior[Math.floor(s.interior.length / 2)] ?? s.u.loc);
 }
-
-/** Reading order: north to south, then west to east. */
-const readingOrder = (a: Suggestion, b: Suggestion) => {
-  const [pa, pb] = [locOf(a), locOf(b)];
-  return pb[1] - pa[1] || pa[0] - pb[0] || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-};
 
 /**
  * Builds the service class. Rapid constructs services itself (with only its
@@ -197,7 +203,6 @@ export function createConflationService(deps: ConflationDeps) {
       this._sources.set(datasetID, {
         datasetID, tdeiDatasetId, proximity, data, tiles: new Set(), dirty: new Set(),
         suggestions: layer(dataset), removed: layer(removed),
-        review: { tiles: data.tilesWithData(TILE_ZOOM), tile: 0 }
       });
       dataset.dictionary = await this.getDataDictionaryAsync(datasetID);
       rapid.catalog.set(datasetID, dataset);
@@ -216,28 +221,47 @@ export function createConflationService(deps: ConflationDeps) {
     }
 
     /**
+     * Starts review over, spiralling out from a point (the centre of the map
+     * view if not given), clockwise or counterclockwise.
+     */
+    startReview(datasetID: string, rotation: Rotation = 'clockwise', centre?: LonLat) {
+      const source = this._sources.get(datasetID);
+      if (!source) throw new Error(`No conflation dataset ${datasetID}`);
+      const from = centre ?? this.context.systems.map.center();
+      source.review = {
+        centre: from,
+        rotation,
+        tiles: spiralTiles(source.data.tilesWithData(TILE_ZOOM), from, TILE_ZOOM, rotation),
+        tile: 0,
+        order: aroundOrder<Suggestion>(from, rotation, locOf, s => s.id)
+      };
+    }
+
+    /**
      * Moves to the next (or previous) pending suggestion and selects it, so
-     * Rapid's sidebar shows it with Accept / Ignore. Walks the tiles with TDEI
-     * data in reading order, moving the map to each and waiting for its
-     * workspace data, skipping tiles with nothing pending.
+     * Rapid's sidebar shows it with Accept / Ignore. Spirals out from where
+     * review started (see `startReview`; the map centre if not started), tile by
+     * tile, moving the map to each and waiting for its workspace data, and
+     * skipping tiles with nothing pending.
      * @param direction - 1 for the next suggestion, -1 for the previous
      * @param onSearch - called with each tile searched (1-based) and the tile count
      */
     async reviewStepAsync(datasetID: string, direction: 1 | -1, onSearch?: (tile: number, tiles: number) => void): Promise<ReviewPosition> {
       const source = this._sources.get(datasetID);
       if (!source) throw new Error(`No conflation dataset ${datasetID}`);
-      const review = source.review;
+      if (!source.review) this.startReview(datasetID);
+      const review = source.review!;
       const tiles = review.tiles;
       let tile = review.tile;
       let current = review.current;
       while (tile >= 0 && tile < tiles.length) {
         onSearch?.(tile + 1, tiles.length);
-        const pending = await this._pendingInTileAsync(source, tiles[tile]!);
+        const pending = await this._pendingInTileAsync(source, tiles[tile]!, review.order);
         let next: Suggestion | undefined;
         if (current) {
           next = direction > 0
-            ? pending.find(s => readingOrder(s, current!) > 0)
-            : [...pending].reverse().find(s => readingOrder(s, current!) < 0);
+            ? pending.find(s => review.order(s, current!) > 0)
+            : [...pending].reverse().find(s => review.order(s, current!) < 0);
         } else {
           next = direction > 0 ? pending[0] : pending.at(-1);
         }
@@ -254,8 +278,8 @@ export function createConflationService(deps: ConflationDeps) {
       return { tile: review.tile + 1, tiles: tiles.length, index: 0, count: 0 };
     }
 
-    /** A tile's pending suggestions in reading order, computing the tile first if needed. */
-    async _pendingInTileAsync(source: Source, xy: [number, number]): Promise<Suggestion[]> {
+    /** A tile's pending suggestions in review order, computing the tile first if needed. */
+    async _pendingInTileAsync(source: Source, xy: [number, number], order: (a: Suggestion, b: Suggestion) => number): Promise<Suggestion[]> {
       const key = xy.join(',');
       if (!source.tiles.has(key) || source.dirty.has(key)) {
         const bounds = tileBounds(xy, TILE_ZOOM);
@@ -271,7 +295,7 @@ export function createConflationService(deps: ConflationDeps) {
       const rapid = this.context.systems.rapid;
       return (source.suggestions.byTile.get(key) ?? [])
         .filter(s => !rapid.isAcceptedOrIgnored(s.id))
-        .sort(readingOrder);
+        .sort(order);
     }
 
     /** Moves the map to a suggestion and selects it. */
