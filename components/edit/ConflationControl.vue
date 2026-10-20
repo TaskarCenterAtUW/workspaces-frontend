@@ -200,10 +200,10 @@
           {{ stats.skipped }} edits skipped so far
         </p>
 
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 align-items-center">
           <button
             type="button"
-            class="btn btn-sm btn-outline-secondary flex-fill"
+            class="btn btn-sm btn-outline-secondary"
             title="Previous suggested edit"
             aria-label="Previous suggested edit"
             :disabled="reviewing"
@@ -214,9 +214,13 @@
               no-margin
             />
           </button>
+          <span
+            class="conflation-position"
+            :title="position ? `Edit ${position.index} of ${position.count} left to review in this tile` : undefined"
+          >{{ position ? `${position.index}/${position.count}` : '–' }}</span>
           <button
             type="button"
-            class="btn btn-sm btn-primary flex-fill"
+            class="btn btn-sm btn-primary"
             title="Next suggested edit"
             aria-label="Next suggested edit"
             :disabled="reviewing"
@@ -251,19 +255,10 @@
               {{ note }}
             </li>
           </ul>
-          <table class="conflation-tags">
-            <tbody>
-              <tr
-                v-for="(value, key) in item.tags"
-                :key="key"
-              >
-                <th scope="row">
-                  {{ key }}
-                </th>
-                <td>{{ value }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <edit-conflation-tag-diff
+            :before="item.before"
+            :after="item.after"
+          />
           <details
             v-if="Object.keys(item.unionTags).length"
             class="mt-2"
@@ -293,7 +288,7 @@
               :disabled="reviewing"
               @click="accept"
             >
-              Accept
+              Accept and next
             </button>
             <button
               type="button"
@@ -301,7 +296,7 @@
               :disabled="reviewing"
               @click="ignore"
             >
-              Ignore
+              Ignore and next
             </button>
           </div>
           <p
@@ -326,7 +321,8 @@
 // @test unit: both skip filters are on by default, and applied when a dataset is added
 // @test unit: the skip options are in a filter dropdown beside the "Review Suggested Edits" heading, which shows how many filters are on
 // @test unit: the next and previous arrows step through pending suggestions, spiralling clockwise out from the map view's centre
-// @test unit: the item under review shows what it would write and how it joins the workspace; Accept accepts it, Ignore ignores it and moves to the next
+// @test unit: the item under review shows a diff of its tags (before and after) and how it joins the workspace; "Accept and next" / "Ignore and next" accept or ignore it, then move to the next
+// @test unit: the edit's position in its tile (e.g. 3/5) shows between the arrows
 
 import type { ReviewItem, ReviewPosition, ReviewStats } from '~/services/conflation/rapid-service';
 import type { Bounds } from '~/services/conflation/suggestions';
@@ -373,6 +369,8 @@ const dataset = ref<Dataset | null>(null);
 const stats = ref<ReviewStats>({ tiles: 0, current: 0, reviewed: 0, skipped: 0 });
 const item = ref<ReviewItem | undefined>();
 const reviewing = ref(false);
+/** The edit under review's place among those left in its tile. */
+const position = ref<{ index: number; count: number } | null>(null);
 // Both filters start on, so review starts with the edits that most need a look.
 const skipConfident = ref(true);
 const threshold = ref(0.9);
@@ -418,6 +416,7 @@ function remove() {
   if (!dataset.value) return;
   props.service.removeDataset(dataset.value.datasetID);
   dataset.value = null;
+  position.value = null;
   refresh();
 }
 
@@ -428,9 +427,12 @@ async function step(direction: 1 | -1) {
     const at = await props.service.reviewStepAsync(dataset.value.datasetID, direction, (tile, tiles) => {
       reviewStatus.value = `Looking for suggested edits: tile ${tile} of ${tiles}…`;
     });
-    reviewStatus.value = at.suggestionID
-      ? `Edit ${at.index} of ${at.count} left in this tile.`
-      : direction > 0 ? 'No more suggested edits after this one.' : 'No suggested edits before this one.';
+    if (at.suggestionID) {
+      position.value = { index: at.index, count: at.count };
+      reviewStatus.value = '';
+    } else {
+      reviewStatus.value = direction > 0 ? 'No more suggested edits after this one.' : 'No suggested edits before this one.';
+    }
   } catch (e) {
     console.error('Conflation review failed', e);
     reviewStatus.value = `Couldn't move to the next suggested edit: ${e instanceof Error ? e.message : String(e)}`;
@@ -440,11 +442,10 @@ async function step(direction: 1 | -1) {
   }
 }
 
-function accept() {
+async function accept() {
   if (!dataset.value) return;
   props.service.acceptCurrent(dataset.value.datasetID);
-  reviewStatus.value = 'Accepted. It\'s selected for editing; use the next arrow to continue.';
-  refresh();
+  await step(1);
 }
 
 async function ignore() {
@@ -569,6 +570,12 @@ async function ignore() {
 .conflation-filter-count {
   margin-left: 0.125rem;
   font-size: 0.65rem;
+}
+
+.conflation-position {
+  flex: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .conflation-tile-progress {

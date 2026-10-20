@@ -110,6 +110,10 @@ export interface ReviewItem {
   kind: 'edge' | 'tags' | 'removed';
   /** Tags it would write (edge, tags), or the dropped edge's tags (removed). */
   tags: Record<string, string>;
+  /** Tags on the feature before (a tag suggestion's workspace node; empty for a new edge), for showing a diff. */
+  before: Record<string, string>;
+  /** Tags on the feature after accepting (a dropped edge: unchanged). */
+  after: Record<string, string>;
   /** Union metadata, shown but never written. */
   unionTags: Record<string, string>;
   /** How an edge joins the workspace, one line per end; or why an edge was dropped. */
@@ -521,11 +525,18 @@ export function createConflationService(deps: ConflationDeps) {
       const rapid = this.context.systems.rapid;
       if (item.kind === 'removed') {
         const { 'ext:union_removed': reason, ...tags } = item.tags;
-        return { id: item.id, kind: 'removed', tags, unionTags: {}, notes: [reason ?? 'Dropped by the union'], actionable: false };
+        return {
+          id: item.id, kind: 'removed', tags, before: tags, after: tags, unionTags: {},
+          notes: [reason ?? 'Dropped by the union'], actionable: false
+        };
       }
       const actionable = !rapid.isAcceptedOrIgnored(item.id);
       if (item.kind === 'tags') {
-        return { id: item.id, kind: 'tags', tags: item.addTags, unionTags: item.unionTags, notes: [`Adds tags to workspace node ${item.nodeId}`], actionable };
+        const before: Record<string, string> = { ...(this.context.systems.editor.staging.graph.hasEntity(item.nodeId)?.tags ?? {}) };
+        return {
+          id: item.id, kind: 'tags', tags: item.addTags, before, after: { ...item.addTags, ...before },
+          unionTags: item.unionTags, notes: [`Adds tags to workspace node ${item.nodeId}`], actionable
+        };
       }
       const describe = (end: SuggestedEnd, which: string) => {
         if (end.kind === 'existing') {
@@ -536,7 +547,7 @@ export function createConflationService(deps: ConflationDeps) {
         return `${which} is a new node${into}`;
       };
       return {
-        id: item.id, kind: 'edge', tags: item.tags, unionTags: {},
+        id: item.id, kind: 'edge', tags: item.tags, before: {}, after: item.tags, unionTags: {},
         notes: [describe(item.u, 'Start'), describe(item.v, 'End')], actionable
       };
     }
