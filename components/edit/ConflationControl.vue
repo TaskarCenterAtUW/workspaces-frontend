@@ -217,7 +217,7 @@
           <span
             class="conflation-position"
             :title="position ? `Edit ${position.index} of ${position.count} left to review in this tile` : undefined"
-          >{{ position ? `${position.index}/${position.count}` : '–' }}</span>
+          >{{ position ? `Edit ${position.index}/${position.count} in this tile` : '–' }}</span>
           <button
             type="button"
             class="btn btn-sm btn-primary"
