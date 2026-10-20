@@ -133,11 +133,24 @@
           :disabled="!skipConfident"
           @input="applySkip"
         >
+        <div class="form-check mb-1">
+          <input
+            id="conflation-skip-osm-id"
+            v-model="skipOsmId"
+            class="form-check-input"
+            type="checkbox"
+            @change="applySkip"
+          >
+          <label
+            class="form-check-label"
+            for="conflation-skip-osm-id"
+          >Skip tag edits that add <code>ext:osm_id</code></label>
+        </div>
         <p
-          v-if="skipConfident"
+          v-if="skipConfident || skipOsmId"
           class="conflation-hint"
         >
-          {{ stats.skipped }} skipped so far, in the tiles computed. They stay on the map. New edges have no confidence score, so they're always reviewed.
+          {{ stats.skipped }} tag edits skipped so far, in the tiles computed. They stay on the map. New edges are always reviewed.
         </p>
 
         <div
@@ -277,6 +290,7 @@
 // @test unit: "Go to it" centres the map on the dataset; "Remove" stops conflating it and brings the form back
 // @test unit: total tiles, tiles reviewed and the progress bar follow the service's review counts as they change
 // @test unit: "Skip tag edits with confidence ≥ X" sets the service's threshold from the slider (or clears it when unchecked) and shows how many were skipped
+// @test unit: "Skip tag edits that add ext:osm_id" turns the service's ext:osm_id filter on and off
 // @test unit: Next and Previous step through pending suggestions spiralling out from the map view's centre, restarting there when the rotation changes
 // @test unit: the item under review shows what it would write and how it joins the workspace; Accept accepts it, Ignore ignores it and moves to the next
 
@@ -293,6 +307,7 @@ const props = defineProps<{
     reviewStepAsync(datasetID: string, direction: 1 | -1, onSearch?: (tile: number, tiles: number) => void): Promise<ReviewPosition>;
     reviewStats(datasetID: string): ReviewStats;
     setSkipConfidence(datasetID: string, threshold: number | undefined): void;
+    setSkipOsmId(datasetID: string, skip: boolean): void;
     currentItem(datasetID: string): ReviewItem | undefined;
     acceptCurrent(datasetID: string): void;
     ignoreCurrent(datasetID: string): void;
@@ -334,10 +349,12 @@ const reviewing = ref(false);
 const rotation = ref<Rotation>('clockwise');
 const skipConfident = ref(false);
 const threshold = ref(0.9);
+const skipOsmId = ref(false);
 
 function applySkip() {
   if (!dataset.value) return;
   props.service.setSkipConfidence(dataset.value.datasetID, skipConfident.value ? threshold.value : undefined);
+  props.service.setSkipOsmId(dataset.value.datasetID, skipOsmId.value);
 }
 const reviewStatus = ref('Press Next to step through the suggested edits, spiralling out from the centre of the map view.');
 

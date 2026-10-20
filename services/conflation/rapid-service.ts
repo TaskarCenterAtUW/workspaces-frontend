@@ -64,6 +64,8 @@ interface Source {
   dataTiles: string[];
   /** Tag suggestions at or above this confidence are skipped in review; unset to review them all. */
   skipConfidence?: number;
+  /** Whether tag suggestions that add `ext:osm_id` are skipped in review. */
+  skipOsmId?: boolean;
 }
 
 const removedDatasetID = (datasetID: string) => `${datasetID}-removed`;
@@ -116,7 +118,7 @@ export interface ReviewStats {
   tiles: number;
   /** Of those, tiles computed with no suggestions left to review. */
   reviewed: number;
-  /** Tag suggestions skipped so far for being at or above the confidence threshold (in computed tiles). */
+  /** Tag suggestions skipped so far by the review filters (in computed tiles). */
   skipped: number;
 }
 
@@ -306,7 +308,7 @@ export function createConflationService(deps: ConflationDeps) {
       if (!source) return { tiles: 0, reviewed: 0, skipped: 0 };
       const reviewed = source.dataTiles.filter(key => source.tiles.has(key)
         && !(source.suggestions.byTile.get(key) ?? []).some(s => this._needsReview(source, s))).length;
-      const skipped = [...source.suggestions.items.values()].filter(s => this._skippedAsConfident(source, s)).length;
+      const skipped = [...source.suggestions.items.values()].filter(s => this._skipped(source, s)).length;
       return { tiles: source.dataTiles.length, reviewed, skipped };
     }
 
@@ -321,15 +323,25 @@ export function createConflationService(deps: ConflationDeps) {
       this.emit('reviewchange');
     }
 
-    /** Whether a pending suggestion is skipped in review for its confidence. */
-    _skippedAsConfident(source: Source, s: Suggestion): boolean {
-      return s.kind === 'tags' && source.skipConfidence !== undefined && s.confidence !== undefined
-        && s.confidence >= source.skipConfidence && !this.context.systems.rapid.isAcceptedOrIgnored(s.id);
+    /** Skips tag suggestions that add `ext:osm_id` in review (they stay on the map). */
+    setSkipOsmId(datasetID: string, skip: boolean) {
+      const source = this._sources.get(datasetID);
+      if (!source) return;
+      source.skipOsmId = skip;
+      this.emit('reviewchange');
     }
 
-    /** Whether a suggestion still needs review: not accepted, ignored, or skipped for its confidence. */
+    /** Whether a pending suggestion is skipped in review by the review filters. */
+    _skipped(source: Source, s: Suggestion): boolean {
+      if (s.kind !== 'tags' || this.context.systems.rapid.isAcceptedOrIgnored(s.id)) return false;
+      const confident = source.skipConfidence !== undefined && s.confidence !== undefined && s.confidence >= source.skipConfidence;
+      const addsOsmId = !!source.skipOsmId && 'ext:osm_id' in s.addTags;
+      return confident || addsOsmId;
+    }
+
+    /** Whether a suggestion still needs review: not accepted, ignored, or skipped by a filter. */
     _needsReview(source: Source, s: Suggestion): boolean {
-      return !this.context.systems.rapid.isAcceptedOrIgnored(s.id) && !this._skippedAsConfident(source, s);
+      return !this.context.systems.rapid.isAcceptedOrIgnored(s.id) && !this._skipped(source, s);
     }
 
     /** Shows or hides the TDEI edges the union dropped, for a dataset added with `addDatasetAsync`. */
