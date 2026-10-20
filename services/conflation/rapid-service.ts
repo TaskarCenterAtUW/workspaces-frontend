@@ -14,7 +14,7 @@
  */
 import { lineLength } from '~/services/conflation/geometry';
 import type { LonLat } from '~/services/conflation/geometry';
-import { boundsOf, Ds2Data, ds1FromWays, expand, readOswArchive, tileBounds, tilesFor } from '~/services/conflation/inputs';
+import { boundsOf, Ds2Data, ds1FromWays, expand, readOswArchive, tileAt, tileBounds, tilesFor } from '~/services/conflation/inputs';
 import type { WorkspaceWay } from '~/services/conflation/inputs';
 import { isUnionMetadata, tileRemoved, tileSuggestions } from '~/services/conflation/suggestions';
 import type { Bounds, EdgeSuggestion, RemovedPiece, SuggestedEnd, Suggestion, TagSuggestion } from '~/services/conflation/suggestions';
@@ -139,6 +139,16 @@ export interface ReviewStats {
 /** How long to wait for a tile's workspace data before giving up on it. */
 const TILE_WAIT_MS = 15000;
 
+/** The locations of a workspace feature: a node's, or a way's nodes' (from the first graph that has them). */
+function locsOf(entity: any, graphs: any[]): LonLat[] {
+  if (entity.type === 'node') return entity.loc ? [entity.loc] : [];
+  if (entity.type !== 'way') return [];
+  return entity.nodes.flatMap((id: string) => {
+    const node = graphs.map(g => g.hasEntity(id)).find(Boolean);
+    return node?.loc ? [node.loc] : [];
+  });
+}
+
 /** Where a suggestion is, for ordering and moving the map to it. */
 function locOf(s: Suggestion): LonLat {
   return s.kind === 'tags' ? s.loc : (s.interior[Math.floor(s.interior.length / 2)] ?? s.u.loc);
@@ -157,7 +167,6 @@ export function createConflationService(deps: ConflationDeps) {
       this.id = CONFLATION_SERVICE_ID;
       this.requiredDependencies = new Set(['editor', 'rapid', 'spatial']);
       this.optionalDependencies = new Set(['gfx']);
-      this._markDirty = this._markDirty.bind(this);
     }
 
     initAsync() {
@@ -168,8 +177,8 @@ export function createConflationService(deps: ConflationDeps) {
     startAsync() {
       if (this._startPromise) return this._startPromise;
       const editor = this.context.systems.editor;
-      editor.on('stablechange', this._markDirty);
-      editor.on('merge', this._markDirty);
+      editor.on('stablechange', (difference: any) => this._edited(difference));
+      editor.on('merge', (ids: Set<string>) => this._loaded(ids));
       this.context.on('modechange', (mode: any) => this._modeChanged(mode));
       this._started = true;
       return this._startPromise = Promise.resolve();
@@ -650,11 +659,51 @@ export function createConflationService(deps: ConflationDeps) {
       return suggestion.kind === 'edge' ? this._acceptEdge(suggestion) : this._acceptTags(suggestion);
     }
 
-    _markDirty() {
-      for (const source of this._sources.values()) {
-        for (const key of source.tiles) source.dirty.add(key);
+    /** After an edit: recompute only the tiles it touched (accepting or ignoring changes what's left to review). */
+    _edited(difference: any) {
+      const editor = this.context.systems.editor;
+      const graphs = [editor.staging.graph, editor.base.graph];
+      const locs: LonLat[] = [];
+      for (const { base, head } of difference?.changes?.values?.() ?? []) {
+        for (const entity of [base, head]) if (entity) locs.push(...locsOf(entity, graphs));
       }
-      this.emit('reviewchange'); // accepting or ignoring changes what's left to review
+      this._markDirtyAt(locs);
+      this.emit('reviewchange');
+    }
+
+    /** After workspace data loads: recompute only the tiles it's in. */
+    _loaded(ids: Set<string>) {
+      const editor = this.context.systems.editor;
+      const graphs = [editor.staging.graph, editor.base.graph];
+      const locs: LonLat[] = [];
+      for (const id of ids ?? []) {
+        const entity = graphs[0].hasEntity(id);
+        if (entity) locs.push(...locsOf(entity, graphs));
+      }
+      if (this._markDirtyAt(locs)) this.emit('reviewchange');
+    }
+
+    /**
+     * Marks computed tiles out of date where features changed: each location's
+     * tile and its neighbours, since a tile's union looks past its edges.
+     * Returns whether any tile was marked.
+     */
+    _markDirtyAt(locs: LonLat[]): boolean {
+      const keys = new Set<string>();
+      for (const loc of locs) {
+        const [x, y] = tileAt(loc, TILE_ZOOM);
+        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) keys.add(`${x + dx},${y + dy}`);
+      }
+      let marked = false;
+      for (const source of this._sources.values()) {
+        for (const key of keys) {
+          if (source.tiles.has(key) && !source.dirty.has(key)) {
+            source.dirty.add(key);
+            marked = true;
+          }
+        }
+      }
+      return marked;
     }
 
     _computeTile(source: Source, key: string, bounds: Bounds) {
@@ -688,10 +737,10 @@ export function createConflationService(deps: ConflationDeps) {
       for (const item of items) layer.items.set(item.id, item);
       layer.byTile.set(key, items);
 
-      const all = [...layer.items.values()].flatMap(item => this._entitiesFor(layer.datasetID, item));
-      layer.graph = new Rapid.Graph(context);
-      layer.graph.rebase(all, [], true);
-      const drawn = [...layer.items.keys()].map(id => layer.graph.entity(id));
+      // Add just this tile's entities to the graph they're drawn from (replacing any with the same ids).
+      // Entities of dropped suggestions stay in the graph, but aren't indexed, so they aren't drawn.
+      layer.graph.rebase(items.flatMap(item => this._entitiesFor(layer.datasetID, item)), [], true);
+      const drawn = items.map(item => layer.graph.entity(item.id));
       if (drawn.length) spatial.replaceData(layer.spatialID, drawn);
     }
 
