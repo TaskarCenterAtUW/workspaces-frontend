@@ -319,6 +319,7 @@
 // @test unit: "Skip tag edits with confidence ≥ X" sets the service's threshold from the slider (or clears it when unchecked) and shows how many were skipped
 // @test unit: "Skip tag edits that add ext:osm_id" turns the service's ext:osm_id filter on and off
 // @test unit: both skip filters are on by default, and applied when a dataset is added
+// @test unit: adding a dataset shows its first edit (from the map view's centre) without pressing next
 // @test unit: the skip options are in a filter dropdown beside the "Review Suggested Edits" heading, which shows how many filters are on
 // @test unit: the next and previous arrows step through pending suggestions, spiralling clockwise out from the map view's centre
 // @test unit: the item under review shows a diff of its tags (before and after) and how it joins the workspace; "Accept and next" / "Ignore and next" accept or ignore it, then move to the next
@@ -405,6 +406,8 @@ async function add() {
     datasetId.value = '';
     applySkip();
     refresh();
+    busy.value = false;
+    await step(1); // show the first edit right away
   } catch (e) {
     console.error('Conflation dataset failed to load', e);
     error.value = `Couldn't load that dataset: ${e instanceof Error ? e.message : String(e)}`;
