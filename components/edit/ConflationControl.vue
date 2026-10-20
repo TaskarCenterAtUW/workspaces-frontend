@@ -200,7 +200,7 @@
             class="btn btn-sm btn-outline-secondary"
             title="Previous suggested edit"
             aria-label="Previous suggested edit"
-            :disabled="reviewing"
+            :disabled="reviewing || ends.back"
             @click="step(-1)"
           >
             <app-icon
@@ -217,7 +217,7 @@
             class="btn btn-sm btn-primary"
             title="Next suggested edit"
             aria-label="Next suggested edit"
-            :disabled="reviewing"
+            :disabled="reviewing || ends.forward"
             @click="step(1)"
           >
             <app-icon
@@ -311,6 +311,7 @@
 // @test unit: the next and previous arrows step through pending suggestions, spiralling clockwise out from the map view's centre
 // @test unit: the item under review shows a diff of its tags (before and after) and how it joins the workspace; "Accept and next" / "Ignore and next" accept or ignore it, then move to the next
 // @test unit: the edit's position in its tile (e.g. 3/5) shows between the arrows
+// @test unit: an arrow is disabled once there are no more edits that way, and re-enabled when the review changes (an edit, tiles computed, a filter)
 // @test unit: the filtered-and-skipped count shows only while searching for the next edit, and the edit card hides while searching or when there's nothing left to accept or ignore
 
 import type { ReviewItem, ReviewPosition, ReviewStats } from '~/services/conflation/rapid-service';
@@ -361,6 +362,8 @@ const item = ref<ReviewItem | undefined>();
 const reviewing = ref(false);
 /** Whether the arrows are searching tiles for the next edit. */
 const searching = ref(false);
+/** Which ways have run out of edits; that arrow is disabled until something changes. */
+const ends = ref({ forward: false, back: false });
 /** The edit under review's place among those left in its tile. */
 const position = ref<{ index: number; count: number } | null>(null);
 // Both filters start on, so review starts with the edits that most need a look.
@@ -382,8 +385,13 @@ function refresh() {
   stats.value = id ? props.service.reviewStats(id) : { tiles: 0, current: 0, reviewed: 0, skipped: 0 };
   item.value = id ? props.service.currentItem(id) : undefined;
 }
-onMounted(() => props.service.on('reviewchange', refresh));
-onBeforeUnmount(() => props.service.off('reviewchange', refresh));
+/** Something changed (an edit, tiles computed, a filter): edits may be back, so re-enable both arrows. */
+function onReviewChange() {
+  if (!reviewing.value) ends.value = { forward: false, back: false };
+  refresh();
+}
+onMounted(() => props.service.on('reviewchange', onReviewChange));
+onBeforeUnmount(() => props.service.off('reviewchange', onReviewChange));
 
 async function add() {
   const id = datasetId.value.trim();
@@ -423,11 +431,13 @@ async function step(direction: 1 | -1) {
       searching.value = true;
     });
     searching.value = false;
+    reviewStatus.value = '';
     if (at.suggestionID) {
       position.value = { index: at.index, count: at.count };
-      reviewStatus.value = '';
+      ends.value = { forward: false, back: false };
     } else {
-      reviewStatus.value = direction > 0 ? 'No more suggested edits after this one.' : 'No suggested edits before this one.';
+      // Nothing further that way: disable that arrow.
+      ends.value = direction > 0 ? { ...ends.value, forward: true } : { ...ends.value, back: true };
       position.value = null;
     }
   } catch (e) {
