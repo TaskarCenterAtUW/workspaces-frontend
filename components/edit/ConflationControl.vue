@@ -63,7 +63,7 @@
       >
         <div class="conflation-dataset-header">
           <h3 class="conflation-dataset-title">
-            TDEI dataset <strong class="text-break">{{ dataset.tdeiDatasetId }}</strong>
+            TDEI dataset
           </h3>
           <button
             type="button"
@@ -72,6 +72,9 @@
             aria-label="Stop conflating this dataset"
             @click="remove"
           />
+        </div>
+        <div class="conflation-dataset-id text-break">
+          {{ dataset.tdeiDatasetId }}
         </div>
         <div class="conflation-dataset-row">
           <button
@@ -86,7 +89,16 @@
               no-margin
             />
           </button>
-          <span class="conflation-hint mb-0">{{ dataset.edges }} edges, {{ dataset.nodes }} nodes</span>
+          <span class="conflation-counts">
+            <span
+              class="badge text-bg-light"
+              :title="`${dataset.nodes} nodes in the TDEI dataset`"
+            >{{ dataset.nodes }} node{{ dataset.nodes !== 1 ? 's' : '' }}</span>
+            <span
+              class="badge text-bg-light"
+              :title="`${dataset.edges} edges in the TDEI dataset`"
+            >{{ dataset.edges }} edge{{ dataset.edges !== 1 ? 's' : '' }}</span>
+          </span>
         </div>
       </section>
 
@@ -446,6 +458,16 @@ async function ignore() {
   margin-bottom: 0;
   font-size: 0.875rem;
   font-weight: normal;
+}
+
+.conflation-dataset-id {
+  font-weight: 600;
+}
+
+/* Like the Pathways panel's node and edge pills */
+.conflation-counts {
+  display: flex;
+  gap: 0.25rem;
 }
 
 .conflation-dataset-row {
