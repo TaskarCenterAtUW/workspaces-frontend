@@ -101,11 +101,18 @@ export interface UnionEdge {
   props: Props;
 }
 
-export type RemovalReason = 'no_endpoint' | 'same_node' | 'node_pair_duplicate' | 'covered_duplicate';
+/**
+ * Why a DS2 edge piece was dropped: no DS2 node near an end, both ends on one
+ * node, the same node pair as a DS1 edge, the same node pair and type as
+ * another DS2 piece, or lying along same-type DS1 edges (buffer coverage).
+ */
+export type RemovalReason = 'no_endpoint' | 'same_node' | 'node_pair_duplicate' | 'ds2_pair_duplicate' | 'covered_duplicate';
 
 export interface RemovedEdge {
   id: string;
   sourceEdgeId: string;
+  /** The DS2 edge's properties. */
+  props: Props;
   coords: LonLat[];
   reason: RemovalReason;
 }
@@ -695,7 +702,7 @@ export function unionDatasets(ds1: UnionDataset, ds2: UnionDataset, options: Uni
         edge: e, fractions: [from.fraction, to.fraction], coords, u: from.nodeId, v: to.nodeId
       });
     });
-    if (!pieces) removed.push({ id: e.id, sourceEdgeId: e.id, coords: e.coords, reason: 'no_endpoint' });
+    if (!pieces) removed.push({ id: e.id, sourceEdgeId: e.id, props: e.props, coords: e.coords, reason: 'no_endpoint' });
   }
 
   // ── Phase 6.1–6.3: nodes ────────────────────────────────────────────────
@@ -838,11 +845,11 @@ export function unionDatasets(ds1: UnionDataset, ds2: UnionDataset, options: Uni
   const pass1: Resolved[] = [];
   for (const r of resolved) {
     if (r.uOut === null || r.vOut === null) {
-      removed.push({ id: r.id, sourceEdgeId: r.edge.id, coords: r.coords, reason: 'no_endpoint' });
+      removed.push({ id: r.id, sourceEdgeId: r.edge.id, props: r.edge.props, coords: r.coords, reason: 'no_endpoint' });
       continue;
     }
     if (r.uOut === r.vOut) {
-      removed.push({ id: r.id, sourceEdgeId: r.edge.id, coords: r.coords, reason: 'same_node' });
+      removed.push({ id: r.id, sourceEdgeId: r.edge.id, props: r.edge.props, coords: r.coords, reason: 'same_node' });
       continue;
     }
     const key = pairKey(r.uOut, r.vOut);
@@ -850,7 +857,7 @@ export function unionDatasets(ds1: UnionDataset, ds2: UnionDataset, options: Uni
     const witnessed = r.edge.filterOk && ds1Pairs.some(p =>
       pairKey(p.a, p.b) === key && (p.type === 'other' || t === 'other' || t === p.type));
     if (witnessed) {
-      removed.push({ id: r.id, sourceEdgeId: r.edge.id, coords: r.coords, reason: 'node_pair_duplicate' });
+      removed.push({ id: r.id, sourceEdgeId: r.edge.id, props: r.edge.props, coords: r.coords, reason: 'node_pair_duplicate' });
       continue;
     }
     pass1.push(r);
@@ -860,7 +867,7 @@ export function unionDatasets(ds1: UnionDataset, ds2: UnionDataset, options: Uni
   for (const r of [...pass1].sort((a, b) => byId(a.id, b.id))) {
     const key = `${pairKey(r.uOut!, r.vOut!)}|${r.edge.type}`;
     if (collapsed.has(key)) {
-      removed.push({ id: r.id, sourceEdgeId: r.edge.id, coords: r.coords, reason: 'node_pair_duplicate' });
+      removed.push({ id: r.id, sourceEdgeId: r.edge.id, props: r.edge.props, coords: r.coords, reason: 'ds2_pair_duplicate' });
       continue;
     }
     collapsed.set(key, r);
@@ -933,7 +940,7 @@ export function unionDatasets(ds1: UnionDataset, ds2: UnionDataset, options: Uni
   for (const o of ds1Out) if (valid(o.coords)) edgesOut.push(o);
   for (const d of ds2Out) {
     if (!keep.has(d.id)) {
-      removed.push({ id: d.id, sourceEdgeId: d.edge.id, coords: d.coords, reason: 'covered_duplicate' });
+      removed.push({ id: d.id, sourceEdgeId: d.edge.id, props: d.edge.props, coords: d.coords, reason: 'covered_duplicate' });
       continue;
     }
     if (!valid(d.coords)) continue;

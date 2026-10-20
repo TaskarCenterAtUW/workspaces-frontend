@@ -16,8 +16,8 @@ import { lineLength } from '~/services/conflation/geometry';
 import type { LonLat } from '~/services/conflation/geometry';
 import { Ds2Data, ds1FromWays, expand, readOswArchive, tileBounds, tilesFor } from '~/services/conflation/inputs';
 import type { WorkspaceWay } from '~/services/conflation/inputs';
-import { isUnionMetadata, tileSuggestions } from '~/services/conflation/suggestions';
-import type { Bounds, EdgeSuggestion, SuggestedEnd, Suggestion, TagSuggestion } from '~/services/conflation/suggestions';
+import { isUnionMetadata, tileRemoved, tileSuggestions } from '~/services/conflation/suggestions';
+import type { Bounds, EdgeSuggestion, RemovedPiece, SuggestedEnd, Suggestion, TagSuggestion } from '~/services/conflation/suggestions';
 import { unionDatasets } from '~/services/conflation/union';
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
@@ -35,18 +35,30 @@ export interface ConflationDeps {
   downloadOswDataset(tdeiDatasetId: string): Promise<Blob>;
 }
 
+/** A Rapid dataset this service draws: its suggestions, or the pieces the union dropped. */
+interface Layer<T extends { id: string }> {
+  datasetID: string;
+  spatialID: string;
+  graph: any;
+  /** Items per computed tile, keyed `x,y`. */
+  byTile: Map<string, T[]>;
+  items: Map<string, T>;
+}
+
 interface Source {
   datasetID: string;
   tdeiDatasetId: string;
   proximity: number;
   data: Ds2Data;
-  spatialID: string;
-  graph: any;
-  /** Suggestions per computed tile, keyed `x,y`. */
-  tiles: Map<string, Suggestion[]>;
+  /** Tiles computed so far, and those out of date since an edit. */
+  tiles: Set<string>;
   dirty: Set<string>;
-  suggestions: Map<string, Suggestion>;
+  suggestions: Layer<Suggestion>;
+  /** View-only: TDEI edge pieces dropped as duplicates or for lacking endpoints. */
+  removed: Layer<RemovedPiece>;
 }
+
+const removedDatasetID = (datasetID: string) => `${datasetID}-removed`;
 
 /**
  * Builds the service class. Rapid constructs services itself (with only its
@@ -82,11 +94,23 @@ export function createConflationService(deps: ConflationDeps) {
       for (const source of this._sources.values()) {
         source.tiles.clear();
         source.dirty.clear();
-        source.suggestions.clear();
-        this.context.systems.spatial.clearCache(source.spatialID);
-        source.graph = new Rapid.Graph(this.context);
+        for (const layer of [source.suggestions, source.removed]) {
+          layer.byTile.clear();
+          layer.items.clear();
+          this.context.systems.spatial.clearCache(layer.spatialID);
+          layer.graph = new Rapid.Graph(this.context);
+        }
       }
       return Promise.resolve();
+    }
+
+    /** The source and layer behind a Rapid dataset id. */
+    _lookup(datasetID: string): { source: Source; layer: Layer<Suggestion> | Layer<RemovedPiece> } | undefined {
+      for (const source of this._sources.values()) {
+        if (source.suggestions.datasetID === datasetID) return { source, layer: source.suggestions };
+        if (source.removed.datasetID === datasetID) return { source, layer: source.removed };
+      }
+      return undefined;
     }
 
     /** Datasets are added at runtime with `addDatasetAsync`, so none at startup. */
@@ -94,8 +118,14 @@ export function createConflationService(deps: ConflationDeps) {
       return [];
     }
 
-    /** Accepted suggestions are written by `acceptFeature`, so the dictionary just copies tags for display. */
-    getDataDictionaryAsync(_datasetID: string) {
+    /**
+     * Accepted suggestions are written by `acceptFeature`, so the dictionary
+     * just copies tags for display. Dropped pieces get none, so Rapid shows
+     * them without Accept / Ignore.
+     */
+    getDataDictionaryAsync(datasetID: string) {
+      const found = this._lookup(datasetID);
+      if (found && found.layer === found.source.removed) return Promise.resolve(null);
       const dictionary = new Rapid.RapidDataDictionary(this.context);
       dictionary.transforms = [{ order: 0, function: 'copy', source: '*', target: '*' }];
       return Promise.resolve(dictionary);
@@ -123,21 +153,42 @@ export function createConflationService(deps: ConflationDeps) {
         label: `TDEI dataset ${tdeiDatasetId}`,
         description: 'Features from a TDEI dataset, conflated into this workspace'
       });
-      dataset.dictionary = await this.getDataDictionaryAsync(datasetID);
-      context.systems.spatial.clearCache(dataset.spatialID);
-      this._sources.set(datasetID, {
-        datasetID, tdeiDatasetId, proximity, data, spatialID: dataset.spatialID,
-        graph: new Rapid.Graph(context), tiles: new Map(), dirty: new Set(), suggestions: new Map()
+      const removed = new Rapid.RapidDataset(context, {
+        id: removedDatasetID(datasetID),
+        serviceID: CONFLATION_SERVICE_ID,
+        categories: ['tdei'],
+        color: '#9e9e9e',
+        dataUsed: ['tdei', tdeiDatasetId],
+        label: `TDEI dataset ${tdeiDatasetId}: dropped`,
+        description: 'TDEI edges the union dropped as duplicates of workspace data, or for lacking endpoints'
       });
+      const layer = (ds: any) => {
+        context.systems.spatial.clearCache(ds.spatialID);
+        return { datasetID: ds.id, spatialID: ds.spatialID, graph: new Rapid.Graph(context), byTile: new Map(), items: new Map() };
+      };
+      this._sources.set(datasetID, {
+        datasetID, tdeiDatasetId, proximity, data, tiles: new Set(), dirty: new Set(),
+        suggestions: layer(dataset), removed: layer(removed)
+      });
+      dataset.dictionary = await this.getDataDictionaryAsync(datasetID);
       rapid.catalog.set(datasetID, dataset);
+      rapid.catalog.set(removed.id, removed);
       rapid.enableDatasets([datasetID]);
+      rapid.addDatasets([removed.id]); // listed in Rapid's menu, off until shown
       context.systems.gfx?.deferredRedraw();
-      return { datasetID, nodes: data.nodeCount, edges: data.edgeCount, bounds: data.bounds };
+      return { datasetID, removedDatasetID: removed.id, nodes: data.nodeCount, edges: data.edgeCount, bounds: data.bounds };
+    }
+
+    /** Shows or hides the TDEI edges the union dropped, for a dataset added with `addDatasetAsync`. */
+    showRemoved(datasetID: string, show: boolean) {
+      const rapid = this.context.systems.rapid;
+      if (show) rapid.enableDatasets([removedDatasetID(datasetID)]);
+      else rapid.disableDatasets([removedDatasetID(datasetID)]);
     }
 
     /** Computes suggestions for tiles in view that are new or out of date. */
     loadTiles(datasetID: string) {
-      const source = this._sources.get(datasetID);
+      const source = this._lookup(datasetID)?.source;
       if (!source) return;
       const context = this.context;
       const osm = context.services.osm;
@@ -157,31 +208,30 @@ export function createConflationService(deps: ConflationDeps) {
     }
 
     getData(datasetID: string) {
-      const source = this._sources.get(datasetID);
-      if (!source) return [];
-      return this.context.systems.spatial.getVisibleItems(source.spatialID).map((hit: any) => hit.contents);
+      const layer = this._lookup(datasetID)?.layer;
+      if (!layer) return [];
+      return this.context.systems.spatial.getVisibleItems(layer.spatialID).map((hit: any) => hit.contents);
     }
 
     graph(datasetID: string) {
-      return this._sources.get(datasetID)?.graph;
+      return this._lookup(datasetID)?.layer.graph;
     }
 
     /** Rapid's hook for accepting one of this service's suggestions. */
     acceptFeature(datasetID: string, entity: any) {
-      const suggestion = this._sources.get(datasetID)?.suggestions.get(entity.id);
+      const suggestion = this._sources.get(datasetID)?.suggestions.items.get(entity.id);
       if (!suggestion) return undefined;
       return suggestion.kind === 'edge' ? this._acceptEdge(suggestion) : this._acceptTags(suggestion);
     }
 
     _markDirty() {
       for (const source of this._sources.values()) {
-        for (const key of source.tiles.keys()) source.dirty.add(key);
+        for (const key of source.tiles) source.dirty.add(key);
       }
     }
 
     _computeTile(source: Source, key: string, bounds: Bounds) {
       const context = this.context;
-      const spatial = context.systems.spatial;
       const graph = context.systems.editor.staging.graph;
       const halo = HALO_METRES / (111111 * Math.cos((source.data.centreLat * Math.PI) / 180));
       const window = expand(bounds, halo);
@@ -194,22 +244,27 @@ export function createConflationService(deps: ConflationDeps) {
         label: `workspace+${source.tdeiDatasetId}`
       });
       const ds1Tags = new Map(ds1.nodes.map(n => [n.id, n.props as Record<string, string>]));
-      const suggestions = tileSuggestions(result, bounds, ds1Tags, source.datasetID);
-
-      // Replace this tile's suggestions.
-      const previous = source.tiles.get(key) ?? [];
-      for (const s of previous) source.suggestions.delete(s.id);
-      spatial.removeItems(source.spatialID, previous.map(s => s.id));
-      for (const s of suggestions) source.suggestions.set(s.id, s);
-      source.tiles.set(key, suggestions);
+      this._replaceTile(source.suggestions, key, tileSuggestions(result, bounds, ds1Tags, source.datasetID));
+      this._replaceTile(source.removed, key, tileRemoved(result, bounds, source.datasetID));
+      source.tiles.add(key);
       source.dirty.delete(key);
+    }
 
-      // Rebuild the graph the suggestions are drawn from, then index this tile's.
-      const all = [...source.suggestions.values()].flatMap(s => this._entitiesFor(source, s));
-      source.graph = new Rapid.Graph(context);
-      source.graph.rebase(all, [], true);
-      const drawn = [...source.suggestions.keys()].map(id => source.graph.entity(id));
-      if (drawn.length) spatial.replaceData(source.spatialID, drawn);
+    /** Swaps a tile's items in a layer, then rebuilds the graph they're drawn from and reindexes them. */
+    _replaceTile<T extends Suggestion | RemovedPiece>(layer: Layer<T>, key: string, items: T[]) {
+      const context = this.context;
+      const spatial = context.systems.spatial;
+      const previous = layer.byTile.get(key) ?? [];
+      for (const item of previous) layer.items.delete(item.id);
+      spatial.removeItems(layer.spatialID, previous.map(item => item.id));
+      for (const item of items) layer.items.set(item.id, item);
+      layer.byTile.set(key, items);
+
+      const all = [...layer.items.values()].flatMap(item => this._entitiesFor(layer.datasetID, item));
+      layer.graph = new Rapid.Graph(context);
+      layer.graph.rebase(all, [], true);
+      const drawn = [...layer.items.keys()].map(id => layer.graph.entity(id));
+      if (drawn.length) spatial.replaceData(layer.spatialID, drawn);
     }
 
     /** Workspace ways in the window, with their nodes. */
@@ -234,15 +289,19 @@ export function createConflationService(deps: ConflationDeps) {
       return [...ways.values()];
     }
 
-    /** The entities that draw a suggestion. */
-    _entitiesFor(source: Source, s: Suggestion): any[] {
+    /** The entities that draw a suggestion or a dropped piece. */
+    _entitiesFor(datasetID: string, s: Suggestion | RemovedPiece): any[] {
       const context = this.context;
-      const meta = { serviceID: CONFLATION_SERVICE_ID, datasetID: source.datasetID };
+      const meta = { serviceID: CONFLATION_SERVICE_ID, datasetID };
+      if (s.kind === 'removed') {
+        const nodes = s.coords.map((loc, i) => new Rapid.OsmNode(context, { id: `${s.id}-v${i}`, loc, ...meta }));
+        return [...nodes, new Rapid.OsmWay(context, { id: s.id, nodes: nodes.map(n => n.id), tags: s.tags, ...meta })];
+      }
       if (s.kind === 'tags') {
         return [new Rapid.OsmNode(context, { id: s.id, loc: s.loc, tags: { ...s.addTags, ...s.unionTags }, ...meta })];
       }
       const endNode = (end: SuggestedEnd) => new Rapid.OsmNode(context, {
-        id: end.kind === 'existing' ? `n-${source.datasetID}-ws-${end.nodeId}` : `n-${source.datasetID}-${end.unionId}`,
+        id: end.kind === 'existing' ? `n-${datasetID}-ws-${end.nodeId}` : `n-${datasetID}-${end.unionId}`,
         loc: end.loc,
         ...meta
       });

@@ -11,11 +11,16 @@
       class="editorContainer"
       :class="{ rapid3: isRapid3 }"
     />
-    <edit-conflation-control
-      v-if="conflation"
-      :service="conflation"
-      :map="rapid3Manager?.rapidContext?.systems?.map"
-    />
+    <!-- Over Rapid's map area (right of its sidebar), once Rapid has drawn it -->
+    <Teleport
+      v-if="conflation && mapArea"
+      :to="mapArea"
+    >
+      <edit-conflation-control
+        :service="conflation"
+        :map="rapid3Manager?.rapidContext?.systems?.map"
+      />
+    </Teleport>
   </div>
 </template>
 
@@ -34,8 +39,11 @@ const isRapid3 = manager === rapid3Manager;
 
 /** The TDEI conflation service, once Rapid 3 has started on an OSW workspace. */
 const conflation = shallowRef<any>(null);
+/** Rapid's map area, where the conflation control goes. */
+const mapArea = shallowRef<HTMLElement | null>(null);
 function findConflation() {
   conflation.value = isRapid3 && datatype === 'osw' ? rapid3Manager?.conflation ?? null : null;
+  mapArea.value = manager.containerNode.querySelector<HTMLElement>('.main-content');
 }
 
 function onEditorLoaded() {

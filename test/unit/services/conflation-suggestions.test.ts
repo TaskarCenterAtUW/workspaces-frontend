@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { BlobReader, BlobWriter, configure, TextReader, ZipWriter } from '@zip.js/zip.js';
 import { describe, expect, it } from 'vitest';
 import { Ds2Data, ds1FromWays, readOswArchive, tileAt, tileBounds, tilesFor } from '~/services/conflation/inputs';
-import { tileSuggestions, toTags } from '~/services/conflation/suggestions';
+import { REMOVAL_REASONS, tileRemoved, tileSuggestions, toTags } from '~/services/conflation/suggestions';
 import type { Bounds, EdgeSuggestion, TagSuggestion } from '~/services/conflation/suggestions';
 import { unionDatasets } from '~/services/conflation/union';
 import type { UnionDataset } from '~/services/conflation/union';
@@ -59,6 +59,15 @@ describe('tileSuggestions', () => {
     const shared = pieces.flatMap(p => [p.u, p.v]).filter(e => e.kind === 'new' && e.unionId.startsWith('ixn-'));
     expect(shared).toHaveLength(2);
     expect(shared[0]).toMatchObject({ tags: {}, insertInto: [expect.stringMatching(/^w/)] }); // union metadata isn't written
+  });
+
+  it('lists the TDEI edges the union dropped, saying why (cases A and B)', () => {
+    const removed = tileRemoved(result, EVERYWHERE, 'test');
+    const named = (name: string) => removed.filter(r => r.tags.name === name);
+    expect(named('A: duplicate sidewalk').map(r => r.tags['ext:union_removed'])).toEqual([REMOVAL_REASONS.node_pair_duplicate]);
+    expect(named('B: drifting sidewalk').map(r => r.reason)).toEqual([expect.stringMatching(/_duplicate$/)]);
+    expect(named('I: DS2-only service road')).toEqual([]);   // kept, so not listed
+    expect(new Set(removed.map(r => r.id)).size).toBe(removed.length);
   });
 
   it('writes OSM string tags without OSW ids', () => {

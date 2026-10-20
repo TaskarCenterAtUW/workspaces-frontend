@@ -15,7 +15,7 @@
  */
 import type { LonLat } from '~/services/conflation/geometry';
 import { interpolate } from '~/services/conflation/geometry';
-import type { Props, UnionResult } from '~/services/conflation/union';
+import type { Props, RemovalReason, UnionResult } from '~/services/conflation/union';
 
 /** Lon/lat bounds of a tile: [west, south, east, north]. */
 export type Bounds = [number, number, number, number];
@@ -66,6 +66,26 @@ export interface TagSuggestion {
 }
 
 export type Suggestion = EdgeSuggestion | TagSuggestion;
+
+/** A TDEI edge piece the union dropped, shown (not suggested) so it can be checked. */
+export interface RemovedPiece {
+  kind: 'removed';
+  id: string;
+  sourceEdgeId: string;
+  coords: LonLat[];
+  reason: RemovalReason;
+  /** The TDEI edge's tags, plus `ext:union_removed` saying why it was dropped. */
+  tags: Record<string, string>;
+}
+
+/** Why the union dropped a piece, in words. */
+export const REMOVAL_REASONS: Record<RemovalReason, string> = {
+  covered_duplicate: 'Duplicate: runs along a workspace edge of the same type',
+  node_pair_duplicate: 'Duplicate: joins the same two nodes as a workspace edge',
+  ds2_pair_duplicate: 'Duplicate: joins the same two nodes as another TDEI edge of the same type',
+  no_endpoint: 'Dropped: no TDEI node near one of its ends',
+  same_node: 'Dropped: both ends snapped to the same node'
+};
 
 /** Tags the union adds only to describe itself. */
 export const isUnionMetadata = (key: string) => key.startsWith('ext:union_');
@@ -143,6 +163,26 @@ export function tileSuggestions(
     }
     if (!Object.keys(addTags).length) continue;
     out.push({ kind: 'tags', id: `n-${idPrefix}-${node.id}`, nodeId: node.id, loc: node.loc, addTags, unionTags });
+  }
+  return out;
+}
+
+/** The TDEI edge pieces the union dropped whose midpoint is in the tile. */
+export function tileRemoved(result: UnionResult, tile: Bounds, idPrefix: string): RemovedPiece[] {
+  const seen = new Set<string>();
+  const out: RemovedPiece[] = [];
+  for (const piece of result.removed) {
+    if (piece.coords.length < 2 || seen.has(piece.id)) continue;
+    if (!inBounds(interpolate(piece.coords, 0.5), tile)) continue;
+    seen.add(piece.id);
+    out.push({
+      kind: 'removed',
+      id: `w-${idPrefix}-removed-${piece.id}`,
+      sourceEdgeId: piece.sourceEdgeId,
+      coords: piece.coords,
+      reason: piece.reason,
+      tags: { ...toTags(piece.props), 'ext:union_removed': REMOVAL_REASONS[piece.reason] }
+    });
   }
   return out;
 }
