@@ -213,7 +213,7 @@
           </button>
           <span
             class="conflation-position"
-            :title="position ? `Edit ${position.index} of ${position.count} left to review in this tile` : undefined"
+            :title="position ? `Edit ${position.index} of the ${position.count} in this tile when review reached it` : undefined"
           >{{ position ? `Edit ${position.index}/${position.count} in this tile` : '–' }}</span>
           <button
             type="button"

@@ -83,6 +83,11 @@ interface Review {
   placed: LonLat;
   /** The tile being searched while stepping looks for the next edit (index into `tiles`). */
   searching?: number;
+  /**
+   * The edits in the tile being reviewed, as they were when review entered it,
+   * so "edit N of M in this tile" stays put as edits are accepted or ignored.
+   */
+  snapshot?: { tile: number; ids: string[] };
 }
 
 /** Zooms used to frame the item under review: a single node, the range allowed, and padding around an edge. */
@@ -99,7 +104,7 @@ export interface ReviewPosition {
   /** The tile being reviewed, 1-based, of the tiles with TDEI data. */
   tile: number;
   tiles: number;
-  /** The suggestion shown, 1-based, of the pending ones in that tile. */
+  /** The suggestion shown, 1-based, of the tile's edits as they were when review entered the tile. */
   index: number;
   count: number;
   /** The suggestion shown, or undefined once there are none left in that direction. */
@@ -412,6 +417,7 @@ export function createConflationService(deps: ConflationDeps) {
       review.tile = 0;
       review.current = undefined;
       review.searching = undefined;
+      review.snapshot = undefined;
       this.emit('reviewchange');
     }
 
@@ -452,12 +458,15 @@ export function createConflationService(deps: ConflationDeps) {
           next = direction > 0 ? pending[0] : pending.at(-1);
         }
         if (next) {
+          if (review.snapshot?.tile !== tile) review.snapshot = { tile, ids: pending.map(s => s.id) };
+          if (!review.snapshot.ids.includes(next.id)) review.snapshot.ids.push(next.id); // new since entering the tile
           review.tile = tile;
           review.searching = undefined;
           review.current = next;
           this._show(source, next);
           this.emit('reviewchange');
-          return { tile: tile + 1, tiles: tiles.length, index: pending.indexOf(next) + 1, count: pending.length, suggestionID: next.id };
+          const { ids } = review.snapshot;
+          return { tile: tile + 1, tiles: tiles.length, index: ids.indexOf(next.id) + 1, count: ids.length, suggestionID: next.id };
         }
         tile += direction;
         current = undefined;
