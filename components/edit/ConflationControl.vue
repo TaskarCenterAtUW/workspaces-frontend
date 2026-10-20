@@ -197,7 +197,7 @@
           v-if="skipConfident || skipOsmId"
           class="conflation-hint"
         >
-          {{ stats.skipped }} tag edits skipped so far, in the tiles computed. They stay on the map. New edges are always reviewed.
+          {{ stats.skipped }} edits skipped so far
         </p>
 
         <div class="d-flex gap-2">
