@@ -14,7 +14,7 @@
  */
 import { lineLength } from '~/services/conflation/geometry';
 import type { LonLat } from '~/services/conflation/geometry';
-import { Ds2Data, ds1FromWays, expand, readOswArchive, tileBounds, tilesFor } from '~/services/conflation/inputs';
+import { boundsOf, Ds2Data, ds1FromWays, expand, readOswArchive, tileBounds, tilesFor } from '~/services/conflation/inputs';
 import type { WorkspaceWay } from '~/services/conflation/inputs';
 import { isUnionMetadata, tileRemoved, tileSuggestions } from '~/services/conflation/suggestions';
 import type { Bounds, EdgeSuggestion, RemovedPiece, SuggestedEnd, Suggestion, TagSuggestion } from '~/services/conflation/suggestions';
@@ -82,6 +82,12 @@ interface Review {
   /** Where review last left the map's centre; if the user has moved it since, review restarts there. */
   placed: LonLat;
 }
+
+/** Zooms used to frame the item under review: a single node, the range allowed, and padding around an edge. */
+const FRAME_POINT_ZOOM = 21;
+const FRAME_MIN_ZOOM = 18;
+const FRAME_MAX_ZOOM = 22;
+const FRAME_PADDING_ZOOM = 0.5;
 
 /** How far (metres) the map can be from where review left it before review restarts from the new centre. */
 const MOVED_METRES = 5;
@@ -446,12 +452,10 @@ export function createConflationService(deps: ConflationDeps) {
      */
     _show(source: Source, item: Suggestion | RemovedPiece, move = true) {
       const context = this.context;
-      const map = context.systems.map;
       const layer = context.systems.gfx?.scene?.layers?.get('rapid');
       layer?.clearClass('highlight');
       if (move) {
-        const to = item.kind === 'removed' ? item.coords[Math.floor(item.coords.length / 2)]! : locOf(item);
-        map.centerZoomEase(to, Math.max(map.zoom(), 19));
+        const to = this._frame(item);
         if (source.review) source.review.placed = to;
       }
       if (item.kind === 'tags' && context.systems.editor.staging.graph.hasEntity(item.nodeId)) {
@@ -461,6 +465,27 @@ export function createConflationService(deps: ConflationDeps) {
         layer?.setClass('highlight', item.id);
       }
       context.systems.gfx?.immediateRedraw();
+    }
+
+    /**
+     * Zooms the map in on an item: an edge fills most of the view, a single
+     * node zooms to 21. Returns the centre it moved to.
+     */
+    _frame(item: Suggestion | RemovedPiece): LonLat {
+      const map = this.context.systems.map;
+      const coords: LonLat[] = item.kind === 'removed'
+        ? item.coords
+        : item.kind === 'tags'
+          ? [item.loc]
+          : [item.u.loc, ...item.interior, item.v.loc];
+      const [w, s, e, n] = boundsOf(coords);
+      const centre: LonLat = [(w + e) / 2, (s + n) / 2];
+      let zoom = FRAME_POINT_ZOOM;
+      if (e > w || n > s) {
+        zoom = map.extentZoom(new Rapid.sdk.Extent([w, s], [e, n])) - FRAME_PADDING_ZOOM;
+      }
+      map.centerZoomEase(centre, Math.min(FRAME_MAX_ZOOM, Math.max(FRAME_MIN_ZOOM, zoom)));
+      return centre;
     }
 
     /** Makes an item the one under review (e.g. picked on the map), and shows it. */
