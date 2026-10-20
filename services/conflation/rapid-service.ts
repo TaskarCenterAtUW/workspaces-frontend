@@ -116,7 +116,7 @@ export interface ReviewItem {
   after: Record<string, string>;
   /** Union metadata, shown but never written. */
   unionTags: Record<string, string>;
-  /** How an edge joins the workspace, one line per end; or why an edge was dropped. */
+  /** How an edge joins the workspace (`u → v`); or why an edge was dropped. */
   notes: string[];
   /** Whether it can be accepted or ignored (dropped edges can't). */
   actionable: boolean;
@@ -538,17 +538,13 @@ export function createConflationService(deps: ConflationDeps) {
           unionTags: item.unionTags, notes: [`Adds tags to workspace node ${item.nodeId}`], actionable
         };
       }
-      const describe = (end: SuggestedEnd, which: string) => {
-        if (end.kind === 'existing') {
-          const split = end.splitWays.length ? `, splitting ${end.splitWays.join(', ')}` : '';
-          return `${which} joins workspace node ${end.nodeId}${split}`;
-        }
-        const into = end.insertInto.length ? `, inserted into ${end.insertInto.join(', ')} and splitting it` : '';
-        return `${which} is a new node${into}`;
-      };
+      // Each end: the workspace node it joins (and any way split there), or a new node (and any way it goes into).
+      const describe = (end: SuggestedEnd) => (end.kind === 'existing'
+        ? `${end.nodeId}${end.splitWays.length ? ` (splits ${end.splitWays.join(', ')})` : ''}`
+        : `new node${end.insertInto.length ? ` (in ${end.insertInto.join(', ')})` : ''}`);
       return {
         id: item.id, kind: 'edge', tags: item.tags, before: {}, after: item.tags, unionTags: {},
-        notes: [describe(item.u, 'Start'), describe(item.v, 'End')], actionable
+        notes: [`${describe(item.u)} → ${describe(item.v)}`], actionable
       };
     }
 
