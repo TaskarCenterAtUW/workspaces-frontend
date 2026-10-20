@@ -60,6 +60,8 @@ interface Source {
   removed: Layer<RemovedPiece>;
   /** Where review is up to: spiralling out from `centre`, `tiles` in that order. Unset until review starts. */
   review?: Review;
+  /** Keys of the tiles holding TDEI data. */
+  dataTiles: string[];
 }
 
 const removedDatasetID = (datasetID: string) => `${datasetID}-removed`;
@@ -70,7 +72,8 @@ interface Review {
   /** Tiles with TDEI data, spiralling out from the centre. */
   tiles: [number, number][];
   tile: number;
-  current?: Suggestion;
+  /** The item under review: a suggestion, or a dropped edge picked on the map. */
+  current?: Suggestion | RemovedPiece;
   order: (a: Suggestion, b: Suggestion) => number;
 }
 
@@ -84,6 +87,28 @@ export interface ReviewPosition {
   count: number;
   /** The suggestion shown, or undefined once there are none left in that direction. */
   suggestionID?: string;
+}
+
+/** What the conflation panel shows for the item under review. */
+export interface ReviewItem {
+  id: string;
+  kind: 'edge' | 'tags' | 'removed';
+  /** Tags it would write (edge, tags), or the dropped edge's tags (removed). */
+  tags: Record<string, string>;
+  /** Union metadata, shown but never written. */
+  unionTags: Record<string, string>;
+  /** How an edge joins the workspace, one line per end; or why an edge was dropped. */
+  notes: string[];
+  /** Whether it can be accepted or ignored (dropped edges can't). */
+  actionable: boolean;
+}
+
+/** How many of a dataset's tiles have been reviewed. */
+export interface ReviewStats {
+  /** Tiles holding TDEI data. */
+  tiles: number;
+  /** Of those, tiles computed with no suggestions left to accept or ignore. */
+  reviewed: number;
 }
 
 /** How long to wait for a tile's workspace data before giving up on it. */
@@ -120,8 +145,39 @@ export function createConflationService(deps: ConflationDeps) {
       const editor = this.context.systems.editor;
       editor.on('stablechange', this._markDirty);
       editor.on('merge', this._markDirty);
+      this.context.on('modechange', (mode: any) => this._modeChanged(mode));
       this._started = true;
       return this._startPromise = Promise.resolve();
+    }
+
+    /**
+     * Our features are reviewed from the conflation panel, not Rapid's
+     * suggestion panel: clicking one makes it the item under review instead.
+     */
+    _modeChanged(mode: any) {
+      if (mode?.id !== 'select') return;
+      for (const [id, datum] of mode.selectedData ?? []) {
+        if (datum?.props?.serviceID !== CONFLATION_SERVICE_ID) continue;
+        const found = this._lookup(datum.props.datasetID);
+        if (!found) return;
+        const item = found.layer.items.get(id);
+        if (!item) return;
+        // Let Rapid finish entering select mode before switching away from it.
+        setTimeout(() => this._review(found.source, item), 0);
+        return;
+      }
+    }
+
+    /** Rapid's sidebar shows its suggestion panel on hover; skip that for our features. */
+    _quietHover() {
+      const sidebar = this.context.systems.ui?.Sidebar;
+      if (!sidebar || sidebar._conflationQuiet) return;
+      const hover = sidebar._hover;
+      sidebar._hover = (target: any) => {
+        if (target?.props?.serviceID === CONFLATION_SERVICE_ID) return;
+        hover(target);
+      };
+      sidebar._conflationQuiet = true;
     }
 
     resetAsync() {
@@ -167,11 +223,14 @@ export function createConflationService(deps: ConflationDeps) {
 
     /**
      * Downloads a TDEI OSW dataset and adds it to Rapid as a dataset of
-     * conflation suggestions, shown on the map from then on.
+     * conflation suggestions, shown on the map from then on. One dataset at a
+     * time: remove the current one (`removeDataset`) before adding another.
      * @param tdeiDatasetId - the TDEI dataset to conflate into the workspace
      * @param proximity - snapping radius in metres (TDEI's union defaults to 0.5)
      */
     async addDatasetAsync(tdeiDatasetId: string, proximity = 0.5) {
+      if (this._sources.size) throw new Error('A dataset is already being conflated; remove it first.');
+      this._quietHover();
       const context = this.context;
       const rapid = context.systems.rapid;
       const data = new Ds2Data(await readOswArchive(await deps.downloadOswDataset(tdeiDatasetId)), `tdei-${tdeiDatasetId}`);
@@ -203,6 +262,7 @@ export function createConflationService(deps: ConflationDeps) {
       this._sources.set(datasetID, {
         datasetID, tdeiDatasetId, proximity, data, tiles: new Set(), dirty: new Set(),
         suggestions: layer(dataset), removed: layer(removed),
+        dataTiles: data.tilesWithData(TILE_ZOOM).map(xy => xy.join(','))
       });
       dataset.dictionary = await this.getDataDictionaryAsync(datasetID);
       rapid.catalog.set(datasetID, dataset);
@@ -211,6 +271,34 @@ export function createConflationService(deps: ConflationDeps) {
       rapid.addDatasets([removed.id]); // listed in Rapid's menu, off until shown
       context.systems.gfx?.deferredRedraw();
       return { datasetID, removedDatasetID: removed.id, nodes: data.nodeCount, edges: data.edgeCount, bounds: data.bounds };
+    }
+
+    /** Stops conflating a dataset: removes its suggestions and dropped edges from Rapid. */
+    removeDataset(datasetID: string) {
+      const source = this._sources.get(datasetID);
+      if (!source) return;
+      const context = this.context;
+      const rapid = context.systems.rapid;
+      const layers = [source.suggestions, source.removed];
+      if (context.mode?.id === 'select') context.enter('browse'); // a suggestion may be selected
+      rapid.removeDatasets(layers.map(l => l.datasetID));
+      for (const layer of layers) {
+        rapid.catalog.delete(layer.datasetID);
+        context.systems.spatial.clearCache(layer.spatialID);
+      }
+      this._sources.delete(datasetID);
+      context.systems.gfx?.deferredRedraw();
+      this.emit('reviewchange');
+    }
+
+    /** How many of a dataset's tiles have been reviewed. */
+    reviewStats(datasetID: string): ReviewStats {
+      const source = this._sources.get(datasetID);
+      if (!source) return { tiles: 0, reviewed: 0 };
+      const rapid = this.context.systems.rapid;
+      const reviewed = source.dataTiles.filter(key => source.tiles.has(key)
+        && !(source.suggestions.byTile.get(key) ?? []).some(s => !rapid.isAcceptedOrIgnored(s.id))).length;
+      return { tiles: source.dataTiles.length, reviewed };
     }
 
     /** Shows or hides the TDEI edges the union dropped, for a dataset added with `addDatasetAsync`. */
@@ -231,7 +319,7 @@ export function createConflationService(deps: ConflationDeps) {
       source.review = {
         centre: from,
         rotation,
-        tiles: spiralTiles(source.data.tilesWithData(TILE_ZOOM), from, TILE_ZOOM, rotation),
+        tiles: spiralTiles(source.dataTiles.map(key => key.split(',').map(Number) as [number, number]), from, TILE_ZOOM, rotation),
         tile: 0,
         order: aroundOrder<Suggestion>(from, rotation, locOf, s => s.id)
       };
@@ -253,7 +341,8 @@ export function createConflationService(deps: ConflationDeps) {
       const review = source.review!;
       const tiles = review.tiles;
       let tile = review.tile;
-      let current = review.current;
+      // A dropped edge picked on the map has no place in the order: start that tile from its beginning.
+      let current: Suggestion | undefined = review.current?.kind === 'removed' ? undefined : review.current;
       while (tile >= 0 && tile < tiles.length) {
         onSearch?.(tile + 1, tiles.length);
         const pending = await this._pendingInTileAsync(source, tiles[tile]!, review.order);
@@ -268,7 +357,8 @@ export function createConflationService(deps: ConflationDeps) {
         if (next) {
           review.tile = tile;
           review.current = next;
-          this._show(source, next);
+          this._show(next);
+          this.emit('reviewchange');
           return { tile: tile + 1, tiles: tiles.length, index: pending.indexOf(next) + 1, count: pending.length, suggestionID: next.id };
         }
         tile += direction;
@@ -299,12 +389,106 @@ export function createConflationService(deps: ConflationDeps) {
     }
 
     /** Moves the map to a suggestion and selects it. */
-    _show(source: Source, s: Suggestion) {
+    /**
+     * Shows the item under review: a tag suggestion selects the workspace node
+     * it changes (so its regular editor shows); an edge suggestion or dropped
+     * edge is highlighted with nothing selected.
+     */
+    _show(item: Suggestion | RemovedPiece, move = true) {
       const context = this.context;
       const map = context.systems.map;
-      map.centerZoomEase(locOf(s), Math.max(map.zoom(), 19));
-      const entity = source.suggestions.graph.hasEntity(s.id);
-      if (entity) context.enter('select', { selection: new Map([[s.id, entity]]) });
+      const layer = context.systems.gfx?.scene?.layers?.get('rapid');
+      layer?.clearClass('highlight');
+      if (move) map.centerZoomEase(item.kind === 'removed' ? item.coords[Math.floor(item.coords.length / 2)]! : locOf(item), Math.max(map.zoom(), 19));
+      if (item.kind === 'tags' && context.systems.editor.staging.graph.hasEntity(item.nodeId)) {
+        context.enter('select-osm', { selection: { osm: [item.nodeId] } });
+      } else {
+        context.enter('browse');
+        layer?.setClass('highlight', item.id);
+      }
+      context.systems.gfx?.immediateRedraw();
+    }
+
+    /** Makes an item the one under review (e.g. picked on the map), and shows it. */
+    _review(source: Source, item: Suggestion | RemovedPiece) {
+      if (!source.review) this.startReview(source.datasetID);
+      const review = source.review!;
+      const key = [...(item.kind === 'removed' ? source.removed.byTile : source.suggestions.byTile)]
+        .find(([, items]) => items.some((x: { id: string }) => x.id === item.id))?.[0];
+      const tile = review.tiles.findIndex(xy => xy.join(',') === key);
+      if (tile >= 0) review.tile = tile;
+      review.current = item;
+      this._show(item, false);
+      this.emit('reviewchange');
+    }
+
+    /** The item under review, as the panel shows it. */
+    currentItem(datasetID: string): ReviewItem | undefined {
+      const item = this._sources.get(datasetID)?.review?.current;
+      if (!item) return undefined;
+      const rapid = this.context.systems.rapid;
+      if (item.kind === 'removed') {
+        const { 'ext:union_removed': reason, ...tags } = item.tags;
+        return { id: item.id, kind: 'removed', tags, unionTags: {}, notes: [reason ?? 'Dropped by the union'], actionable: false };
+      }
+      const actionable = !rapid.isAcceptedOrIgnored(item.id);
+      if (item.kind === 'tags') {
+        return { id: item.id, kind: 'tags', tags: item.addTags, unionTags: item.unionTags, notes: [`Adds tags to workspace node ${item.nodeId}`], actionable };
+      }
+      const describe = (end: SuggestedEnd, which: string) => {
+        if (end.kind === 'existing') {
+          const split = end.splitWays.length ? `, splitting ${end.splitWays.join(', ')}` : '';
+          return `${which} joins workspace node ${end.nodeId}${split}`;
+        }
+        const into = end.insertInto.length ? `, inserted into ${end.insertInto.join(', ')} and splitting it` : '';
+        return `${which} is a new node${into}`;
+      };
+      return {
+        id: item.id, kind: 'edge', tags: item.tags, unionTags: {},
+        notes: [describe(item.u, 'Start'), describe(item.v, 'End')], actionable
+      };
+    }
+
+    /** Accepts the suggestion under review and selects what it added or changed. */
+    acceptCurrent(datasetID: string) {
+      const source = this._sources.get(datasetID);
+      const item = source?.review?.current;
+      if (!source || !item || item.kind === 'removed') return;
+      const entity = source.suggestions.graph.hasEntity(item.id);
+      if (!entity) return;
+      const context = this.context;
+      const editor = context.systems.editor;
+      const action = Rapid.actionRapidAcceptFeature(entity);
+      editor.perform(action);
+      const newID = action.getNewID();
+      // The same annotation Rapid's suggestion panel uses, so Rapid tracks it as accepted.
+      editor.commit({
+        annotation: {
+          type: 'rapid_accept_feature',
+          description: 'Accepted a TDEI suggestion',
+          acceptIDs: [...action.getAcceptedIDs()],
+          dataUsed: ['tdei', source.tdeiDatasetId]
+        },
+        selectedIDs: newID ? [newID] : undefined
+      });
+      context.systems.gfx?.scene?.layers?.get('rapid')?.clearClass('highlight');
+      if (newID) context.enter('select-osm', { selection: { osm: [newID] } });
+      this.emit('reviewchange');
+    }
+
+    /** Ignores the suggestion under review. */
+    ignoreCurrent(datasetID: string) {
+      const source = this._sources.get(datasetID);
+      const item = source?.review?.current;
+      if (!source || !item || item.kind === 'removed') return;
+      const context = this.context;
+      const editor = context.systems.editor;
+      // The same annotation Rapid's suggestion panel uses, so Rapid tracks it as ignored.
+      editor.perform(Rapid.actionNoop());
+      editor.commit({ annotation: { type: 'rapid_ignore_feature', description: 'Ignored a TDEI suggestion', ignoreID: item.id } });
+      context.systems.gfx?.scene?.layers?.get('rapid')?.clearClass('highlight');
+      context.enter('browse');
+      this.emit('reviewchange');
     }
 
     /** Computes suggestions for tiles in view that are new or out of date. */
@@ -349,6 +533,7 @@ export function createConflationService(deps: ConflationDeps) {
       for (const source of this._sources.values()) {
         for (const key of source.tiles) source.dirty.add(key);
       }
+      this.emit('reviewchange'); // accepting or ignoring changes what's left to review
     }
 
     _computeTile(source: Source, key: string, bounds: Bounds) {
@@ -369,6 +554,7 @@ export function createConflationService(deps: ConflationDeps) {
       this._replaceTile(source.removed, key, tileRemoved(result, bounds, source.datasetID));
       source.tiles.add(key);
       source.dirty.delete(key);
+      this.emit('reviewchange');
     }
 
     /** Swaps a tile's items in a layer, then rebuilds the graph they're drawn from and reindexes them. */
