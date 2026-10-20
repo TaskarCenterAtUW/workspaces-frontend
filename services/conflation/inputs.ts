@@ -111,6 +111,12 @@ export class Ds2Data {
     return [...keys.values()].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
   }
 
+  /** Approximate metres between two points near the dataset. */
+  metres(a: LonLat, b: LonLat): number {
+    const mPerDegLon = 111111 * Math.cos((this.centreLat * Math.PI) / 180);
+    return Math.hypot((a[0] - b[0]) * mPerDegLon, (a[1] - b[1]) * 111111);
+  }
+
   /** The latitude at the dataset's centre, for a fixed metres-per-degree scale. */
   get centreLat() {
     return (this.bounds[1] + this.bounds[3]) / 2;

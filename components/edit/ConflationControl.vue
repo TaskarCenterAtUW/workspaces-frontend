@@ -135,14 +135,6 @@
             >{{ option.label }}</label>
           </template>
         </div>
-        <button
-          type="button"
-          class="btn btn-sm btn-outline-secondary w-100 mb-2"
-          :disabled="reviewing"
-          @click="restart"
-        >
-          Start from map centre
-        </button>
         <div class="d-flex gap-2">
           <button
             type="button"
@@ -254,7 +246,7 @@
 // @test unit: a failed download shows its error and leaves the form usable
 // @test unit: "Go to it" centres the map on the dataset; "Remove" stops conflating it and brings the form back
 // @test unit: total tiles, tiles reviewed and the progress bar follow the service's review counts as they change
-// @test unit: Next and Previous step through pending suggestions spiralling out from the map centre, restarting with the chosen rotation on "Start from map centre" or a rotation change
+// @test unit: Next and Previous step through pending suggestions spiralling out from the map view's centre, restarting there when the rotation changes
 // @test unit: the item under review shows what it would write and how it joins the workspace; Accept accepts it, Ignore ignores it and moves to the next
 
 import type { ReviewItem, ReviewPosition, ReviewStats } from '~/services/conflation/rapid-service';
@@ -308,9 +300,7 @@ const stats = ref<ReviewStats>({ tiles: 0, reviewed: 0 });
 const item = ref<ReviewItem | undefined>();
 const reviewing = ref(false);
 const rotation = ref<Rotation>('clockwise');
-const reviewStatus = ref('Press Next to step through the suggested edits, spiralling out from the map centre.');
-/** Whether review has started (from the map centre at the time). */
-let started = false;
+const reviewStatus = ref('Press Next to step through the suggested edits, spiralling out from the centre of the map view.');
 
 function refresh() {
   const id = dataset.value?.datasetID;
@@ -329,7 +319,6 @@ async function add() {
     const added = await props.service.addDatasetAsync(id, proximity.value || 0.5);
     dataset.value = { ...added, tdeiDatasetId: id };
     datasetId.value = '';
-    started = false;
     refresh();
   } catch (e) {
     console.error('Conflation dataset failed to load', e);
@@ -350,18 +339,16 @@ function zoomTo([w, s, e, n]: Bounds) {
   props.map?.centerZoomEase([(w + e) / 2, (s + n) / 2], 17);
 }
 
-/** Starts review over from the map's current centre, with the chosen rotation. */
+/** Starts review over from the map view's centre, with the chosen rotation. */
 function restart() {
   if (!dataset.value) return;
   props.service.startReview(dataset.value.datasetID, rotation.value);
-  started = true;
-  reviewStatus.value = `Starting from the map centre, ${rotation.value}. Press Next.`;
+  reviewStatus.value = `Spiralling ${rotation.value} from the centre of the map view. Press Next.`;
   refresh();
 }
 
 async function step(direction: 1 | -1) {
   if (!dataset.value) return;
-  if (!started) restart();
   reviewing.value = true;
   try {
     const at = await props.service.reviewStepAsync(dataset.value.datasetID, direction, (tile, tiles) => {

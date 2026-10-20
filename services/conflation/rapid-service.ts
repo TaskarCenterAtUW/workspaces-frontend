@@ -75,7 +75,12 @@ interface Review {
   /** The item under review: a suggestion, or a dropped edge picked on the map. */
   current?: Suggestion | RemovedPiece;
   order: (a: Suggestion, b: Suggestion) => number;
+  /** Where review last left the map's centre; if the user has moved it since, review restarts there. */
+  placed: LonLat;
 }
+
+/** How far (metres) the map can be from where review left it before review restarts from the new centre. */
+const MOVED_METRES = 5;
 
 /** Where review is up to in a dataset's suggestions. */
 export interface ReviewPosition {
@@ -318,6 +323,7 @@ export function createConflationService(deps: ConflationDeps) {
       const from = centre ?? this.context.systems.map.center();
       source.review = {
         centre: from,
+        placed: from,
         rotation,
         tiles: spiralTiles(source.dataTiles.map(key => key.split(',').map(Number) as [number, number]), from, TILE_ZOOM, rotation),
         tile: 0,
@@ -337,7 +343,12 @@ export function createConflationService(deps: ConflationDeps) {
     async reviewStepAsync(datasetID: string, direction: 1 | -1, onSearch?: (tile: number, tiles: number) => void): Promise<ReviewPosition> {
       const source = this._sources.get(datasetID);
       if (!source) throw new Error(`No conflation dataset ${datasetID}`);
-      if (!source.review) this.startReview(datasetID);
+      // Spiral out from the view's centre: restart there if the user has moved the map since review last did.
+      const centre: LonLat = this.context.systems.map.center();
+      const last = source.review;
+      if (!last || source.data.metres(centre, last.placed) > MOVED_METRES) {
+        this.startReview(datasetID, last?.rotation ?? 'clockwise', centre);
+      }
       const review = source.review!;
       const tiles = review.tiles;
       let tile = review.tile;
@@ -357,7 +368,7 @@ export function createConflationService(deps: ConflationDeps) {
         if (next) {
           review.tile = tile;
           review.current = next;
-          this._show(next);
+          this._show(source, next);
           this.emit('reviewchange');
           return { tile: tile + 1, tiles: tiles.length, index: pending.indexOf(next) + 1, count: pending.length, suggestionID: next.id };
         }
@@ -374,7 +385,9 @@ export function createConflationService(deps: ConflationDeps) {
       if (!source.tiles.has(key) || source.dirty.has(key)) {
         const bounds = tileBounds(xy, TILE_ZOOM);
         const map = this.context.systems.map;
-        map.centerZoom([(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2], Math.max(map.zoom(), 17));
+        const middle: LonLat = [(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2];
+        map.centerZoom(middle, Math.max(map.zoom(), 17));
+        if (source.review) source.review.placed = middle;
         const started = Date.now();
         while (!source.tiles.has(key) || source.dirty.has(key)) {
           if (Date.now() - started > TILE_WAIT_MS) return []; // workspace data never arrived: skip the tile
@@ -394,12 +407,16 @@ export function createConflationService(deps: ConflationDeps) {
      * it changes (so its regular editor shows); an edge suggestion or dropped
      * edge is highlighted with nothing selected.
      */
-    _show(item: Suggestion | RemovedPiece, move = true) {
+    _show(source: Source, item: Suggestion | RemovedPiece, move = true) {
       const context = this.context;
       const map = context.systems.map;
       const layer = context.systems.gfx?.scene?.layers?.get('rapid');
       layer?.clearClass('highlight');
-      if (move) map.centerZoomEase(item.kind === 'removed' ? item.coords[Math.floor(item.coords.length / 2)]! : locOf(item), Math.max(map.zoom(), 19));
+      if (move) {
+        const to = item.kind === 'removed' ? item.coords[Math.floor(item.coords.length / 2)]! : locOf(item);
+        map.centerZoomEase(to, Math.max(map.zoom(), 19));
+        if (source.review) source.review.placed = to;
+      }
       if (item.kind === 'tags' && context.systems.editor.staging.graph.hasEntity(item.nodeId)) {
         context.enter('select-osm', { selection: { osm: [item.nodeId] } });
       } else {
@@ -418,7 +435,7 @@ export function createConflationService(deps: ConflationDeps) {
       const tile = review.tiles.findIndex(xy => xy.join(',') === key);
       if (tile >= 0) review.tile = tile;
       review.current = item;
-      this._show(item, false);
+      this._show(source, item, false);
       this.emit('reviewchange');
     }
 
