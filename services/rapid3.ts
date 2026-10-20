@@ -1,4 +1,6 @@
 import { ref } from 'vue'
+import { CONFLATION_SERVICE_ID, createConflationService } from '~/services/conflation/rapid-service'
+import type { ConflationDeps } from '~/services/conflation/rapid-service'
 import type { TdeiAuthStore } from '~/services/tdei'
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
@@ -18,6 +20,7 @@ export class Rapid3Manager {
   #baseUrl: string
   #osmUrl: string
   #tdeiAuth: TdeiAuthStore
+  #conflationDeps?: ConflationDeps
 
   /** Reactive flag indicating whether the Rapid 3 script has loaded and is ready. */
   loaded: ReturnType<typeof ref<boolean>>
@@ -34,11 +37,13 @@ export class Rapid3Manager {
    *                  A trailing slash is enforced automatically.
    * @param osmUrl  - Base URL of the OSM-compatible API backend.
    * @param tdeiAuth - Reactive auth store providing access tokens and auth state.
+   * @param conflationDeps - How to download TDEI datasets for conflation; without it, conflation is off.
    */
-  constructor(baseUrl: string, osmUrl: string, tdeiAuth: TdeiAuthStore) {
+  constructor(baseUrl: string, osmUrl: string, tdeiAuth: TdeiAuthStore, conflationDeps?: ConflationDeps) {
     this.#baseUrl = baseUrl.replace(/\/*$/, '/')
     this.#osmUrl = osmUrl.replace(/\/+$/, '')
     this.#tdeiAuth = tdeiAuth
+    this.#conflationDeps = conflationDeps
 
     this.loaded = ref(false)
     this.containerNode = document.createElement('div')
@@ -144,6 +149,19 @@ export class Rapid3Manager {
     services.delete('mapwithai');
     services.delete('nsi');
     services.delete('osmose');
+
+    // Conflation of TDEI datasets into the workspace, offered as Rapid suggestions
+    if (this.#conflationDeps && !services.has(CONFLATION_SERVICE_ID)) {
+      services.set(CONFLATION_SERVICE_ID, createConflationService(this.#conflationDeps));
+    }
+  }
+
+  /**
+   * The service that conflates TDEI datasets into the workspace, once Rapid
+   * has started (see `services/conflation/rapid-service.ts`).
+   */
+  get conflation(): any {
+    return this.rapidContext?.services?.[CONFLATION_SERVICE_ID]
   }
 
   /**

@@ -5,11 +5,18 @@
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
-  <div
-    ref="editorContainer"
-    class="editorContainer"
-    :class="{ rapid3: isRapid3 }"
-  />
+  <div class="editorWrapper">
+    <div
+      ref="editorContainer"
+      class="editorContainer"
+      :class="{ rapid3: isRapid3 }"
+    />
+    <edit-conflation-control
+      v-if="conflation"
+      :service="conflation"
+      :map="rapid3Manager?.rapidContext?.systems?.map"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -25,9 +32,15 @@ const oswManager = (editor === 'rapid3' && rapid3Manager) ? rapid3Manager : rapi
 const manager = datatype === 'osw' ? oswManager : pathwaysManager
 const isRapid3 = manager === rapid3Manager;
 
+/** The TDEI conflation service, once Rapid 3 has started on an OSW workspace. */
+const conflation = shallowRef<any>(null);
+function findConflation() {
+  conflation.value = isRapid3 && datatype === 'osw' ? rapid3Manager?.conflation ?? null : null;
+}
+
 function onEditorLoaded() {
   editorContainer.value!.appendChild(manager.containerNode);
-  manager.init(workspaceId);
+  Promise.resolve(manager.init(workspaceId)).then(findConflation);
 }
 
 onMounted(() => {
@@ -51,12 +64,18 @@ onMounted(() => {
     manager.load();
   } else {
     editorContainer.value!.appendChild(manager.containerNode);
-    manager.switchWorkspace(workspaceId);
+    Promise.resolve(manager.switchWorkspace(workspaceId)).then(findConflation);
   }
 });
 </script>
 
 <style>
+.editorWrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
 .editorContainer {
   width: 100%;
   height: 100%;
