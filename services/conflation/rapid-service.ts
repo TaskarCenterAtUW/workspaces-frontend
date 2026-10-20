@@ -290,6 +290,16 @@ export function createConflationService(deps: ConflationDeps) {
       return { datasetID, removedDatasetID: removed.id, nodes: data.nodeCount, edges: data.edgeCount, bounds: data.bounds };
     }
 
+    /** Zooms the map to fit a dataset's whole extent. */
+    zoomToDataset(datasetID: string) {
+      const source = this._sources.get(datasetID);
+      if (!source) return;
+      const [w, s, e, n] = source.data.bounds;
+      const map = this.context.systems.map;
+      const zoom = (e > w || n > s) ? map.extentZoom(new Rapid.sdk.Extent([w, s], [e, n])) - FRAME_PADDING_ZOOM : FRAME_POINT_ZOOM;
+      map.centerZoomEase([(w + e) / 2, (s + n) / 2], Math.min(FRAME_MAX_ZOOM, zoom));
+    }
+
     /** Stops conflating a dataset: removes its suggestions and dropped edges from Rapid. */
     removeDataset(datasetID: string) {
       const source = this._sources.get(datasetID);

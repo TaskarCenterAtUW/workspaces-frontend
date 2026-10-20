@@ -61,25 +61,32 @@
         class="conflation-dataset"
         aria-label="Dataset being conflated"
       >
-        <div>TDEI dataset <strong class="text-break">{{ dataset.tdeiDatasetId }}</strong></div>
-        <div class="conflation-hint">
-          {{ dataset.edges }} edges, {{ dataset.nodes }} nodes
-        </div>
-        <div class="d-flex gap-3">
+        <div class="conflation-dataset-header">
+          <h3 class="conflation-dataset-title">
+            TDEI dataset <strong class="text-break">{{ dataset.tdeiDatasetId }}</strong>
+          </h3>
           <button
             type="button"
-            class="btn btn-link btn-sm p-0"
-            @click="zoomTo(dataset.bounds)"
-          >
-            Go to it
-          </button>
-          <button
-            type="button"
-            class="btn btn-link btn-sm p-0 link-danger"
+            class="btn-close"
+            title="Stop conflating this dataset"
+            aria-label="Stop conflating this dataset"
             @click="remove"
+          />
+        </div>
+        <div class="conflation-dataset-row">
+          <button
+            type="button"
+            class="btn btn-sm conflation-zoom"
+            title="Zoom to the dataset's extent"
+            aria-label="Zoom to the dataset's extent"
+            @click="props.service.zoomToDataset(dataset.datasetID)"
           >
-            Remove
+            <app-icon
+              variant="zoom_in"
+              no-margin
+            />
           </button>
+          <span class="conflation-hint mb-0">{{ dataset.edges }} edges, {{ dataset.nodes }} nodes</span>
         </div>
       </section>
 
@@ -153,47 +160,32 @@
           {{ stats.skipped }} tag edits skipped so far, in the tiles computed. They stay on the map. New edges are always reviewed.
         </p>
 
-        <div
-          class="btn-group btn-group-sm w-100 mb-2"
-          role="group"
-          aria-label="Direction to spiral out from the map centre"
-        >
-          <template
-            v-for="option in ROTATIONS"
-            :key="option.value"
-          >
-            <input
-              :id="`conflation-rotation-${option.value}`"
-              v-model="rotation"
-              type="radio"
-              class="btn-check"
-              name="conflation-rotation"
-              :value="option.value"
-              :disabled="reviewing"
-              @change="restart"
-            >
-            <label
-              class="btn btn-outline-secondary"
-              :for="`conflation-rotation-${option.value}`"
-            >{{ option.label }}</label>
-          </template>
-        </div>
         <div class="d-flex gap-2">
           <button
             type="button"
             class="btn btn-sm btn-outline-secondary flex-fill"
+            title="Previous suggested edit"
+            aria-label="Previous suggested edit"
             :disabled="reviewing"
             @click="step(-1)"
           >
-            Previous
+            <app-icon
+              variant="arrow_back"
+              no-margin
+            />
           </button>
           <button
             type="button"
             class="btn btn-sm btn-primary flex-fill"
+            title="Next suggested edit"
+            aria-label="Next suggested edit"
             :disabled="reviewing"
             @click="step(1)"
           >
-            Next
+            <app-icon
+              variant="arrow_forward"
+              no-margin
+            />
           </button>
         </div>
         <p
@@ -287,15 +279,14 @@
 <script setup lang="ts">
 // @test unit: adding a dataset ID calls the conflation service with the ID and snapping distance, then shows that dataset in place of the form
 // @test unit: a failed download shows its error and leaves the form usable
-// @test unit: "Go to it" centres the map on the dataset; "Remove" stops conflating it and brings the form back
+// @test unit: the zoom button below the dataset header zooms to the dataset's extent; the X beside the header stops conflating it and brings the form back
 // @test unit: total tiles, tiles reviewed and the progress bar follow the service's review counts as they change
 // @test unit: "Skip tag edits with confidence ≥ X" sets the service's threshold from the slider (or clears it when unchecked) and shows how many were skipped
 // @test unit: "Skip tag edits that add ext:osm_id" turns the service's ext:osm_id filter on and off
-// @test unit: Next and Previous step through pending suggestions spiralling out from the map view's centre, restarting there when the rotation changes
+// @test unit: the next and previous arrows step through pending suggestions, spiralling clockwise out from the map view's centre
 // @test unit: the item under review shows what it would write and how it joins the workspace; Accept accepts it, Ignore ignores it and moves to the next
 
 import type { ReviewItem, ReviewPosition, ReviewStats } from '~/services/conflation/rapid-service';
-import type { Rotation } from '~/services/conflation/review';
 import type { Bounds } from '~/services/conflation/suggestions';
 
 const props = defineProps<{
@@ -303,7 +294,7 @@ const props = defineProps<{
   service: {
     addDatasetAsync(id: string, proximity: number): Promise<{ datasetID: string; nodes: number; edges: number; bounds: Bounds }>;
     removeDataset(datasetID: string): void;
-    startReview(datasetID: string, rotation: Rotation): void;
+    zoomToDataset(datasetID: string): void;
     reviewStepAsync(datasetID: string, direction: 1 | -1, onSearch?: (tile: number, tiles: number) => void): Promise<ReviewPosition>;
     reviewStats(datasetID: string): ReviewStats;
     setSkipConfidence(datasetID: string, threshold: number | undefined): void;
@@ -314,8 +305,6 @@ const props = defineProps<{
     on(event: 'reviewchange', listener: () => void): unknown;
     off(event: 'reviewchange', listener: () => void): unknown;
   };
-  /** Rapid's map, to move to the dataset. */
-  map?: { centerZoomEase(loc: [number, number], zoom: number): unknown };
 }>();
 
 const ITEM_TITLES: Record<ReviewItem['kind'], string> = {
@@ -323,10 +312,6 @@ const ITEM_TITLES: Record<ReviewItem['kind'], string> = {
   tags: 'Tags to add',
   removed: 'Dropped edge'
 };
-const ROTATIONS: { value: Rotation; label: string }[] = [
-  { value: 'clockwise', label: 'Clockwise' },
-  { value: 'counterclockwise', label: 'Counterclockwise' }
-];
 
 interface Dataset {
   datasetID: string;
@@ -346,7 +331,6 @@ const dataset = ref<Dataset | null>(null);
 const stats = ref<ReviewStats>({ tiles: 0, reviewed: 0, skipped: 0 });
 const item = ref<ReviewItem | undefined>();
 const reviewing = ref(false);
-const rotation = ref<Rotation>('clockwise');
 const skipConfident = ref(false);
 const threshold = ref(0.9);
 const skipOsmId = ref(false);
@@ -356,7 +340,7 @@ function applySkip() {
   props.service.setSkipConfidence(dataset.value.datasetID, skipConfident.value ? threshold.value : undefined);
   props.service.setSkipOsmId(dataset.value.datasetID, skipOsmId.value);
 }
-const reviewStatus = ref('Press Next to step through the suggested edits, spiralling out from the centre of the map view.');
+const reviewStatus = ref('Use the arrows to step through the suggested edits, spiralling out from the centre of the map view.');
 
 function refresh() {
   const id = dataset.value?.datasetID;
@@ -391,18 +375,6 @@ function remove() {
   refresh();
 }
 
-function zoomTo([w, s, e, n]: Bounds) {
-  props.map?.centerZoomEase([(w + e) / 2, (s + n) / 2], 17);
-}
-
-/** Starts review over from the map view's centre, with the chosen rotation. */
-function restart() {
-  if (!dataset.value) return;
-  props.service.startReview(dataset.value.datasetID, rotation.value);
-  reviewStatus.value = `Spiralling ${rotation.value} from the centre of the map view. Press Next.`;
-  refresh();
-}
-
 async function step(direction: 1 | -1) {
   if (!dataset.value) return;
   reviewing.value = true;
@@ -425,7 +397,7 @@ async function step(direction: 1 | -1) {
 function accept() {
   if (!dataset.value) return;
   props.service.acceptCurrent(dataset.value.datasetID);
-  reviewStatus.value = 'Accepted. It\'s selected for editing; press Next to continue.';
+  reviewStatus.value = 'Accepted. It\'s selected for editing; use the next arrow to continue.';
   refresh();
 }
 
@@ -461,6 +433,35 @@ async function ignore() {
 
 .conflation-section {
   margin-top: 1.25rem;
+}
+
+.conflation-dataset-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.conflation-dataset-title {
+  margin-bottom: 0;
+  font-size: 0.875rem;
+  font-weight: normal;
+}
+
+.conflation-dataset-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+/* Matches the Pathways panel's zoom-to-extent buttons */
+.conflation-zoom {
+  display: flex;
+  align-items: center;
+  padding: 0 0.25rem;
+  border: 0;
+  color: inherit;
 }
 
 .conflation-stats {

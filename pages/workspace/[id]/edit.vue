@@ -14,7 +14,6 @@
     <edit-conflation-control
       v-if="conflation"
       :service="conflation"
-      :map="rapid3Manager?.rapidContext?.systems?.map"
     />
   </div>
 </template>
