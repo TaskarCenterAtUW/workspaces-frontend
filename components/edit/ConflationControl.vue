@@ -195,7 +195,7 @@
         </div>
 
         <div
-          v-if="!searching"
+          v-if="!searching && !finished"
           class="d-flex gap-2 align-items-center"
         >
           <button
@@ -235,23 +235,21 @@
         >
           {{ searching ? searchStatus : reviewStatus }}
         </p>
-        <div
+        <p
           v-if="finished && !searching"
-          class="conflation-finished"
+          class="mb-2"
           role="status"
         >
-          <p class="mb-2">
-            No more suggested edits
-          </p>
+          No more suggested edits.
           <button
             type="button"
-            class="btn btn-sm btn-outline-primary w-100"
+            class="btn btn-link btn-sm p-0 align-baseline"
             :disabled="reviewing"
             @click="reviewAgain"
           >
             Review again from tile 1
           </button>
-        </div>
+        </p>
 
         <div
           v-if="item && !searching && (item.actionable || item.kind === 'removed')"
@@ -326,7 +324,7 @@
 // @test unit: the item under review shows a diff of its tags (before and after) and how it joins the workspace; "Accept and next" / "Ignore and next" accept or ignore it, then move to the next
 // @test unit: the edit's position in its tile (e.g. 3/5) shows between the arrows
 // @test unit: the arrows (and the position between them) are hidden while searching for the next edit
-// @test unit: when stepping forward runs out, "No more suggested edits" shows with "Review again from tile 1", which restarts the spiral and shows its first pending edit
+// @test unit: when stepping forward runs out, the arrows hide and "No more suggested edits." shows with a "Review again from tile 1" link, which restarts the spiral and shows its first pending edit
 // @test unit: an arrow is disabled once there are no more edits that way, and re-enabled when the review changes (an edit, tiles computed, a filter)
 // @test unit: while searching, the status reads "Searching for edits to review in tile X of Y, N edits skipped due to filters so far…" (the skipped part only with a filter on), and the edit card hides while searching or when there's nothing left to accept or ignore
 
@@ -620,15 +618,6 @@ async function ignore() {
   flex: 1;
   text-align: center;
   font-variant-numeric: tabular-nums;
-}
-
-.conflation-finished {
-  margin-bottom: 0.75rem;
-  padding: 0.5rem 0.625rem;
-  border: 1px solid var(--bs-border-color);
-  border-radius: var(--bs-border-radius);
-  background: var(--bs-tertiary-bg);
-  text-align: center;
 }
 
 .conflation-tile-progress {
