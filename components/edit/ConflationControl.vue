@@ -193,12 +193,6 @@
             />
           </div>
         </div>
-        <p
-          v-if="skipConfident || skipOsmId"
-          class="conflation-hint"
-        >
-          {{ stats.skipped }} edits filtered and skipped
-        </p>
 
         <div class="d-flex gap-2 align-items-center">
           <button
@@ -238,9 +232,15 @@
         >
           {{ reviewStatus }}
         </p>
+        <p
+          v-if="searching && (skipConfident || skipOsmId)"
+          class="conflation-hint"
+        >
+          {{ stats.skipped }} edits filtered and skipped
+        </p>
 
         <div
-          v-if="item"
+          v-if="item && !searching && (item.actionable || item.kind === 'removed')"
           class="conflation-item"
           aria-label="Item under review"
         >
@@ -292,12 +292,6 @@
               Ignore and next
             </button>
           </div>
-          <p
-            v-else-if="item.kind !== 'removed'"
-            class="conflation-hint mt-2 mb-0"
-          >
-            Already accepted or ignored.
-          </p>
         </div>
       </section>
     </template>
@@ -317,6 +311,7 @@
 // @test unit: the next and previous arrows step through pending suggestions, spiralling clockwise out from the map view's centre
 // @test unit: the item under review shows a diff of its tags (before and after) and how it joins the workspace; "Accept and next" / "Ignore and next" accept or ignore it, then move to the next
 // @test unit: the edit's position in its tile (e.g. 3/5) shows between the arrows
+// @test unit: the filtered-and-skipped count shows only while searching for the next edit, and the edit card hides while searching or when there's nothing left to accept or ignore
 
 import type { ReviewItem, ReviewPosition, ReviewStats } from '~/services/conflation/rapid-service';
 import type { Bounds } from '~/services/conflation/suggestions';
@@ -364,6 +359,8 @@ const dataset = ref<Dataset | null>(null);
 const stats = ref<ReviewStats>({ tiles: 0, current: 0, reviewed: 0, skipped: 0 });
 const item = ref<ReviewItem | undefined>();
 const reviewing = ref(false);
+/** Whether the arrows are searching tiles for the next edit. */
+const searching = ref(false);
 /** The edit under review's place among those left in its tile. */
 const position = ref<{ index: number; count: number } | null>(null);
 // Both filters start on, so review starts with the edits that most need a look.
@@ -423,18 +420,22 @@ async function step(direction: 1 | -1) {
   try {
     const at = await props.service.reviewStepAsync(dataset.value.datasetID, direction, (tile, tiles) => {
       reviewStatus.value = `Looking for suggested edits: tile ${tile} of ${tiles}…`;
+      searching.value = true;
     });
+    searching.value = false;
     if (at.suggestionID) {
       position.value = { index: at.index, count: at.count };
       reviewStatus.value = '';
     } else {
       reviewStatus.value = direction > 0 ? 'No more suggested edits after this one.' : 'No suggested edits before this one.';
+      position.value = null;
     }
   } catch (e) {
     console.error('Conflation review failed', e);
     reviewStatus.value = `Couldn't move to the next suggested edit: ${e instanceof Error ? e.message : String(e)}`;
   } finally {
     reviewing.value = false;
+    searching.value = false;
     refresh();
   }
 }
