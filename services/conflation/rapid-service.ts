@@ -81,6 +81,8 @@ interface Review {
   order: (a: Suggestion, b: Suggestion) => number;
   /** Where review last left the map's centre; if the user has moved it since, review restarts there. */
   placed: LonLat;
+  /** The tile being searched while stepping looks for the next edit (index into `tiles`). */
+  searching?: number;
 }
 
 /** Zooms used to frame the item under review: a single node, the range allowed, and padding around an edge. */
@@ -331,7 +333,9 @@ export function createConflationService(deps: ConflationDeps) {
       const reviewed = source.dataTiles.filter(key => source.tiles.has(key)
         && !(source.suggestions.byTile.get(key) ?? []).some(s => this._needsReview(source, s))).length;
       const skipped = [...source.suggestions.items.values()].filter(s => this._skipped(source, s)).length;
-      const current = source.dataTiles.length ? (source.review?.current ? source.review.tile + 1 : 1) : 0;
+      const review = source.review;
+      const at = review?.searching ?? (review?.current ? review.tile : 0);
+      const current = source.dataTiles.length ? at + 1 : 0;
       return { tiles: source.dataTiles.length, current, reviewed, skipped };
     }
 
@@ -417,6 +421,8 @@ export function createConflationService(deps: ConflationDeps) {
       let current: Suggestion | undefined = review.current?.kind === 'removed' ? undefined : review.current;
       while (tile >= 0 && tile < tiles.length) {
         onSearch?.(tile + 1, tiles.length);
+        review.searching = tile;
+        this.emit('reviewchange'); // so the tile count moves as empty tiles are passed
         const pending = await this._pendingInTileAsync(source, tiles[tile]!, review.order);
         let next: Suggestion | undefined;
         if (current) {
@@ -428,6 +434,7 @@ export function createConflationService(deps: ConflationDeps) {
         }
         if (next) {
           review.tile = tile;
+          review.searching = undefined;
           review.current = next;
           this._show(source, next);
           this.emit('reviewchange');
@@ -437,6 +444,8 @@ export function createConflationService(deps: ConflationDeps) {
         current = undefined;
       }
       // Nothing further that way; stay where we were.
+      review.searching = undefined;
+      this.emit('reviewchange');
       return { tile: review.tile + 1, tiles: tiles.length, index: 0, count: 0 };
     }
 
