@@ -230,13 +230,7 @@
           class="conflation-hint mt-2"
           role="status"
         >
-          {{ reviewStatus }}
-        </p>
-        <p
-          v-if="searching && (skipConfident || skipOsmId)"
-          class="conflation-hint"
-        >
-          {{ stats.skipped }} edits filtered and skipped
+          {{ searching ? searchStatus : reviewStatus }}
         </p>
 
         <div
@@ -312,7 +306,7 @@
 // @test unit: the item under review shows a diff of its tags (before and after) and how it joins the workspace; "Accept and next" / "Ignore and next" accept or ignore it, then move to the next
 // @test unit: the edit's position in its tile (e.g. 3/5) shows between the arrows
 // @test unit: an arrow is disabled once there are no more edits that way, and re-enabled when the review changes (an edit, tiles computed, a filter)
-// @test unit: the filtered-and-skipped count shows only while searching for the next edit, and the edit card hides while searching or when there's nothing left to accept or ignore
+// @test unit: while searching, the status reads "Searching for edits to review in tile X of Y, N edits skipped due to filters so far…" (the skipped part only with a filter on), and the edit card hides while searching or when there's nothing left to accept or ignore
 
 import type { ReviewItem, ReviewPosition, ReviewStats } from '~/services/conflation/rapid-service';
 import type { Bounds } from '~/services/conflation/suggestions';
@@ -360,8 +354,13 @@ const dataset = ref<Dataset | null>(null);
 const stats = ref<ReviewStats>({ tiles: 0, current: 0, reviewed: 0, skipped: 0 });
 const item = ref<ReviewItem | undefined>();
 const reviewing = ref(false);
-/** Whether the arrows are searching tiles for the next edit. */
+/** Whether the arrows are searching tiles for the next edit, and which tile they're on. */
 const searching = ref(false);
+const searchTile = ref({ tile: 0, tiles: 0 });
+const searchStatus = computed(() => {
+  const skipped = skipConfident.value || skipOsmId.value ? `, ${stats.value.skipped} edits skipped due to filters so far` : '';
+  return `Searching for edits to review in tile ${searchTile.value.tile} of ${searchTile.value.tiles}${skipped}…`;
+});
 /** Which ways have run out of edits; that arrow is disabled until something changes. */
 const ends = ref({ forward: false, back: false });
 /** The edit under review's place among those left in its tile. */
@@ -427,7 +426,7 @@ async function step(direction: 1 | -1) {
   reviewing.value = true;
   try {
     const at = await props.service.reviewStepAsync(dataset.value.datasetID, direction, (tile, tiles) => {
-      reviewStatus.value = `Looking for suggested edits: tile ${tile} of ${tiles}…`;
+      searchTile.value = { tile, tiles };
       searching.value = true;
     });
     searching.value = false;
