@@ -122,7 +122,7 @@ export interface ReviewItem {
 export interface ReviewStats {
   /** Tiles holding TDEI data. */
   tiles: number;
-  /** The tile review is on, 1-based in review order; 0 before review starts. */
+  /** The tile review is on, 1-based in review order (1 before review starts, 0 with no tiles). */
   current: number;
   /** Of those, tiles computed with no suggestions left to review. */
   reviewed: number;
@@ -327,7 +327,7 @@ export function createConflationService(deps: ConflationDeps) {
       const reviewed = source.dataTiles.filter(key => source.tiles.has(key)
         && !(source.suggestions.byTile.get(key) ?? []).some(s => this._needsReview(source, s))).length;
       const skipped = [...source.suggestions.items.values()].filter(s => this._skipped(source, s)).length;
-      const current = source.review?.current ? source.review.tile + 1 : 0;
+      const current = source.dataTiles.length ? (source.review?.current ? source.review.tile + 1 : 1) : 0;
       return { tiles: source.dataTiles.length, current, reviewed, skipped };
     }
 

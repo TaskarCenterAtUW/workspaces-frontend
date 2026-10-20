@@ -323,6 +323,7 @@
 // @test unit: "Tile current/total", the tiles reviewed and the progress bar (current of total) follow the service's review counts as they change
 // @test unit: "Skip tag edits with confidence ≥ X" sets the service's threshold from the slider (or clears it when unchecked) and shows how many were skipped
 // @test unit: "Skip tag edits that add ext:osm_id" turns the service's ext:osm_id filter on and off
+// @test unit: both skip filters are on by default, and applied when a dataset is added
 // @test unit: the skip options are in a filter dropdown beside the "Review Suggested Edits" heading, which shows how many filters are on
 // @test unit: the next and previous arrows step through pending suggestions, spiralling clockwise out from the map view's centre
 // @test unit: the item under review shows what it would write and how it joins the workspace; Accept accepts it, Ignore ignores it and moves to the next
@@ -372,9 +373,10 @@ const dataset = ref<Dataset | null>(null);
 const stats = ref<ReviewStats>({ tiles: 0, current: 0, reviewed: 0, skipped: 0 });
 const item = ref<ReviewItem | undefined>();
 const reviewing = ref(false);
-const skipConfident = ref(false);
+// Both filters start on, so review starts with the edits that most need a look.
+const skipConfident = ref(true);
 const threshold = ref(0.9);
-const skipOsmId = ref(false);
+const skipOsmId = ref(true);
 /** How many review filters are on, shown on the filter button. */
 const activeFilters = computed(() => Number(skipConfident.value) + Number(skipOsmId.value));
 
@@ -402,6 +404,7 @@ async function add() {
     const added = await props.service.addDatasetAsync(id, proximity.value || 0.5);
     dataset.value = { ...added, tdeiDatasetId: id };
     datasetId.value = '';
+    applySkip();
     refresh();
   } catch (e) {
     console.error('Conflation dataset failed to load', e);
