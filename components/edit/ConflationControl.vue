@@ -246,15 +246,8 @@
         >
           <h3 class="conflation-item-heading">
             {{ ITEM_TITLES[item.kind] }}
+            <span class="conflation-notes">{{ item.notes.join(' · ') }}</span>
           </h3>
-          <ul class="conflation-notes">
-            <li
-              v-for="note in item.notes"
-              :key="note"
-            >
-              {{ note }}
-            </li>
-          </ul>
           <edit-conflation-tag-diff
             :before="item.before"
             :after="item.after"
@@ -599,13 +592,13 @@ async function ignore() {
 .conflation-item-heading {
   font-size: 0.875rem;
   font-weight: 600;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
 }
 
 .conflation-notes {
-  padding-left: 1rem;
-  margin-bottom: 0.5rem;
+  font-weight: normal;
   color: var(--bs-secondary-color);
+  overflow-wrap: anywhere;
 }
 
 .conflation-tags {
