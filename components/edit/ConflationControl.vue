@@ -423,7 +423,7 @@ async function ignore() {
 <style scoped>
 /* Docked to the right of the editor, like the Pathways panel */
 .conflation-panel {
-  flex: 0 0 18rem;
+  flex: 0 0 22rem;
   height: 100%;
   overflow-y: auto;
   padding: 0.75rem;
