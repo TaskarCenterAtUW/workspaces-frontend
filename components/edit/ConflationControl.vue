@@ -106,9 +106,71 @@
         class="conflation-section"
         aria-label="Review suggested edits"
       >
-        <h2 class="conflation-heading">
-          Review Suggested Edits
-        </h2>
+        <div class="conflation-review-header">
+          <h2 class="conflation-heading mb-0">
+            Review Suggested Edits
+          </h2>
+          <b-dropdown
+            size="sm"
+            variant="link"
+            auto-close="outside"
+            no-caret
+            placement="bottom-end"
+            toggle-class="conflation-filter-toggle"
+            :title="`Filter suggested edits${activeFilters ? ` (${activeFilters} on)` : ''}`"
+          >
+            <template #button-content>
+              <app-icon
+                variant="filter_alt"
+                no-margin
+              />
+              <span
+                v-if="activeFilters"
+                class="badge rounded-pill text-bg-primary conflation-filter-count"
+              >{{ activeFilters }}</span>
+              <span class="visually-hidden">Filter suggested edits</span>
+            </template>
+            <b-dropdown-form class="conflation-filters">
+              <div class="form-check mb-1">
+                <input
+                  id="conflation-skip-confident"
+                  v-model="skipConfident"
+                  class="form-check-input"
+                  type="checkbox"
+                  @change="applySkip"
+                >
+                <label
+                  class="form-check-label"
+                  for="conflation-skip-confident"
+                >Skip tag edits with confidence ≥ {{ threshold.toFixed(2) }}</label>
+              </div>
+              <input
+                v-model.number="threshold"
+                type="range"
+                class="form-range"
+                min="0.15"
+                max="1"
+                step="0.05"
+                aria-label="Confidence threshold for skipping tag edits"
+                :disabled="!skipConfident"
+                @input="applySkip"
+              >
+              <div class="form-check mb-1">
+                <input
+                  id="conflation-skip-osm-id"
+                  v-model="skipOsmId"
+                  class="form-check-input"
+                  type="checkbox"
+                  @change="applySkip"
+                >
+                <label
+                  class="form-check-label"
+                  for="conflation-skip-osm-id"
+                >Skip tag edits that add <code>ext:osm_id</code></label>
+              </div>
+            </b-dropdown-form>
+          </b-dropdown>
+        </div>
         <dl class="conflation-stats">
           <dt>Total tiles</dt>
           <dd>{{ stats.tiles }}</dd>
@@ -127,43 +189,6 @@
             class="progress-bar"
             :style="{ width: `${stats.tiles ? (100 * stats.reviewed) / stats.tiles : 0}%` }"
           />
-        </div>
-        <div class="form-check mb-1">
-          <input
-            id="conflation-skip-confident"
-            v-model="skipConfident"
-            class="form-check-input"
-            type="checkbox"
-            @change="applySkip"
-          >
-          <label
-            class="form-check-label"
-            for="conflation-skip-confident"
-          >Skip tag edits with confidence ≥ {{ threshold.toFixed(2) }}</label>
-        </div>
-        <input
-          v-model.number="threshold"
-          type="range"
-          class="form-range"
-          min="0.15"
-          max="1"
-          step="0.05"
-          aria-label="Confidence threshold for skipping tag edits"
-          :disabled="!skipConfident"
-          @input="applySkip"
-        >
-        <div class="form-check mb-1">
-          <input
-            id="conflation-skip-osm-id"
-            v-model="skipOsmId"
-            class="form-check-input"
-            type="checkbox"
-            @change="applySkip"
-          >
-          <label
-            class="form-check-label"
-            for="conflation-skip-osm-id"
-          >Skip tag edits that add <code>ext:osm_id</code></label>
         </div>
         <p
           v-if="skipConfident || skipOsmId"
@@ -295,6 +320,7 @@
 // @test unit: total tiles, tiles reviewed and the progress bar follow the service's review counts as they change
 // @test unit: "Skip tag edits with confidence ≥ X" sets the service's threshold from the slider (or clears it when unchecked) and shows how many were skipped
 // @test unit: "Skip tag edits that add ext:osm_id" turns the service's ext:osm_id filter on and off
+// @test unit: the skip options are in a filter dropdown beside the "Review Suggested Edits" heading, which shows how many filters are on
 // @test unit: the next and previous arrows step through pending suggestions, spiralling clockwise out from the map view's centre
 // @test unit: the item under review shows what it would write and how it joins the workspace; Accept accepts it, Ignore ignores it and moves to the next
 
@@ -346,6 +372,8 @@ const reviewing = ref(false);
 const skipConfident = ref(false);
 const threshold = ref(0.9);
 const skipOsmId = ref(false);
+/** How many review filters are on, shown on the filter button. */
+const activeFilters = computed(() => Number(skipConfident.value) + Number(skipOsmId.value));
 
 function applySkip() {
   if (!dataset.value) return;
@@ -484,6 +512,34 @@ async function ignore() {
   padding: 0 0.25rem;
   border: 0;
   color: inherit;
+}
+
+.conflation-review-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* The dropdown renders its own toggle button, outside these scoped styles. */
+:deep(.conflation-filter-toggle) {
+  display: flex;
+  align-items: center;
+  padding: 0 0.25rem;
+  border: 0;
+  color: inherit;
+}
+
+/* The filter dropdown's options; it stays open while they're changed. */
+.conflation-filters {
+  width: 18rem;
+  font-size: 0.875rem;
+}
+
+.conflation-filter-count {
+  margin-left: 0.125rem;
+  font-size: 0.65rem;
 }
 
 .conflation-stats {
