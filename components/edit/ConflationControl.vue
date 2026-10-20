@@ -37,17 +37,17 @@
         :disabled="busy"
       >
       <label
-        class="form-label mb-1"
+        class="form-label mb-0"
         for="conflation-proximity"
-      >Snapping distance (m)</label>
+      >Snapping distance: <strong>{{ proximity.toFixed(1) }} m</strong></label>
       <input
         id="conflation-proximity"
         v-model.number="proximity"
-        type="number"
+        type="range"
         min="0.1"
-        max="10"
+        max="5"
         step="0.1"
-        class="form-control form-control-sm mb-2"
+        class="form-range mb-2"
         :disabled="busy"
       >
       <button
