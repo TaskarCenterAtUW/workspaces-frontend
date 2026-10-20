@@ -98,6 +98,19 @@ export class Ds2Data {
     return this.#edges.length;
   }
 
+  /**
+   * The tiles at a zoom that hold any of the dataset's nodes or edge vertices,
+   * in reading order (north to south, then west to east).
+   */
+  tilesWithData(zoom: number): [number, number][] {
+    const keys = new Map<string, [number, number]>();
+    for (const loc of [...this.#nodes.map(n => n.loc), ...this.#edges.flatMap(e => e.coords)]) {
+      const xy = tileAt(loc, zoom);
+      keys.set(xy.join(','), xy);
+    }
+    return [...keys.values()].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  }
+
   /** The latitude at the dataset's centre, for a fixed metres-per-degree scale. */
   get centreLat() {
     return (this.bounds[1] + this.bounds[3]) / 2;

@@ -66,7 +66,7 @@ describe('tileSuggestions', () => {
     const named = (name: string) => removed.filter(r => r.tags.name === name);
     expect(named('A: duplicate sidewalk').map(r => r.tags['ext:union_removed'])).toEqual([REMOVAL_REASONS.node_pair_duplicate]);
     expect(named('B: drifting sidewalk').map(r => r.reason)).toEqual([expect.stringMatching(/_duplicate$/)]);
-    expect(named('I: DS2-only service road')).toEqual([]);   // kept, so not listed
+    expect(named('I: DS2-only service road')).toEqual([]); // kept, so not listed
     expect(new Set(removed.map(r => r.id)).size).toBe(removed.length);
   });
 
@@ -120,6 +120,16 @@ describe('conflation inputs', () => {
       expect(data.nodes).toHaveLength(1);
       expect(data.edges).toEqual([]);
     }
+  });
+
+  it('lists the tiles holding a TDEI dataset\'s data, north to south then west to east', () => {
+    const tiles = DS2.tilesWithData(16);
+    expect(tiles.length).toBeGreaterThan(0);
+    const [w, s, e, n] = DS2.bounds;
+    expect(tiles).toContainEqual(tileAt([w, n], 16));
+    expect(tiles).toContainEqual(tileAt([e, s], 16));
+    const order = tiles.map(([x, y]) => y * 1e6 + x);
+    expect(order).toEqual([...order].sort((p, q) => p - q));
   });
 
   it('finds the z16 tiles covering an area, and their bounds', () => {

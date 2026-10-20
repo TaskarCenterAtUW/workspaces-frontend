@@ -56,9 +56,37 @@ interface Source {
   suggestions: Layer<Suggestion>;
   /** View-only: TDEI edge pieces dropped as duplicates or for lacking endpoints. */
   removed: Layer<RemovedPiece>;
+  /** Tiles with TDEI data, in review order, and where review is up to. */
+  review: { tiles: [number, number][]; tile: number; current?: Suggestion };
 }
 
 const removedDatasetID = (datasetID: string) => `${datasetID}-removed`;
+
+/** Where review is up to in a dataset's suggestions. */
+export interface ReviewPosition {
+  /** The tile being reviewed, 1-based, of the tiles with TDEI data. */
+  tile: number;
+  tiles: number;
+  /** The suggestion shown, 1-based, of the pending ones in that tile. */
+  index: number;
+  count: number;
+  /** The suggestion shown, or undefined once there are none left in that direction. */
+  suggestionID?: string;
+}
+
+/** How long to wait for a tile's workspace data before giving up on it. */
+const TILE_WAIT_MS = 15000;
+
+/** Where a suggestion is, for ordering and moving the map to it. */
+function locOf(s: Suggestion): LonLat {
+  return s.kind === 'tags' ? s.loc : (s.interior[Math.floor(s.interior.length / 2)] ?? s.u.loc);
+}
+
+/** Reading order: north to south, then west to east. */
+const readingOrder = (a: Suggestion, b: Suggestion) => {
+  const [pa, pb] = [locOf(a), locOf(b)];
+  return pb[1] - pa[1] || pa[0] - pb[0] || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+};
 
 /**
  * Builds the service class. Rapid constructs services itself (with only its
@@ -168,7 +196,8 @@ export function createConflationService(deps: ConflationDeps) {
       };
       this._sources.set(datasetID, {
         datasetID, tdeiDatasetId, proximity, data, tiles: new Set(), dirty: new Set(),
-        suggestions: layer(dataset), removed: layer(removed)
+        suggestions: layer(dataset), removed: layer(removed),
+        review: { tiles: data.tilesWithData(TILE_ZOOM), tile: 0 }
       });
       dataset.dictionary = await this.getDataDictionaryAsync(datasetID);
       rapid.catalog.set(datasetID, dataset);
@@ -184,6 +213,74 @@ export function createConflationService(deps: ConflationDeps) {
       const rapid = this.context.systems.rapid;
       if (show) rapid.enableDatasets([removedDatasetID(datasetID)]);
       else rapid.disableDatasets([removedDatasetID(datasetID)]);
+    }
+
+    /**
+     * Moves to the next (or previous) pending suggestion and selects it, so
+     * Rapid's sidebar shows it with Accept / Ignore. Walks the tiles with TDEI
+     * data in reading order, moving the map to each and waiting for its
+     * workspace data, skipping tiles with nothing pending.
+     * @param direction - 1 for the next suggestion, -1 for the previous
+     * @param onSearch - called with each tile searched (1-based) and the tile count
+     */
+    async reviewStepAsync(datasetID: string, direction: 1 | -1, onSearch?: (tile: number, tiles: number) => void): Promise<ReviewPosition> {
+      const source = this._sources.get(datasetID);
+      if (!source) throw new Error(`No conflation dataset ${datasetID}`);
+      const review = source.review;
+      const tiles = review.tiles;
+      let tile = review.tile;
+      let current = review.current;
+      while (tile >= 0 && tile < tiles.length) {
+        onSearch?.(tile + 1, tiles.length);
+        const pending = await this._pendingInTileAsync(source, tiles[tile]!);
+        let next: Suggestion | undefined;
+        if (current) {
+          next = direction > 0
+            ? pending.find(s => readingOrder(s, current!) > 0)
+            : [...pending].reverse().find(s => readingOrder(s, current!) < 0);
+        } else {
+          next = direction > 0 ? pending[0] : pending.at(-1);
+        }
+        if (next) {
+          review.tile = tile;
+          review.current = next;
+          this._show(source, next);
+          return { tile: tile + 1, tiles: tiles.length, index: pending.indexOf(next) + 1, count: pending.length, suggestionID: next.id };
+        }
+        tile += direction;
+        current = undefined;
+      }
+      // Nothing further that way; stay where we were.
+      return { tile: review.tile + 1, tiles: tiles.length, index: 0, count: 0 };
+    }
+
+    /** A tile's pending suggestions in reading order, computing the tile first if needed. */
+    async _pendingInTileAsync(source: Source, xy: [number, number]): Promise<Suggestion[]> {
+      const key = xy.join(',');
+      if (!source.tiles.has(key) || source.dirty.has(key)) {
+        const bounds = tileBounds(xy, TILE_ZOOM);
+        const map = this.context.systems.map;
+        map.centerZoom([(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2], Math.max(map.zoom(), 17));
+        const started = Date.now();
+        while (!source.tiles.has(key) || source.dirty.has(key)) {
+          if (Date.now() - started > TILE_WAIT_MS) return []; // workspace data never arrived: skip the tile
+          await new Promise(resolve => setTimeout(resolve, 250));
+          this.loadTiles(source.datasetID);
+        }
+      }
+      const rapid = this.context.systems.rapid;
+      return (source.suggestions.byTile.get(key) ?? [])
+        .filter(s => !rapid.isAcceptedOrIgnored(s.id))
+        .sort(readingOrder);
+    }
+
+    /** Moves the map to a suggestion and selects it. */
+    _show(source: Source, s: Suggestion) {
+      const context = this.context;
+      const map = context.systems.map;
+      map.centerZoomEase(locOf(s), Math.max(map.zoom(), 19));
+      const entity = source.suggestions.graph.hasEntity(s.id);
+      if (entity) context.enter('select', { selection: new Map([[s.id, entity]]) });
     }
 
     /** Computes suggestions for tiles in view that are new or out of date. */

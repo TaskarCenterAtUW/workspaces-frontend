@@ -1,108 +1,144 @@
 <template>
-  <div class="conflation-control">
-    <button
-      v-if="!open"
-      type="button"
-      class="btn btn-sm btn-light conflation-toggle"
-      @click="open = true"
-    >
-      <app-icon
-        variant="merge"
-        no-margin
-      />
-      Conflate TDEI dataset
-    </button>
-
+  <aside
+    class="conflation-panel"
+    aria-label="Conflation"
+  >
+    <h2 class="conflation-heading">
+      Conflate a TDEI Dataset
+    </h2>
+    <p class="conflation-hint">
+      Its features show as suggestions to accept or ignore, tile by tile, where they would add to this workspace.
+    </p>
     <form
-      v-else
-      class="conflation-panel card shadow-sm"
       aria-label="Conflate a TDEI dataset"
       @submit.prevent="add"
     >
-      <div class="card-body">
-        <div class="d-flex align-items-center mb-2">
-          <h2 class="h6 mb-0 flex-grow-1">
-            Conflate a TDEI dataset
-          </h2>
-          <button
-            type="button"
-            class="btn-close"
-            aria-label="Close"
-            @click="open = false"
-          />
-        </div>
-        <p class="small text-body-secondary mb-2">
-          Its features show as suggestions to accept or ignore, tile by tile, where they would add to this workspace.
-        </p>
-        <label
-          class="form-label small mb-1"
-          for="conflation-dataset-id"
-        >TDEI dataset ID</label>
-        <input
-          id="conflation-dataset-id"
-          v-model="datasetId"
-          class="form-control form-control-sm mb-2"
-          required
-          :disabled="busy"
-        >
-        <label
-          class="form-label small mb-1"
-          for="conflation-proximity"
-        >Snapping distance (m)</label>
-        <input
-          id="conflation-proximity"
-          v-model.number="proximity"
-          type="number"
-          min="0.1"
-          max="10"
-          step="0.1"
-          class="form-control form-control-sm mb-2"
-          :disabled="busy"
-        >
+      <label
+        class="form-label mb-1"
+        for="conflation-dataset-id"
+      >TDEI dataset ID</label>
+      <input
+        id="conflation-dataset-id"
+        v-model="datasetId"
+        class="form-control form-control-sm mb-2"
+        required
+        :disabled="busy"
+      >
+      <label
+        class="form-label mb-1"
+        for="conflation-proximity"
+      >Snapping distance (m)</label>
+      <input
+        id="conflation-proximity"
+        v-model.number="proximity"
+        type="number"
+        min="0.1"
+        max="10"
+        step="0.1"
+        class="form-control form-control-sm mb-2"
+        :disabled="busy"
+      >
+      <button
+        type="submit"
+        class="btn btn-sm btn-primary w-100"
+        :disabled="busy || !datasetId.trim()"
+      >
+        {{ busy ? 'Loading dataset…' : 'Add suggestions' }}
+      </button>
+      <p
+        v-if="error"
+        class="text-danger mt-2 mb-0"
+        role="alert"
+      >
+        {{ error }}
+      </p>
+    </form>
+
+    <section
+      v-if="datasets.length"
+      class="conflation-section"
+    >
+      <h2 class="conflation-heading">
+        Added Datasets
+      </h2>
+      <div
+        v-for="added in datasets"
+        :key="added.datasetID"
+        class="conflation-dataset"
+      >
+        <strong>{{ added.tdeiDatasetId }}</strong>: {{ added.edges }} edges, {{ added.nodes }} nodes.
         <button
-          type="submit"
-          class="btn btn-sm btn-primary w-100"
-          :disabled="busy || !datasetId.trim()"
+          type="button"
+          class="btn btn-link btn-sm p-0 align-baseline"
+          @click="zoomTo(added.bounds)"
         >
-          {{ busy ? 'Loading dataset…' : 'Add suggestions' }}
+          Go to it
         </button>
-        <p
-          v-if="error"
-          class="small text-danger mt-2 mb-0"
-          role="alert"
-        >
-          {{ error }}
-        </p>
-        <div
-          v-for="added in datasets"
-          :key="added.datasetID"
-          class="small mt-2"
-        >
-          <strong>{{ added.tdeiDatasetId }}</strong>: {{ added.edges }} edges, {{ added.nodes }} nodes.
-          <button
-            type="button"
-            class="btn btn-link btn-sm p-0 align-baseline"
-            @click="zoomTo(added.bounds)"
+        <div class="form-check mt-1">
+          <input
+            :id="`conflation-removed-${added.datasetID}`"
+            class="form-check-input"
+            type="checkbox"
+            :checked="added.showRemoved"
+            @change="toggleRemoved(added, ($event.target as HTMLInputElement).checked)"
           >
-            Go to it
-          </button>
-          <div class="form-check mt-1">
-            <input
-              :id="`conflation-removed-${added.datasetID}`"
-              class="form-check-input"
-              type="checkbox"
-              :checked="added.showRemoved"
-              @change="toggleRemoved(added, ($event.target as HTMLInputElement).checked)"
-            >
-            <label
-              class="form-check-label"
-              :for="`conflation-removed-${added.datasetID}`"
-            >Show dropped edges (duplicates, in grey)</label>
-          </div>
+          <label
+            class="form-check-label"
+            :for="`conflation-removed-${added.datasetID}`"
+          >Show dropped edges (duplicates, in grey)</label>
         </div>
       </div>
-    </form>
-  </div>
+    </section>
+
+    <section
+      v-if="datasets.length"
+      class="conflation-section"
+      aria-label="Review suggestions"
+    >
+      <h2 class="conflation-heading">
+        Review Suggestions
+      </h2>
+      <select
+        v-if="datasets.length > 1"
+        v-model="reviewDatasetID"
+        class="form-select form-select-sm mb-2"
+        aria-label="Dataset to review"
+        :disabled="reviewing"
+      >
+        <option
+          v-for="added in datasets"
+          :key="added.datasetID"
+          :value="added.datasetID"
+        >
+          {{ added.tdeiDatasetId }}
+        </option>
+      </select>
+      <div class="d-flex gap-2">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary flex-fill"
+          :disabled="reviewing"
+          @click="step(-1)"
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm btn-primary flex-fill"
+          :disabled="reviewing"
+          @click="step(1)"
+        >
+          Next
+        </button>
+      </div>
+      <p
+        class="conflation-hint mt-2 mb-0"
+        role="status"
+      >
+        {{ reviewStatus }}
+      </p>
+    </section>
+  </aside>
 </template>
 
 <script setup lang="ts">
@@ -110,7 +146,9 @@
 // @test unit: a failed download shows its error and leaves the form usable
 // @test unit: "Go to it" centres the map on the dataset
 // @test unit: "Show dropped edges" shows and hides the TDEI edges the union dropped, for that dataset
+// @test unit: Next and Previous step through the chosen dataset's pending suggestions, showing the tile and position, or that none are left that way
 
+import type { ReviewPosition } from '~/services/conflation/rapid-service';
 import type { Bounds } from '~/services/conflation/suggestions';
 
 const props = defineProps<{
@@ -118,12 +156,12 @@ const props = defineProps<{
   service: {
     addDatasetAsync(id: string, proximity: number): Promise<{ datasetID: string; nodes: number; edges: number; bounds: Bounds }>;
     showRemoved(datasetID: string, show: boolean): void;
+    reviewStepAsync(datasetID: string, direction: 1 | -1, onSearch?: (tile: number, tiles: number) => void): Promise<ReviewPosition>;
   };
   /** Rapid's map, to move to an added dataset. */
   map?: { centerZoomEase(loc: [number, number], zoom: number): unknown };
 }>();
 
-const open = ref(false);
 const datasetId = ref('');
 const proximity = ref(0.5);
 const busy = ref(false);
@@ -146,12 +184,34 @@ async function add() {
   try {
     const added = await props.service.addDatasetAsync(id, proximity.value || 0.5);
     datasets.value = [...datasets.value.filter(d => d.datasetID !== added.datasetID), { ...added, tdeiDatasetId: id, showRemoved: false }];
+    reviewDatasetID.value = added.datasetID;
     datasetId.value = '';
   } catch (e) {
     console.error('Conflation dataset failed to load', e);
     error.value = `Couldn't load that dataset: ${e instanceof Error ? e.message : String(e)}`;
   } finally {
     busy.value = false;
+  }
+}
+
+const reviewDatasetID = ref('');
+const reviewing = ref(false);
+const reviewStatus = ref('Step through the suggestions one at a time; each opens in the sidebar to accept or ignore.');
+
+async function step(direction: 1 | -1) {
+  reviewing.value = true;
+  try {
+    const at = await props.service.reviewStepAsync(reviewDatasetID.value, direction, (tile, tiles) => {
+      reviewStatus.value = `Looking for suggestions: area ${tile} of ${tiles}…`;
+    });
+    reviewStatus.value = at.suggestionID
+      ? `Suggestion ${at.index} of ${at.count} in area ${at.tile} of ${at.tiles}.`
+      : direction > 0 ? 'No more suggestions after this one.' : 'No suggestions before this one.';
+  } catch (e) {
+    console.error('Conflation review failed', e);
+    reviewStatus.value = `Couldn't move to the next suggestion: ${e instanceof Error ? e.message : String(e)}`;
+  } finally {
+    reviewing.value = false;
   }
 }
 
@@ -166,15 +226,33 @@ function zoomTo([w, s, e, n]: Bounds) {
 </script>
 
 <style scoped>
-/* Placed inside Rapid's map area: its bottom-left corner, above the map footer */
-.conflation-control {
-  position: absolute;
-  left: 12px;
-  bottom: calc(2.5em + 12px);
-  z-index: 10;
+/* Docked to the right of the editor, like the Pathways panel */
+.conflation-panel {
+  flex: 0 0 18rem;
+  height: 100%;
+  overflow-y: auto;
+  padding: 0.75rem;
+  border-left: 1px solid var(--bs-border-color);
+  background: var(--bs-body-bg);
+  font-size: 0.875rem;
 }
 
-.conflation-panel {
-  width: 18rem;
+.conflation-heading {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.conflation-hint {
+  color: var(--bs-secondary-color);
+  margin-bottom: 0.75rem;
+}
+
+.conflation-section {
+  margin-top: 1.25rem;
+}
+
+.conflation-dataset + .conflation-dataset {
+  margin-top: 0.75rem;
 }
 </style>
