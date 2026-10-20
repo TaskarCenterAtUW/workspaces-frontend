@@ -194,7 +194,10 @@
           </div>
         </div>
 
-        <div class="d-flex gap-2 align-items-center">
+        <div
+          v-show="!searching"
+          class="d-flex gap-2 align-items-center"
+        >
           <button
             type="button"
             class="btn btn-sm btn-outline-secondary"
@@ -305,6 +308,7 @@
 // @test unit: the next and previous arrows step through pending suggestions, spiralling clockwise out from the map view's centre
 // @test unit: the item under review shows a diff of its tags (before and after) and how it joins the workspace; "Accept and next" / "Ignore and next" accept or ignore it, then move to the next
 // @test unit: the edit's position in its tile (e.g. 3/5) shows between the arrows
+// @test unit: the arrows (and the position between them) are hidden while searching for the next edit
 // @test unit: an arrow is disabled once there are no more edits that way, and re-enabled when the review changes (an edit, tiles computed, a filter)
 // @test unit: while searching, the status reads "Searching for edits to review in tile X of Y, N edits skipped due to filters so far…" (the skipped part only with a filter on), and the edit card hides while searching or when there's nothing left to accept or ignore
 
