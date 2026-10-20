@@ -109,6 +109,36 @@
             :style="{ width: `${stats.tiles ? (100 * stats.reviewed) / stats.tiles : 0}%` }"
           />
         </div>
+        <div class="form-check mb-1">
+          <input
+            id="conflation-skip-confident"
+            v-model="skipConfident"
+            class="form-check-input"
+            type="checkbox"
+            @change="applySkip"
+          >
+          <label
+            class="form-check-label"
+            for="conflation-skip-confident"
+          >Skip tag edits with confidence ≥ {{ threshold.toFixed(2) }}</label>
+        </div>
+        <input
+          v-model.number="threshold"
+          type="range"
+          class="form-range"
+          min="0.15"
+          max="1"
+          step="0.05"
+          aria-label="Confidence threshold for skipping tag edits"
+          :disabled="!skipConfident"
+          @input="applySkip"
+        >
+        <p
+          v-if="skipConfident"
+          class="conflation-hint"
+        >
+          {{ stats.skipped }} skipped so far, in the tiles computed. They stay on the map. New edges have no confidence score, so they're always reviewed.
+        </p>
 
         <div
           class="btn-group btn-group-sm w-100 mb-2"
@@ -246,6 +276,7 @@
 // @test unit: a failed download shows its error and leaves the form usable
 // @test unit: "Go to it" centres the map on the dataset; "Remove" stops conflating it and brings the form back
 // @test unit: total tiles, tiles reviewed and the progress bar follow the service's review counts as they change
+// @test unit: "Skip tag edits with confidence ≥ X" sets the service's threshold from the slider (or clears it when unchecked) and shows how many were skipped
 // @test unit: Next and Previous step through pending suggestions spiralling out from the map view's centre, restarting there when the rotation changes
 // @test unit: the item under review shows what it would write and how it joins the workspace; Accept accepts it, Ignore ignores it and moves to the next
 
@@ -261,6 +292,7 @@ const props = defineProps<{
     startReview(datasetID: string, rotation: Rotation): void;
     reviewStepAsync(datasetID: string, direction: 1 | -1, onSearch?: (tile: number, tiles: number) => void): Promise<ReviewPosition>;
     reviewStats(datasetID: string): ReviewStats;
+    setSkipConfidence(datasetID: string, threshold: number | undefined): void;
     currentItem(datasetID: string): ReviewItem | undefined;
     acceptCurrent(datasetID: string): void;
     ignoreCurrent(datasetID: string): void;
@@ -296,15 +328,22 @@ const error = ref('');
 /** The one dataset being conflated, once added. */
 const dataset = ref<Dataset | null>(null);
 
-const stats = ref<ReviewStats>({ tiles: 0, reviewed: 0 });
+const stats = ref<ReviewStats>({ tiles: 0, reviewed: 0, skipped: 0 });
 const item = ref<ReviewItem | undefined>();
 const reviewing = ref(false);
 const rotation = ref<Rotation>('clockwise');
+const skipConfident = ref(false);
+const threshold = ref(0.9);
+
+function applySkip() {
+  if (!dataset.value) return;
+  props.service.setSkipConfidence(dataset.value.datasetID, skipConfident.value ? threshold.value : undefined);
+}
 const reviewStatus = ref('Press Next to step through the suggested edits, spiralling out from the centre of the map view.');
 
 function refresh() {
   const id = dataset.value?.datasetID;
-  stats.value = id ? props.service.reviewStats(id) : { tiles: 0, reviewed: 0 };
+  stats.value = id ? props.service.reviewStats(id) : { tiles: 0, reviewed: 0, skipped: 0 };
   item.value = id ? props.service.currentItem(id) : undefined;
 }
 onMounted(() => props.service.on('reviewchange', refresh));

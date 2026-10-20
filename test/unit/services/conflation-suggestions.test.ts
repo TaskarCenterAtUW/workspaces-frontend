@@ -38,6 +38,7 @@ describe('tileSuggestions', () => {
     expect(tags[0]!.addTags).toEqual({ 'ext:surface': 'concrete' }); // tactile_paving stays the workspace's "no"
     expect(tags[0]!.unionTags['ext:union_audit_tactile_paving']).toBe('tdei:n:2000001-yes');
     expect(tags[0]!.unionTags['ext:union_confidence_status']).toBe('merged');
+    expect(tags[0]!.confidence).toBe(1); // same spot, same kind of edge
   });
 
   it('connects a TDEI edge to the workspace node it snapped onto (case H)', () => {

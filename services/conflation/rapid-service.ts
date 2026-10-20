@@ -62,6 +62,8 @@ interface Source {
   review?: Review;
   /** Keys of the tiles holding TDEI data. */
   dataTiles: string[];
+  /** Tag suggestions at or above this confidence are skipped in review; unset to review them all. */
+  skipConfidence?: number;
 }
 
 const removedDatasetID = (datasetID: string) => `${datasetID}-removed`;
@@ -112,8 +114,10 @@ export interface ReviewItem {
 export interface ReviewStats {
   /** Tiles holding TDEI data. */
   tiles: number;
-  /** Of those, tiles computed with no suggestions left to accept or ignore. */
+  /** Of those, tiles computed with no suggestions left to review. */
   reviewed: number;
+  /** Tag suggestions skipped so far for being at or above the confidence threshold (in computed tiles). */
+  skipped: number;
 }
 
 /** How long to wait for a tile's workspace data before giving up on it. */
@@ -296,14 +300,36 @@ export function createConflationService(deps: ConflationDeps) {
       this.emit('reviewchange');
     }
 
-    /** How many of a dataset's tiles have been reviewed. */
+    /** How many of a dataset's tiles have been reviewed, and how many confident suggestions were skipped. */
     reviewStats(datasetID: string): ReviewStats {
       const source = this._sources.get(datasetID);
-      if (!source) return { tiles: 0, reviewed: 0 };
-      const rapid = this.context.systems.rapid;
+      if (!source) return { tiles: 0, reviewed: 0, skipped: 0 };
       const reviewed = source.dataTiles.filter(key => source.tiles.has(key)
-        && !(source.suggestions.byTile.get(key) ?? []).some(s => !rapid.isAcceptedOrIgnored(s.id))).length;
-      return { tiles: source.dataTiles.length, reviewed };
+        && !(source.suggestions.byTile.get(key) ?? []).some(s => this._needsReview(source, s))).length;
+      const skipped = [...source.suggestions.items.values()].filter(s => this._skippedAsConfident(source, s)).length;
+      return { tiles: source.dataTiles.length, reviewed, skipped };
+    }
+
+    /**
+     * Skips tag suggestions the union is at least this confident about in
+     * review (they stay on the map); `undefined` reviews them all.
+     */
+    setSkipConfidence(datasetID: string, threshold: number | undefined) {
+      const source = this._sources.get(datasetID);
+      if (!source) return;
+      source.skipConfidence = threshold;
+      this.emit('reviewchange');
+    }
+
+    /** Whether a pending suggestion is skipped in review for its confidence. */
+    _skippedAsConfident(source: Source, s: Suggestion): boolean {
+      return s.kind === 'tags' && source.skipConfidence !== undefined && s.confidence !== undefined
+        && s.confidence >= source.skipConfidence && !this.context.systems.rapid.isAcceptedOrIgnored(s.id);
+    }
+
+    /** Whether a suggestion still needs review: not accepted, ignored, or skipped for its confidence. */
+    _needsReview(source: Source, s: Suggestion): boolean {
+      return !this.context.systems.rapid.isAcceptedOrIgnored(s.id) && !this._skippedAsConfident(source, s);
     }
 
     /** Shows or hides the TDEI edges the union dropped, for a dataset added with `addDatasetAsync`. */
@@ -395,9 +421,8 @@ export function createConflationService(deps: ConflationDeps) {
           this.loadTiles(source.datasetID);
         }
       }
-      const rapid = this.context.systems.rapid;
       return (source.suggestions.byTile.get(key) ?? [])
-        .filter(s => !rapid.isAcceptedOrIgnored(s.id))
+        .filter(s => this._needsReview(source, s))
         .sort(order);
     }
 

@@ -63,6 +63,8 @@ export interface TagSuggestion {
   addTags: Record<string, string>;
   /** Union audit and confidence tags, shown but not written. */
   unionTags: Record<string, string>;
+  /** The union's confidence that the TDEI node and workspace node are the same (0-1). */
+  confidence?: number;
 }
 
 export type Suggestion = EdgeSuggestion | TagSuggestion;
@@ -162,7 +164,11 @@ export function tileSuggestions(
       else if (!(k in before)) addTags[k] = v;
     }
     if (!Object.keys(addTags).length) continue;
-    out.push({ kind: 'tags', id: `n-${idPrefix}-${node.id}`, nodeId: node.id, loc: node.loc, addTags, unionTags });
+    const confidence = Number(node.props['ext:union_confidence']);
+    out.push({
+      kind: 'tags', id: `n-${idPrefix}-${node.id}`, nodeId: node.id, loc: node.loc, addTags, unionTags,
+      ...(Number.isFinite(confidence) ? { confidence } : {})
+    });
   }
   return out;
 }
