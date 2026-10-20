@@ -3,9 +3,19 @@
     class="conflation-panel"
     aria-label="Conflation"
   >
-    <h2 class="conflation-heading">
-      Conflate a TDEI Dataset
-    </h2>
+    <div class="conflation-panel-header">
+      <h2 class="conflation-heading mb-0">
+        Conflate a TDEI Dataset
+      </h2>
+      <button
+        v-if="dataset"
+        type="button"
+        class="btn-close"
+        title="Stop conflating this dataset"
+        aria-label="Stop conflating this dataset"
+        @click="remove"
+      />
+    </div>
 
     <form
       v-if="!dataset"
@@ -67,18 +77,6 @@
           </h3>
           <button
             type="button"
-            class="btn-close"
-            title="Stop conflating this dataset"
-            aria-label="Stop conflating this dataset"
-            @click="remove"
-          />
-        </div>
-        <div class="conflation-dataset-id text-break">
-          {{ dataset.tdeiDatasetId }}
-        </div>
-        <div class="conflation-dataset-row">
-          <button
-            type="button"
             class="btn btn-sm conflation-zoom"
             title="Zoom to the dataset's extent"
             aria-label="Zoom to the dataset's extent"
@@ -89,6 +87,11 @@
               no-margin
             />
           </button>
+        </div>
+        <div class="conflation-dataset-id text-break">
+          {{ dataset.tdeiDatasetId }}
+        </div>
+        <div class="conflation-dataset-row">
           <span class="conflation-counts">
             <span
               class="badge text-bg-light"
@@ -316,7 +319,7 @@
 <script setup lang="ts">
 // @test unit: adding a dataset ID calls the conflation service with the ID and snapping distance, then shows that dataset in place of the form
 // @test unit: a failed download shows its error and leaves the form usable
-// @test unit: the zoom button below the dataset header zooms to the dataset's extent; the X beside the header stops conflating it and brings the form back
+// @test unit: the zoom button beside the dataset header zooms to the dataset's extent; the X beside the panel heading stops conflating it and brings the form back
 // @test unit: total tiles, tiles reviewed and the progress bar follow the service's review counts as they change
 // @test unit: "Skip tag edits with confidence ≥ X" sets the service's threshold from the slider (or clears it when unchecked) and shows how many were skipped
 // @test unit: "Skip tag edits that add ext:osm_id" turns the service's ext:osm_id filter on and off
@@ -473,6 +476,14 @@ async function ignore() {
 
 .conflation-section {
   margin-top: 1.25rem;
+}
+
+.conflation-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .conflation-dataset-header {
