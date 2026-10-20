@@ -94,11 +94,11 @@
         <div class="conflation-dataset-row">
           <span class="conflation-counts">
             <span
-              class="badge text-bg-light"
+              class="badge conflation-pill"
               :title="`${dataset.nodes} nodes in the TDEI dataset`"
             >{{ dataset.nodes }} node{{ dataset.nodes !== 1 ? 's' : '' }}</span>
             <span
-              class="badge text-bg-light"
+              class="badge conflation-pill"
               :title="`${dataset.edges} edges in the TDEI dataset`"
             >{{ dataset.edges }} edge{{ dataset.edges !== 1 ? 's' : '' }}</span>
           </span>
@@ -515,6 +515,14 @@ async function ignore() {
 .conflation-counts {
   display: flex;
   gap: 0.25rem;
+}
+
+/* White with an outline, so they stand out on the shaded dataset section */
+.conflation-pill {
+  border: 1px solid var(--bs-border-color);
+  background: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  font-weight: 500;
 }
 
 .conflation-dataset-row {
