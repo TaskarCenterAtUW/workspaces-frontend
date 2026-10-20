@@ -396,6 +396,16 @@ export function createConflationService(deps: ConflationDeps) {
       };
     }
 
+    /** Goes back to the first tile of the current spiral (same centre and rotation), before any edit. */
+    restartReview(datasetID: string) {
+      const review = this._sources.get(datasetID)?.review;
+      if (!review) return;
+      review.tile = 0;
+      review.current = undefined;
+      review.searching = undefined;
+      this.emit('reviewchange');
+    }
+
     /**
      * Moves to the next (or previous) pending suggestion and selects it, so
      * Rapid's sidebar shows it with Accept / Ignore. Spirals out from where

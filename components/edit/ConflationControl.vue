@@ -235,6 +235,23 @@
         >
           {{ searching ? searchStatus : reviewStatus }}
         </p>
+        <div
+          v-if="finished && !searching"
+          class="conflation-finished"
+          role="status"
+        >
+          <p class="mb-2">
+            No more suggested edits
+          </p>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary w-100"
+            :disabled="reviewing"
+            @click="reviewAgain"
+          >
+            Review again from tile 1
+          </button>
+        </div>
 
         <div
           v-if="item && !searching && (item.actionable || item.kind === 'removed')"
@@ -309,6 +326,7 @@
 // @test unit: the item under review shows a diff of its tags (before and after) and how it joins the workspace; "Accept and next" / "Ignore and next" accept or ignore it, then move to the next
 // @test unit: the edit's position in its tile (e.g. 3/5) shows between the arrows
 // @test unit: the arrows (and the position between them) are hidden while searching for the next edit
+// @test unit: when stepping forward runs out, "No more suggested edits" shows with "Review again from tile 1", which restarts the spiral and shows its first pending edit
 // @test unit: an arrow is disabled once there are no more edits that way, and re-enabled when the review changes (an edit, tiles computed, a filter)
 // @test unit: while searching, the status reads "Searching for edits to review in tile X of Y, N edits skipped due to filters so far…" (the skipped part only with a filter on), and the edit card hides while searching or when there's nothing left to accept or ignore
 
@@ -323,6 +341,7 @@ const props = defineProps<{
     zoomToDataset(datasetID: string): void;
     reviewStepAsync(datasetID: string, direction: 1 | -1, onSearch?: (tile: number, tiles: number) => void): Promise<ReviewPosition>;
     reviewStats(datasetID: string): ReviewStats;
+    restartReview(datasetID: string): void;
     setSkipConfidence(datasetID: string, threshold: number | undefined): void;
     setSkipOsmId(datasetID: string, skip: boolean): void;
     currentItem(datasetID: string): ReviewItem | undefined;
@@ -365,6 +384,8 @@ const searchStatus = computed(() => {
   const skipped = skipConfident.value || skipOsmId.value ? `, ${stats.value.skipped} edits skipped due to filters so far` : '';
   return `Searching for edits to review in tile ${searchTile.value.tile} of ${searchTile.value.tiles}${skipped}…`;
 });
+/** Whether stepping forward has run out of edits. */
+const finished = ref(false);
 /** Which ways have run out of edits; that arrow is disabled until something changes. */
 const ends = ref({ forward: false, back: false });
 /** The edit under review's place among those left in its tile. */
@@ -422,6 +443,7 @@ function remove() {
   props.service.removeDataset(dataset.value.datasetID);
   dataset.value = null;
   position.value = null;
+  finished.value = false;
   refresh();
 }
 
@@ -438,7 +460,9 @@ async function step(direction: 1 | -1) {
     if (at.suggestionID) {
       position.value = { index: at.index, count: at.count };
       ends.value = { forward: false, back: false };
+      finished.value = false;
     } else {
+      if (direction > 0) finished.value = true;
       // Nothing further that way: disable that arrow.
       ends.value = direction > 0 ? { ...ends.value, forward: true } : { ...ends.value, back: true };
       position.value = null;
@@ -451,6 +475,15 @@ async function step(direction: 1 | -1) {
     searching.value = false;
     refresh();
   }
+}
+
+/** Starts review over from the spiral's first tile. */
+async function reviewAgain() {
+  if (!dataset.value) return;
+  props.service.restartReview(dataset.value.datasetID);
+  finished.value = false;
+  ends.value = { forward: false, back: false };
+  await step(1);
 }
 
 async function accept() {
@@ -587,6 +620,15 @@ async function ignore() {
   flex: 1;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+.conflation-finished {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  background: var(--bs-tertiary-bg);
+  text-align: center;
 }
 
 .conflation-tile-progress {
