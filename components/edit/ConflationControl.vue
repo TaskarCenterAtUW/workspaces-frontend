@@ -345,10 +345,11 @@ const props = defineProps<{
   };
 }>();
 
+/** The operation each kind of item is. Conflation never deletes; a dropped edge just isn't added. */
 const ITEM_TITLES: Record<ReviewItem['kind'], string> = {
-  edge: 'New edge',
-  tags: 'Tags to add',
-  removed: 'Dropped edge'
+  edge: 'Create new edge',
+  tags: 'Edit node',
+  removed: 'Not added (duplicate)'
 };
 
 interface Dataset {
