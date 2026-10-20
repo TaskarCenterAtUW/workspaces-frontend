@@ -174,24 +174,24 @@
             </b-dropdown-form>
           </b-dropdown>
         </div>
-        <dl class="conflation-stats">
-          <dt>Total tiles</dt>
-          <dd>{{ stats.tiles }}</dd>
-          <dt>Tiles reviewed</dt>
-          <dd>{{ stats.reviewed }}</dd>
-        </dl>
-        <div
-          class="progress mb-3"
-          role="progressbar"
-          aria-label="Tiles reviewed"
-          :aria-valuenow="stats.reviewed"
-          aria-valuemin="0"
-          :aria-valuemax="stats.tiles"
-        >
+        <div class="conflation-tile-progress">
+          <div class="d-flex justify-content-between align-items-baseline mb-1">
+            <span>Tile <strong>{{ stats.current }}/{{ stats.tiles }}</strong></span>
+            <span class="conflation-hint mb-0">{{ stats.reviewed }} reviewed</span>
+          </div>
           <div
-            class="progress-bar"
-            :style="{ width: `${stats.tiles ? (100 * stats.reviewed) / stats.tiles : 0}%` }"
-          />
+            class="progress"
+            role="progressbar"
+            aria-label="Current tile of the tiles with TDEI data"
+            :aria-valuenow="stats.current"
+            aria-valuemin="0"
+            :aria-valuemax="stats.tiles"
+          >
+            <div
+              class="progress-bar"
+              :style="{ width: `${stats.tiles ? (100 * stats.current) / stats.tiles : 0}%` }"
+            />
+          </div>
         </div>
         <p
           v-if="skipConfident || skipOsmId"
@@ -320,7 +320,7 @@
 // @test unit: adding a dataset ID calls the conflation service with the ID and snapping distance, then shows that dataset in place of the form
 // @test unit: a failed download shows its error and leaves the form usable
 // @test unit: the zoom button beside the dataset header zooms to the dataset's extent; the X beside the panel heading stops conflating it and brings the form back
-// @test unit: total tiles, tiles reviewed and the progress bar follow the service's review counts as they change
+// @test unit: "Tile current/total", the tiles reviewed and the progress bar (current of total) follow the service's review counts as they change
 // @test unit: "Skip tag edits with confidence ≥ X" sets the service's threshold from the slider (or clears it when unchecked) and shows how many were skipped
 // @test unit: "Skip tag edits that add ext:osm_id" turns the service's ext:osm_id filter on and off
 // @test unit: the skip options are in a filter dropdown beside the "Review Suggested Edits" heading, which shows how many filters are on
@@ -369,7 +369,7 @@ const error = ref('');
 /** The one dataset being conflated, once added. */
 const dataset = ref<Dataset | null>(null);
 
-const stats = ref<ReviewStats>({ tiles: 0, reviewed: 0, skipped: 0 });
+const stats = ref<ReviewStats>({ tiles: 0, current: 0, reviewed: 0, skipped: 0 });
 const item = ref<ReviewItem | undefined>();
 const reviewing = ref(false);
 const skipConfident = ref(false);
@@ -387,7 +387,7 @@ const reviewStatus = ref('Use the arrows to step through the suggested edits, sp
 
 function refresh() {
   const id = dataset.value?.datasetID;
-  stats.value = id ? props.service.reviewStats(id) : { tiles: 0, reviewed: 0, skipped: 0 };
+  stats.value = id ? props.service.reviewStats(id) : { tiles: 0, current: 0, reviewed: 0, skipped: 0 };
   item.value = id ? props.service.currentItem(id) : undefined;
 }
 onMounted(() => props.service.on('reviewchange', refresh));
@@ -568,21 +568,8 @@ async function ignore() {
   font-size: 0.65rem;
 }
 
-.conflation-stats {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.125rem 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.conflation-stats dt {
-  font-weight: normal;
-}
-
-.conflation-stats dd {
-  margin: 0;
-  font-weight: 600;
-  text-align: right;
+.conflation-tile-progress {
+  margin-bottom: 0.75rem;
 }
 
 .progress {

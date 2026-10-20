@@ -122,6 +122,8 @@ export interface ReviewItem {
 export interface ReviewStats {
   /** Tiles holding TDEI data. */
   tiles: number;
+  /** The tile review is on, 1-based in review order; 0 before review starts. */
+  current: number;
   /** Of those, tiles computed with no suggestions left to review. */
   reviewed: number;
   /** Tag suggestions skipped so far by the review filters (in computed tiles). */
@@ -321,11 +323,12 @@ export function createConflationService(deps: ConflationDeps) {
     /** How many of a dataset's tiles have been reviewed, and how many confident suggestions were skipped. */
     reviewStats(datasetID: string): ReviewStats {
       const source = this._sources.get(datasetID);
-      if (!source) return { tiles: 0, reviewed: 0, skipped: 0 };
+      if (!source) return { tiles: 0, current: 0, reviewed: 0, skipped: 0 };
       const reviewed = source.dataTiles.filter(key => source.tiles.has(key)
         && !(source.suggestions.byTile.get(key) ?? []).some(s => this._needsReview(source, s))).length;
       const skipped = [...source.suggestions.items.values()].filter(s => this._skipped(source, s)).length;
-      return { tiles: source.dataTiles.length, reviewed, skipped };
+      const current = source.review?.current ? source.review.tile + 1 : 0;
+      return { tiles: source.dataTiles.length, current, reviewed, skipped };
     }
 
     /**
