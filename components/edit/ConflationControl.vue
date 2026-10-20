@@ -115,7 +115,7 @@
           </h2>
           <b-dropdown
             size="sm"
-            variant="link"
+            variant="outline-secondary"
             auto-close="outside"
             no-caret
             placement="bottom-end"
@@ -127,11 +127,11 @@
                 variant="filter_alt"
                 no-margin
               />
+              <span>Filters</span>
               <span
                 v-if="activeFilters"
                 class="badge rounded-pill text-bg-primary conflation-filter-count"
               >{{ activeFilters }}</span>
-              <span class="visually-hidden">Filter suggested edits</span>
             </template>
             <b-dropdown-form class="conflation-filters">
               <div class="form-check mb-1">
@@ -553,9 +553,8 @@ async function ignore() {
 :deep(.conflation-filter-toggle) {
   display: flex;
   align-items: center;
-  padding: 0 0.25rem;
-  border: 0;
-  color: inherit;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
 }
 
 /* The filter dropdown's options; it stays open while they're changed. */
