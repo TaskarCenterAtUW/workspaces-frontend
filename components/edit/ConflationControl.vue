@@ -197,7 +197,7 @@
           v-if="skipConfident || skipOsmId"
           class="conflation-hint"
         >
-          {{ stats.skipped }} edits skipped so far
+          {{ stats.skipped }} edits filtered and skipped
         </p>
 
         <div class="d-flex gap-2 align-items-center">
