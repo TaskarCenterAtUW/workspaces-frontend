@@ -63,6 +63,7 @@ export const reviewManager = new ReviewManager(
   workspacesClient,
 );
 
-export const rapidManager = new RapidManager(rapidUrl, osmWebUrl, tdeiAuth);
-export const rapid3Manager = rapid3Url ? new Rapid3Manager(rapid3Url, osmWebUrl, tdeiAuth) : null;
+const refreshTdeiAuth = () => tdeiClient.refreshToken();
+export const rapidManager = new RapidManager(rapidUrl, osmWebUrl, tdeiAuth, refreshTdeiAuth);
+export const rapid3Manager = rapid3Url ? new Rapid3Manager(rapid3Url, osmWebUrl, tdeiAuth, refreshTdeiAuth) : null;
 export const pathwaysManager = new PathwaysEditorManager(pathwaysUrl, osmWebUrl, tdeiAuth);

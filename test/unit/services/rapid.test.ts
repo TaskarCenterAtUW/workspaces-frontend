@@ -11,6 +11,7 @@ describe('RapidManager subscriptions', () => {
       '/rapid/',
       'https://www.openstreetmap.org/',
       { ok: true } as TdeiAuthStore,
+      vi.fn().mockResolvedValue(undefined),
     );
     manager.rapidContext = {
       initAsync: vi.fn().mockResolvedValue(undefined),
@@ -100,6 +101,7 @@ describe('RapidManager subscriptions', () => {
       '/rapid/',
       'https://www.openstreetmap.org/',
       { ok: true } as TdeiAuthStore,
+      vi.fn().mockResolvedValue(undefined),
     );
     manager.rapidContext = rapidContext;
 
@@ -110,5 +112,34 @@ describe('RapidManager subscriptions', () => {
     await manager.switchWorkspace(1763, null, '#tm-39-3');
 
     expect(initialHashParams.get('hashtags')).toBe('#tm-39-3');
+  });
+});
+
+describe('RapidManager OSM sign-in', () => {
+  it('refreshes the TDEI token when Rapid logs out after an API auth error, instead of retrying forever', async () => {
+    const refresh = vi.fn().mockResolvedValue(undefined);
+    const osm: any = {
+      _oauth: { authenticated: vi.fn(), fetch: vi.fn() },
+      userDetails: vi.fn(),
+      logout: vi.fn()
+    };
+    const manager = new RapidManager('/rapid/', 'https://www.openstreetmap.org/', { ok: true } as TdeiAuthStore, refresh);
+    manager.rapidContext = {
+      initAsync: vi.fn().mockResolvedValue(undefined),
+      services: { osm },
+      systems: {
+        urlhash: { initialHashParams: new Map<string, string>() },
+        editor: { on: vi.fn() },
+        uploader: { on: vi.fn() }
+      }
+    };
+
+    await manager.init(1763);
+    expect(osm._oauth.authenticated()).toBe(true);
+
+    expect(osm.logout()).toBe(osm);
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(osm._oauth.authenticated()).toBe(false); // Rapid's immediate retry goes out signed out
+    await vi.waitFor(() => expect(osm._oauth.authenticated()).toBe(true));
   });
 });
