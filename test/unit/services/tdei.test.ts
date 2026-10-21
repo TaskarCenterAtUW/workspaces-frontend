@@ -129,6 +129,63 @@ describe('TdeiClient session recovery', () => {
   });
 });
 
+describe('TdeiClient dataset-viewer feedback', () => {
+  const feedback = (id: number) => ({
+    id, status: 'open', created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z', due_date: '2026-11-01T00:00:00Z'
+  });
+
+  it('reads every page of feedback', async () => {
+    const client = new TdeiClient(TDEI_API_URL, authenticatedStore());
+    const pages: string[] = [];
+    server.use(
+      http.get(`${TDEI_API_URL}osw/dataset-viewer/feedbacks`, ({ request }) => {
+        const page = new URL(request.url).searchParams.get('page_no')!;
+        pages.push(page);
+        const ids = page === '1' ? Array.from({ length: 50 }, (_, i) => i + 1) : [51, 52, 53];
+        return HttpResponse.json(ids.map(feedback));
+      })
+    );
+
+    const all = await client.getDatasetFeedback('dataset-1');
+
+    expect(pages).toEqual(['1', '2']);
+    expect(all.map(f => f.id)).toEqual(Array.from({ length: 53 }, (_, i) => i + 1));
+    expect(all[0]!.created_at).toBeInstanceOf(Date);
+    client.logout();
+  });
+
+  it('sends a feedback resolution to TDEI', async () => {
+    const client = new TdeiClient(TDEI_API_URL, authenticatedStore());
+    let url = '';
+    let body: unknown;
+    server.use(
+      http.put(`${TDEI_API_URL}osw/dataset-viewer/feedbacks/:projectGroup/:dataset`, async ({ request }) => {
+        url = request.url;
+        body = await request.json();
+        return HttpResponse.json([{ id: 7, message: 'Feedback status updated successfully.', status: 'Success' }]);
+      })
+    );
+
+    await client.updateFeedbackStatus('pg-1', 'dataset-1', [{ id: 7, status: 'resolved', resolution_status: 'fixed', resolution_description: 'Kerb added' }]);
+
+    expect(url).toBe(`${TDEI_API_URL}osw/dataset-viewer/feedbacks/pg-1/dataset-1`);
+    expect(body).toEqual([{ id: 7, status: 'resolved', resolution_status: 'fixed', resolution_description: 'Kerb added' }]);
+    client.logout();
+  });
+
+  it('throws when TDEI reports an item failed', async () => {
+    const client = new TdeiClient(TDEI_API_URL, authenticatedStore());
+    server.use(
+      http.put(`${TDEI_API_URL}osw/dataset-viewer/feedbacks/:projectGroup/:dataset`, () =>
+        HttpResponse.json([{ id: 7, message: 'Feedback record not found', status: 'Failed' }]))
+    );
+
+    await expect(client.updateFeedbackStatus('pg-1', 'dataset-1', [{ id: 7, status: 'resolved' }]))
+      .rejects.toThrow('Feedback 7: Feedback record not found');
+    client.logout();
+  });
+});
+
 describe('TdeiAuthStore persistence', () => {
   it('keeps a valid access token when only the refresh token has expired', () => {
     const storedAuth = authenticatedStore({ refreshExpired: true });

@@ -11,6 +11,7 @@ import {
 import type { ICancelableClient } from '~/services/loading';
 import type {
   TdeiFeedback,
+  TdeiFeedbackStatusUpdate,
   TdeiProjectGroupApiResponse,
   TdeiServiceApiResponse,
   TdeiDatasetApiResponse,
@@ -517,7 +518,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   ): Promise<TdeiFeedback[]> {
     const feedback = [];
     const pageSize = 50;
-    const pageNum = 1;
+    let pageNum = 1;
     let items;
 
     const params = new URLSearchParams();
@@ -530,6 +531,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
 
     do {
       params.set('page_no', pageNum.toString());
+      pageNum += 1;
       const response = await this._get(`osw/dataset-viewer/feedbacks?${params}`);
       items = (await response.json()) ?? [];
 
@@ -542,6 +544,26 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     } while (items.length === pageSize);
 
     return feedback;
+  }
+
+  /**
+   * Resolves (or reopens) dataset-viewer feedback, all of it from one project
+   * group's dataset. TDEI reports each item's outcome; a failed item throws.
+   */
+  async updateFeedbackStatus(
+    tdeiProjectGroupId: string,
+    tdeiDatasetId: string,
+    updates: TdeiFeedbackStatusUpdate[],
+  ): Promise<void> {
+    const response = await this._put(
+      `osw/dataset-viewer/feedbacks/${encodeURIComponent(tdeiProjectGroupId)}/${encodeURIComponent(tdeiDatasetId)}`,
+      updates
+    );
+    const report = (await response.json()) as { id: number; message: string; status: 'Success' | 'Failed' }[];
+    const failed = report.filter(item => item.status !== 'Success');
+    if (failed.length) {
+      throw new Error(failed.map(item => `Feedback ${item.id}: ${item.message}`).join('; '));
+    }
   }
 
   #setAuth(username: string, body: any) {

@@ -11,6 +11,8 @@ display on the UI matches (playright snapshot or assert() this)
 snapshot this)
 // @test e2e: check that both changeset entries and feedback entries display in the sidebar, and that clicking on each
 shows the proper details in the map and attribute diff panel (playwright snapshot this)
+// @test e2e: for a feedback item, "Mark as Resolved" opens a dialog; confirming sends the resolution to TDEI's feedback
+status API and refreshes the list (assert() the request body and that the item leaves the open list)
 // @test e2e: validate that all the API calls used on this page match the Swagger spec
 (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
@@ -83,7 +85,13 @@ shows the proper details in the map and attribute diff panel (playwright snapsho
         :workspace-type="workspace.type"
         @edit="openEditor"
         @resolve="resolveCurrentChangeset"
+        @resolve-feedback="showResolveFeedback = true"
         @back="selectedItem = undefined"
+      />
+      <review-resolve-feedback-dialog
+        v-model="showResolveFeedback"
+        :busy="resolvingFeedback"
+        @resolve="resolveCurrentFeedback"
       />
       <review-attribute-diff
         v-if="currentDiff && reviewList.workspace"
@@ -117,7 +125,7 @@ shows the proper details in the map and attribute diff panel (playwright snapsho
 <script setup lang="ts">
 import { toast } from 'vue3-toastify';
 
-import { reviewManager, workspacesClient } from '~/services/index';
+import { reviewManager, tdeiClient, workspacesClient } from '~/services/index';
 import { kartaViewImageUrl, convertKartaViewUrl } from '~/util/kartaview';
 import { parsePositiveIntegerQuery } from '~/util/route-query';
 import type ReviewMap from '~/components/review/Map.vue';
@@ -125,6 +133,7 @@ import type AppImageViewer from '~/components/AppImageViewer.vue';
 import type { ReviewListItem } from '~/services/review.ts';
 import type { AdiffAction } from '~/types/adiff';
 import type { OsmChangeset } from '~/types/osm';
+import type { TdeiFeedback, TdeiFeedbackResolution } from '~/types/tdei';
 
 const route = useRoute();
 const router = useRouter();
@@ -295,6 +304,37 @@ async function resolveCurrentChangeset() {
   }
   catch {
     toast.error('Failed to resolve changeset.');
+  }
+}
+
+const showResolveFeedback = ref(false);
+const resolvingFeedback = ref(false);
+
+/** Resolves the selected TDEI dataset-viewer feedback, with how it was resolved. */
+async function resolveCurrentFeedback({ resolution, description }: { resolution: TdeiFeedbackResolution; description?: string }) {
+  if (!currentItem.value?.isFeedback) {
+    return;
+  }
+
+  const feedback = currentItem.value.data as TdeiFeedback;
+  resolvingFeedback.value = true;
+
+  try {
+    await tdeiClient.updateFeedbackStatus(
+      feedback.project_group.tdei_project_group_id,
+      feedback.dataset.tdei_dataset_id,
+      [{ id: feedback.id, status: 'resolved', resolution_status: resolution, resolution_description: description }]
+    );
+    showResolveFeedback.value = false;
+    toast.success('Feedback marked as resolved.');
+    await refresh();
+  }
+  catch (error: unknown) {
+    console.error('Failed to resolve feedback', error);
+    toast.error('Failed to resolve feedback.');
+  }
+  finally {
+    resolvingFeedback.value = false;
   }
 }
 
