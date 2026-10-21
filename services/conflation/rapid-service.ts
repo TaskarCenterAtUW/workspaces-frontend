@@ -81,6 +81,8 @@ interface Review {
   order: (a: Suggestion, b: Suggestion) => number;
   /** Where review last left the map's centre; if the user has moved it since, review restarts there. */
   placed: LonLat;
+  /** When review last moved the map (ms); its animation may still be running for a moment after. */
+  placedAt: number;
   /** The tile being searched while stepping looks for the next edit (index into `tiles`). */
   searching?: number;
   /**
@@ -95,6 +97,9 @@ const FRAME_POINT_ZOOM = 21;
 const FRAME_MIN_ZOOM = 18;
 const FRAME_MAX_ZOOM = 22;
 const FRAME_PADDING_ZOOM = 0.5;
+
+/** How long review's own map moves take to settle (the easing is 250 ms), during which the map's centre isn't checked. */
+const SETTLE_MS = 1000;
 
 /** How far (metres) the map can be from where review left it before review restarts from the new centre. */
 const MOVED_METRES = 5;
@@ -403,6 +408,7 @@ export function createConflationService(deps: ConflationDeps) {
       source.review = {
         centre: from,
         placed: from,
+        placedAt: 0,
         rotation,
         tiles: spiralTiles(source.dataTiles.map(key => key.split(',').map(Number) as [number, number]), from, TILE_ZOOM, rotation),
         tile: 0,
@@ -436,7 +442,9 @@ export function createConflationService(deps: ConflationDeps) {
       // Spiral out from the view's centre: restart there if the user has moved the map since review last did.
       const centre: LonLat = this.context.systems.map.center();
       const last = source.review;
-      if (!last || source.data.metres(centre, last.placed) > MOVED_METRES) {
+      // While review's own move is still animating, the centre is between edits: that's not the user moving the map.
+      const settling = last && Date.now() - last.placedAt < SETTLE_MS;
+      if (!last || (!settling && source.data.metres(centre, last.placed) > MOVED_METRES)) {
         this.startReview(datasetID, last?.rotation ?? 'clockwise', centre);
       }
       const review = source.review!;
@@ -488,7 +496,7 @@ export function createConflationService(deps: ConflationDeps) {
         const map = this.context.systems.map;
         const middle: LonLat = [(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2];
         map.centerZoom(middle, Math.max(map.zoom(), 17));
-        if (source.review) source.review.placed = middle;
+        if (source.review) Object.assign(source.review, { placed: middle, placedAt: Date.now() });
         const started = Date.now();
         while (!source.tiles.has(key) || source.dirty.has(key)) {
           if (Date.now() - started > TILE_WAIT_MS) return []; // workspace data never arrived: skip the tile
@@ -513,7 +521,7 @@ export function createConflationService(deps: ConflationDeps) {
       layer?.clearClass('highlight');
       if (move) {
         const to = this._frame(item);
-        if (source.review) source.review.placed = to;
+        if (source.review) Object.assign(source.review, { placed: to, placedAt: Date.now() });
       }
       if (item.kind === 'tags' && context.systems.editor.staging.graph.hasEntity(item.nodeId)) {
         context.enter('select-osm', { selection: { osm: [item.nodeId] } });
