@@ -14,7 +14,7 @@
  */
 import { lineLength } from '~/services/conflation/geometry';
 import type { LonLat } from '~/services/conflation/geometry';
-import { boundsOf, Ds2Data, ds1FromWays, expand, readOswArchive, tileAt, tileBounds, tilesFor } from '~/services/conflation/inputs';
+import { Ds2Data, ds1FromWays, expand, overlaps, readOswArchive, tileAt, tileBounds, tilesFor } from '~/services/conflation/inputs';
 import type { WorkspaceWay } from '~/services/conflation/inputs';
 import { isUnionMetadata, tileRemoved, tileSuggestions } from '~/services/conflation/suggestions';
 import type { Bounds, EdgeSuggestion, RemovedPiece, SuggestedEnd, Suggestion, TagSuggestion } from '~/services/conflation/suggestions';
@@ -85,6 +85,8 @@ interface Review {
   placedAt: number;
   /** The tile being searched while stepping looks for the next edit (index into `tiles`). */
   searching?: number;
+  /** The tile the map was last fitted to, so stepping within a tile doesn't move the map. */
+  framedTile?: number;
   /**
    * The edits in the tile being reviewed, as they were when review entered it,
    * so "edit N of M in this tile" stays put as edits are accepted or ignored.
@@ -92,11 +94,35 @@ interface Review {
   snapshot?: { tile: number; ids: string[] };
 }
 
-/** Zooms used to frame the item under review: a single node, the range allowed, and padding around an edge. */
+/** Zooms used when fitting the map: a single point, the most it zooms in, and padding around an extent. */
 const FRAME_POINT_ZOOM = 21;
-const FRAME_MIN_ZOOM = 18;
 const FRAME_MAX_ZOOM = 22;
 const FRAME_PADDING_ZOOM = 0.5;
+
+/** The dotted tile outlines: every tile with TDEI data in grey, the tile under review in the suggestion colour (sizes in screen px). */
+const TILE_OUTLINE = {
+  color: 0x9e9e9e,
+  alpha: 0.9,
+  width: 1,
+  currentColor: 0x00bbff,
+  currentWidth: 2.5,
+  dash: 6,
+  gap: 4
+};
+
+/** Zoom padding when fitting the map to a tile, so its outline shows. */
+const TILE_PADDING_ZOOM = 0.3;
+
+/** Draws a dashed line from a to b as path segments (Pixi has no dashed stroke); stroke it after. */
+function dashedLine(g: any, a: [number, number], b: [number, number], dash: number, gap: number) {
+  const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  if (!length) return;
+  const [ux, uy] = [(b[0] - a[0]) / length, (b[1] - a[1]) / length];
+  for (let at = 0; at < length; at += dash + gap) {
+    const end = Math.min(at + dash, length);
+    g.moveTo(a[0] + ux * at, a[1] + uy * at).lineTo(a[0] + ux * end, a[1] + uy * end);
+  }
+}
 
 /** How long review's own map moves take to settle (the easing is 250 ms), during which the map's centre isn't checked. */
 const SETTLE_MS = 1000;
@@ -171,6 +197,8 @@ function locOf(s: Suggestion): LonLat {
 export function createConflationService(deps: ConflationDeps) {
   return class TdeiConflationService extends Rapid.AbstractSystem {
     _sources = new Map<string, Source>();
+    /** The Pixi graphics the tile outlines are drawn into. */
+    _tileOutline: any = null;
 
     constructor(context: any) {
       super(context);
@@ -190,6 +218,7 @@ export function createConflationService(deps: ConflationDeps) {
       editor.on('stablechange', (difference: any) => this._edited(difference));
       editor.on('merge', (ids: Set<string>) => this._loaded(ids));
       this.context.on('modechange', (mode: any) => this._modeChanged(mode));
+      this.context.systems.gfx?.on?.('draw', () => this._drawTiles());
       this._started = true;
       return this._startPromise = Promise.resolve();
     }
@@ -341,6 +370,7 @@ export function createConflationService(deps: ConflationDeps) {
         context.systems.spatial.clearCache(layer.spatialID);
       }
       this._sources.delete(datasetID);
+      this._tileOutline?.clear();
       context.systems.gfx?.deferredRedraw();
       this.emit('reviewchange');
     }
@@ -424,6 +454,7 @@ export function createConflationService(deps: ConflationDeps) {
       review.current = undefined;
       review.searching = undefined;
       review.snapshot = undefined;
+      review.framedTile = undefined;
       this.emit('reviewchange');
     }
 
@@ -519,9 +550,11 @@ export function createConflationService(deps: ConflationDeps) {
       const context = this.context;
       const layer = context.systems.gfx?.scene?.layers?.get('rapid');
       layer?.clearClass('highlight');
-      if (move) {
-        const to = this._frame(item);
-        if (source.review) Object.assign(source.review, { placed: to, placedAt: Date.now() });
+      // Show the whole tile under review: fit the map to it on entering the tile, then leave it.
+      const review = source.review;
+      if (move && review && review.framedTile !== review.tile) {
+        const to = this._frameTile(review.tiles[review.tile]!);
+        Object.assign(review, { placed: to, placedAt: Date.now(), framedTile: review.tile });
       }
       if (item.kind === 'tags' && context.systems.editor.staging.graph.hasEntity(item.nodeId)) {
         context.enter('select-osm', { selection: { osm: [item.nodeId] } });
@@ -532,25 +565,64 @@ export function createConflationService(deps: ConflationDeps) {
       context.systems.gfx?.immediateRedraw();
     }
 
-    /**
-     * Zooms the map in on an item: an edge fills most of the view, a single
-     * node zooms to 21. Returns the centre it moved to.
-     */
-    _frame(item: Suggestion | RemovedPiece): LonLat {
+    /** Fits the map to a tile's extent. Returns the centre it moved to. */
+    _frameTile(xy: [number, number]): LonLat {
       const map = this.context.systems.map;
-      const coords: LonLat[] = item.kind === 'removed'
-        ? item.coords
-        : item.kind === 'tags'
-          ? [item.loc]
-          : [item.u.loc, ...item.interior, item.v.loc];
-      const [w, s, e, n] = boundsOf(coords);
+      const [w, s, e, n] = tileBounds(xy, TILE_ZOOM);
       const centre: LonLat = [(w + e) / 2, (s + n) / 2];
-      let zoom = FRAME_POINT_ZOOM;
-      if (e > w || n > s) {
-        zoom = map.extentZoom(new Rapid.sdk.Extent([w, s], [e, n])) - FRAME_PADDING_ZOOM;
-      }
-      map.centerZoomEase(centre, Math.min(FRAME_MAX_ZOOM, Math.max(FRAME_MIN_ZOOM, zoom)));
+      const zoom = map.extentZoom(new Rapid.sdk.Extent([w, s], [e, n])) - TILE_PADDING_ZOOM;
+      map.centerZoomEase(centre, Math.min(FRAME_MAX_ZOOM, zoom));
       return centre;
+    }
+
+    /**
+     * Draws a dotted outline around each tile with TDEI data in view, the tile
+     * under review in the suggestion colour, in Rapid's "debug-under" group
+     * (above the imagery, below the data), in world coordinates so it pans and
+     * zooms with the map. Redrawn every frame, with the line width and dashes
+     * kept the same size on screen. Needs the Pixi global that Rapid's dev
+     * build exposes.
+     */
+    _drawTiles() {
+      const PIXI = (globalThis as any).PIXI;
+      const gfx = this.context.systems.gfx;
+      const group = gfx?.scene?.groups?.get('debug-under');
+      if (!PIXI?.Graphics || !group) return;
+      if (!this._tileOutline) {
+        this._tileOutline = new PIXI.Graphics();
+        this._tileOutline.label = 'tdei-conflation-tiles';
+        this._tileOutline.eventMode = 'none';
+      }
+      const g = this._tileOutline;
+      if (g.parent !== group) group.addChild(g);
+      g.clear();
+
+      const source = [...this._sources.values()][0];
+      if (!source) return;
+      const scale = gfx.origin?.scale?.x || 1;
+      const extent = this.context.viewport.visibleExtent();
+      const view: Bounds = [extent.min[0], extent.min[1], extent.max[0], extent.max[1]];
+      const review = source.review;
+      const at = review ? (review.searching ?? review.tile) : undefined;
+      const currentKey = review && at !== undefined ? review.tiles[at]?.join(',') : undefined;
+
+      const outline = (key: string) => {
+        const [w, s, e, n] = tileBounds(key.split(',').map(Number) as [number, number], TILE_ZOOM);
+        const project = Rapid.sdk.projWgs84ToWorld;
+        const nw = project([w, n]);
+        const se = project([e, s]);
+        const corners = [nw, [se[0], nw[1]], se, [nw[0], se[1]], nw] as [number, number][];
+        for (let i = 1; i < corners.length; i++) dashedLine(g, corners[i - 1]!, corners[i]!, TILE_OUTLINE.dash / scale, TILE_OUTLINE.gap / scale);
+      };
+      for (const key of source.dataTiles) {
+        if (key === currentKey || !overlaps(tileBounds(key.split(',').map(Number) as [number, number], TILE_ZOOM), view)) continue;
+        outline(key);
+      }
+      g.stroke({ width: TILE_OUTLINE.width / scale, color: TILE_OUTLINE.color, alpha: TILE_OUTLINE.alpha });
+      if (currentKey) {
+        outline(currentKey);
+        g.stroke({ width: TILE_OUTLINE.currentWidth / scale, color: TILE_OUTLINE.currentColor, alpha: 1 });
+      }
     }
 
     /** Makes an item the one under review (e.g. picked on the map), and shows it. */
