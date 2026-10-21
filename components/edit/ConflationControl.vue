@@ -145,7 +145,7 @@
                 <label
                   class="form-check-label"
                   for="conflation-skip-confident"
-                >Skip tag edits with confidence ≥ {{ threshold.toFixed(2) }}</label>
+                >Skip tag edits with confidence &lt; {{ threshold.toFixed(2) }}</label>
               </div>
               <input
                 v-model.number="threshold"
@@ -315,7 +315,7 @@
 // @test unit: a failed download shows its error and leaves the form usable
 // @test unit: the zoom button beside the dataset header zooms to the dataset's extent; the X beside the panel heading stops conflating it and brings the form back
 // @test unit: "Tile current/total", the tiles reviewed and the progress bar (current of total) follow the service's review counts as they change
-// @test unit: "Skip tag edits with confidence ≥ X" sets the service's threshold from the slider (or clears it when unchecked) and shows how many were skipped
+// @test unit: "Skip tag edits with confidence < X" sets the service's threshold from the slider (or clears it when unchecked) and shows how many were skipped
 // @test unit: "Skip tag edits that add ext:osm_id" turns the service's ext:osm_id filter on and off
 // @test unit: both skip filters are on by default, and applied when a dataset is added
 // @test unit: adding a dataset shows its first edit (from the map view's centre) without pressing next

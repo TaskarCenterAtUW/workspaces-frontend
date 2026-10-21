@@ -62,7 +62,7 @@ interface Source {
   review?: Review;
   /** Keys of the tiles holding TDEI data. */
   dataTiles: string[];
-  /** Tag suggestions at or above this confidence are skipped in review; unset to review them all. */
+  /** Tag suggestions below this confidence are skipped in review; unset to review them all. */
   skipConfidence?: number;
   /** Whether tag suggestions that add `ext:osm_id` are skipped in review. */
   skipOsmId?: boolean;
@@ -359,7 +359,7 @@ export function createConflationService(deps: ConflationDeps) {
     }
 
     /**
-     * Skips tag suggestions the union is at least this confident about in
+     * Skips tag suggestions the union is less confident about than this in
      * review (they stay on the map); `undefined` reviews them all.
      */
     setSkipConfidence(datasetID: string, threshold: number | undefined) {
@@ -380,9 +380,9 @@ export function createConflationService(deps: ConflationDeps) {
     /** Whether a pending suggestion is skipped in review by the review filters. */
     _skipped(source: Source, s: Suggestion): boolean {
       if (s.kind !== 'tags' || this.context.systems.rapid.isAcceptedOrIgnored(s.id)) return false;
-      const confident = source.skipConfidence !== undefined && s.confidence !== undefined && s.confidence >= source.skipConfidence;
+      const unsure = source.skipConfidence !== undefined && s.confidence !== undefined && s.confidence < source.skipConfidence;
       const addsOsmId = !!source.skipOsmId && 'ext:osm_id' in s.addTags;
-      return confident || addsOsmId;
+      return unsure || addsOsmId;
     }
 
     /** Whether a suggestion still needs review: not accepted, ignored, or skipped by a filter. */
