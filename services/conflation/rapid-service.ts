@@ -107,11 +107,21 @@ const TILE_OUTLINE = {
   currentColor: 0x00bbff,
   currentWidth: 2.5,
   dash: 6,
-  gap: 4
+  gap: 4,
+  /** The current tile's label, styled like Rapid's map labels with the colours swapped (as the Pathways station extent's is). */
+  label: 'Tile Extent',
+  labelStyle: {
+    fill: { color: 0xffffff },
+    fontFamily: 'Arial, Helvetica, sans-serif',
+    fontSize: 12,
+    fontWeight: '600',
+    stroke: { color: 0x000000, width: 3, join: 'round' }
+  },
+  labelInsetPx: 4
 };
 
 /** Zoom padding when fitting the map to a tile, so its outline shows. */
-const TILE_PADDING_ZOOM = 0.3;
+const TILE_PADDING_ZOOM = 0.75;
 
 /** Draws a dashed line from a to b as path segments (Pixi has no dashed stroke); stroke it after. */
 function dashedLine(g: any, a: [number, number], b: [number, number], dash: number, gap: number) {
@@ -197,8 +207,9 @@ function locOf(s: Suggestion): LonLat {
 export function createConflationService(deps: ConflationDeps) {
   return class TdeiConflationService extends Rapid.AbstractSystem {
     _sources = new Map<string, Source>();
-    /** The Pixi graphics the tile outlines are drawn into. */
+    /** The Pixi graphics the tile outlines are drawn into, and the current tile's label. */
     _tileOutline: any = null;
+    _tileLabel: any = null;
 
     constructor(context: any) {
       super(context);
@@ -371,6 +382,7 @@ export function createConflationService(deps: ConflationDeps) {
       }
       this._sources.delete(datasetID);
       this._tileOutline?.clear();
+      if (this._tileLabel) this._tileLabel.visible = false;
       context.systems.gfx?.deferredRedraw();
       this.emit('reviewchange');
     }
@@ -592,10 +604,17 @@ export function createConflationService(deps: ConflationDeps) {
         this._tileOutline = new PIXI.Graphics();
         this._tileOutline.label = 'tdei-conflation-tiles';
         this._tileOutline.eventMode = 'none';
+        this._tileLabel = new PIXI.Text({ text: TILE_OUTLINE.label, style: TILE_OUTLINE.labelStyle });
+        this._tileLabel.label = 'tdei-conflation-tile-label';
+        this._tileLabel.eventMode = 'none';
       }
       const g = this._tileOutline;
-      if (g.parent !== group) group.addChild(g);
+      const label = this._tileLabel;
+      for (const part of [g, label]) {
+        if (part.parent !== group) group.addChild(part);
+      }
       g.clear();
+      label.visible = false;
 
       const source = [...this._sources.values()][0];
       if (!source) return;
@@ -622,6 +641,13 @@ export function createConflationService(deps: ConflationDeps) {
       if (currentKey) {
         outline(currentKey);
         g.stroke({ width: TILE_OUTLINE.currentWidth / scale, color: TILE_OUTLINE.currentColor, alpha: 1 });
+        // The group is in world coordinates, which Rapid scales as the map zooms: undo that so the label stays the same size.
+        const [w, , , n] = tileBounds(currentKey.split(',').map(Number) as [number, number], TILE_ZOOM);
+        const [x, y] = Rapid.sdk.projWgs84ToWorld([w, n]);
+        const inset = TILE_OUTLINE.labelInsetPx / scale;
+        label.scale.set(1 / scale);
+        label.position.set(x + inset, y + inset);
+        label.visible = true;
       }
     }
 
