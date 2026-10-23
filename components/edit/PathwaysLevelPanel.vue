@@ -41,6 +41,22 @@
         </button>
       </p>
       <p
+        v-if="referenceDrawing"
+        class="level-panel-hint reference-drawing-hint"
+        :class="{ 'level-panel-load-failed': referenceDrawing.status === 'failed' }"
+        :role="referenceDrawing.status === 'failed' ? 'alert' : 'status'"
+      >
+        {{ REFERENCE_DRAWING_NOTES[referenceDrawing.status] }}
+        <button
+          v-if="referenceDrawing.status !== 'loading'"
+          type="button"
+          class="btn btn-link btn-sm reference-drawing-toggle"
+          @click="referenceDrawing.status === 'failed' ? tools.updateReferenceDrawing() : tools.toggleReferenceDrawings()"
+        >
+          {{ referenceDrawing.status === 'failed' ? 'Retry' : referenceDrawing.status === 'hidden' ? 'Show' : 'Hide' }}
+        </button>
+      </p>
+      <p
         v-if="!levels.length"
         class="level-panel-hint"
       >
@@ -329,7 +345,7 @@
 </template>
 
 <script setup lang="ts">
-import type { LevelPathway, LevelStop, Rapid3LevelTools } from '~/services/rapid3-levels';
+import type { LevelPathway, LevelStop, Rapid3LevelTools, ReferenceDrawingStatus } from '~/services/rapid3-levels';
 import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-levels';
 
 // @test unit: every level row has "Refit", which reshapes its outline into a box around its stops; disabled (saying why) without one outline and some stops
@@ -349,6 +365,7 @@ import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-le
 // @test unit: while the whole workspace is loading, a note says levels may show under "No station"; if it fails, a note offers "Retry"
 // @test unit: a "Things to review (N)" section lists every feature with a fixme note (its label and the note), and is hidden when there are none; "Hide"/"Show" collapses it
 // @test unit: clicking a fixme entry selects its feature, and pointing at or focusing one highlights it on the map
+// @test unit: while a level with a reference drawing is shown, a note says whether its drawing is loading, shown, hidden or couldn't load, with "Hide"/"Show" (or "Retry")
 
 const props = defineProps<{
   tools: Rapid3LevelTools;
@@ -358,6 +375,14 @@ const levels = computed(() => props.tools.levels.value);
 const stopGroups = computed(() => props.tools.stopGroups.value);
 const largeLevelAreas = computed(() => props.tools.largeLevelAreas.value);
 const currentLevelId = computed(() => props.tools.currentLevelId.value);
+// The reference drawing (from pathways-converter) of the level being shown, if it has one.
+const referenceDrawing = computed(() => props.tools.referenceDrawing.value);
+const REFERENCE_DRAWING_NOTES: Record<ReferenceDrawingStatus, string> = {
+  loading: 'Loading this level\'s reference drawing\u2026',
+  shown: 'Showing this level\'s reference drawing under the map data.',
+  hidden: 'This level has a reference drawing.',
+  failed: 'Couldn\'t load this level\'s reference drawing.'
+};
 // Features with a fixme note, for the review list below the stations.
 const fixmes = computed(() => props.tools.fixmes.value);
 const fixmesExpanded = ref(true);
@@ -643,6 +668,11 @@ function stopCount(levelId: string): number {
 .fixme-note {
   display: block;
   color: var(--bs-secondary-color);
+}
+
+.reference-drawing-toggle {
+  padding: 0 0.25rem;
+  vertical-align: baseline;
 }
 
 .level-panel-header .level-panel-heading {

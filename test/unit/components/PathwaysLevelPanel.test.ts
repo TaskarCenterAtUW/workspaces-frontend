@@ -7,7 +7,7 @@ import PathwaysLevelPanel from '~/components/edit/PathwaysLevelPanel.vue';
 
 import { levelsLowestFirst } from '~/services/pathways-levels';
 import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-levels';
-import type { FixmeNote, LargeLevelArea, LevelStop, LevelStopGroup } from '~/services/rapid3-levels';
+import type { FixmeNote, LargeLevelArea, LevelStop, LevelStopGroup, ReferenceDrawingStatus } from '~/services/rapid3-levels';
 
 // The Nuxt env loads services/index, whose clients open IndexedDB caches on import.
 vi.mock('~/services/index', () => ({}));
@@ -47,6 +47,9 @@ function stubTools(currentLevelId?: string) {
     largeLevelAreas: shallowRef<LargeLevelArea[]>([]),
     farStops: shallowRef<(LevelStop & { meters: number })[]>([]),
     fixmes: shallowRef<FixmeNote[]>([]),
+    referenceDrawing: ref<{ levelId: string; status: ReferenceDrawingStatus } | undefined>(),
+    toggleReferenceDrawings: vi.fn(),
+    updateReferenceDrawing: vi.fn(),
     zoomToLevel: vi.fn(),
     zoomToStation: vi.fn(),
     drawLevel: vi.fn(),
@@ -96,6 +99,36 @@ describe('PathwaysLevelPanel', () => {
     expect(toggle.text()).toBe('Show');
     await toggle.trigger('click');
     expect(section.findAll('.fixme-item')).toHaveLength(2);
+  });
+
+  // @test unit: while a level with a reference drawing is shown, a note says whether its drawing is loading, shown, hidden or couldn't load, with "Hide"/"Show" (or "Retry")
+  it('notes the shown level\'s reference drawing, with Hide/Show or Retry', async () => {
+    const tools = stubTools('L0');
+    const wrapper = await mountPanel(tools);
+    const note = () => wrapper.find('.reference-drawing-hint');
+    expect(note().exists()).toBe(false);
+
+    tools.referenceDrawing.value = { levelId: 'L0', status: 'loading' };
+    await nextTick();
+    expect(note().text()).toBe('Loading this level\'s reference drawing\u2026');
+    expect(note().find('button').exists()).toBe(false);
+
+    tools.referenceDrawing.value = { levelId: 'L0', status: 'shown' };
+    await nextTick();
+    expect(note().text()).toBe('Showing this level\'s reference drawing under the map data. Hide');
+    await note().find('button').trigger('click');
+    expect(tools.toggleReferenceDrawings).toHaveBeenCalledTimes(1);
+
+    tools.referenceDrawing.value = { levelId: 'L0', status: 'hidden' };
+    await nextTick();
+    expect(note().text()).toBe('This level has a reference drawing. Show');
+
+    tools.referenceDrawing.value = { levelId: 'L0', status: 'failed' };
+    await nextTick();
+    expect(note().attributes('role')).toBe('alert');
+    expect(note().text()).toBe('Couldn\'t load this level\'s reference drawing. Retry');
+    await note().find('button').trigger('click');
+    expect(tools.updateReferenceDrawing).toHaveBeenCalledTimes(1);
   });
 
   // @test unit: clicking a fixme entry selects its feature, and pointing at or focusing one highlights it on the map

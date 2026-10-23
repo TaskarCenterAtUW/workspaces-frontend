@@ -7,6 +7,7 @@ import {
   SessionRecoveryCancelledError,
 } from '~/services/auth-session';
 import { TdeiAuthStore, TdeiClient, TdeiUserClient } from '~/services/tdei';
+import { createGtfsArchive } from '~/util/gtfs';
 import { server } from '../../mocks/server';
 
 const TDEI_API_URL = 'http://api.test/tdei/';
@@ -288,5 +289,81 @@ describe('TdeiUserClient', () => {
 
     expect(authorization).toBe(`Bearer ${auth.accessToken}`);
     tdeiClient.logout();
+  });
+});
+
+describe('TdeiClient.getReferenceData', () => {
+  it('fetches a TDEI API path with the user\'s sign-in', async () => {
+    const client = new TdeiClient(TDEI_API_URL, authenticatedStore());
+    let url = '';
+    let authorization: string | null = null;
+    server.use(
+      http.get(`${TDEI_API_URL}job/download/4521`, ({ request }) => {
+        url = request.url;
+        authorization = request.headers.get('Authorization');
+        return HttpResponse.json({ type: 'FeatureCollection', features: [] });
+      })
+    );
+
+    const data = await client.getReferenceData('/api/v1/job/download/4521?file=beacon_hill/reference/platform.geojson');
+
+    expect(data).toEqual({ type: 'FeatureCollection', features: [] });
+    expect(url).toBe(`${TDEI_API_URL}job/download/4521?file=beacon_hill/reference/platform.geojson`);
+    expect(authorization).toMatch(/^Bearer /);
+    client.logout();
+  });
+
+  it('refuses anything but a TDEI API path, so the sign-in isn\'t sent elsewhere', async () => {
+    const client = new TdeiClient(TDEI_API_URL, authenticatedStore());
+
+    await expect(client.getReferenceData('https://example.com/drawing.geojson')).rejects.toThrow('Not a TDEI API path');
+    await expect(client.getReferenceData('reference/platform.geojson')).rejects.toThrow('Not a TDEI API path');
+    client.logout();
+  });
+});
+
+describe('TdeiClient.getLevelReference', () => {
+  const drawing = { type: 'FeatureCollection', features: [] };
+
+  it('fetches a blob storage link as is, without the user\'s sign-in', async () => {
+    const client = new TdeiClient(TDEI_API_URL, authenticatedStore());
+    let authorization: string | null = 'unset';
+    server.use(
+      http.get('https://store.blob.core.windows.net/converter/4521/beacon_hill/reference/platform.geojson', ({ request }) => {
+        authorization = request.headers.get('Authorization');
+        return HttpResponse.json(drawing);
+      })
+    );
+
+    expect(await client.getLevelReference('https://store.blob.core.windows.net/converter/4521/beacon_hill/reference/platform.geojson'))
+      .toEqual(drawing);
+    expect(authorization).toBeNull();
+    client.logout();
+  });
+
+  it('reports a blob link that can\'t be loaded', async () => {
+    const client = new TdeiClient(TDEI_API_URL, authenticatedStore());
+    server.use(http.get('https://store.blob.core.windows.net/private.geojson', () =>
+      new HttpResponse(null, { status: 409, statusText: 'Public access is not permitted' })));
+
+    await expect(client.getLevelReference('https://store.blob.core.windows.net/private.geojson'))
+      .rejects.toThrow('409 Public access is not permitted');
+    client.logout();
+  });
+
+  it('reads the file from the job\'s zip while TDEI ignores ?file=', async () => {
+    const client = new TdeiClient(TDEI_API_URL, authenticatedStore());
+    const zip = await createGtfsArchive(new Map([
+      ['beacon_hill/reference/platform.geojson', JSON.stringify(drawing)],
+      ['beacon_hill/report.md', '# Beacon Hill']
+    ]));
+    server.use(http.get(`${TDEI_API_URL}job/download/4521`, async () =>
+      new HttpResponse(await zip.arrayBuffer(), { headers: { 'Content-Type': 'application/zip' } })));
+
+    expect(await client.getLevelReference('/api/v1/job/download/4521?file=beacon_hill/reference/platform.geojson'))
+      .toEqual(drawing);
+    await expect(client.getLevelReference('/api/v1/job/download/4521?file=beacon_hill/reference/roof.geojson'))
+      .rejects.toThrow('don\'t include beacon_hill/reference/roof.geojson');
+    client.logout();
   });
 });

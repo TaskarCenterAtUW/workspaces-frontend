@@ -59,6 +59,67 @@ export const STATION_HIGHLIGHT = {
 /** Opacity of stops on the map only as the far end of a shown connection. */
 export const FAR_END_ALPHA = 0.35;
 
+/**
+ * The tag on a level outline naming its reference data: the drawing the level
+ * was made from, as GeoJSON (pathways-converter writes it, as a TDEI API path).
+ */
+export const REFERENCE_URL_TAG = 'ext:reference_url';
+
+/**
+ * How reference drawings are drawn: thin lines, colored by what each feature
+ * is (its `role`, from pathways-converter), muted so the editable data stands out.
+ */
+export const REFERENCE_STYLE = {
+  alpha: 0.8,
+  defaultColor: 0x6c757d, // walls and other linework
+  roleColors: {
+    door: 0x8d6e63,
+    entrance: 0x2e7d32,
+    stair: 0xef6c00,
+    escalator: 0xef6c00,
+    moving_walk: 0xef6c00,
+    elevator: 0x7b1fa2,
+    fare_gate: 0xc62828,
+    platform_edge: 0xf9a825
+  } as Record<string, number>
+};
+
+/** The reference URLs on a level's outlines (a level may have several outlines). */
+export function referenceUrls(entities: any[], levelId: string): string[] {
+  const urls = entities
+    .filter(entity => isLevelArea(entity) && entity.tags?.level_id?.trim() === levelId)
+    .map(area => String(area.tags?.[REFERENCE_URL_TAG] ?? '').trim())
+    .filter(Boolean);
+  return [...new Set(urls)];
+}
+
+/** A reference drawing's lines: each [lon, lat] path, with the color for its feature's role. */
+export function referencePaths(geojson: any): { color: number; coordinates: [number, number][]; closed: boolean }[] {
+  const features = geojson?.type === 'FeatureCollection' ? geojson.features ?? [] : [geojson];
+  const paths: { color: number; coordinates: [number, number][]; closed: boolean }[] = [];
+  for (const feature of features) {
+    const geometry = feature?.geometry;
+    const color = REFERENCE_STYLE.roleColors[feature?.properties?.role] ?? REFERENCE_STYLE.defaultColor;
+    const add = (coordinates: [number, number][], closed: boolean) => {
+      if (coordinates?.length > 1) paths.push({ color, coordinates, closed });
+    };
+    // Points (e.g. text labels) aren't drawn.
+    if (geometry?.type === 'LineString') {
+      add(geometry.coordinates, false);
+    } else if (geometry?.type === 'MultiLineString') {
+      geometry.coordinates.forEach((line: any) => add(line, false));
+    } else if (geometry?.type === 'Polygon') {
+      geometry.coordinates.forEach((ring: any) => add(ring, true));
+    } else if (geometry?.type === 'MultiPolygon') {
+      geometry.coordinates.forEach((polygon: any) => polygon.forEach((ring: any) => add(ring, true)));
+    }
+  }
+  return paths;
+}
+
+/** The state of the reference drawing for the level being shown (see `Rapid3LevelTools.referenceDrawing`). */
+export type ReferenceDrawingStatus = 'loading' | 'shown' | 'hidden' | 'failed';
+
 /** The active level tools' far-end check, read by the wrapped OSM layer render. */
 const farEndHook: { isFarEnd?: (entityId: string) => boolean } = {};
 
@@ -314,6 +375,14 @@ export class Rapid3LevelTools {
   readonly farStops = shallowRef<FarStop[]>([]);
   /** Every feature with a fixme note, in label order. */
   readonly fixmes = shallowRef<FixmeNote[]>([]);
+  /**
+   * The reference drawing of the level being shown (from its outline's
+   * `ext:reference_url`), drawn under the map data; undefined when the level
+   * has none, or no level is shown.
+   */
+  readonly referenceDrawing = ref<{ levelId: string; status: ReferenceDrawingStatus } | undefined>();
+  /** Whether reference drawings are shown (the panel's Hide/Show). */
+  readonly showReferenceDrawings = ref(true);
   /** The level being shown, or undefined to show all levels. */
   /** What the map is filtered to, or undefined to show everything. */
   readonly view = ref<LevelView | undefined>();
@@ -336,9 +405,22 @@ export class Rapid3LevelTools {
   #autoRefitting = false;
   /** Pixi objects drawing the highlighted stations' boxes and labels (see `#drawStationHighlight`). */
   #stationHighlight: { boxes: any; labels: any } | undefined;
+  /** Fetches a reference URL's GeoJSON (with the user's TDEI sign-in). */
+  #fetchReference: ((url: string) => Promise<unknown>) | undefined;
+  #referenceCache = new Map<string, Promise<unknown>>();
+  #referenceGraphics: any;
+  /** What's drawn (the URLs, or "" for nothing), so an unchanged drawing isn't redrawn. */
+  #referenceDrawn = '';
+  /** Counts reference updates, so a load that finishes after a newer update is ignored. */
+  #referenceUpdate = 0;
 
-  constructor(context: any) {
+  /**
+   * @param fetchReference - fetches a level's reference data (`ext:reference_url`);
+   *   without it, reference drawings aren't shown
+   */
+  constructor(context: any, { fetchReference }: { fetchReference?: (url: string) => Promise<unknown> } = {}) {
     this.#context = context;
+    this.#fetchReference = fetchReference;
     this.#installLevelFilter();
     farEndHook.isFarEnd = id => this.#isFarEnd(id);
     installFarEndFading();
@@ -598,7 +680,102 @@ export class Rapid3LevelTools {
     const { filters, gfx } = this.#context.systems;
     filters.emit('filterchange'); // makes the map redraw its OSM layer
     this.#drawStationHighlight();
+    void this.updateReferenceDrawing();
     gfx?.immediateRedraw();
+  }
+
+  /** Shows or hides reference drawings. */
+  toggleReferenceDrawings() {
+    this.showReferenceDrawings.value = !this.showReferenceDrawings.value;
+    void this.updateReferenceDrawing();
+  }
+
+  /**
+   * Draws the reference drawing of the level being shown, loading it first if
+   * needed, or clears it when there's none to show. A drawing that failed to
+   * load is tried again on the next update (e.g. "Retry").
+   */
+  async updateReferenceDrawing() {
+    const update = ++this.#referenceUpdate;
+    const levelId = this.currentLevelId.value;
+    const urls = levelId && this.#fetchReference ? referenceUrls(this.#entities(), levelId) : [];
+
+    if (!levelId || !urls.length) {
+      this.referenceDrawing.value = undefined;
+      this.#drawReference([], '');
+      return;
+    }
+    if (!this.showReferenceDrawings.value) {
+      this.referenceDrawing.value = { levelId, status: 'hidden' };
+      this.#drawReference([], '');
+      return;
+    }
+
+    const key = urls.join('\n');
+    if (key === this.#referenceDrawn && this.referenceDrawing.value?.status === 'shown') return; // already drawn
+    this.referenceDrawing.value = { levelId, status: 'loading' };
+    try {
+      const drawings = await Promise.all(urls.map(url => this.#loadReference(url)));
+      if (update !== this.#referenceUpdate) return; // the view changed meanwhile
+      this.#drawReference(drawings.flatMap(referencePaths), key);
+      this.referenceDrawing.value = { levelId, status: 'shown' };
+    }
+    catch (error) {
+      if (update !== this.#referenceUpdate) return;
+      console.warn(`Couldn't load the reference drawing for level ${levelId}`, error);
+      this.#drawReference([], '');
+      this.referenceDrawing.value = { levelId, status: 'failed' };
+    }
+  }
+
+  #loadReference(url: string): Promise<unknown> {
+    let load = this.#referenceCache.get(url);
+    if (!load) {
+      load = this.#fetchReference!(url);
+      this.#referenceCache.set(url, load);
+      load.catch(() => this.#referenceCache.delete(url)); // try again next time
+    }
+    return load;
+  }
+
+  /**
+   * Draws reference lines in Rapid's "debug-under" group (above the imagery,
+   * below the editable data), under the station highlight. Coordinates are
+   * relative to the first point, so a detailed drawing stays precise when
+   * zoomed in; lines stay 1px wide at any zoom.
+   */
+  #drawReference(paths: ReturnType<typeof referencePaths>, key: string) {
+    this.#referenceDrawn = key;
+    if (!paths.length && !this.#referenceGraphics) return; // nothing drawn, nothing to clear
+    const PIXI = (globalThis as any).PIXI;
+    const project = (globalThis as any).Rapid?.sdk?.projWgs84ToWorld;
+    const gfx = this.#context.systems.gfx;
+    const group = gfx?.scene?.groups?.get('debug-under');
+    if (!PIXI?.Graphics || !project || !group) return;
+
+    if (!this.#referenceGraphics) {
+      this.#referenceGraphics = new PIXI.Graphics();
+      this.#referenceGraphics.label = 'gtfs-reference-drawing';
+      this.#referenceGraphics.eventMode = 'none';
+    }
+    const graphics = this.#referenceGraphics;
+    if (graphics.parent !== group) group.addChildAt(graphics, 0);
+    graphics.clear();
+
+    if (paths.length) {
+      const [originX, originY] = project(paths[0]!.coordinates[0]!);
+      graphics.position.set(originX, originY);
+      for (const { color, coordinates, closed } of paths) {
+        coordinates.forEach((coordinate, i) => {
+          const [x, y] = project(coordinate);
+          if (i === 0) graphics.moveTo(x - originX, y - originY);
+          else graphics.lineTo(x - originX, y - originY);
+        });
+        if (closed) graphics.closePath();
+        graphics.stroke({ width: 1, color, alpha: REFERENCE_STYLE.alpha, pixelLine: true });
+      }
+    }
+    gfx.deferredRedraw?.();
   }
 
   /**
