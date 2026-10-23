@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { tdeiOsmAuth } from '~/services/osm-auth'
 import type { TdeiAuthStore } from '~/services/tdei'
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
@@ -18,6 +19,7 @@ export class Rapid3Manager {
   #baseUrl: string
   #osmUrl: string
   #tdeiAuth: TdeiAuthStore
+  #refreshAuth: () => Promise<void>
 
   /** Reactive flag indicating whether the Rapid 3 script has loaded and is ready. */
   loaded: ReturnType<typeof ref<boolean>>
@@ -34,10 +36,12 @@ export class Rapid3Manager {
    *                  A trailing slash is enforced automatically.
    * @param osmUrl  - Base URL of the OSM-compatible API backend.
    * @param tdeiAuth - Reactive auth store providing access tokens and auth state.
+   * @param refreshAuth - Refreshes the TDEI access token (see services/osm-auth.ts).
    */
-  constructor(baseUrl: string, osmUrl: string, tdeiAuth: TdeiAuthStore) {
+  constructor(baseUrl: string, osmUrl: string, tdeiAuth: TdeiAuthStore, refreshAuth: () => Promise<void>) {
     this.#baseUrl = baseUrl.replace(/\/*$/, '/')
     this.#osmUrl = osmUrl.replace(/\/+$/, '')
+    this.#refreshAuth = refreshAuth
     this.#tdeiAuth = tdeiAuth
 
     this.loaded = ref(false)
@@ -171,11 +175,18 @@ export class Rapid3Manager {
 
     //
     // Customize OSM service
-    // - Override the `authenticated` check to use TDEI auth state
+    // - Override the `authenticated` check to use TDEI auth state, and `logout`
+    //   (which Rapid calls on an API auth error, then retries) to refresh the
+    //   TDEI token instead of retrying forever (see services/osm-auth.ts)
     // - Stub out`getUserDetailsAsync` (not needed for workspace-based changeset uploads).
     //
     const osm = context.services.osm
-    osm._oauth.authenticated = () => this.#tdeiAuth.ok
+    const auth = tdeiOsmAuth(() => this.#tdeiAuth.ok, this.#refreshAuth)
+    osm._oauth.authenticated = auth.authenticated
+    osm.logout = () => {
+      auth.logout()
+      return osm
+    }
     osm.getUserDetailsAsync = () => Promise.resolve(null)
 
     //

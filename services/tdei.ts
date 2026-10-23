@@ -655,6 +655,28 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     return await this.#sendWithAccessToken(send);
   }
 
+  /**
+   * Restores the session after an API rejected its access token: refreshes the
+   * token, and if the refresh is rejected too (or the refresh token has
+   * expired), asks the user to sign in again, like `sendProtectedRequest`.
+   * Other failures (e.g. offline) are thrown, for the caller to retry later.
+   */
+  async recoverSession(): Promise<void> {
+    if (!this.#auth.refreshTokenExpired) {
+      try {
+        await this.refreshToken();
+        return;
+      }
+      catch (error: unknown) {
+        if (!this.#isUnauthorized(error)) {
+          throw error;
+        }
+      }
+    }
+
+    await this.#requestSessionReauthentication();
+  }
+
   async #sendWithAccessToken(
     send: (accessToken: string) => Promise<Response>
   ): Promise<Response> {
