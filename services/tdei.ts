@@ -366,7 +366,8 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
         id: d.tdei_dataset_id,
         name: d.metadata?.dataset_detail?.name ?? d.tdei_dataset_id,
         version: d.metadata?.dataset_detail?.version,
-        projectGroupName: d.project_group?.name
+        projectGroupName: d.project_group?.name,
+        raw: d
       }));
   }
 
