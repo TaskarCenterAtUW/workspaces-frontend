@@ -36,13 +36,13 @@ declare const Rapid: any;
 export const LEVEL_FILTER_ID = 'gtfs_other_levels';
 
 /**
- * The white box behind a highlighted station: its fill, padding past its
+ * The dark box behind a highlighted station: its fill, padding past its
  * stops, and the label in its top-left corner (sized in screen pixels). The
  * label uses Rapid's map label font and outline (PixiLayerLabels), with the
  * colors swapped: white text outlined in black.
  */
 export const STATION_HIGHLIGHT = {
-  color: 0xffffff,
+  color: 0x000000,
   alpha: 0.5,
   paddingMeters: 15,
   label: (stationName: string) => `Extent of Station ${stationName}`,
@@ -58,6 +58,105 @@ export const STATION_HIGHLIGHT = {
 
 /** Opacity of stops on the map only as the far end of a shown connection. */
 export const FAR_END_ALPHA = 0.35;
+
+/**
+ * The tag on a level outline naming its reference data: the drawing the level
+ * was made from, as GeoJSON (pathways-converter writes it, as a TDEI API path).
+ */
+export const REFERENCE_URL_TAG = 'ext:reference_url';
+
+/**
+ * How reference drawings are drawn: each feature's line in the color for what
+ * it is (its `role`, from pathways-converter), bright enough to read over
+ * aerial imagery. Linework the converter couldn't classify uses `defaultColor`.
+ */
+export const REFERENCE_STYLE = {
+  alpha: 0.9,
+  defaultColor: 0xaeea00, // unclassified linework: lime
+  roleColors: {
+    barrier: 0xe040fb, // walls: purple
+    platform: 0xffffff,
+    platform_edge: 0xffea00,
+    door: 0xffab40,
+    entrance: 0x69f0ae,
+    stair: 0xff6d00,
+    escalator: 0x00e5ff,
+    moving_walk: 0x1de9b6,
+    elevator: 0x448aff,
+    fare_gate: 0xff1744,
+    ticket_machine: 0xff80ab
+  } as Record<string, number>,
+  /** How the legend names each role. */
+  roleNames: {
+    barrier: 'Walls',
+    platform: 'Platform',
+    platform_edge: 'Platform edge',
+    door: 'Doors',
+    entrance: 'Entrances',
+    stair: 'Stairs',
+    escalator: 'Escalators',
+    moving_walk: 'Moving walks',
+    elevator: 'Elevators',
+    fare_gate: 'Fare gates',
+    ticket_machine: 'Ticket machines'
+  } as Record<string, string>
+};
+
+/** A legend entry for a reference drawing: a role's name and color. */
+export interface ReferenceLegendEntry {
+  label: string;
+  color: string;
+}
+
+/** The legend for drawn paths: each role they use, in REFERENCE_STYLE order, then unclassified linework. */
+export function referenceLegend(paths: { role?: string }[]): ReferenceLegendEntry[] {
+  const used = new Set(paths.map(path => path.role ?? ''));
+  const hex = (color: number) => `#${color.toString(16).padStart(6, '0')}`;
+  const entries = Object.entries(REFERENCE_STYLE.roleColors)
+    .filter(([role]) => used.has(role))
+    .map(([role, color]) => ({ label: REFERENCE_STYLE.roleNames[role] ?? role, color: hex(color) }));
+  if ([...used].some(role => !(role in REFERENCE_STYLE.roleColors))) {
+    entries.push({ label: 'Other linework', color: hex(REFERENCE_STYLE.defaultColor) });
+  }
+  return entries;
+}
+
+/** The reference URLs on a level's outlines (a level may have several outlines). */
+export function referenceUrls(entities: any[], levelId: string): string[] {
+  const urls = entities
+    .filter(entity => isLevelArea(entity) && entity.tags?.level_id?.trim() === levelId)
+    .map(area => String(area.tags?.[REFERENCE_URL_TAG] ?? '').trim())
+    .filter(Boolean);
+  return [...new Set(urls)];
+}
+
+/** A reference drawing's lines: each [lon, lat] path, with the color for its feature's role. */
+export function referencePaths(geojson: any): { role?: string; color: number; coordinates: [number, number][]; closed: boolean }[] {
+  const features = geojson?.type === 'FeatureCollection' ? geojson.features ?? [] : [geojson];
+  const paths: { role?: string; color: number; coordinates: [number, number][]; closed: boolean }[] = [];
+  for (const feature of features) {
+    const geometry = feature?.geometry;
+    const role: string | undefined = feature?.properties?.role ?? undefined;
+    const color = (role && REFERENCE_STYLE.roleColors[role]) || REFERENCE_STYLE.defaultColor;
+    const add = (coordinates: [number, number][], closed: boolean) => {
+      if (coordinates?.length > 1) paths.push({ role, color, coordinates, closed });
+    };
+    // Points (e.g. text labels) aren't drawn.
+    if (geometry?.type === 'LineString') {
+      add(geometry.coordinates, false);
+    } else if (geometry?.type === 'MultiLineString') {
+      geometry.coordinates.forEach((line: any) => add(line, false));
+    } else if (geometry?.type === 'Polygon') {
+      geometry.coordinates.forEach((ring: any) => add(ring, true));
+    } else if (geometry?.type === 'MultiPolygon') {
+      geometry.coordinates.forEach((polygon: any) => polygon.forEach((ring: any) => add(ring, true)));
+    }
+  }
+  return paths;
+}
+
+/** The state of the reference drawing for the level being shown (see `Rapid3LevelTools.referenceDrawing`). */
+export type ReferenceDrawingStatus = 'loading' | 'shown' | 'hidden' | 'failed';
 
 /** The active level tools' far-end check, read by the wrapped OSM layer render. */
 const farEndHook: { isFarEnd?: (entityId: string) => boolean } = {};
@@ -314,6 +413,14 @@ export class Rapid3LevelTools {
   readonly farStops = shallowRef<FarStop[]>([]);
   /** Every feature with a fixme note, in label order. */
   readonly fixmes = shallowRef<FixmeNote[]>([]);
+  /**
+   * The reference drawing of the level being shown (from its outline's
+   * `ext:reference_url`), drawn under the map data; undefined when the level
+   * has none, or no level is shown.
+   */
+  readonly referenceDrawing = ref<{ levelId: string; status: ReferenceDrawingStatus; legend?: ReferenceLegendEntry[] } | undefined>();
+  /** Whether reference drawings are shown (the panel's Hide/Show). */
+  readonly showReferenceDrawings = ref(true);
   /** The level being shown, or undefined to show all levels. */
   /** What the map is filtered to, or undefined to show everything. */
   readonly view = ref<LevelView | undefined>();
@@ -336,9 +443,22 @@ export class Rapid3LevelTools {
   #autoRefitting = false;
   /** Pixi objects drawing the highlighted stations' boxes and labels (see `#drawStationHighlight`). */
   #stationHighlight: { boxes: any; labels: any } | undefined;
+  /** Fetches a reference URL's GeoJSON (with the user's TDEI sign-in). */
+  #fetchReference: ((url: string) => Promise<unknown>) | undefined;
+  #referenceCache = new Map<string, Promise<unknown>>();
+  #referenceGraphics: any;
+  /** What's drawn (the URLs, or "" for nothing), so an unchanged drawing isn't redrawn. */
+  #referenceDrawn = '';
+  /** Counts reference updates, so a load that finishes after a newer update is ignored. */
+  #referenceUpdate = 0;
 
-  constructor(context: any) {
+  /**
+   * @param fetchReference - fetches a level's reference data (`ext:reference_url`);
+   *   without it, reference drawings aren't shown
+   */
+  constructor(context: any, { fetchReference }: { fetchReference?: (url: string) => Promise<unknown> } = {}) {
     this.#context = context;
+    this.#fetchReference = fetchReference;
     this.#installLevelFilter();
     farEndHook.isFarEnd = id => this.#isFarEnd(id);
     installFarEndFading();
@@ -598,11 +718,112 @@ export class Rapid3LevelTools {
     const { filters, gfx } = this.#context.systems;
     filters.emit('filterchange'); // makes the map redraw its OSM layer
     this.#drawStationHighlight();
+    void this.updateReferenceDrawing();
     gfx?.immediateRedraw();
   }
 
+  /** Shows or hides reference drawings. */
+  toggleReferenceDrawings() {
+    this.showReferenceDrawings.value = !this.showReferenceDrawings.value;
+    void this.updateReferenceDrawing();
+  }
+
   /**
-   * Draws a translucent white box behind each highlighted station (see
+   * Draws the reference drawing of the level being shown, loading it first if
+   * needed, or clears it when there's none to show. A drawing that failed to
+   * load is tried again on the next update (e.g. "Retry").
+   */
+  async updateReferenceDrawing() {
+    const update = ++this.#referenceUpdate;
+    const levelId = this.currentLevelId.value;
+    const urls = levelId && this.#fetchReference ? referenceUrls(this.#entities(), levelId) : [];
+
+    if (!levelId || !urls.length) {
+      this.referenceDrawing.value = undefined;
+      this.#drawReference([], '');
+      return;
+    }
+    if (!this.showReferenceDrawings.value) {
+      this.referenceDrawing.value = { levelId, status: 'hidden' };
+      this.#drawReference([], '');
+      return;
+    }
+
+    const key = urls.join('\n');
+    if (key === this.#referenceDrawn && this.referenceDrawing.value?.status === 'shown') return; // already drawn
+    this.referenceDrawing.value = { levelId, status: 'loading' };
+    try {
+      const drawings = await Promise.all(urls.map(url => this.#loadReference(url)));
+      if (update !== this.#referenceUpdate) return; // the view changed meanwhile
+      const paths = drawings.flatMap(referencePaths);
+      this.#drawReference(paths, key);
+      this.referenceDrawing.value = { levelId, status: 'shown', legend: referenceLegend(paths) };
+    }
+    catch (error) {
+      if (update !== this.#referenceUpdate) return;
+      console.warn(`Couldn't load the reference drawing for level ${levelId}`, error);
+      this.#drawReference([], '');
+      this.referenceDrawing.value = { levelId, status: 'failed' };
+    }
+  }
+
+  #loadReference(url: string): Promise<unknown> {
+    let load = this.#referenceCache.get(url);
+    if (!load) {
+      load = this.#fetchReference!(url);
+      this.#referenceCache.set(url, load);
+      load.catch(() => this.#referenceCache.delete(url)); // try again next time
+    }
+    return load;
+  }
+
+  /**
+   * Draws reference lines in Rapid's "debug-under" group (above the imagery,
+   * below the editable data), over the station highlight's shading. Lines are
+   * 1px at any zoom (Pixi's `pixelLine`), so they're built once rather than
+   * again as the map zooms. Coordinates are relative to the first point, so a
+   * detailed drawing stays precise when zoomed in.
+   */
+  #drawReference(paths: ReturnType<typeof referencePaths>, key: string) {
+    this.#referenceDrawn = key;
+    if (!paths.length && !this.#referenceGraphics) return; // nothing drawn, nothing to clear
+    const PIXI = (globalThis as any).PIXI;
+    const project = (globalThis as any).Rapid?.sdk?.projWgs84ToWorld;
+    const gfx = this.#context.systems.gfx;
+    const group = gfx?.scene?.groups?.get('debug-under');
+    if (!PIXI?.Graphics || !project || !group) return;
+
+    if (!this.#referenceGraphics) {
+      this.#referenceGraphics = new PIXI.Graphics();
+      this.#referenceGraphics.label = 'gtfs-reference-drawing';
+      this.#referenceGraphics.eventMode = 'none';
+    }
+    const graphics = this.#referenceGraphics;
+    if (graphics.parent !== group) {
+      // Over the station highlight's shading, if it's drawn (see `#drawStationHighlight`).
+      const boxes = this.#stationHighlight?.boxes;
+      group.addChildAt(graphics, boxes?.parent === group ? group.getChildIndex(boxes) + 1 : 0);
+    }
+    graphics.clear();
+
+    if (paths.length) {
+      const [originX, originY] = project(paths[0]!.coordinates[0]!);
+      graphics.position.set(originX, originY);
+      for (const { color, coordinates, closed } of paths) {
+        coordinates.forEach((coordinate, i) => {
+          const [x, y] = project(coordinate);
+          if (i === 0) graphics.moveTo(x - originX, y - originY);
+          else graphics.lineTo(x - originX, y - originY);
+        });
+        if (closed) graphics.closePath();
+        graphics.stroke({ width: 1, color, alpha: REFERENCE_STYLE.alpha, pixelLine: true });
+      }
+    }
+    gfx.deferredRedraw?.();
+  }
+
+  /**
+   * Draws a translucent black box behind each highlighted station (see
    * `highlightedStationIds`), around its station point and stops, so what
    * belongs to it stands out from the map. It's drawn in Rapid's "debug-under"
    * group, between the background imagery and the editable data, in world
@@ -626,9 +847,10 @@ export class Rapid3LevelTools {
       this.#stationHighlight = { boxes, labels };
     }
     const { boxes, labels } = this.#stationHighlight;
-    for (const part of [boxes, labels]) {
-      if (part.parent !== group) group.addChild(part);
-    }
+    // The shading goes under everything else in the group (e.g. a level's reference
+    // drawing); its labels go on top, so they stay readable.
+    if (boxes.parent !== group) group.addChildAt(boxes, 0);
+    if (labels.parent !== group) group.addChild(labels);
     boxes.clear();
     for (const old of labels.removeChildren()) old.destroy();
 

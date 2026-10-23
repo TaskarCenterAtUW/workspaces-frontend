@@ -311,9 +311,10 @@ export interface LonLatBox {
 }
 
 /**
- * The area each station covers, by stop_id: the box around its station point
- * and the stops in it. Level outlines aren't counted, since a level shared by
- * several stations (and its outline) can span all of them.
+ * The area each station covers, by stop_id: the box around its station point,
+ * the stops in it, and the outlines of the levels only it uses. Outlines of
+ * levels shared by several stations aren't counted, since such an outline can
+ * span all of them.
  */
 export function stationExtents(entities: (LevelEntity & { loc?: [number, number] })[], index: StationIndex): Map<string, LonLatBox> {
   const boxes = new Map<string, LonLatBox>();
@@ -330,6 +331,14 @@ export function stationExtents(entities: (LevelEntity & { loc?: [number, number]
   for (const entity of entities) {
     const stopId = index.stations.get(entity.id)?.stopId ?? index.stationOfStop.get(entity.id);
     if (stopId) add(stopId, entity.loc);
+  }
+
+  const locOf = new Map(entities.filter(entity => entity.loc).map(entity => [entity.id, entity.loc]));
+  for (const area of entities.filter(isLevelArea)) {
+    const stations = index.stationsByLevel.get(area.tags?.level_id?.trim() ?? '');
+    if (stations?.size !== 1) continue; // no station, or shared
+    const [stopId] = stations;
+    for (const nodeId of area.nodes ?? []) add(stopId!, locOf.get(nodeId));
   }
   return boxes;
 }

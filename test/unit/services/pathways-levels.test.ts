@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildStationIndex,
+  stationExtents,
   collectLevels,
   distanceMeters,
   farStops,
@@ -514,5 +515,29 @@ describe('highlightedStationIds', () => {
     expect(ids(undefined, ['e1', 'n1'])).toEqual([]);
     expect(ids({ kind: 'noStation' })).toEqual([]);
     expect(ids(undefined)).toEqual([]);
+  });
+});
+
+describe('stationExtents', () => {
+  const at = (entity: LevelEntity, loc: [number, number]) => ({ ...entity, loc });
+  // Station S's stops are on level S_L1 (its own) and STREET (shared with station T).
+  const entities = [
+    at(node('s', { location_type: '1', stop_id: 'S', stop_name: 'S' }), [0, 0]),
+    at(node('s1', { location_type: '0', stop_id: 'PF_S', parent_station: 'S', level_id: 'S_L1' }), [1, 1]),
+    at(node('s2', { location_type: '2', stop_id: 'ENT_S', parent_station: 'S', level_id: 'STREET' }), [0, 1]),
+    at(node('t', { location_type: '1', stop_id: 'T', stop_name: 'T' }), [10, 10]),
+    at(node('t1', { location_type: '2', stop_id: 'ENT_T', parent_station: 'T', level_id: 'STREET' }), [10, 11]),
+    // S_L1's outline reaches past S's stops; the shared street level's spans both stations.
+    at(node('c1'), [-2, -1]), at(node('c2'), [3, -1]), at(node('c3'), [3, 2]),
+    way('a1', ['c1', 'c2', 'c3', 'c1'], { area: 'yes', level_id: 'S_L1', level_index: '-1' }),
+    at(node('d1'), [-5, -5]), at(node('d2'), [15, -5]), at(node('d3'), [15, 15]),
+    way('a0', ['d1', 'd2', 'd3', 'd1'], { area: 'yes', level_id: 'STREET', level_index: '0' })
+  ];
+
+  it('covers a station\'s point, its stops and the outlines of levels only it uses, but not shared levels\' outlines', () => {
+    const boxes = stationExtents(entities, buildStationIndex(entities));
+
+    expect(boxes.get('S')).toEqual({ min: [-2, -1], max: [3, 2] });
+    expect(boxes.get('T')).toEqual({ min: [10, 10], max: [10, 11] });
   });
 });

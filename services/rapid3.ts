@@ -48,6 +48,7 @@ export class Rapid3Manager {
   #osmUrl: string
   #tdeiAuth: TdeiAuthStore
   #refreshAuth: () => Promise<void>
+  #fetchReference: ((url: string) => Promise<unknown>) | undefined
 
   /** Reactive flag indicating whether the Rapid 3 script has loaded and is ready. */
   loaded: ReturnType<typeof ref<boolean>>
@@ -75,11 +76,20 @@ export class Rapid3Manager {
    * @param osmUrl  - Base URL of the OSM-compatible API backend.
    * @param tdeiAuth - Reactive auth store providing access tokens and auth state.
    * @param refreshAuth - Refreshes the TDEI access token (see services/osm-auth.ts).
+   * @param fetchReference - Fetches a level's reference drawing (its outline's
+   *                  `ext:reference_url`), for the pathways level tools.
    */
-  constructor(baseUrl: string, osmUrl: string, tdeiAuth: TdeiAuthStore, refreshAuth: () => Promise<void>) {
+  constructor(
+    baseUrl: string,
+    osmUrl: string,
+    tdeiAuth: TdeiAuthStore,
+    refreshAuth: () => Promise<void>,
+    fetchReference?: (url: string) => Promise<unknown>
+  ) {
     this.#baseUrl = baseUrl.replace(/\/*$/, '/')
     this.#osmUrl = osmUrl.replace(/\/+$/, '')
     this.#refreshAuth = refreshAuth
+    this.#fetchReference = fetchReference
     this.#tdeiAuth = tdeiAuth
 
     this.loaded = ref(false)
@@ -177,7 +187,7 @@ export class Rapid3Manager {
       .then(() => context.startAsync())
       .then(() => {
         if (datatype === 'pathways') {
-          this.levelTools.value = new Rapid3LevelTools(context)
+          this.levelTools.value = new Rapid3LevelTools(context, { fetchReference: this.#fetchReference })
           this.#loadWholeWorkspace(workspaceId, { outlineMissingLevels: true })
           this.#reloadWholeWorkspaceAfterResets()
         }
