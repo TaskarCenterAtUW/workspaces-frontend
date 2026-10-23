@@ -1326,15 +1326,20 @@ describe('reference drawings', () => {
     ]);
   });
 
-  it('gives each role its own color, and lists the roles a drawing uses as its legend', () => {
+  it('gives each role its own color, none of them gray, and lists the roles a drawing uses as its legend', () => {
     const colors = Object.values(REFERENCE_STYLE.roleColors);
     expect(new Set([...colors, REFERENCE_STYLE.defaultColor]).size).toBe(colors.length + 1);
+    // No grays (or near-grays): every color's channels differ by more than a little, except white.
+    const channels = (color: number) => [color >> 16, (color >> 8) & 0xff, color & 0xff];
+    for (const color of [...colors, REFERENCE_STYLE.defaultColor].filter(c => c !== 0xffffff)) {
+      expect(Math.max(...channels(color)) - Math.min(...channels(color))).toBeGreaterThan(96);
+    }
     expect(Object.keys(REFERENCE_STYLE.roleNames).sort()).toEqual(Object.keys(REFERENCE_STYLE.roleColors).sort());
 
     expect(referenceLegend([{ role: 'stair' }, { role: 'barrier' }, { role: undefined }, { role: 'stair' }])).toEqual([
       { label: 'Walls', color: '#e040fb' },
       { label: 'Stairs', color: '#ff6d00' },
-      { label: 'Other linework', color: '#b0bec5' }
+      { label: 'Other linework', color: '#aeea00' }
     ]);
   });
 
@@ -1352,10 +1357,10 @@ describe('reference drawings', () => {
     const graphics = group.drawing!;
     // Drawn relative to its first point, in 1px lines.
     expect(graphics.calls[0]).toEqual(['position', -1223000, 476000]);
-    // At the map's scale (none here: 1), lines are REFERENCE_STYLE.widthPx wide on screen.
+    // 1px lines at any zoom.
     expect(graphics.calls.filter(call => call[0] === 'stroke')).toEqual([
-      ['stroke', { width: REFERENCE_STYLE.widthPx, color: REFERENCE_STYLE.roleColors.barrier, alpha: REFERENCE_STYLE.alpha }],
-      ['stroke', { width: REFERENCE_STYLE.widthPx, color: REFERENCE_STYLE.roleColors.stair, alpha: REFERENCE_STYLE.alpha }]
+      ['stroke', { width: 1, color: REFERENCE_STYLE.roleColors.barrier, alpha: REFERENCE_STYLE.alpha, pixelLine: true }],
+      ['stroke', { width: 1, color: REFERENCE_STYLE.roleColors.stair, alpha: REFERENCE_STYLE.alpha, pixelLine: true }]
     ]);
     expect(graphics.calls[1]).toEqual(['moveTo', 0, 0]);
 

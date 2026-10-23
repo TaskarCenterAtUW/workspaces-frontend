@@ -72,9 +72,7 @@ export const REFERENCE_URL_TAG = 'ext:reference_url';
  */
 export const REFERENCE_STYLE = {
   alpha: 0.9,
-  /** Line width, in screen pixels. */
-  widthPx: 2,
-  defaultColor: 0xb0bec5, // unclassified linework: light blue-grey
+  defaultColor: 0xaeea00, // unclassified linework: lime
   roleColors: {
     barrier: 0xe040fb, // walls: purple
     platform: 0xffffff,
@@ -449,9 +447,6 @@ export class Rapid3LevelTools {
   #fetchReference: ((url: string) => Promise<unknown>) | undefined;
   #referenceCache = new Map<string, Promise<unknown>>();
   #referenceGraphics: any;
-  /** The drawing's lines, and the map scale they were last stroked at (see `#strokeReference`). */
-  #referencePathsDrawn: ReturnType<typeof referencePaths> = [];
-  #referenceScale = 0;
   /** What's drawn (the URLs, or "" for nothing), so an unchanged drawing isn't redrawn. */
   #referenceDrawn = '';
   /** Counts reference updates, so a load that finishes after a newer update is ignored. */
@@ -784,10 +779,10 @@ export class Rapid3LevelTools {
 
   /**
    * Draws reference lines in Rapid's "debug-under" group (above the imagery,
-   * below the editable data), over the station highlight's shading. Coordinates are
-   * relative to the first point, so a detailed drawing stays precise when
-   * zoomed in. (Pixi's `pixelLine` strokes don't show in Rapid's scene, so line
-   * widths are set from the zoom instead, see `#strokeReference`.)
+   * below the editable data), over the station highlight's shading. Lines are
+   * 1px at any zoom (Pixi's `pixelLine`), so they're built once rather than
+   * again as the map zooms. Coordinates are relative to the first point, so a
+   * detailed drawing stays precise when zoomed in.
    */
   #drawReference(paths: ReturnType<typeof referencePaths>, key: string) {
     this.#referenceDrawn = key;
@@ -802,12 +797,6 @@ export class Rapid3LevelTools {
       this.#referenceGraphics = new PIXI.Graphics();
       this.#referenceGraphics.label = 'gtfs-reference-drawing';
       this.#referenceGraphics.eventMode = 'none';
-      // The group is in world coordinates, which Rapid scales as the map zooms;
-      // restroke when the zoom has changed enough for the line width to show it.
-      this.#referenceGraphics.onRender = () => {
-        const scale = gfx.origin?.scale?.x || 1;
-        if (Math.abs(Math.log2(scale / this.#referenceScale)) > 0.25) this.#strokeReference(scale);
-      };
     }
     const graphics = this.#referenceGraphics;
     if (graphics.parent !== group) {
@@ -815,31 +804,22 @@ export class Rapid3LevelTools {
       const boxes = this.#stationHighlight?.boxes;
       group.addChildAt(graphics, boxes?.parent === group ? group.getChildIndex(boxes) + 1 : 0);
     }
-
-    this.#referencePathsDrawn = paths.map(path => ({ ...path, coordinates: path.coordinates.map(c => project(c)) }));
-    this.#strokeReference(gfx.origin?.scale?.x || 1);
-    gfx.deferredRedraw?.();
-  }
-
-  /** Strokes the drawing's lines (already in world coordinates) REFERENCE_STYLE.widthPx wide at the given map scale. */
-  #strokeReference(scale: number) {
-    this.#referenceScale = scale;
-    const graphics = this.#referenceGraphics;
     graphics.clear();
-    const paths = this.#referencePathsDrawn;
-    if (!paths.length) return;
 
-    const [originX, originY] = paths[0]!.coordinates[0]!;
-    graphics.position.set(originX, originY);
-    const width = REFERENCE_STYLE.widthPx / scale;
-    for (const { color, coordinates, closed } of paths) {
-      coordinates.forEach(([x, y], i) => {
-        if (i === 0) graphics.moveTo(x - originX, y - originY);
-        else graphics.lineTo(x - originX, y - originY);
-      });
-      if (closed) graphics.closePath();
-      graphics.stroke({ width, color, alpha: REFERENCE_STYLE.alpha });
+    if (paths.length) {
+      const [originX, originY] = project(paths[0]!.coordinates[0]!);
+      graphics.position.set(originX, originY);
+      for (const { color, coordinates, closed } of paths) {
+        coordinates.forEach((coordinate, i) => {
+          const [x, y] = project(coordinate);
+          if (i === 0) graphics.moveTo(x - originX, y - originY);
+          else graphics.lineTo(x - originX, y - originY);
+        });
+        if (closed) graphics.closePath();
+        graphics.stroke({ width: 1, color, alpha: REFERENCE_STYLE.alpha, pixelLine: true });
+      }
     }
+    gfx.deferredRedraw?.();
   }
 
   /**
