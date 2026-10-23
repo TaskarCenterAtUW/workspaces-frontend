@@ -107,6 +107,7 @@ export interface TdeiDatasetApiResponse {
   tdei_dataset_id: string;
   data_type: string;
   status: string;
+  is_released?: boolean;
   project_group: TdeiProjectGroupItem;
   service?: {
     tdei_service_id: string;
@@ -132,6 +133,7 @@ export interface TdeiDatasetSummary {
   name: string;
   version?: string;
   projectGroupName?: string;
+  raw?: TdeiDatasetApiResponse;
 }
 
 export interface TdeiUserItem {

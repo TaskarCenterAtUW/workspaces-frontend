@@ -83,6 +83,6 @@ export const projectGroups = [
   {
     tdei_project_group_id: PROJECT_GROUP_ID,
     project_group_name: 'Puget Sound',
-    roles: ['workspace_admin']
+    roles: ['workspace_admin', 'poc']
   }
 ];

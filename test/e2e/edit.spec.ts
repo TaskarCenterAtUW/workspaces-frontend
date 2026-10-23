@@ -61,13 +61,16 @@ const RAPID2_SCRIPT = (route: Route) => route.fulfill({
 // completion and initAsync() paints the editor surface:
 //   - Rapid.services.available          (#prePrepare deletes optional services)
 //   - context.systems.network           (#preInit adds a request interceptor)
+//   - context.systems.l10n              (#preInit overrides OSM-specific strings)
+//   - Rapid.UiSuccess                   (#preInit stubs the community index on its prototype)
 //   - context.systems.imagery / .styles (#preStart merges overrides)
 const RAPID3_SCRIPT = (route: Route) => route.fulfill({
   contentType: 'application/javascript',
   body: `
     window.Rapid = {
       utilDetect: () => ({ isSupported: true }),
-      services: { available: new Set(['geoscribble', 'keepright', 'mapwithai', 'osmose']) },
+      services: { available: new Set(['geoscribble', 'keepright', 'mapwithai', 'nsi', 'osmose']) },
+      UiSuccess: class {},
       Context: class {
         embed() {}
         async prepareAsync() {}
@@ -79,6 +82,7 @@ const RAPID3_SCRIPT = (route: Route) => route.fulfill({
         services = { osm: { _oauth: { fetch: () => {}, authenticated: () => true }, userDetails: () => {} } };
         systems = {
           network: { addRequestInterceptor: () => {} },
+          l10n: { prependListener: () => {}, localeCode: 'en', _store: new Map() },
           imagery: { merge: () => {}, _overlayLayers: new Set(['mapbox_locator_overlay']) },
           styles: { merge: () => {} }
         };
