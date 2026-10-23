@@ -41,22 +41,6 @@
         </button>
       </p>
       <p
-        v-if="referenceDrawing"
-        class="level-panel-hint reference-drawing-hint"
-        :class="{ 'level-panel-load-failed': referenceDrawing.status === 'failed' }"
-        :role="referenceDrawing.status === 'failed' ? 'alert' : 'status'"
-      >
-        {{ REFERENCE_DRAWING_NOTES[referenceDrawing.status] }}
-        <button
-          v-if="referenceDrawing.status !== 'loading'"
-          type="button"
-          class="btn btn-link btn-sm reference-drawing-toggle"
-          @click="referenceDrawing.status === 'failed' ? tools.updateReferenceDrawing() : tools.toggleReferenceDrawings()"
-        >
-          {{ referenceDrawing.status === 'failed' ? 'Retry' : referenceDrawing.status === 'hidden' ? 'Show' : 'Hide' }}
-        </button>
-      </p>
-      <p
         v-if="!levels.length"
         class="level-panel-hint"
       >
@@ -300,14 +284,15 @@
       </p>
     </section>
     <section
-      v-if="fixmes.length"
+      v-if="fixmes.length || referenceDrawing"
       class="level-panel-section fixme-section"
     >
       <div class="level-panel-header">
         <h2 class="level-panel-heading">
-          Things to review ({{ fixmes.length }})
+          Things to review<template v-if="fixmes.length"> ({{ fixmes.length }})</template>
         </h2>
         <button
+          v-if="fixmes.length"
           type="button"
           class="btn btn-sm btn-outline-secondary"
           :aria-expanded="fixmesExpanded"
@@ -315,6 +300,56 @@
         >
           {{ fixmesExpanded ? 'Hide' : 'Show' }}
         </button>
+      </div>
+      <div
+        v-if="referenceDrawing"
+        class="reference-drawing"
+      >
+        <div class="form-check">
+          <input
+            id="show-reference-drawing"
+            class="form-check-input"
+            type="checkbox"
+            :checked="tools.showReferenceDrawings.value"
+            @change="tools.toggleReferenceDrawings()"
+          >
+          <label
+            class="form-check-label"
+            for="show-reference-drawing"
+          >Show this level's reference drawing</label>
+        </div>
+        <p
+          v-if="referenceDrawing.status === 'loading' || referenceDrawing.status === 'failed'"
+          class="level-panel-hint reference-drawing-hint"
+          :class="{ 'level-panel-load-failed': referenceDrawing.status === 'failed' }"
+          :role="referenceDrawing.status === 'failed' ? 'alert' : 'status'"
+        >
+          {{ REFERENCE_DRAWING_NOTES[referenceDrawing.status] }}
+          <button
+            v-if="referenceDrawing.status === 'failed'"
+            type="button"
+            class="btn btn-link btn-sm reference-drawing-retry"
+            @click="tools.updateReferenceDrawing()"
+          >
+            Retry
+          </button>
+        </p>
+        <ul
+          v-if="referenceDrawing.status === 'shown' && referenceDrawing.legend?.length"
+          class="reference-legend"
+          aria-label="Reference drawing colors"
+        >
+          <li
+            v-for="entry in referenceDrawing.legend"
+            :key="entry.label"
+          >
+            <span
+              class="reference-legend-swatch"
+              :style="{ backgroundColor: entry.color }"
+            />
+            {{ entry.label }}
+          </li>
+        </ul>
       </div>
       <ul
         v-if="fixmesExpanded"
@@ -363,9 +398,9 @@ import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-le
 // @test unit: levels with an outline can be reordered by dragging or with the arrow keys, which renumbers level_index
 // @test unit: levels without an outline show a disabled handle saying to add an outline first
 // @test unit: while the whole workspace is loading, a note says levels may show under "No station"; if it fails, a note offers "Retry"
-// @test unit: a "Things to review (N)" section lists every feature with a fixme note (its label and the note), and is hidden when there are none; "Hide"/"Show" collapses it
+// @test unit: a "Things to review (N)" section lists every feature with a fixme note (its label and the note), and is hidden when there are none (and no reference drawing); "Hide"/"Show" collapses the list
 // @test unit: clicking a fixme entry selects its feature, and pointing at or focusing one highlights it on the map
-// @test unit: while a level with a reference drawing is shown, a note says whether its drawing is loading, shown, hidden or couldn't load, with "Hide"/"Show" (or "Retry")
+// @test unit: while a level with a reference drawing is shown, "Things to review" has a checkbox to show or hide it, notes while it's loading or if it couldn't load (with "Retry"), and shows a legend of the roles it draws, each with its color; the section appears for a drawing even with no fixme notes
 
 const props = defineProps<{
   tools: Rapid3LevelTools;
@@ -377,11 +412,9 @@ const largeLevelAreas = computed(() => props.tools.largeLevelAreas.value);
 const currentLevelId = computed(() => props.tools.currentLevelId.value);
 // The reference drawing (from pathways-converter) of the level being shown, if it has one.
 const referenceDrawing = computed(() => props.tools.referenceDrawing.value);
-const REFERENCE_DRAWING_NOTES: Record<ReferenceDrawingStatus, string> = {
-  loading: 'Loading this level\'s reference drawing\u2026',
-  shown: 'Showing this level\'s reference drawing under the map data.',
-  hidden: 'This level has a reference drawing.',
-  failed: 'Couldn\'t load this level\'s reference drawing.'
+const REFERENCE_DRAWING_NOTES: Partial<Record<ReferenceDrawingStatus, string>> = {
+  loading: 'Loading the reference drawing\u2026',
+  failed: 'Couldn\'t load the reference drawing.'
 };
 // Features with a fixme note, for the review list below the stations.
 const fixmes = computed(() => props.tools.fixmes.value);
@@ -670,7 +703,37 @@ function stopCount(levelId: string): number {
   color: var(--bs-secondary-color);
 }
 
-.reference-drawing-toggle {
+.reference-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.125rem 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color);
+}
+
+.reference-legend-swatch {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.25rem;
+  margin-right: 0.25rem;
+  vertical-align: middle;
+  border-radius: 1px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.reference-drawing {
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.reference-legend {
+  margin-top: 0.25rem;
+}
+
+.reference-drawing-retry {
   padding: 0 0.25rem;
   vertical-align: baseline;
 }

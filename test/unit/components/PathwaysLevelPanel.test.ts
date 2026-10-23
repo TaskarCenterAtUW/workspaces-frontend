@@ -7,7 +7,7 @@ import PathwaysLevelPanel from '~/components/edit/PathwaysLevelPanel.vue';
 
 import { levelsLowestFirst } from '~/services/pathways-levels';
 import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-levels';
-import type { FixmeNote, LargeLevelArea, LevelStop, LevelStopGroup, ReferenceDrawingStatus } from '~/services/rapid3-levels';
+import type { FixmeNote, LargeLevelArea, LevelStop, LevelStopGroup, ReferenceDrawingStatus, ReferenceLegendEntry } from '~/services/rapid3-levels';
 
 // The Nuxt env loads services/index, whose clients open IndexedDB caches on import.
 vi.mock('~/services/index', () => ({}));
@@ -47,7 +47,8 @@ function stubTools(currentLevelId?: string) {
     largeLevelAreas: shallowRef<LargeLevelArea[]>([]),
     farStops: shallowRef<(LevelStop & { meters: number })[]>([]),
     fixmes: shallowRef<FixmeNote[]>([]),
-    referenceDrawing: ref<{ levelId: string; status: ReferenceDrawingStatus } | undefined>(),
+    referenceDrawing: ref<{ levelId: string; status: ReferenceDrawingStatus; legend?: ReferenceLegendEntry[] } | undefined>(),
+    showReferenceDrawings: ref(true),
     toggleReferenceDrawings: vi.fn(),
     updateReferenceDrawing: vi.fn(),
     zoomToLevel: vi.fn(),
@@ -76,7 +77,7 @@ async function mountPanel(tools: ReturnType<typeof stubTools>) {
 }
 
 describe('PathwaysLevelPanel', () => {
-  // @test unit: a "Things to review (N)" section lists every feature with a fixme note (its label and the note), and is hidden when there are none; "Hide"/"Show" collapses it
+  // @test unit: a "Things to review (N)" section lists every feature with a fixme note (its label and the note), and is hidden when there are none (and no reference drawing); "Hide"/"Show" collapses the list
   it('lists features with a fixme note, hidden when there are none, and collapsible', async () => {
     const tools = stubTools();
     const wrapper = await mountPanel(tools);
@@ -101,33 +102,41 @@ describe('PathwaysLevelPanel', () => {
     expect(section.findAll('.fixme-item')).toHaveLength(2);
   });
 
-  // @test unit: while a level with a reference drawing is shown, a note says whether its drawing is loading, shown, hidden or couldn't load, with "Hide"/"Show" (or "Retry")
-  it('notes the shown level\'s reference drawing, with Hide/Show or Retry', async () => {
+  // @test unit: while a level with a reference drawing is shown, "Things to review" has a checkbox to show or hide it, notes while it's loading or if it couldn't load (with "Retry"), and shows a legend of the roles it draws, each with its color; the section appears for a drawing even with no fixme notes
+  it('puts the shown level\'s reference drawing under Things to review: a checkbox, its status and a legend', async () => {
     const tools = stubTools('L0');
     const wrapper = await mountPanel(tools);
-    const note = () => wrapper.find('.reference-drawing-hint');
-    expect(note().exists()).toBe(false);
+    const section = () => wrapper.find('.fixme-section');
+    expect(section().exists()).toBe(false); // no fixme notes, no drawing
 
     tools.referenceDrawing.value = { levelId: 'L0', status: 'loading' };
     await nextTick();
-    expect(note().text()).toBe('Loading this level\'s reference drawing\u2026');
-    expect(note().find('button').exists()).toBe(false);
+    expect(section().find('h2').text()).toBe('Things to review'); // shown for the drawing alone
+    const checkbox = section().find<HTMLInputElement>('#show-reference-drawing');
+    expect(checkbox.element.checked).toBe(true);
+    expect(section().find('.reference-drawing-hint').text()).toBe('Loading the reference drawing\u2026');
 
-    tools.referenceDrawing.value = { levelId: 'L0', status: 'shown' };
+    tools.referenceDrawing.value = { levelId: 'L0', status: 'shown', legend: [{ label: 'Walls', color: '#e040fb' }, { label: 'Stairs', color: '#ff6d00' }] };
     await nextTick();
-    expect(note().text()).toBe('Showing this level\'s reference drawing under the map data. Hide');
-    await note().find('button').trigger('click');
-    expect(tools.toggleReferenceDrawings).toHaveBeenCalledTimes(1);
+    expect(section().find('.reference-drawing-hint').exists()).toBe(false);
+    const entries = section().findAll('.reference-legend li');
+    expect(entries.map(entry => entry.text())).toEqual(['Walls', 'Stairs']);
+    expect(entries[0]!.find('.reference-legend-swatch').attributes('style')).toContain('#e040fb');
 
+    await checkbox.setValue(false);
+    expect(tools.toggleReferenceDrawings).toHaveBeenCalledTimes(1);
+    tools.showReferenceDrawings.value = false;
     tools.referenceDrawing.value = { levelId: 'L0', status: 'hidden' };
     await nextTick();
-    expect(note().text()).toBe('This level has a reference drawing. Show');
+    expect(checkbox.element.checked).toBe(false);
+    expect(section().find('.reference-legend').exists()).toBe(false);
 
     tools.referenceDrawing.value = { levelId: 'L0', status: 'failed' };
     await nextTick();
-    expect(note().attributes('role')).toBe('alert');
-    expect(note().text()).toBe('Couldn\'t load this level\'s reference drawing. Retry');
-    await note().find('button').trigger('click');
+    const hint = section().find('.reference-drawing-hint');
+    expect(hint.attributes('role')).toBe('alert');
+    expect(hint.text().replace(/\s+/g, ' ')).toBe('Couldn\'t load the reference drawing. Retry');
+    await hint.find('button').trigger('click');
     expect(tools.updateReferenceDrawing).toHaveBeenCalledTimes(1);
   });
 

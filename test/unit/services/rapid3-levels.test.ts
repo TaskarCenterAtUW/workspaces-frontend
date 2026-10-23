@@ -6,6 +6,7 @@ import {
   LEVEL_FILTER_ID,
   Rapid3LevelTools,
   REFERENCE_STYLE,
+  referenceLegend,
   referencePaths,
   referenceUrls,
   STATION_HIGHLIGHT
@@ -678,6 +679,13 @@ describe('Rapid3LevelTools', () => {
         addChild(child: { parent?: unknown }) {
           child.parent = this;
           this.children.push(child);
+        },
+        addChildAt(child: { parent?: unknown }, index: number) {
+          child.parent = this;
+          this.children.splice(index, 0, child);
+        },
+        getChildIndex(child: unknown) {
+          return this.children.indexOf(child);
         }
       };
       const origin = { scale: { x: 1 } };
@@ -1278,12 +1286,17 @@ describe('reference drawings', () => {
     const context = fakeContext(withReference());
     const children: { label: string; parent?: unknown }[] = [];
     const group = {
+      children,
       addChild(child: { label: string; parent?: unknown }) {
         child.parent = group;
         children.push(child);
       },
-      addChildAt(child: { label: string; parent?: unknown }) {
-        group.addChild(child);
+      addChildAt(child: { label: string; parent?: unknown }, index: number) {
+        child.parent = group;
+        children.splice(index, 0, child);
+      },
+      getChildIndex(child: { label: string }) {
+        return children.indexOf(child);
       },
       /** The reference drawing's graphics, once made. */
       get drawing() {
@@ -1307,9 +1320,21 @@ describe('reference drawings', () => {
   });
 
   it('draws a drawing\'s lines and outlines, colored by role, but not its points', () => {
-    expect(referencePaths(drawing).map(path => [path.color, path.coordinates.length, path.closed])).toEqual([
-      [REFERENCE_STYLE.defaultColor, 2, false],
-      [REFERENCE_STYLE.roleColors.stair, 4, true]
+    expect(referencePaths(drawing).map(path => [path.role, path.color, path.coordinates.length, path.closed])).toEqual([
+      ['barrier', REFERENCE_STYLE.roleColors.barrier, 2, false],
+      ['stair', REFERENCE_STYLE.roleColors.stair, 4, true]
+    ]);
+  });
+
+  it('gives each role its own color, and lists the roles a drawing uses as its legend', () => {
+    const colors = Object.values(REFERENCE_STYLE.roleColors);
+    expect(new Set([...colors, REFERENCE_STYLE.defaultColor]).size).toBe(colors.length + 1);
+    expect(Object.keys(REFERENCE_STYLE.roleNames).sort()).toEqual(Object.keys(REFERENCE_STYLE.roleColors).sort());
+
+    expect(referenceLegend([{ role: 'stair' }, { role: 'barrier' }, { role: undefined }, { role: 'stair' }])).toEqual([
+      { label: 'Walls', color: '#e040fb' },
+      { label: 'Stairs', color: '#ff6d00' },
+      { label: 'Other linework', color: '#b0bec5' }
     ]);
   });
 
@@ -1323,14 +1348,20 @@ describe('reference drawings', () => {
     await vi.waitFor(() => expect(tools.referenceDrawing.value?.status).toBe('shown'));
 
     expect(fetchReference).toHaveBeenCalledWith(URL_L0);
+    expect(tools.referenceDrawing.value!.legend!.map(entry => entry.label)).toEqual(['Walls', 'Stairs']);
     const graphics = group.drawing!;
     // Drawn relative to its first point, in 1px lines.
     expect(graphics.calls[0]).toEqual(['position', -1223000, 476000]);
+    // At the map's scale (none here: 1), lines are REFERENCE_STYLE.widthPx wide on screen.
     expect(graphics.calls.filter(call => call[0] === 'stroke')).toEqual([
-      ['stroke', { width: 1, color: REFERENCE_STYLE.defaultColor, alpha: REFERENCE_STYLE.alpha, pixelLine: true }],
-      ['stroke', { width: 1, color: REFERENCE_STYLE.roleColors.stair, alpha: REFERENCE_STYLE.alpha, pixelLine: true }]
+      ['stroke', { width: REFERENCE_STYLE.widthPx, color: REFERENCE_STYLE.roleColors.barrier, alpha: REFERENCE_STYLE.alpha }],
+      ['stroke', { width: REFERENCE_STYLE.widthPx, color: REFERENCE_STYLE.roleColors.stair, alpha: REFERENCE_STYLE.alpha }]
     ]);
     expect(graphics.calls[1]).toEqual(['moveTo', 0, 0]);
+
+    // Over the station highlight's shading, under its labels.
+    expect(group.children.map(child => child.label))
+      .toEqual(['gtfs-station-highlight', 'gtfs-reference-drawing', 'gtfs-station-highlight-labels']);
 
     tools.showLevel('L1'); // no drawing
     await vi.waitFor(() => expect(tools.referenceDrawing.value).toBeUndefined());
@@ -1368,7 +1399,7 @@ describe('reference drawings', () => {
     await vi.waitFor(() => expect(tools.referenceDrawing.value).toEqual({ levelId: 'L0', status: 'failed' }));
 
     await tools.updateReferenceDrawing();
-    expect(tools.referenceDrawing.value).toEqual({ levelId: 'L0', status: 'shown' });
+    expect(tools.referenceDrawing.value).toMatchObject({ levelId: 'L0', status: 'shown' });
     expect(fetchReference).toHaveBeenCalledTimes(2);
   });
 

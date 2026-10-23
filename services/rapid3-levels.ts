@@ -66,23 +66,62 @@ export const FAR_END_ALPHA = 0.35;
 export const REFERENCE_URL_TAG = 'ext:reference_url';
 
 /**
- * How reference drawings are drawn: thin lines, colored by what each feature
- * is (its `role`, from pathways-converter), muted so the editable data stands out.
+ * How reference drawings are drawn: each feature's line in the color for what
+ * it is (its `role`, from pathways-converter), bright enough to read over
+ * aerial imagery. Linework the converter couldn't classify uses `defaultColor`.
  */
 export const REFERENCE_STYLE = {
-  alpha: 0.8,
-  defaultColor: 0x6c757d, // walls and other linework
+  alpha: 0.9,
+  /** Line width, in screen pixels. */
+  widthPx: 2,
+  defaultColor: 0xb0bec5, // unclassified linework: light blue-grey
   roleColors: {
-    door: 0x8d6e63,
-    entrance: 0x2e7d32,
-    stair: 0xef6c00,
-    escalator: 0xef6c00,
-    moving_walk: 0xef6c00,
-    elevator: 0x7b1fa2,
-    fare_gate: 0xc62828,
-    platform_edge: 0xf9a825
-  } as Record<string, number>
+    barrier: 0xe040fb, // walls: purple
+    platform: 0xffffff,
+    platform_edge: 0xffea00,
+    door: 0xffab40,
+    entrance: 0x69f0ae,
+    stair: 0xff6d00,
+    escalator: 0x00e5ff,
+    moving_walk: 0x1de9b6,
+    elevator: 0x448aff,
+    fare_gate: 0xff1744,
+    ticket_machine: 0xff80ab
+  } as Record<string, number>,
+  /** How the legend names each role. */
+  roleNames: {
+    barrier: 'Walls',
+    platform: 'Platform',
+    platform_edge: 'Platform edge',
+    door: 'Doors',
+    entrance: 'Entrances',
+    stair: 'Stairs',
+    escalator: 'Escalators',
+    moving_walk: 'Moving walks',
+    elevator: 'Elevators',
+    fare_gate: 'Fare gates',
+    ticket_machine: 'Ticket machines'
+  } as Record<string, string>
 };
+
+/** A legend entry for a reference drawing: a role's name and color. */
+export interface ReferenceLegendEntry {
+  label: string;
+  color: string;
+}
+
+/** The legend for drawn paths: each role they use, in REFERENCE_STYLE order, then unclassified linework. */
+export function referenceLegend(paths: { role?: string }[]): ReferenceLegendEntry[] {
+  const used = new Set(paths.map(path => path.role ?? ''));
+  const hex = (color: number) => `#${color.toString(16).padStart(6, '0')}`;
+  const entries = Object.entries(REFERENCE_STYLE.roleColors)
+    .filter(([role]) => used.has(role))
+    .map(([role, color]) => ({ label: REFERENCE_STYLE.roleNames[role] ?? role, color: hex(color) }));
+  if ([...used].some(role => !(role in REFERENCE_STYLE.roleColors))) {
+    entries.push({ label: 'Other linework', color: hex(REFERENCE_STYLE.defaultColor) });
+  }
+  return entries;
+}
 
 /** The reference URLs on a level's outlines (a level may have several outlines). */
 export function referenceUrls(entities: any[], levelId: string): string[] {
@@ -94,14 +133,15 @@ export function referenceUrls(entities: any[], levelId: string): string[] {
 }
 
 /** A reference drawing's lines: each [lon, lat] path, with the color for its feature's role. */
-export function referencePaths(geojson: any): { color: number; coordinates: [number, number][]; closed: boolean }[] {
+export function referencePaths(geojson: any): { role?: string; color: number; coordinates: [number, number][]; closed: boolean }[] {
   const features = geojson?.type === 'FeatureCollection' ? geojson.features ?? [] : [geojson];
-  const paths: { color: number; coordinates: [number, number][]; closed: boolean }[] = [];
+  const paths: { role?: string; color: number; coordinates: [number, number][]; closed: boolean }[] = [];
   for (const feature of features) {
     const geometry = feature?.geometry;
-    const color = REFERENCE_STYLE.roleColors[feature?.properties?.role] ?? REFERENCE_STYLE.defaultColor;
+    const role: string | undefined = feature?.properties?.role ?? undefined;
+    const color = (role && REFERENCE_STYLE.roleColors[role]) || REFERENCE_STYLE.defaultColor;
     const add = (coordinates: [number, number][], closed: boolean) => {
-      if (coordinates?.length > 1) paths.push({ color, coordinates, closed });
+      if (coordinates?.length > 1) paths.push({ role, color, coordinates, closed });
     };
     // Points (e.g. text labels) aren't drawn.
     if (geometry?.type === 'LineString') {
@@ -380,7 +420,7 @@ export class Rapid3LevelTools {
    * `ext:reference_url`), drawn under the map data; undefined when the level
    * has none, or no level is shown.
    */
-  readonly referenceDrawing = ref<{ levelId: string; status: ReferenceDrawingStatus } | undefined>();
+  readonly referenceDrawing = ref<{ levelId: string; status: ReferenceDrawingStatus; legend?: ReferenceLegendEntry[] } | undefined>();
   /** Whether reference drawings are shown (the panel's Hide/Show). */
   readonly showReferenceDrawings = ref(true);
   /** The level being shown, or undefined to show all levels. */
@@ -409,6 +449,9 @@ export class Rapid3LevelTools {
   #fetchReference: ((url: string) => Promise<unknown>) | undefined;
   #referenceCache = new Map<string, Promise<unknown>>();
   #referenceGraphics: any;
+  /** The drawing's lines, and the map scale they were last stroked at (see `#strokeReference`). */
+  #referencePathsDrawn: ReturnType<typeof referencePaths> = [];
+  #referenceScale = 0;
   /** What's drawn (the URLs, or "" for nothing), so an unchanged drawing isn't redrawn. */
   #referenceDrawn = '';
   /** Counts reference updates, so a load that finishes after a newer update is ignored. */
@@ -717,8 +760,9 @@ export class Rapid3LevelTools {
     try {
       const drawings = await Promise.all(urls.map(url => this.#loadReference(url)));
       if (update !== this.#referenceUpdate) return; // the view changed meanwhile
-      this.#drawReference(drawings.flatMap(referencePaths), key);
-      this.referenceDrawing.value = { levelId, status: 'shown' };
+      const paths = drawings.flatMap(referencePaths);
+      this.#drawReference(paths, key);
+      this.referenceDrawing.value = { levelId, status: 'shown', legend: referenceLegend(paths) };
     }
     catch (error) {
       if (update !== this.#referenceUpdate) return;
@@ -740,9 +784,10 @@ export class Rapid3LevelTools {
 
   /**
    * Draws reference lines in Rapid's "debug-under" group (above the imagery,
-   * below the editable data), under the station highlight. Coordinates are
+   * below the editable data), over the station highlight's shading. Coordinates are
    * relative to the first point, so a detailed drawing stays precise when
-   * zoomed in; lines stay 1px wide at any zoom.
+   * zoomed in. (Pixi's `pixelLine` strokes don't show in Rapid's scene, so line
+   * widths are set from the zoom instead, see `#strokeReference`.)
    */
   #drawReference(paths: ReturnType<typeof referencePaths>, key: string) {
     this.#referenceDrawn = key;
@@ -757,25 +802,44 @@ export class Rapid3LevelTools {
       this.#referenceGraphics = new PIXI.Graphics();
       this.#referenceGraphics.label = 'gtfs-reference-drawing';
       this.#referenceGraphics.eventMode = 'none';
+      // The group is in world coordinates, which Rapid scales as the map zooms;
+      // restroke when the zoom has changed enough for the line width to show it.
+      this.#referenceGraphics.onRender = () => {
+        const scale = gfx.origin?.scale?.x || 1;
+        if (Math.abs(Math.log2(scale / this.#referenceScale)) > 0.25) this.#strokeReference(scale);
+      };
     }
     const graphics = this.#referenceGraphics;
-    if (graphics.parent !== group) group.addChildAt(graphics, 0);
-    graphics.clear();
-
-    if (paths.length) {
-      const [originX, originY] = project(paths[0]!.coordinates[0]!);
-      graphics.position.set(originX, originY);
-      for (const { color, coordinates, closed } of paths) {
-        coordinates.forEach((coordinate, i) => {
-          const [x, y] = project(coordinate);
-          if (i === 0) graphics.moveTo(x - originX, y - originY);
-          else graphics.lineTo(x - originX, y - originY);
-        });
-        if (closed) graphics.closePath();
-        graphics.stroke({ width: 1, color, alpha: REFERENCE_STYLE.alpha, pixelLine: true });
-      }
+    if (graphics.parent !== group) {
+      // Over the station highlight's shading, if it's drawn (see `#drawStationHighlight`).
+      const boxes = this.#stationHighlight?.boxes;
+      group.addChildAt(graphics, boxes?.parent === group ? group.getChildIndex(boxes) + 1 : 0);
     }
+
+    this.#referencePathsDrawn = paths.map(path => ({ ...path, coordinates: path.coordinates.map(c => project(c)) }));
+    this.#strokeReference(gfx.origin?.scale?.x || 1);
     gfx.deferredRedraw?.();
+  }
+
+  /** Strokes the drawing's lines (already in world coordinates) REFERENCE_STYLE.widthPx wide at the given map scale. */
+  #strokeReference(scale: number) {
+    this.#referenceScale = scale;
+    const graphics = this.#referenceGraphics;
+    graphics.clear();
+    const paths = this.#referencePathsDrawn;
+    if (!paths.length) return;
+
+    const [originX, originY] = paths[0]!.coordinates[0]!;
+    graphics.position.set(originX, originY);
+    const width = REFERENCE_STYLE.widthPx / scale;
+    for (const { color, coordinates, closed } of paths) {
+      coordinates.forEach(([x, y], i) => {
+        if (i === 0) graphics.moveTo(x - originX, y - originY);
+        else graphics.lineTo(x - originX, y - originY);
+      });
+      if (closed) graphics.closePath();
+      graphics.stroke({ width, color, alpha: REFERENCE_STYLE.alpha });
+    }
   }
 
   /**
@@ -803,9 +867,10 @@ export class Rapid3LevelTools {
       this.#stationHighlight = { boxes, labels };
     }
     const { boxes, labels } = this.#stationHighlight;
-    for (const part of [boxes, labels]) {
-      if (part.parent !== group) group.addChild(part);
-    }
+    // The shading goes under everything else in the group (e.g. a level's reference
+    // drawing); its labels go on top, so they stay readable.
+    if (boxes.parent !== group) group.addChildAt(boxes, 0);
+    if (labels.parent !== group) group.addChild(labels);
     boxes.clear();
     for (const old of labels.removeChildren()) old.destroy();
 
