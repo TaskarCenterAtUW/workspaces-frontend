@@ -129,6 +129,68 @@ describe('TdeiClient session recovery', () => {
   });
 });
 
+describe('TdeiClient.recoverSession', () => {
+  it('refreshes the access token when it can', async () => {
+    const auth = authenticatedStore();
+    const client = new TdeiClient(TDEI_API_URL, auth);
+    server.use(
+      http.post(`${TDEI_API_URL}refresh-token`, () => HttpResponse.json({
+        access_token: accessToken(),
+        refresh_token: 'new-refresh-token',
+        expires_in: 3_600,
+        refresh_expires_in: 7_200
+      }))
+    );
+
+    await client.recoverSession();
+
+    expect(auth.refreshToken).toBe('new-refresh-token');
+    expect(authSessionState.dialogOpen).toBe(false);
+    client.logout();
+  });
+
+  it('asks the user to sign in again when the refresh is rejected', async () => {
+    const auth = authenticatedStore();
+    const client = new TdeiClient(TDEI_API_URL, auth);
+    server.use(
+      http.post(`${TDEI_API_URL}refresh-token`, () => new HttpResponse(null, { status: 401, statusText: 'Unauthorized' }))
+    );
+
+    const recovery = client.recoverSession();
+    const rejection = expect(recovery).rejects.toBeInstanceOf(SessionRecoveryCancelledError);
+    await vi.waitFor(() => expect(authSessionState.dialogOpen).toBe(true));
+    cancelSessionReauthentication();
+
+    await rejection;
+    client.logout();
+  });
+
+  it('asks the user to sign in again when the refresh token has expired', async () => {
+    const auth = authenticatedStore({ accessExpired: true, refreshExpired: true });
+    const client = new TdeiClient(TDEI_API_URL, auth);
+
+    const recovery = client.recoverSession();
+    const rejection = expect(recovery).rejects.toBeInstanceOf(SessionRecoveryCancelledError);
+    await vi.waitFor(() => expect(authSessionState.dialogOpen).toBe(true));
+    cancelSessionReauthentication();
+
+    await rejection;
+    client.logout();
+  });
+
+  it('leaves other failures (e.g. offline) for a later retry, without asking to sign in', async () => {
+    const auth = authenticatedStore();
+    const client = new TdeiClient(TDEI_API_URL, auth);
+    server.use(
+      http.post(`${TDEI_API_URL}refresh-token`, () => HttpResponse.error())
+    );
+
+    await expect(client.recoverSession()).rejects.toBeTruthy();
+    expect(authSessionState.dialogOpen).toBe(false);
+    client.logout();
+  });
+});
+
 describe('TdeiAuthStore persistence', () => {
   it('keeps a valid access token when only the refresh token has expired', () => {
     const storedAuth = authenticatedStore({ refreshExpired: true });

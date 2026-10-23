@@ -5,6 +5,7 @@ import {
   seedRefreshableExpiredSession,
   test,
 } from './fixtures';
+import { projectGroups } from '../mocks/fixtures';
 
 const COLD_ROUTE_TIMEOUT = 30_000;
 
@@ -130,6 +131,9 @@ test('synchronizes renewed credentials and recoverable expiry across open tabs',
   await seedAuthenticatedSession(page);
   const otherPage = await context.newPage();
   await seedAuthenticatedSession(otherPage);
+  await otherPage.route('**/tdei-user/project-group-roles/**', route =>
+    route.fulfill({ json: projectGroups })
+  );
 
   await page.goto('/help');
   await otherPage.goto('/workspace/create');
