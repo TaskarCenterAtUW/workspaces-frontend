@@ -38,6 +38,7 @@ import {
   isValidGeoJsonBounds,
 } from '~/util/geojson';
 
+import type { BoundingBox } from '~/types/bbox';
 import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
 
 interface Props {
@@ -171,7 +172,23 @@ onBeforeUnmount(() => {
   mapReadyPromise = null;
 });
 
+/**
+ * The area to outline: the workspace's TDEI dataset area if its metadata has a
+ * usable one, otherwise its data's bounding box. A workspace with no data
+ * (the bbox API returns nothing) has no area, even when its metadata names
+ * one, which may be a broad default covering much of the earth.
+ */
 async function getWorkspaceArea(workspace: Workspace): Promise<WorkspaceArea | null> {
+  let bbox: BoundingBox | undefined;
+
+  await loadingBbox.cancelable(workspacesClient, async (client) => {
+    bbox = await client.getWorkspaceBbox(workspace.id);
+  });
+
+  if (!bbox) {
+    return null;
+  }
+
   const metadataArea = getMetadataArea(parseMetadata(workspace.tdeiMetadata));
   const metadataBounds = metadataArea ? getGeoJsonBounds(metadataArea) : null;
 
@@ -179,34 +196,23 @@ async function getWorkspaceArea(workspace: Workspace): Promise<WorkspaceArea | n
     return { geojson: metadataArea, bounds: metadataBounds };
   }
 
-  let area: WorkspaceArea | null = null;
+  const { min_lon, min_lat, max_lon, max_lat } = bbox;
+  const bounds: Bounds = [[min_lon, min_lat], [max_lon, max_lat]];
 
-  await loadingBbox.cancelable(workspacesClient, async (client) => {
-    const bbox = await client.getWorkspaceBbox(workspace.id);
+  if (!isValidGeoJsonBounds(bounds)) {
+    return null;
+  }
 
-    if (!bbox) {
-      return;
-    }
-
-    const bounds: Bounds = [[bbox.min_lon, bbox.min_lat], [bbox.max_lon, bbox.max_lat]];
-
-    if (!isValidGeoJsonBounds(bounds)) {
-      return;
-    }
-
-    area = {
-      geojson: bboxToPolygon(bbox.min_lat, bbox.min_lon, bbox.max_lat, bbox.max_lon),
-      bounds,
-    };
-  });
-
-  return area;
+  return {
+    geojson: bboxToPolygon(min_lat, min_lon, max_lat, max_lon),
+    bounds,
+  };
 }
 
 async function updateMapPreview(workspace: Workspace) {
   const requestId = ++mapRequestId;
 
-  // Cancel a previous bbox request even if this workspace uses metadata.
+  // Cancel a previous workspace's bbox request.
   loadingBbox.abort();
 
   currentAreaBounds = null;
