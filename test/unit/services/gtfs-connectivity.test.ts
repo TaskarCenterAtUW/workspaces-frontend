@@ -58,9 +58,9 @@ describe('connectivityProblems', () => {
       pathway('w5', 'e', 'p4', '2'), pathway('w6', 'e', 'p4', '5') // stairs, or the elevator step-free
     ]).filter(([, subtype]) => subtype !== 'elevator_end_no_level')).toEqual([
       ['b', 'elevator_only', 'INFO'],
-      ['p1', 'no_step_free', 'WARNING'],
+      ['p1', 'no_step_free', 'INFO'],
       ['p2', 'elevator_only', 'INFO'],
-      ['p3', 'no_step_free', 'WARNING'],
+      ['p3', 'no_step_free', 'INFO'],
       ['p4', 'elevator_only', 'INFO']
     ]);
   });
@@ -102,7 +102,7 @@ describe('connectivityProblems', () => {
   it('flags stops no pathway touches, but not stations or untagged nodes', () => {
     expect(found([station, stop('e', '2'), stop('n', '3'), stop('p', '0'), node('bare'), pathway('w1', 'e', 'n', '1')])
       .filter(([, subtype]) => subtype !== 'dead_end'))
-      .toEqual([['p', 'isolated', 'ERROR']]); // not also "unreachable"
+      .toEqual([['p', 'isolated', 'WARNING']]); // not also "unreachable"
   });
 
   it('skips stations without pathways, as TDEI\'s validation does', () => {
@@ -120,13 +120,15 @@ describe('connectivityProblems', () => {
       pathway('w2', 'a', 'b', '5'), // elevator on one level
       pathway('w3', 'a', 'c', '4', true), // two-way escalator
       pathway('w4', 'b', 'e', '7', true), // two-way exit gate
-      pathway('w5', 'a', 'b', '2') // stairs on one level: a warning, not an upload failure
+      pathway('w5', 'a', 'b', '2'), // stairs on one level
+      pathway('w6', 'e', 'a', '2', true, { stair_count: '4' }) // a short flight within the level
     ])).toEqual([
       ['c', 'dead_end', 'WARNING'], // (only the escalator reaches it)
-      ['w2', 'same_level', 'ERROR'],
+      ['w2', 'same_level', 'WARNING'],
       ['w3', 'escalator_two_way', 'WARNING'],
       ['w4', 'exit_gate_two_way', 'ERROR'],
-      ['w5', 'same_level', 'WARNING']
+      ['w5', 'same_level', 'WARNING'],
+      ['w6', 'stairs_short_within_level', 'INFO'] // reported, as a suggestion
     ]);
   });
 
@@ -205,6 +207,17 @@ describe('connectivityProblems', () => {
       'pathway_ends_far_apart')).toEqual([['w1', 'pathway_ends_far_apart']]);
   });
 
+  it('suggests checking stops at the same spot on the same level, unless a gate or elevator joins them', () => {
+    const spot = (entity: LevelEntity) => at(entity, [0.001, 0.001]);
+    const entities = [
+      station, at(stop('e', '2', 'L0'), [0, 0]), spot(stop('p1', '0', 'L1')), spot(stop('p2', '0', 'L1')),
+      spot(stop('g1', '3', 'L0')), spot(stop('g2', '3', 'L0')), spot(stop('up', '3', 'L2')), // up: stacked, another level
+      pathway('w1', 'e', 'p1', '1'), pathway('w2', 'e', 'p2', '1'), pathway('w3', 'e', 'g1', '1'),
+      pathway('gate', 'g1', 'g2', '6'), pathway('w4', 'g2', 'up', '2')
+    ];
+    expect(only(entities, 'stops_share_position')).toEqual([['p1', 'stops_share_position'], ['p2', 'stops_share_position']]);
+  });
+
   it('flags a stop more than 500 m from its station', () => {
     const stationAt = at(station, [0, 0]);
     expect(only([stationAt, at(stop('e', '2'), [0.001, 0]), at(stop('p', '0'), [0.01, 0])], 'far_from_station'))
@@ -215,9 +228,10 @@ describe('connectivityProblems', () => {
     const ends = [at(stop('e', '2'), [0, 0]), at(stop('p', '0'), [0.001, 0])];
     const bent = { id: 'w', type: 'way', nodes: ['e', 'k', 'p'], tags: { pathway_mode: '1', is_bidirectional: '1', length: '111' } };
     expect(only([station, ...ends, at(node('k'), [0.0005, 0.002]), bent], 'length_too_short', 'length_too_long')).toEqual([]);
-    // Stops under 1 m apart likely have copied coordinates, so they're not measured.
+    // Stops under 1 m apart likely have copied coordinates, so they're not measured, but reported.
     const close = [at(stop('e', '2'), [0, 0]), at(stop('p', '0'), [0.000001, 0])];
-    expect(only([station, ...close, pathway('w', 'e', 'p', '1', true, { length: '400' })], 'length_too_long')).toEqual([]);
+    expect(only([station, ...close, pathway('w', 'e', 'p', '1', true, { length: '400' })], 'length_too_long',
+      'stops_share_location')).toEqual([['w', 'stops_share_location']]);
   });
 
   it('flags a stair_count whose sign doesn\'t match going up or down', () => {

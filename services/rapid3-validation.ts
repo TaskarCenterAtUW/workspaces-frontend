@@ -11,6 +11,7 @@ import { graphEntities } from '~/services/rapid3-levels';
 import type { ReferenceIndex } from '~/services/gtfs-references';
 import {
   COMPLETENESS_SEVERITY,
+  isPathwayStop,
   LEVEL_CHECK_SEVERITY,
   rapidSeverity,
   REFERENCE_SEVERITY,
@@ -48,11 +49,11 @@ export function perGraph<T>(build: (graph: any) => T): (graph: any) => T {
 
 /**
  * A Rapid issue's severity and message, for a problem TDEI's upload validation
- * treats as `severity`: problems that fail the upload are labelled warnings
- * (see `rapidSeverity`).
+ * treats as `severity`, given whether it's in pathways data: problems that fail
+ * the upload are labelled warnings (see `rapidSeverity`).
  */
-export function issueSeverity(severity: TdeiSeverity, message: string): { severity: 'warning' | 'suggestion'; message: () => string } {
-  const shown = rapidSeverity(severity, message);
+export function issueSeverity(severity: TdeiSeverity, message: string, pathwayData = true): { severity: 'warning' | 'suggestion'; message: () => string } {
+  const shown = rapidSeverity(severity, message, pathwayData);
   return { severity: shown.severity, message: () => shown.message };
 }
 
@@ -86,7 +87,9 @@ export function installReferenceValidator(context: any, getTools?: () => Rapid3L
     issues: referenceProblems(entity, indexFor(graph)).map(problem => new Rapid.ValidationIssue(context, {
       type: REFERENCE_VALIDATOR_ID,
       subtype: problem.subtype,
-      ...issueSeverity(REFERENCE_SEVERITY[problem.subtype], problem.message),
+      // A level_id is pathways data, as is any reference from an entrance, node or boarding area
+      ...issueSeverity(REFERENCE_SEVERITY[problem.subtype], problem.message,
+        problem.subtype === 'level_id' || isPathwayStop(entity)),
       reference: ($selection: any) => {
         $selection.selectAll('.issue-reference')
           .data([0])
@@ -147,7 +150,9 @@ export function installRequiredFieldsValidator(context: any) {
     issues: requiredFieldProblems(entity).map(problem => new Rapid.ValidationIssue(context, {
       type: REQUIRED_FIELDS_VALIDATOR_ID,
       subtype: problem.subtype,
-      ...issueSeverity(REQUIRED_FIELD_SEVERITY[problem.subtype], problem.message),
+      // Only a platform's or station's stop_name is core GTFS
+      ...issueSeverity(REQUIRED_FIELD_SEVERITY[problem.subtype], problem.message,
+        problem.subtype !== 'stop_name' || isPathwayStop(entity)),
       reference: ($selection: any) => {
         $selection.selectAll('.issue-reference')
           .data([0])
@@ -299,6 +304,12 @@ export const CONNECTIVITY_HELP: Record<string, string> = {
   isolated: 'In GTFS, riders get between stops along pathways. Connect this stop with a pathway, or delete it.',
   pathway_ends_far_apart: 'The stops at its ends are farther apart than this kind of pathway reaches, so one is probably '
     + 'in the wrong spot. Move it, or check its level.',
+  stops_share_position: 'Stops at one spot are often a placeholder or a duplicate. Platforms for each direction of '
+    + 'one island platform can share a spot; otherwise move this stop to where it really is, or merge the duplicates.',
+  stops_share_location: 'Its two stops are at the same spot, so one was probably placed by copying the other. Move it '
+    + 'to where this pathway really ends.',
+  stairs_short_within_level: 'A few steps within one level, e.g. into a lobby, are fine. If these stairs join two '
+    + 'levels, set the right level_id at one end.',
   far_from_station: 'Stops belong near their station. Move this one (or its whole level) into place, or check its '
     + 'parent_station.',
   duplicate_pathway_id: 'In GTFS, each pathway_id must be unique. Change one, or clear it (the export '

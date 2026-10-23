@@ -6,7 +6,7 @@
 import { TYPE_NAMES } from '~/services/gtfs-references';
 import { buildStationIndex, collectLevels, distanceMeters, isPathway, stopLevelId } from '~/services/pathways-levels';
 import type { LevelEntity } from '~/services/pathways-levels';
-import { CONNECTIVITY_SEVERITY, sameLevelSeverity } from '~/services/gtfs-severity';
+import { CONNECTIVITY_SEVERITY } from '~/services/gtfs-severity';
 import type { TdeiSeverity } from '~/services/gtfs-severity';
 
 export type ConnectivitySubtype
@@ -18,7 +18,8 @@ export type ConnectivitySubtype
     | 'stair_count_direction' | 'walkway_changes_level' | 'boarding_area_level'
     | 'pathway_to_station' | 'pathway_to_platform_with_boarding_areas' | 'pathway_loop'
     | 'pathway_to_street_access_stop' | 'elevator_end_no_level'
-    | 'pathway_ends_far_apart' | 'far_from_station';
+    | 'pathway_ends_far_apart' | 'far_from_station' | 'stairs_short_within_level' | 'stops_share_location'
+    | 'stops_share_position';
 
 export interface ConnectivityProblem {
   subtype: ConnectivitySubtype;
@@ -53,6 +54,8 @@ const MIN_MEASURED_METERS = 1;
  */
 const MAX_PATHWAY_SPAN_METERS: Record<string, number> = { 1: 500, 3: 500, 2: 150, 4: 150, 5: 50, 6: 50, 7: 50 };
 const MAX_STOP_FROM_STATION_METERS = 500;
+/** Fewer steps than this on one level is a short flight within it, e.g. into a lobby, as TDEI's validation counts it. */
+const MIN_SAME_LEVEL_STAIR_COUNT = 10;
 
 /** location_types that are areas placed at one point: platforms (also stops with no location_type) and boarding areas. */
 const AREA_TYPES = new Set(['', '0', '4']);
@@ -114,8 +117,16 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
     }
     const kind = LEVEL_CHANGING_MODES[mode];
     const [fromLevel, toLevel] = [byId.get(from), byId.get(to)].map(end => (end ? stopLevelId(end) : undefined));
-    if (kind && fromLevel && fromLevel === toLevel) {
-      add(way.id, { subtype: 'same_level', severity: sameLevelSeverity(mode), message: `This ${kind} starts and ends on the same level (${fromLevel})` });
+    // Stairs with a stair_count under MIN_SAME_LEVEL_STAIR_COUNT are a short flight within the level.
+    const steps = Math.abs(Number(way.tags?.stair_count?.trim() || NaN));
+    const shortFlight = mode === '2' && Number.isInteger(steps) && steps > 0 && steps < MIN_SAME_LEVEL_STAIR_COUNT;
+    if (kind && fromLevel && fromLevel === toLevel && !shortFlight) {
+      add(way.id, { subtype: 'same_level', message: `This ${kind} starts and ends on the same level (${fromLevel})` });
+    } else if (kind && fromLevel && fromLevel === toLevel) {
+      add(way.id, {
+        subtype: 'stairs_short_within_level',
+        message: `These ${steps} steps start and end on the same level (${fromLevel}): a short flight within it?`
+      });
     }
 
     // MobilityData's pathway rules, as of the validator version TDEI runs (8.0.1).
@@ -165,6 +176,15 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
     const straight = fromLoc && toLoc ? distanceMeters(fromLoc, toLoc) : undefined;
     const apart = straight !== undefined && straight >= MIN_MEASURED_METERS ? straight : undefined;
     const length = positive(tags.length);
+
+    // Stops too close to measure, on a pathway that's 10 m or more: one's position is likely copied.
+    if (straight !== undefined && straight < MIN_MEASURED_METERS && FLAT_MODES.has(mode) && length !== undefined
+      && length >= LENGTH_SLACK_METERS) {
+      add(way.id, {
+        subtype: 'stops_share_location',
+        message: `This pathway is ${length} m long, but its stops are at the same spot`
+      });
+    }
 
     // Stops farther apart than this kind of pathway spans: likely one placed in the wrong spot.
     const span = MAX_PATHWAY_SPAN_METERS[mode];
@@ -317,6 +337,31 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
   const stationsWithPathways = new Set([...members]
     .filter(([, stops]) => stops.some(stop => forward.has(stop.id) || backward.has(stop.id)))
     .map(([stationId]) => stationId));
+
+  // Stops in those stations on the same level at the same spot (to about 0.1 m), unless a fare gate, exit
+  // gate or elevator joins them (its sides are often one point): often a placeholder or a duplicate.
+  const joined = new Set(entities.filter(isPathway)
+    .filter(way => ['5', '6', '7'].includes(way.tags?.pathway_mode?.trim() ?? ''))
+    .flatMap(way => [`${way.nodes![0]}|${way.nodes!.at(-1)}`, `${way.nodes!.at(-1)}|${way.nodes![0]}`]));
+  for (const stationId of stationsWithPathways) {
+    const spots = new Map<string, LevelEntity[]>();
+    for (const stop of members.get(stationId) ?? []) {
+      const loc = locOf(stop.id);
+      if (!loc) continue;
+      const key = `${stopLevelId(stop) ?? ''}|${loc[1].toFixed(6)}|${loc[0].toFixed(6)}`;
+      spots.set(key, [...(spots.get(key) ?? []), stop]);
+    }
+    for (const stops of spots.values()) {
+      const shared = stops.filter(stop => !stops.some(other => other !== stop && joined.has(`${stop.id}|${other.id}`)));
+      if (shared.length < 2) continue;
+      for (const stop of shared) {
+        add(stop.id, {
+          subtype: 'stops_share_position',
+          message: `This stop is at the same spot, on the same level, as ${shared.length - 1} other${shared.length > 2 ? 's' : ''} in this station`
+        });
+      }
+    }
+  }
 
   // Stops in those stations no pathway touches (stations aren't pathway ends in GTFS,
   // and platforms with boarding areas are reached through those).

@@ -58,7 +58,7 @@ afterEach(() => {
 });
 
 describe('installReferenceValidator', () => {
-  it('adds a validator that reports reference problems as warnings that fail the upload', () => {
+  it('adds a validator that reports reference problems as warnings, labelled when they fail the upload', () => {
     const validators = new Map<string, any>();
     const context = { systems: { validator: { _validators: validators } } };
 
@@ -70,9 +70,14 @@ describe('installReferenceValidator', () => {
     const graph = fakeGraph(entities);
     const { issues } = validator(entities[1], graph);
     expect(issues.map((issue: any) => [issue.type, issue.subtype, issue.severity, issue.message()])).toEqual([
-      [REFERENCE_VALIDATOR_ID, 'parent_station', 'warning', 'Fails TDEI upload: parent_station "NOWHERE" doesn\'t match any stop\'s stop_id'],
-      [REFERENCE_VALIDATOR_ID, 'level_id', 'warning', 'Fails TDEI upload: level_id "L9" doesn\'t match any level outline in this workspace']
+      // An entrance is pathways data: reported, but it doesn't fail the upload while TDEI is lenient
+      [REFERENCE_VALIDATOR_ID, 'parent_station', 'warning', 'parent_station "NOWHERE" doesn\'t match any stop\'s stop_id'],
+      [REFERENCE_VALIDATOR_ID, 'level_id', 'warning', 'level_id "L9" doesn\'t match any level outline in this workspace']
     ]);
+    // A platform's parent_station is core GTFS, so it fails either way
+    const platform = { id: 'p1', type: 'node', tags: { location_type: '0', parent_station: 'NOWHERE' } };
+    expect(validator(platform, fakeGraph([...entities, platform])).issues.map((issue: any) => issue.message()))
+      .toEqual(['Fails TDEI upload: parent_station "NOWHERE" doesn\'t match any stop\'s stop_id']);
     expect(issues[0].entityIds).toEqual(['e1']);
     expect(issues[0].hash).toBe('unknown:NOWHERE');
 
@@ -191,7 +196,7 @@ describe('installConnectivityValidator', () => {
     const graph = fakeGraph(features);
     const { issues } = validator(features[2], graph);
     expect(issues.map((issue: any) => [issue.type, issue.subtype, issue.severity, issue.message(), issue.entityIds]))
-      .toEqual([[CONNECTIVITY_VALIDATOR_ID, 'no_step_free', 'warning',
+      .toEqual([[CONNECTIVITY_VALIDATOR_ID, 'no_step_free', 'suggestion',
         'This platform can only be reached by stairs, escalators or moving sidewalks', ['p1']]]);
     expect(validator(features[1], graph).issues).toEqual([]);
   });
@@ -202,7 +207,7 @@ describe('installConnectivityValidator', () => {
       'elevator_only', 'escalator_two_way', 'exit_gate_two_way', 'far_from_station', 'isolated', 'length_too_long',
       'length_too_short', 'level_unreachable', 'no_entrance', 'no_step_free', 'no_way_out', 'pathway_ends_far_apart', 'pathway_loop',
       'pathway_to_platform_with_boarding_areas',
-      'pathway_to_station', 'pathway_to_street_access_stop', 'same_level', 'stair_count_direction',
+      'pathway_to_station', 'pathway_to_street_access_stop', 'same_level', 'stair_count_direction', 'stairs_short_within_level', 'stops_share_location', 'stops_share_position',
       'traversal_time_mismatch', 'unreachable', 'walkway_changes_level'
     ]);
   });
