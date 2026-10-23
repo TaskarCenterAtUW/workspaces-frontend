@@ -6,6 +6,8 @@
 import { TYPE_NAMES } from '~/services/gtfs-references';
 import { buildStationIndex, collectLevels, distanceMeters, isPathway, stopLevelId } from '~/services/pathways-levels';
 import type { LevelEntity } from '~/services/pathways-levels';
+import { CONNECTIVITY_SEVERITY, sameLevelSeverity } from '~/services/gtfs-severity';
+import type { TdeiSeverity } from '~/services/gtfs-severity';
 
 export type ConnectivitySubtype
   = | 'unreachable' | 'no_way_out' | 'no_step_free' | 'elevator_only'
@@ -19,15 +21,15 @@ export type ConnectivitySubtype
 
 export interface ConnectivityProblem {
   subtype: ConnectivitySubtype;
-  /** 'warning' for likely mistakes; 'suggestion' for accessibility gaps a station may really have. */
-  severity: 'warning' | 'suggestion';
+  /** How TDEI's upload validation treats it: ERROR fails the upload (see gtfs-severity.ts). */
+  severity: TdeiSeverity;
   message: string;
   /** Identifies the problem, so Rapid can tell it apart from others on the same feature. */
   hash: string;
 }
 
-/** pathway_mode values that aren't step-free (stairs, escalator). */
-const STEPPED_MODES = new Set(['2', '4']);
+/** pathway_mode values that aren't step-free (stairs, moving sidewalk, escalator), as TDEI's validation counts them. */
+const STEPPED_MODES = new Set(['2', '3', '4']);
 const ELEVATOR_MODE = '5';
 /** pathway_modes whose ends should be on different levels: stairs, escalator, elevator. */
 const LEVEL_CHANGING_MODES: Record<string, string> = { 2: 'stairs', 4: 'escalator', 5: 'elevator' };
@@ -62,8 +64,10 @@ interface Edge {
  */
 export function connectivityProblems(entities: LevelEntity[]): Map<string | number, ConnectivityProblem[]> {
   const problems = new Map<string | number, ConnectivityProblem[]>();
-  const add = (id: string | number, problem: Omit<ConnectivityProblem, 'hash'>) =>
-    problems.set(id, [...(problems.get(id) ?? []), { ...problem, hash: problem.subtype }]);
+  const add = (id: string | number, problem: Omit<ConnectivityProblem, 'hash' | 'severity'> & { severity?: TdeiSeverity }) =>
+    problems.set(id, [...(problems.get(id) ?? []), {
+      ...problem, severity: problem.severity ?? CONNECTIVITY_SEVERITY[problem.subtype], hash: problem.subtype
+    }]);
 
   const byId = new Map(entities.map(entity => [entity.id, entity]));
   const forward = new Map<string | number, Edge[]>();
@@ -89,15 +93,15 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
 
     // Settings that are likely mistakes.
     if (mode === '7' && twoWay) {
-      add(way.id, { subtype: 'exit_gate_two_way', severity: 'warning', message: 'An exit gate should be one-way (is_bidirectional 0)' });
+      add(way.id, { subtype: 'exit_gate_two_way', message: 'An exit gate should be one-way (is_bidirectional 0)' });
     }
     if (mode === '4' && way.tags?.is_bidirectional?.trim() === '1') {
-      add(way.id, { subtype: 'escalator_two_way', severity: 'suggestion', message: 'This escalator is marked two-way; most run one way' });
+      add(way.id, { subtype: 'escalator_two_way', message: 'This escalator is marked two-way; most run one way' });
     }
     const kind = LEVEL_CHANGING_MODES[mode];
     const [fromLevel, toLevel] = [byId.get(from), byId.get(to)].map(end => (end ? stopLevelId(end) : undefined));
     if (kind && fromLevel && fromLevel === toLevel) {
-      add(way.id, { subtype: 'same_level', severity: 'warning', message: `This ${kind} starts and ends on the same level (${fromLevel})` });
+      add(way.id, { subtype: 'same_level', severity: sameLevelSeverity(mode), message: `This ${kind} starts and ends on the same level (${fromLevel})` });
     }
 
     // MobilityData's pathway rules, as of the validator version TDEI runs (8.0.1).
@@ -105,22 +109,22 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
     const ends = [byId.get(from), byId.get(to)];
     const endType = (end: LevelEntity | undefined) => end?.tags?.location_type?.trim() ?? '';
     if (ends.some(end => end && endType(end) === '1')) {
-      add(way.id, { subtype: 'pathway_to_station', severity: 'warning', message: `This ${name} ends at a station; pathways connect the stops inside it` });
+      add(way.id, { subtype: 'pathway_to_station', message: `This ${name} ends at a station; pathways connect the stops inside it` });
     }
     if (ends.some(end => end && ['', '0'].includes(endType(end)) && platformsWithBoardingAreas.has(end.tags?.stop_id?.trim() ?? ''))) {
-      add(way.id, { subtype: 'pathway_to_platform_with_boarding_areas', severity: 'warning', message: `This ${name} ends at a platform that has boarding areas; connect it to a boarding area` });
+      add(way.id, { subtype: 'pathway_to_platform_with_boarding_areas', message: `This ${name} ends at a platform that has boarding areas; connect it to a boarding area` });
     }
     if (from === to) {
-      add(way.id, { subtype: 'pathway_loop', severity: 'warning', message: `This ${name} starts and ends at the same stop` });
+      add(way.id, { subtype: 'pathway_loop', message: `This ${name} starts and ends at the same stop` });
     }
     if (ends.some(end => end?.tags?.stop_access?.trim() === '1')) {
-      add(way.id, { subtype: 'pathway_to_street_access_stop', severity: 'warning', message: `This ${name} ends at a stop marked as reached from the street (stop_access 1), not by pathways` });
+      add(way.id, { subtype: 'pathway_to_street_access_stop', message: `This ${name} ends at a stop marked as reached from the street (stop_access 1), not by pathways` });
     }
     if (mode === '5') {
       for (const end of ends) {
         if (!end || !Object.keys(end.tags ?? {}).length || stopLevelId(end) || elevatorEndsFlagged.has(end.id)) continue;
         elevatorEndsFlagged.add(end.id);
-        add(end.id, { subtype: 'elevator_end_no_level', severity: 'warning', message: 'This stop is at the end of an elevator but has no level_id' });
+        add(end.id, { subtype: 'elevator_end_no_level', message: 'This stop is at the end of an elevator but has no level_id' });
       }
     }
   }
@@ -151,7 +155,6 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
       && Math.abs(length - drawn) >= LENGTH_SLACK_METERS) {
       add(way.id, {
         subtype: 'length_mismatch',
-        severity: 'suggestion',
         message: `length is ${length} m, but this pathway is drawn about ${Math.round(drawn)} m long`
       });
     }
@@ -161,7 +164,6 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
       if (speed < SPEED_RANGE.min || speed > SPEED_RANGE.max) {
         add(way.id, {
           subtype: 'traversal_time_mismatch',
-          severity: 'suggestion',
           message: `traversal_time is ${time} s for about ${Math.round(drawn)} m, ${speed < SPEED_RANGE.min ? 'very slow' : 'very fast'}`
         });
       }
@@ -175,14 +177,12 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
       && (stairs > 0) !== (toIndex > fromIndex)) {
       add(way.id, {
         subtype: 'stair_count_direction',
-        severity: 'warning',
         message: `stair_count is ${stairs}, but these stairs go ${toIndex > fromIndex ? 'up' : 'down'} from ${fromLevel} to ${toLevel}`
       });
     }
     if (FLAT_MODES.has(mode) && fromLevel && toLevel && fromLevel !== toLevel && !tags.max_slope?.trim()) {
       add(way.id, {
         subtype: 'walkway_changes_level',
-        severity: 'suggestion',
         message: `This pathway joins two levels (${fromLevel} and ${toLevel}) without stairs, an escalator or an elevator`
       });
     }
@@ -196,7 +196,6 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
       if (group.some(other => other !== pathway && similarLength(pathway.drawn, other.drawn))) {
         add(pathway.id, {
           subtype: 'duplicate_pathway',
-          severity: 'warning',
           message: 'Another pathway of the same type joins the same two stops along about the same route'
         });
       }
@@ -210,7 +209,7 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
   }
   for (const [id, count] of touching) {
     if (count === 1 && byId.get(id)?.tags?.location_type?.trim() === '3') {
-      add(id, { subtype: 'dead_end', severity: 'warning', message: 'This generic node is a dead end: only one pathway reaches it' });
+      add(id, { subtype: 'dead_end', message: 'This generic node is a dead end: only one pathway reaches it' });
     }
   }
 
@@ -227,7 +226,6 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
     if (areaLevel && platformLevel && areaLevel !== platformLevel) {
       add(area.id, {
         subtype: 'boarding_area_level',
-        severity: 'warning',
         message: `This boarding area is on level ${areaLevel}, but its platform is on ${platformLevel}`
       });
     }
@@ -244,23 +242,35 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
     for (const id of ids) {
       add(id, {
         subtype: 'duplicate_pathway_id',
-        severity: 'warning',
         message: `pathway_id "${pathwayId}" is also used by ${ids.length === 2 ? 'another pathway' : `${ids.length - 1} other pathways`}`
       });
     }
   }
 
-  // Stops no pathway touches (stations aren't pathway ends in GTFS, and platforms with
-  // boarding areas are reached through those).
+  // Stations with pathways: as TDEI's validation and MobilityData do, the checks below
+  // skip stations without any (riders reach their stops from the street).
+  const { stations, stationOfStop } = buildStationIndex(entities);
+  const members = new Map<string, LevelEntity[]>();
+  for (const [stopId, stationId] of stationOfStop) {
+    const stop = byId.get(stopId);
+    if (stop) members.set(stationId, [...(members.get(stationId) ?? []), stop]);
+  }
+  const stationsWithPathways = new Set([...members]
+    .filter(([, stops]) => stops.some(stop => forward.has(stop.id) || backward.has(stop.id)))
+    .map(([stationId]) => stationId));
+
+  // Stops in those stations no pathway touches (stations aren't pathway ends in GTFS,
+  // and platforms with boarding areas are reached through those).
   const isolated = new Set<string | number>();
   for (const stop of entities) {
     if (stop.type !== 'node' || !Object.keys(stop.tags ?? {}).length) continue;
     const type = stop.tags!.location_type?.trim() ?? '';
     if (type === '1' || forward.has(stop.id) || backward.has(stop.id)) continue;
+    if (!stationsWithPathways.has(stationOfStop.get(stop.id) ?? '')) continue;
     // A platform with boarding areas is reached through them, not by its own pathways.
     if (['', '0'].includes(type) && platformsWithBoardingAreas.has(stop.tags!.stop_id?.trim() ?? '')) continue;
     isolated.add(stop.id);
-    add(stop.id, { subtype: 'isolated', severity: 'warning', message: `This ${TYPE_NAMES[type] ?? 'stop'} isn't connected to any pathway` });
+    add(stop.id, { subtype: 'isolated', message: `This ${TYPE_NAMES[type] ?? 'stop'} isn't connected to any pathway` });
   }
 
   /** Every stop reachable from `starts` along `edges`, skipping pathways `skip` rejects. */
@@ -277,29 +287,22 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
     return seen;
   };
 
-  const { stations, stationOfStop } = buildStationIndex(entities);
-  const members = new Map<string, LevelEntity[]>();
-  for (const [stopId, stationId] of stationOfStop) {
-    const stop = byId.get(stopId);
-    if (stop) members.set(stationId, [...(members.get(stationId) ?? []), stop]);
-  }
-
   const reachableLevels = new Set<string>();
   const unreachedLevels = new Map<string, string>(); // level_id -> a station whose entrances don't reach it
   for (const station of stations.values()) {
     const stops = members.get(station.stopId) ?? [];
-    if (!stops.length) continue; // an empty station is flagged elsewhere
+    if (!stationsWithPathways.has(station.stopId)) continue; // (an empty station is flagged elsewhere)
     const type = (stop: LevelEntity) => stop.tags?.location_type?.trim() ?? '';
     const entrances = stops.filter(stop => type(stop) === '2').map(stop => stop.id);
     if (!entrances.length) {
-      add(station.id, { subtype: 'no_entrance', severity: 'warning', message: `Station ${station.name} has no entrances` });
+      add(station.id, { subtype: 'no_entrance', message: `Station ${station.name} has no entrances` });
       continue;
     }
 
     const reachable = reach(entrances, forward);
     const canLeave = reach(entrances, backward);
     const stepFree = reach(entrances, forward, mode => STEPPED_MODES.has(mode));
-    const withoutElevators = reach(entrances, forward, mode => mode === ELEVATOR_MODE);
+    const withoutElevators = reach(entrances, forward, mode => STEPPED_MODES.has(mode) || mode === ELEVATOR_MODE);
 
     // As MobilityData checks it: generic nodes, boarding areas, and platforms
     // without boarding areas (riders board from those instead).
@@ -309,17 +312,17 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
       const what = TYPE_NAMES[type(stop)] ?? 'stop';
       if (isolated.has(stop.id)) continue; // already flagged as not connected
       if (!reachable.has(stop.id)) {
-        add(stop.id, { subtype: 'unreachable', severity: 'warning', message: `This ${what} can't be reached from any of ${station.name}'s entrances` });
+        add(stop.id, { subtype: 'unreachable', message: `This ${what} can't be reached from any of ${station.name}'s entrances` });
         continue;
       }
       if (!canLeave.has(stop.id)) {
-        add(stop.id, { subtype: 'no_way_out', severity: 'warning', message: `There's no way from this ${what} back to an entrance (check one-way pathways)` });
+        add(stop.id, { subtype: 'no_way_out', message: `There's no way from this ${what} back to an entrance (check one-way pathways)` });
       }
       if (type(stop) === '3') continue; // step-free routes matter where riders board
       if (!stepFree.has(stop.id)) {
-        add(stop.id, { subtype: 'no_step_free', severity: 'suggestion', message: `This ${what} can only be reached by stairs or escalators` });
+        add(stop.id, { subtype: 'no_step_free', message: `This ${what} can only be reached by stairs, escalators or moving sidewalks` });
       } else if (!withoutElevators.has(stop.id)) {
-        add(stop.id, { subtype: 'elevator_only', severity: 'suggestion', message: `This ${what} can only be reached by elevator` });
+        add(stop.id, { subtype: 'elevator_only', message: `This ${what}'s only step-free route is by elevator` });
       }
     }
 
@@ -337,7 +340,6 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
     if (!levelId || reachableLevels.has(levelId) || !unreachedLevels.has(levelId)) continue;
     add(area.id, {
       subtype: 'level_unreachable',
-      severity: 'warning',
       message: `No stop on level ${levelId} can be reached from ${unreachedLevels.get(levelId)}'s entrances`
     });
   }

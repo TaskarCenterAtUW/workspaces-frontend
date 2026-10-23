@@ -58,7 +58,7 @@ afterEach(() => {
 });
 
 describe('installReferenceValidator', () => {
-  it('adds a validator that reports reference problems as warnings', () => {
+  it('adds a validator that reports reference problems as warnings that fail the upload', () => {
     const validators = new Map<string, any>();
     const context = { systems: { validator: { _validators: validators } } };
 
@@ -70,8 +70,8 @@ describe('installReferenceValidator', () => {
     const graph = fakeGraph(entities);
     const { issues } = validator(entities[1], graph);
     expect(issues.map((issue: any) => [issue.type, issue.subtype, issue.severity, issue.message()])).toEqual([
-      [REFERENCE_VALIDATOR_ID, 'parent_station', 'warning', 'parent_station "NOWHERE" doesn\'t match any stop\'s stop_id'],
-      [REFERENCE_VALIDATOR_ID, 'level_id', 'warning', 'level_id "L9" doesn\'t match any level outline in this workspace']
+      [REFERENCE_VALIDATOR_ID, 'parent_station', 'warning', 'Fails TDEI upload: parent_station "NOWHERE" doesn\'t match any stop\'s stop_id'],
+      [REFERENCE_VALIDATOR_ID, 'level_id', 'warning', 'Fails TDEI upload: level_id "L9" doesn\'t match any level outline in this workspace']
     ]);
     expect(issues[0].entityIds).toEqual(['e1']);
     expect(issues[0].hash).toBe('unknown:NOWHERE');
@@ -112,7 +112,7 @@ describe('installReferenceValidator', () => {
 });
 
 describe('installRequiredFieldsValidator', () => {
-  it('adds a validator that reports missing required fields as warnings, with help', () => {
+  it('adds a validator that reports missing required fields as warnings that fail the upload, with help', () => {
     const validators = new Map<string, any>();
     installRequiredFieldsValidator({ systems: { validator: { _validators: validators } } });
 
@@ -122,7 +122,7 @@ describe('installRequiredFieldsValidator', () => {
     const station = { id: 's1', type: 'node', tags: { location_type: '1', stop_id: 'CENTRAL' } };
     const { issues } = validator(station, fakeGraph([station]));
     expect(issues.map((issue: any) => [issue.type, issue.subtype, issue.severity, issue.message(), issue.entityIds, issue.hash]))
-      .toEqual([[REQUIRED_FIELDS_VALIDATOR_ID, 'stop_name', 'warning', 'This station needs a stop_name', ['s1'], 'missing:stop_name']]);
+      .toEqual([[REQUIRED_FIELDS_VALIDATOR_ID, 'stop_name', 'warning', 'Fails TDEI upload: This station needs a stop_name', ['s1'], 'missing:stop_name']]);
 
     const appended: string[] = [];
     const $selection = {
@@ -191,7 +191,8 @@ describe('installConnectivityValidator', () => {
     const graph = fakeGraph(features);
     const { issues } = validator(features[2], graph);
     expect(issues.map((issue: any) => [issue.type, issue.subtype, issue.severity, issue.message(), issue.entityIds]))
-      .toEqual([[CONNECTIVITY_VALIDATOR_ID, 'no_step_free', 'suggestion', 'This platform can only be reached by stairs or escalators', ['p1']]]);
+      .toEqual([[CONNECTIVITY_VALIDATOR_ID, 'no_step_free', 'warning',
+        'This platform can only be reached by stairs, escalators or moving sidewalks', ['p1']]]);
     expect(validator(features[1], graph).issues).toEqual([]);
   });
 

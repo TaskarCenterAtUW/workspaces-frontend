@@ -9,6 +9,14 @@ import { requiredFieldProblems } from '~/services/gtfs-required-fields';
 import type { CompletenessIndex } from '~/services/gtfs-completeness';
 import { graphEntities } from '~/services/rapid3-levels';
 import type { ReferenceIndex } from '~/services/gtfs-references';
+import {
+  COMPLETENESS_SEVERITY,
+  LEVEL_CHECK_SEVERITY,
+  rapidSeverity,
+  REFERENCE_SEVERITY,
+  REQUIRED_FIELD_SEVERITY
+} from '~/services/gtfs-severity';
+import type { TdeiSeverity } from '~/services/gtfs-severity';
 
 /** Global `Rapid` namespace injected by the Rapid v3.x script at runtime. */
 declare const Rapid: any;
@@ -38,6 +46,16 @@ export function perGraph<T>(build: (graph: any) => T): (graph: any) => T {
   };
 }
 
+/**
+ * A Rapid issue's severity and message, for a problem TDEI's upload validation
+ * treats as `severity`: problems that fail the upload are labelled warnings
+ * (see `rapidSeverity`).
+ */
+export function issueSeverity(severity: TdeiSeverity, message: string): { severity: 'warning' | 'suggestion'; message: () => string } {
+  const shown = rapidSeverity(severity, message);
+  return { severity: shown.severity, message: () => shown.message };
+}
+
 /** Rapid validator ID for GTFS reference checks (also its key in Rapid's issue strings). */
 export const REFERENCE_VALIDATOR_ID = 'gtfs_references';
 
@@ -52,7 +70,7 @@ export const REFERENCE_VALIDATOR_STRINGS = {
  * resolve (see `referenceProblems`): parent_station not naming a station (or,
  * for boarding areas, a platform), level_id not naming a drawn level, and
  * stop_id shared by several stops. Issues appear in Rapid's Issues panel and
- * on the selected feature, as warnings.
+ * on the selected feature, with TDEI's severity (see gtfs-severity.ts).
  *
  * Rapid creates its validators at init and keeps them in a map, so this adds
  * one to that map; call it after `initAsync`.
@@ -68,8 +86,7 @@ export function installReferenceValidator(context: any, getTools?: () => Rapid3L
     issues: referenceProblems(entity, indexFor(graph)).map(problem => new Rapid.ValidationIssue(context, {
       type: REFERENCE_VALIDATOR_ID,
       subtype: problem.subtype,
-      severity: 'warning',
-      message: () => problem.message,
+      ...issueSeverity(REFERENCE_SEVERITY[problem.subtype], problem.message),
       reference: ($selection: any) => {
         $selection.selectAll('.issue-reference')
           .data([0])
@@ -119,8 +136,8 @@ export const REQUIRED_FIELDS_VALIDATOR_STRINGS = {
 /**
  * Adds a validator to Rapid 3 that flags stops, pathways and level outlines
  * missing a field GTFS requires (see `requiredFieldProblems`). Issues appear
- * on the selected feature's form and in Rapid's Issues panel, as warnings (so
- * they don't block saving work in progress). Call it after `initAsync`.
+ * on the selected feature's form and in Rapid's Issues panel, with TDEI's
+ * severity (see gtfs-severity.ts). Call it after `initAsync`.
  */
 export function installRequiredFieldsValidator(context: any) {
   const validation = context.systems.validator; // Rapid 3's ValidationSystem
@@ -130,8 +147,7 @@ export function installRequiredFieldsValidator(context: any) {
     issues: requiredFieldProblems(entity).map(problem => new Rapid.ValidationIssue(context, {
       type: REQUIRED_FIELDS_VALIDATOR_ID,
       subtype: problem.subtype,
-      severity: 'warning',
-      message: () => problem.message,
+      ...issueSeverity(REQUIRED_FIELD_SEVERITY[problem.subtype], problem.message),
       reference: ($selection: any) => {
         $selection.selectAll('.issue-reference')
           .data([0])
@@ -173,8 +189,8 @@ export const COMPLETENESS_VALIDATOR_STRINGS = {
  * Adds a validator to Rapid 3 that flags incomplete GTFS features (see
  * `completenessProblems`): pathways whose ends aren't stops, levels no stop
  * is on, and stations no stop belongs to. Issues appear on the selected
- * feature's form and in Rapid's Issues panel, as warnings. Call it after
- * `initAsync`.
+ * feature's form and in Rapid's Issues panel, with TDEI's severity (see
+ * gtfs-severity.ts). Call it after `initAsync`.
  */
 export function installCompletenessValidator(context: any) {
   const validation = context.systems.validator; // Rapid 3's ValidationSystem
@@ -188,8 +204,7 @@ export function installCompletenessValidator(context: any) {
       .map(problem => new Rapid.ValidationIssue(context, {
         type: COMPLETENESS_VALIDATOR_ID,
         subtype: problem.subtype,
-        severity: 'warning',
-        message: () => problem.message,
+        ...issueSeverity(COMPLETENESS_SEVERITY[problem.subtype], problem.message),
         reference: ($selection: any) => {
           $selection.selectAll('.issue-reference')
             .data([0])
@@ -231,8 +246,7 @@ export const CONNECTIVITY_VALIDATOR_STRINGS = {
 
 /**
  * Adds a validator to Rapid 3 for how stations connect through pathways (see
- * `connectivityProblems`). Likely mistakes are warnings; accessibility gaps a
- * station may really have (no step-free route, elevator only) are suggestions.
+ * `connectivityProblems`), with TDEI's severity (see gtfs-severity.ts).
  * The checks span whole stations, so they run once per graph. Call it after
  * `initAsync`.
  */
@@ -247,8 +261,7 @@ export function installConnectivityValidator(context: any) {
     issues: (problemsFor(graph).get(entity.id) ?? []).map(problem => new Rapid.ValidationIssue(context, {
       type: CONNECTIVITY_VALIDATOR_ID,
       subtype: problem.subtype,
-      severity: problem.severity,
-      message: () => problem.message,
+      ...issueSeverity(problem.severity, problem.message),
       reference: ($selection: any) => {
         $selection.selectAll('.issue-reference')
           .data([0])
@@ -272,10 +285,10 @@ export const CONNECTIVITY_HELP: Record<string, string> = {
     + 'for pathways that are one-way the wrong way.',
   no_way_out: 'Riders can get here but not back to an entrance, usually because a pathway or exit gate is '
     + 'one-way in the wrong direction (one-way runs from the pathway\'s first node to its last).',
-  no_step_free: 'Every route here uses stairs or escalators. If the station is step-free, a walkway, ramp or '
-    + 'elevator pathway is missing.',
-  elevator_only: 'Every route here uses an elevator, so riders have no way in if it\'s out of service. '
-    + 'If there are stairs or escalators too, add them.',
+  no_step_free: 'Every route here uses stairs, escalators or moving sidewalks. If the station is step-free, a '
+    + 'walkway, ramp or elevator pathway is missing.',
+  elevator_only: 'The only step-free route here uses an elevator, so riders who need it have no way in if it\'s out '
+    + 'of service. If there\'s also a ramp or level walkway, add it.',
   level_unreachable: 'None of the stops on this level can be reached from an entrance. Connect them with pathways.',
   no_entrance: 'A GTFS station needs at least one entrance (Entrance/Exit) for riders to get in. Add one and '
     + 'set its parent_station.',
@@ -373,8 +386,7 @@ export function installLevelsValidator(context: any, getTools: () => Rapid3Level
     issues: (problemsFor(graph).get(entity.id) ?? []).map(problem => new Rapid.ValidationIssue(context, {
       type: LEVELS_VALIDATOR_ID,
       subtype: problem.subtype,
-      severity: 'warning',
-      message: () => problem.message,
+      ...issueSeverity(LEVEL_CHECK_SEVERITY[problem.subtype], problem.message),
       reference: ($selection: any) => {
         $selection.selectAll('.issue-reference')
           .data([0])

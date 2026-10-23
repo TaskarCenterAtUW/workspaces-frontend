@@ -25,6 +25,7 @@ describe('connectivityProblems', () => {
       pathway('w1', 'e', 'n', '1'),
       pathway('w2', 'n', 'p', '2'),
       pathway('w3', 'n', 'p', '5'),
+      pathway('w4', 'n', 'p', '1', true, { max_slope: '0.05' }), // a ramp, so not only the elevator is step-free
       { id: 'a1', type: 'way', nodes: ['c1', 'c2', 'c3', 'c1'], tags: { level_id: 'L1', level_index: '-1' } }
     ])).toEqual([]);
   });
@@ -38,31 +39,35 @@ describe('connectivityProblems', () => {
       pathway('w3', 'x', 'p2', '1'), // p2's area doesn't connect to the entrance
       pathway('w4', 'p3', 'n', '1', false) // one-way out: can't get in
     ])).toEqual([
-      ['p1', 'no_way_out', 'warning'],
-      ['p2', 'unreachable', 'warning'],
-      ['p3', 'unreachable', 'warning'],
-      ['x', 'dead_end', 'warning'], // (only one pathway reaches it)
-      ['x', 'unreachable', 'warning'] // generic nodes are checked too
+      ['p1', 'no_way_out', 'ERROR'],
+      ['p2', 'unreachable', 'ERROR'],
+      ['p3', 'unreachable', 'ERROR'],
+      ['x', 'dead_end', 'WARNING'], // (only one pathway reaches it)
+      ['x', 'unreachable', 'ERROR'] // generic nodes are checked too
     ]);
   });
 
   it('suggests a step-free route, or an alternative to an elevator', () => {
     expect(found([
       station,
-      stop('e', '2'), stop('p1', '0'), stop('p2', '0'), stop('b', '4'),
+      stop('e', '2'), stop('p1', '0'), stop('p2', '0'), stop('b', '4'), stop('p3', '0'), stop('p4', '0'),
       pathway('w1', 'e', 'p1', '2'), // stairs only
       pathway('w2', 'e', 'p2', '5'), // elevator only
-      pathway('w3', 'p2', 'b', '1')
+      pathway('w3', 'p2', 'b', '1'),
+      pathway('w4', 'e', 'p3', '3'), // moving sidewalk only: not step-free
+      pathway('w5', 'e', 'p4', '2'), pathway('w6', 'e', 'p4', '5') // stairs, or the elevator step-free
     ]).filter(([, subtype]) => subtype !== 'elevator_end_no_level')).toEqual([
-      ['b', 'elevator_only', 'suggestion'],
-      ['p1', 'no_step_free', 'suggestion'],
-      ['p2', 'elevator_only', 'suggestion']
+      ['b', 'elevator_only', 'INFO'],
+      ['p1', 'no_step_free', 'WARNING'],
+      ['p2', 'elevator_only', 'INFO'],
+      ['p3', 'no_step_free', 'WARNING'],
+      ['p4', 'elevator_only', 'INFO']
     ]);
   });
 
   it('flags a station with stops but no entrance', () => {
     expect(found([station, stop('n', '3'), stop('p', '0'), pathway('w1', 'n', 'p', '1')]))
-      .toContainEqual(['s', 'no_entrance', 'warning']);
+      .toContainEqual(['s', 'no_entrance', 'ERROR']);
   });
 
   it('flags a level only if no station\'s entrances reach any stop on it', () => {
@@ -75,13 +80,21 @@ describe('connectivityProblems', () => {
       pathway('w2', 'q', 'r', '1'), // L2's stops connect only to each other
       level('a0', 'L0'), level('a2', 'L2')
     ]);
-    expect(problems).toContainEqual(['a2', 'level_unreachable', 'warning']);
+    expect(problems).toContainEqual(['a2', 'level_unreachable', 'ERROR']);
     expect(problems.filter(([id]) => id === 'a0')).toEqual([]);
   });
 
   it('flags stops no pathway touches, but not stations or untagged nodes', () => {
-    expect(found([station, stop('e', '2'), stop('p', '0'), node('bare')]))
-      .toEqual([['e', 'isolated', 'warning'], ['p', 'isolated', 'warning']]); // not also "unreachable"
+    expect(found([station, stop('e', '2'), stop('n', '3'), stop('p', '0'), node('bare'), pathway('w1', 'e', 'n', '1')])
+      .filter(([, subtype]) => subtype !== 'dead_end'))
+      .toEqual([['p', 'isolated', 'ERROR']]); // not also "unreachable"
+  });
+
+  it('skips stations without pathways, as TDEI\'s validation does', () => {
+    const other = node('t', { location_type: '1', stop_id: 'T', stop_name: 'Side St' });
+    const street = (id: string, type: string) => node(id, { location_type: type, parent_station: 'T' });
+    expect(found([station, stop('e', '2'), stop('p', '0'), pathway('w1', 'e', 'p', '1'), other, street('q', '0'), street('r', '0')]))
+      .toEqual([]); // no "no entrance", "isolated" or "unreachable" for T's stops
   });
 
   it('flags pathway settings that are likely mistakes', () => {
@@ -91,12 +104,14 @@ describe('connectivityProblems', () => {
       pathway('w1', 'e', 'a', '1'),
       pathway('w2', 'a', 'b', '5'), // elevator on one level
       pathway('w3', 'a', 'c', '4', true), // two-way escalator
-      pathway('w4', 'b', 'e', '7', true) // two-way exit gate
+      pathway('w4', 'b', 'e', '7', true), // two-way exit gate
+      pathway('w5', 'a', 'b', '2') // stairs on one level: a warning, not an upload failure
     ])).toEqual([
-      ['c', 'dead_end', 'warning'], // (only the escalator reaches it)
-      ['w2', 'same_level', 'warning'],
-      ['w3', 'escalator_two_way', 'suggestion'],
-      ['w4', 'exit_gate_two_way', 'warning']
+      ['c', 'dead_end', 'WARNING'], // (only the escalator reaches it)
+      ['w2', 'same_level', 'ERROR'],
+      ['w3', 'escalator_two_way', 'WARNING'],
+      ['w4', 'exit_gate_two_way', 'ERROR'],
+      ['w5', 'same_level', 'WARNING']
     ]);
   });
 
