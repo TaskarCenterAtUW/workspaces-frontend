@@ -300,7 +300,6 @@ export const CONNECTIVITY_HELP: Record<string, string> = {
   same_level: 'Stairs, escalators and elevators should connect stops on different levels. Check the level_id '
     + 'of its end stops, or the pathway type.',
   exit_gate_two_way: 'In GTFS, exit gates (pathway_mode 7) only let riders leave, so is_bidirectional must be 0.',
-  escalator_two_way: 'Escalators usually run one way. Set is_bidirectional to 0 unless it really runs both ways.',
   isolated: 'In GTFS, riders get between stops along pathways. Connect this stop with a pathway, or delete it.',
   pathway_ends_far_apart: 'The stops at its ends are farther apart than this kind of pathway reaches, so one is probably '
     + 'in the wrong spot. Move it, or check its level.',
