@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { TdeiExporter, TdeiExporterContext } from '~/services/export/tdei';
-import { buildPathwaysCsvArchive, fetchDerivedPathwaysDataset, openTdeiPathwaysArchive } from '~/services/pathways';
+import {
+  buildPathwaysCsvArchive,
+  fetchDerivedPathwaysDataset,
+  mergeIntoAgencyFeed,
+  missingFeedFiles,
+  openAgencyFeed,
+  openTdeiPathwaysArchive
+} from '~/services/pathways';
 import { WorkspacesClient } from '~/services/workspaces';
 import { createGtfsArchive } from '~/util/gtfs';
 
@@ -389,5 +396,126 @@ describe('buildPathwaysCsvArchive with edge cases', () => {
     ]);
     await expect(buildPathwaysCsvArchive(elements, original)).resolves.toBeInstanceOf(Blob);
     await expect(buildPathwaysCsvArchive(elements)).resolves.toBeInstanceOf(Blob);
+  });
+});
+
+describe('exporting with an agency feed', () => {
+  // The agency's feed: station S with an old entrance, generic node and pathway
+  // the workspace redraws, a platform trips stop at, and another station T.
+  const feedFiles = () => new Map([
+    ['agency.txt', 'agency_id,agency_name,agency_url,agency_timezone\nST,Sound Transit,https://st.org,America/Los_Angeles\n'],
+    ['routes.txt', 'route_id,route_type\n1,1\n'],
+    ['trips.txt', 'route_id,service_id,trip_id\n1,WK,T1\n'],
+    ['calendar.txt', 'service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\nWK,1,1,1,1,1,0,0,20260101,20261231\n'],
+    ['stop_times.txt', 'trip_id,stop_id,stop_sequence\nT1,PF_S,1\nT1,PF_T,2\n'],
+    ['stops.txt', [
+      'stop_id,stop_name,location_type,parent_station,zone_id',
+      'S,Station S,1,,',
+      'PF_S,Platform S,0,S,Z1',
+      'ENT_OLD,Old entrance,2,S,',
+      'N_OLD,Old node,3,S,',
+      'T,Station T,1,,',
+      'PF_T,Platform T,0,T,Z2',
+      'ENT_T,Entrance T,2,T,'
+    ].join('\n') + '\n'],
+    ['pathways.txt', 'pathway_id,from_stop_id,to_stop_id,pathway_mode,is_bidirectional\nOLD_1,ENT_OLD,N_OLD,1,1\nT_1,ENT_T,PF_T,1,1\n']
+  ]);
+
+  // The workspace (e.g. from pathways-converter): station S, its platform (moved), a new entrance and a pathway.
+  const elements = [
+    node(1, { location_type: '1', stop_id: 'S', stop_name: 'Station S' }),
+    node(2, { location_type: '0', stop_id: 'PF_S', stop_name: 'Platform S', parent_station: 'S', level_id: 'S_L1' }),
+    node(3, { location_type: '2', stop_id: 'ENT_S_1', stop_name: 'Station S entrance', parent_station: 'S', level_id: 'S_L0' }),
+    way(10, [3, 2], { pathway_id: 'S_0001', pathway_mode: '1', is_bidirectional: '1' })
+  ];
+
+  it('reads a feed zipped in a folder, and names the files TDEI needs that it lacks', async () => {
+    const zip = await createGtfsArchive(new Map([...feedFiles()].map(([name, csv]) => [`google_transit/${name}`, csv])));
+    const feed = await openAgencyFeed(zip);
+
+    expect([...feed.keys()].sort()).toEqual(['agency.txt', 'calendar.txt', 'pathways.txt', 'routes.txt', 'stop_times.txt', 'stops.txt', 'trips.txt']);
+    expect(missingFeedFiles(feed)).toEqual([]);
+    feed.delete('trips.txt');
+    feed.delete('calendar.txt');
+    expect(missingFeedFiles(feed)).toEqual(['trips.txt', 'calendar.txt or calendar_dates.txt']);
+    feed.set('calendar_dates.txt', 'service_id,date,exception_type\n');
+    expect(missingFeedFiles(feed)).toEqual(['trips.txt']);
+  });
+
+  it('replaces the stops and pathways of the stations the workspace covers, and keeps the rest', () => {
+    const agencyStops = [
+      { stop_id: 'S', location_type: '1' },
+      { stop_id: 'PF_S', location_type: '0', parent_station: 'S' },
+      { stop_id: 'BA_OLD', location_type: '4', parent_station: 'PF_S' },
+      { stop_id: 'N_OLD', location_type: '3', parent_station: 'S' },
+      { stop_id: 'T', location_type: '1' },
+      { stop_id: 'N_T', location_type: '3', parent_station: 'T' }
+    ];
+    const agencyPathways = [
+      { pathway_id: 'OLD_1', from_stop_id: 'N_OLD', to_stop_id: 'PF_S' },
+      { pathway_id: 'T_1', from_stop_id: 'N_T', to_stop_id: 'T' },
+      { pathway_id: 'S_0001', from_stop_id: 'T', to_stop_id: 'N_T' } // same pathway_id as the workspace's
+    ];
+    const merged = mergeIntoAgencyFeed(agencyStops, agencyPathways,
+      [{ stop_id: 'PF_S', location_type: '0', parent_station: 'S', level_id: 'L1' }],
+      [{ pathway_id: 'S_0001', from_stop_id: 'PF_S', to_stop_id: 'PF_S' }]);
+
+    expect(merged.stops.map(stop => stop.stop_id)).toEqual(['S', 'T', 'N_T', 'PF_S']); // BA_OLD and N_OLD were S's
+    expect(merged.stops.at(-1)).toMatchObject({ level_id: 'L1' }); // the workspace's version
+    expect(merged.pathways.map(pathway => pathway.pathway_id)).toEqual(['T_1', 'S_0001']);
+  });
+
+  it('exports to TDEI on the agency feed when the workspace isn\'t from a TDEI dataset', async () => {
+    const tdeiClient = { getDatasetInfo: vi.fn(), uploadPathwaysDataset: vi.fn(async () => 'job-1') };
+    const osmClient = { getWorkspaceData: vi.fn(async () => elements) } as any;
+    const exporter = new TdeiExporter(tdeiClient as any, osmClient, new TdeiExporterContext());
+    const workspace = { id: 8, type: 'pathways', tdeiServiceId: 'S1', tdeiProjectGroupId: 'PG' } as any;
+
+    await exporter._exportPathwaysToTdei(workspace, {}, undefined, feedFiles());
+
+    const [derivedFrom, , , zip] = tdeiClient.uploadPathwaysDataset.mock.calls[0] as unknown as [unknown, unknown, unknown, Blob];
+    expect(derivedFrom).toBeUndefined();
+    const files = await openTdeiPathwaysArchive(zip, true, false);
+    expect((files.get('stop_times.txt') as Row[]).map(row => row.stop_id)).toEqual(['PF_S', 'PF_T']);
+    expect((files.get('agency.txt') as Row[])[0]!.agency_name).toBe('Sound Transit');
+    expect((files.get('stops.txt') as Row[]).map(row => row.stop_id).sort())
+      .toEqual(['ENT_S_1', 'ENT_T', 'PF_S', 'PF_T', 'S', 'T']); // ENT_OLD and N_OLD replaced
+    expect((files.get('stops.txt') as Row[]).find(row => row.stop_id === 'PF_T')!.zone_id).toBe('Z2');
+    expect((files.get('pathways.txt') as Row[]).map(row => row.pathway_id)).toEqual(['T_1', 'S_0001']);
+  });
+
+  it('keeps locations.geojson, which a GTFS-Flex stop_times.txt may refer to', async () => {
+    const zip = await createGtfsArchive(new Map([...feedFiles(), ['locations.geojson', '{"type":"FeatureCollection","features":[]}'], ['readme.md', 'notes']]));
+    const feed = await openAgencyFeed(zip);
+
+    expect(feed.get('locations.geojson')).toContain('FeatureCollection');
+    expect(feed.has('readme.md')).toBe(false);
+  });
+
+  it('gives a new feature an ID the agency doesn\'t use, so it can\'t replace an agency stop by accident', async () => {
+    // The agency has platform PF_S_1, which the workspace doesn't; a platform drawn in the
+    // editor (no stop_id) in station S would otherwise be numbered PF_S_1 too.
+    const files = feedFiles();
+    files.set('stops.txt', files.get('stops.txt')!.replace('PF_S,Platform S,0,S,Z1', 'PF_S_1,Platform S,0,S,Z1'));
+    const drawn = [elements[0]!, node(4, { location_type: '0', parent_station: 'S', level_id: 'S_L1' })];
+
+    const stops = await openTdeiPathwaysArchive(await buildPathwaysCsvArchive(drawn, files, { mergeWithFeed: true }), true, false)
+      .then(archive => archive.get('stops.txt') as Row[]);
+
+    expect(stops.find(stop => stop.stop_id === 'PF_S_1')!.stop_name).toBe('Platform S'); // the agency's, kept
+    expect(stops.filter(stop => stop.parent_station === 'S' && stop.location_type === '0').map(stop => stop.stop_id))
+      .toEqual(['PF_S_1', 'PF_S_2']);
+  });
+
+  it('refuses to export to TDEI with neither the original dataset nor an agency feed', async () => {
+    const tdeiClient = { getDatasetInfo: vi.fn(async () => undefined), uploadPathwaysDataset: vi.fn() };
+    const osmClient = { getWorkspaceData: vi.fn(async () => elements) } as any;
+    const exporter = new TdeiExporter(tdeiClient as any, osmClient, new TdeiExporterContext());
+
+    await expect(exporter._exportPathwaysToTdei({ id: 8, type: 'pathways', tdeiServiceId: 'S1', tdeiProjectGroupId: 'PG' } as any, {}))
+      .rejects.toThrow('wasn\'t made from a TDEI dataset');
+    await expect(exporter._exportPathwaysToTdei({ id: 8, type: 'pathways', tdeiRecordId: 'GONE', tdeiServiceId: 'S1', tdeiProjectGroupId: 'PG' } as any, {}))
+      .rejects.toThrow('no longer exists');
+    expect(tdeiClient.uploadPathwaysDataset).not.toHaveBeenCalled();
   });
 });

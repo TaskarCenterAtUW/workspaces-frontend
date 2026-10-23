@@ -1,3 +1,4 @@
+import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js';
 import { test, expect, seedAuthenticatedSession } from './fixtures';
 import { recordContract } from './contract';
 import { aWorkspace, PROJECT_GROUP_ID } from '../mocks/fixtures';
@@ -344,4 +345,86 @@ test('the service selector shows a meaningful message when there are no services
   await expect(page.getByText(/no services available|no services/i)).toBeVisible();
 
   await expect(page.locator('form.card')).toMatchAriaSnapshot();
+});
+
+// A GTFS Pathways workspace made from a file (no TDEI dataset), and a project
+// group that lets the user export pathways.
+const pathwaysWorkspace = { ...aWorkspace, type: 'pathways', tdeiRecordId: null };
+const pathwaysProjectGroup = { ...eligibleProjectGroup, roles: ['pathways_data_generator'] };
+
+/** A zip of the given files, as a GTFS feed is uploaded. */
+async function zipOf(files: Record<string, string>): Promise<Buffer> {
+  const writer = new ZipWriter(new BlobWriter('application/zip'));
+  for (const [name, content] of Object.entries(files)) {
+    await writer.add(name, new TextReader(content));
+  }
+  return Buffer.from(await (await writer.close()).arrayBuffer());
+}
+
+async function openPathwaysExport(page: Page) {
+  await seedAuthenticatedSession(page);
+  await page.route('**/workspaces/1', route => route.fulfill({ json: pathwaysWorkspace }));
+  await page.route('**/project-group-roles/**', route => route.fulfill({ json: [pathwaysProjectGroup] }));
+  await stubServices(page);
+  await page.goto('/workspace/1/export/tdei');
+}
+
+const agencyFeedInput = (page: Page) => page.getByLabel('Agency GTFS Feed');
+
+// @test e2e: a GTFS Pathways workspace not made from a TDEI dataset asks for the agency's GTFS feed (.zip), explaining why; the form can't be submitted without it
+test('a pathways workspace not from a TDEI dataset asks for the agency\'s GTFS feed', async ({ page }) => {
+  await openPathwaysExport(page);
+
+  await expect(agencyFeedInput(page)).toBeVisible();
+  await expect(agencyFeedInput(page)).toHaveAttribute('accept', '.zip');
+  await expect(page.getByText(/wasn't made from a TDEI dataset, so the export needs the rest of the\s+agency's GTFS feed/))
+    .toBeVisible();
+
+  await serviceSelect(page).selectOption('svc-a');
+  await datasetVersionInput(page).fill('1.0');
+  await uploadButton(page).click();
+
+  const errorToast = page.locator('.Toastify__toast--error');
+  await expect(errorToast).toContainText('Choose the agency\'s GTFS feed to export with.');
+  await expect(page).toHaveURL(/\/workspace\/1\/export\/tdei$/);
+});
+
+test('an OpenSidewalks workspace isn\'t asked for an agency feed', async ({ page }) => {
+  await seedAuthenticatedSession(page);
+  await stubPageLoad(page, [eligibleProjectGroup]);
+  await stubServices(page);
+
+  await page.goto('/workspace/1/export/tdei');
+
+  await expect(datasetVersionInput(page)).toBeVisible();
+  await expect(agencyFeedInput(page)).toHaveCount(0);
+});
+
+// @test e2e: choosing an agency feed that lacks a file TDEI's validation needs (agency, routes, trips, stop times, stops, calendar) names the missing files and isn't accepted
+test('an agency feed missing files TDEI needs is named and refused', async ({ page }) => {
+  await openPathwaysExport(page);
+  const feed = {
+    'agency.txt': 'agency_id,agency_name,agency_url,agency_timezone\nST,Sound Transit,https://st.org,America/Los_Angeles\n',
+    'routes.txt': 'route_id,route_type\n1,1\n',
+    'stop_times.txt': 'trip_id,stop_id,stop_sequence\nT1,PF_S,1\n',
+    'stops.txt': 'stop_id,stop_name\nPF_S,Platform S\n'
+  };
+
+  await agencyFeedInput(page).setInputFiles({ name: 'feed.zip', mimeType: 'application/zip', buffer: await zipOf(feed) });
+  await expect(page.getByRole('alert'))
+    .toHaveText('This feed is missing trips.txt, calendar.txt or calendar_dates.txt, which TDEI\'s validation needs.');
+
+  // Not accepted: submitting still asks for a feed.
+  await serviceSelect(page).selectOption('svc-a');
+  await datasetVersionInput(page).fill('1.0');
+  await uploadButton(page).click();
+  await expect(page.locator('.Toastify__toast--error')).toContainText('Choose the agency\'s GTFS feed to export with.');
+
+  // A complete feed clears the message.
+  await agencyFeedInput(page).setInputFiles({
+    name: 'feed.zip',
+    mimeType: 'application/zip',
+    buffer: await zipOf({ ...feed, 'trips.txt': 'route_id,service_id,trip_id\n1,WK,T1\n', 'calendar_dates.txt': 'service_id,date,exception_type\nWK,20260101,1\n' })
+  });
+  await expect(page.getByRole('alert')).toHaveCount(0);
 });
