@@ -12,7 +12,7 @@ import type { TdeiSeverity } from '~/services/gtfs-severity';
 export type ConnectivitySubtype
   = | 'unreachable' | 'no_way_out' | 'no_step_free' | 'elevator_only'
     | 'level_unreachable' | 'no_entrance'
-    | 'same_level' | 'exit_gate_two_way' | 'escalator_two_way'
+    | 'same_level' | 'exit_gate_two_way'
     | 'isolated' | 'duplicate_pathway_id'
     | 'dead_end' | 'duplicate_pathway' | 'length_too_short' | 'length_too_long' | 'traversal_time_mismatch'
     | 'stair_count_direction' | 'walkway_changes_level' | 'boarding_area_level'
@@ -111,9 +111,6 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
     // Settings that are likely mistakes.
     if (mode === '7' && twoWay) {
       add(way.id, { subtype: 'exit_gate_two_way', message: 'An exit gate should be one-way (is_bidirectional 0)' });
-    }
-    if (mode === '4' && way.tags?.is_bidirectional?.trim() === '1') {
-      add(way.id, { subtype: 'escalator_two_way', message: 'This escalator is marked two-way; most run one way' });
     }
     const kind = LEVEL_CHANGING_MODES[mode];
     const [fromLevel, toLevel] = [byId.get(from), byId.get(to)].map(end => (end ? stopLevelId(end) : undefined));

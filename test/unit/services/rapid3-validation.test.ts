@@ -204,7 +204,7 @@ describe('installConnectivityValidator', () => {
   it('has help for every subtype', () => {
     expect(Object.keys(CONNECTIVITY_HELP).sort()).toEqual([
       'boarding_area_level', 'dead_end', 'duplicate_pathway', 'duplicate_pathway_id', 'elevator_end_no_level',
-      'elevator_only', 'escalator_two_way', 'exit_gate_two_way', 'far_from_station', 'isolated', 'length_too_long',
+      'elevator_only', 'exit_gate_two_way', 'far_from_station', 'isolated', 'length_too_long',
       'length_too_short', 'level_unreachable', 'no_entrance', 'no_step_free', 'no_way_out', 'pathway_ends_far_apart', 'pathway_loop',
       'pathway_to_platform_with_boarding_areas',
       'pathway_to_station', 'pathway_to_street_access_stop', 'same_level', 'stair_count_direction', 'stairs_short_within_level', 'stops_share_location', 'stops_share_position',

@@ -81,7 +81,6 @@ export const CONNECTIVITY_SEVERITY: Record<ConnectivitySubtype, TdeiSeverity> = 
   no_entrance: 'ERROR', // tdei_station_without_entrance
   same_level: 'WARNING', // tdei_level_change_same_level, tdei_stairs_same_level
   exit_gate_two_way: 'ERROR', // MobilityData bidirectional_exit_gate
-  escalator_two_way: 'WARNING', // tdei_escalator_two_way
   isolated: 'WARNING', // tdei_stop_without_pathway
   duplicate_pathway_id: 'ERROR', // MobilityData duplicate_key
   dead_end: 'WARNING', // MobilityData pathway_dangling_generic_node

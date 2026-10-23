@@ -118,14 +118,13 @@ describe('connectivityProblems', () => {
       stop('e', '2', 'L0'), stop('a', '3', 'L0'), stop('b', '3', 'L0'), stop('c', '3', 'L1'),
       pathway('w1', 'e', 'a', '1'),
       pathway('w2', 'a', 'b', '5'), // elevator on one level
-      pathway('w3', 'a', 'c', '4', true), // two-way escalator
+      pathway('w3', 'a', 'c', '4', true), // two-way escalator: fine, it may be reversible
       pathway('w4', 'b', 'e', '7', true), // two-way exit gate
       pathway('w5', 'a', 'b', '2'), // stairs on one level
       pathway('w6', 'e', 'a', '2', true, { stair_count: '4' }) // a short flight within the level
     ])).toEqual([
       ['c', 'dead_end', 'WARNING'], // (only the escalator reaches it)
       ['w2', 'same_level', 'WARNING'],
-      ['w3', 'escalator_two_way', 'WARNING'],
       ['w4', 'exit_gate_two_way', 'ERROR'],
       ['w5', 'same_level', 'WARNING'],
       ['w6', 'stairs_short_within_level', 'INFO'] // reported, as a suggestion
