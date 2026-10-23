@@ -159,6 +159,24 @@ function describePathway(way: any, from: any, to: any): string {
   return `${mode}: ${name(from)} ${arrow} ${name(to)}`;
 }
 
+/** A feature with a fixme note: something a reviewer still has to check (e.g. left by pathways-converter). */
+export interface FixmeNote {
+  id: string;
+  /** What the feature is, e.g. "Platform: A" or "Stairs: Mezzanine ↔ Platform A". */
+  label: string;
+  note: string;
+  /** The stop_ids of the stations it belongs to (none if no station). */
+  stationIds: string[];
+}
+
+/** A feature's fixme note, if it has one; the key in any case (OSM data also has FIXME). */
+export function fixmeNote(tags: Record<string, string> | undefined): string | undefined {
+  for (const [key, value] of Object.entries(tags ?? {})) {
+    if (key.toLowerCase() === 'fixme' && value?.trim()) return value.trim();
+  }
+  return undefined;
+}
+
 export interface LevelStopGroup {
   level: Level | undefined;
   stops: LevelStop[];
@@ -294,6 +312,8 @@ export class Rapid3LevelTools {
   readonly largeLevelAreas = shallowRef<LargeLevelArea[]>([]);
   /** Stops far from the rest of their level, farthest first. */
   readonly farStops = shallowRef<FarStop[]>([]);
+  /** Every feature with a fixme note, in label order. */
+  readonly fixmes = shallowRef<FixmeNote[]>([]);
   /** The level being shown, or undefined to show all levels. */
   /** What the map is filtered to, or undefined to show everything. */
   readonly view = ref<LevelView | undefined>();
@@ -385,6 +405,24 @@ export class Rapid3LevelTools {
       }
     }
     this.levelPathways.value = levelPathways;
+    this.fixmes.value = entities.flatMap((entity): FixmeNote[] => {
+      const note = fixmeNote(entity.tags);
+      if (!note) return [];
+      const tags = entity.tags ?? {};
+      if (isPathway(entity)) {
+        const [from, to] = [entity.nodes[0], entity.nodes.at(-1)].map(id => byId.get(id));
+        const stationIds = [...new Set([from, to].filter(Boolean).flatMap(end => stationIdsOf(end.id)))];
+        return [{ id: String(entity.id), label: describePathway(entity, from, to), note, stationIds }];
+      }
+      if (isLevelArea(entity)) {
+        const levelId = tags.level_id?.trim();
+        const name = tags.level_name?.trim();
+        const stationIds = [...(levelId ? this.#stationIndex.stationsByLevel.get(levelId) ?? [] : [])];
+        return [{ id: String(entity.id), label: `Level: ${name && levelId ? `${name} (${levelId})` : name || levelId || entity.id}`, note, stationIds }];
+      }
+      const label = entity.type === 'node' ? describeStop(entity).label : `Feature ${entity.id}`;
+      return [{ id: String(entity.id), label, note, stationIds: stationIdsOf(entity.id) }];
+    }).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
     this.stopGroups.value = stopsByLevel(entities)
       .map(({ level, stops }) => ({ level, stops: stops.map(stop => ({ ...describeStop(stop), stationIds: stationIdsOf(stop.id) })) }));
     this.unleveled.value = unleveledStops(entities)

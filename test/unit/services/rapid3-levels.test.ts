@@ -104,6 +104,22 @@ describe('Rapid3LevelTools', () => {
       .toEqual([[undefined, ['L1', 'L0']]]);
   });
 
+  it('lists every stop, pathway and level outline with a fixme note, by label', () => {
+    const [a0, ...rest] = station();
+    const tools = new Rapid3LevelTools(fakeContext([
+      { ...a0!, tags: { ...a0!.tags, fixme: 'check the outline' } },
+      ...rest.map(entity => (entity.id === 'n1' ? { ...entity, tags: { ...entity.tags, FIXME: ' set stop_id ' } } : entity)),
+      way('p1', ['n1', 'n2'], { pathway_mode: '2', is_bidirectional: '1', fixme: 'which way does it go?' }),
+      node('n9', { location_type: '3', level_id: 'L1', fixme: '  ' })
+    ]));
+
+    expect(tools.fixmes.value).toEqual([
+      { id: 'a0', label: 'Level: Street (L0)', note: 'check the outline', stationIds: [] },
+      { id: 'n1', label: 'Platform: Platform A', note: 'set stop_id', stationIds: [] },
+      { id: 'p1', label: 'Stairs: Platform A ↔ n2', note: 'which way does it go?', stationIds: [] }
+    ]);
+  });
+
   it('flags platforms and nodes without a level', () => {
     const tools = new Rapid3LevelTools(fakeContext([
       ...station(),

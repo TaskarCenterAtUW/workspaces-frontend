@@ -283,6 +283,48 @@
         {{ hiddenStationCount === 1 ? '1 station is' : `${hiddenStationCount} stations are` }} out of view; pan or zoom the map to list {{ hiddenStationCount === 1 ? 'it' : 'them' }}.
       </p>
     </section>
+    <section
+      v-if="fixmes.length"
+      class="level-panel-section fixme-section"
+    >
+      <div class="level-panel-header">
+        <h2 class="level-panel-heading">
+          Things to review ({{ fixmes.length }})
+        </h2>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          :aria-expanded="fixmesExpanded"
+          @click="fixmesExpanded = !fixmesExpanded"
+        >
+          {{ fixmesExpanded ? 'Hide' : 'Show' }}
+        </button>
+      </div>
+      <ul
+        v-if="fixmesExpanded"
+        class="fixme-list"
+        aria-label="Features with a fixme note"
+      >
+        <li
+          v-for="item in fixmes"
+          :key="item.id"
+        >
+          <button
+            type="button"
+            class="fixme-item"
+            :title="`Select ${item.label}`"
+            @click="tools.select(item.id)"
+            @mouseenter="tools.highlight([item.id], true)"
+            @mouseleave="tools.highlight([item.id], false)"
+            @focus="tools.highlight([item.id], true)"
+            @blur="tools.highlight([item.id], false)"
+          >
+            <span class="fixme-label">{{ item.label }}</span>
+            <span class="fixme-note">{{ item.note }}</span>
+          </button>
+        </li>
+      </ul>
+    </section>
   </aside>
 </template>
 
@@ -305,6 +347,8 @@ import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-le
 // @test unit: levels with an outline can be reordered by dragging or with the arrow keys, which renumbers level_index
 // @test unit: levels without an outline show a disabled handle saying to add an outline first
 // @test unit: while the whole workspace is loading, a note says levels may show under "No station"; if it fails, a note offers "Retry"
+// @test unit: a "Things to review (N)" section lists every feature with a fixme note (its label and the note), and is hidden when there are none; "Hide"/"Show" collapses it
+// @test unit: clicking a fixme entry selects its feature, and pointing at or focusing one highlights it on the map
 
 const props = defineProps<{
   tools: Rapid3LevelTools;
@@ -314,6 +358,9 @@ const levels = computed(() => props.tools.levels.value);
 const stopGroups = computed(() => props.tools.stopGroups.value);
 const largeLevelAreas = computed(() => props.tools.largeLevelAreas.value);
 const currentLevelId = computed(() => props.tools.currentLevelId.value);
+// Features with a fixme note, for the review list below the stations.
+const fixmes = computed(() => props.tools.fixmes.value);
+const fixmesExpanded = ref(true);
 // Levels stops use that have no outline yet ("Outline all" boxes them).
 const unoutlinedIds = computed(() => levels.value.filter(level => !level.areaIds.length).map(level => level.levelId));
 
@@ -556,6 +603,46 @@ function stopCount(levelId: string): number {
   justify-content: space-between;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
+}
+
+.fixme-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+}
+
+// Alternate rows are shaded, so long lists are easier to follow.
+.fixme-list > li:nth-child(even) {
+  background: var(--bs-tertiary-bg);
+}
+
+.fixme-item {
+  display: block;
+  width: 100%;
+  padding: 0.25rem 0.375rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.fixme-item:hover .fixme-label {
+  color: var(--bs-link-hover-color);
+  text-decoration: underline;
+}
+
+.fixme-label {
+  display: block;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fixme-note {
+  display: block;
+  color: var(--bs-secondary-color);
 }
 
 .level-panel-header .level-panel-heading {

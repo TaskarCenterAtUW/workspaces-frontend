@@ -7,7 +7,7 @@ import PathwaysLevelPanel from '~/components/edit/PathwaysLevelPanel.vue';
 
 import { levelsLowestFirst } from '~/services/pathways-levels';
 import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-levels';
-import type { LargeLevelArea, LevelStop, LevelStopGroup } from '~/services/rapid3-levels';
+import type { FixmeNote, LargeLevelArea, LevelStop, LevelStopGroup } from '~/services/rapid3-levels';
 
 // The Nuxt env loads services/index, whose clients open IndexedDB caches on import.
 vi.mock('~/services/index', () => ({}));
@@ -46,6 +46,7 @@ function stubTools(currentLevelId?: string) {
     levelAreasMissingId: shallowRef<LevelStop[]>([]),
     largeLevelAreas: shallowRef<LargeLevelArea[]>([]),
     farStops: shallowRef<(LevelStop & { meters: number })[]>([]),
+    fixmes: shallowRef<FixmeNote[]>([]),
     zoomToLevel: vi.fn(),
     zoomToStation: vi.fn(),
     drawLevel: vi.fn(),
@@ -72,6 +73,48 @@ async function mountPanel(tools: ReturnType<typeof stubTools>) {
 }
 
 describe('PathwaysLevelPanel', () => {
+  // @test unit: a "Things to review (N)" section lists every feature with a fixme note (its label and the note), and is hidden when there are none; "Hide"/"Show" collapses it
+  it('lists features with a fixme note, hidden when there are none, and collapsible', async () => {
+    const tools = stubTools();
+    const wrapper = await mountPanel(tools);
+    expect(wrapper.find('.fixme-section').exists()).toBe(false);
+
+    tools.fixmes.value = [
+      { id: 'n1', label: 'Platform: A', note: 'set stop_id to the agency\'s platform', stationIds: [] },
+      { id: 'w7', label: 'Stairs: A ↔ B', note: 'which way does it go?', stationIds: [] }
+    ];
+    await nextTick();
+    const section = wrapper.find('.fixme-section');
+    expect(section.find('h2').text()).toBe('Things to review (2)');
+    expect(section.findAll('.fixme-item').map(item => [item.find('.fixme-label').text(), item.find('.fixme-note').text()]))
+      .toEqual([['Platform: A', 'set stop_id to the agency\'s platform'], ['Stairs: A ↔ B', 'which way does it go?']]);
+
+    const toggle = section.find('.level-panel-header button');
+    expect(toggle.text()).toBe('Hide');
+    await toggle.trigger('click');
+    expect(section.find('.fixme-list').exists()).toBe(false);
+    expect(toggle.text()).toBe('Show');
+    await toggle.trigger('click');
+    expect(section.findAll('.fixme-item')).toHaveLength(2);
+  });
+
+  // @test unit: clicking a fixme entry selects its feature, and pointing at or focusing one highlights it on the map
+  it('selects a fixme entry\'s feature when clicked, and highlights it while pointed at or focused', async () => {
+    const tools = stubTools();
+    tools.fixmes.value = [{ id: 'w7', label: 'Stairs: A ↔ B', note: 'which way does it go?', stationIds: [] }];
+    const wrapper = await mountPanel(tools);
+    const item = wrapper.find('.fixme-item');
+
+    await item.trigger('mouseenter');
+    expect(tools.highlight).toHaveBeenLastCalledWith(['w7'], true);
+    await item.trigger('mouseleave');
+    expect(tools.highlight).toHaveBeenLastCalledWith(['w7'], false);
+    await item.trigger('focus');
+    expect(tools.highlight).toHaveBeenLastCalledWith(['w7'], true);
+    await item.trigger('click');
+    expect(tools.select).toHaveBeenCalledWith('w7');
+  });
+
   // @test unit: each level shows its name, node count and edge (pathway) count; "Outline all" by the heading boxes every level that has no outline (level problems are Rapid issues, see services/rapid3-validation.ts)
   it('offers "Outline all" by the heading while levels have no outline, and no warnings box', async () => {
     const tools = stubTools();
