@@ -1,7 +1,7 @@
 import parseOsmChangeXml from '@osmcha/osmchange-parser';
 import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js';
 import type { OsmApiClient } from '~/services/osm';
-import { buildPathwaysCsvArchive, openTdeiPathwaysArchive } from '~/services/pathways';
+import { buildPathwaysCsvArchive, fetchDerivedPathwaysDataset } from '~/services/pathways';
 import type { TdeiClient } from '~/services/tdei';
 import { TdeiClientError, TdeiConversionError } from '~/services/tdei';
 import type { TdeiDatasetMetadataDatasetDetail } from '~/types/tdei';
@@ -90,6 +90,8 @@ export class TdeiExporter {
     try {
       return await this._run(workspace, metadata, options);
     } catch (e: any) {
+      // The message shown keeps only e.toString(); log the error for its stack.
+      console.error(`TDEI export failed while: ${this._context.status}`, e);
       if (e instanceof TdeiExporterValidationError) {
         this._context.error = e.message;
       } else {
@@ -204,8 +206,9 @@ export class TdeiExporter {
 
     this._context.status = status.exportOsm;
     const elements = await this._osmClient.getWorkspaceData(workspace.id);
-    const derivedFromDatasetId = await this._filterNonexistentDataset(workspace.tdeiRecordId);
-    const derivedFromDataset = await this._fetchPathwaysDataset(derivedFromDatasetId);
+    this._context.status = status.checkDerived;
+    const { datasetId: derivedFromDatasetId, files: derivedFromDataset }
+      = await fetchDerivedPathwaysDataset(this._tdeiClient, workspace.tdeiRecordId);
 
     this._context.status = status.convertOsm;
     const csvZip = await buildPathwaysCsvArchive(elements, derivedFromDataset);
@@ -254,21 +257,6 @@ export class TdeiExporter {
     }
 
     return undefined;
-  }
-
-  async _fetchPathwaysDataset(tdeiRecordId: string | undefined) {
-    if (!tdeiRecordId) {
-      return undefined;
-    }
-
-    const zip = await this._tdeiClient.downloadPathwaysDataset(tdeiRecordId);
-    const { dataset } = await this._tdeiClient.openDatasetArchive(zip);
-
-    if (!dataset) {
-      return undefined;
-    }
-
-    return await openTdeiPathwaysArchive(dataset, false, false);
   }
 
   private async _buildChangesetArchive(workspace: Workspace, includeRawOsc: boolean, adaCertification?: AdaCertificationInfo): Promise<Blob> {

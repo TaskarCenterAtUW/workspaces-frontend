@@ -2,14 +2,24 @@
 // @test e2e: loading this page successfully loads the Rapid editor with the workspace data, and shows the editor UI (playwright snapshot this)
 // @test e2e: loading this page with each. value of the "editor" query param (e.g. rapid vs rapid3) loads the correct editor version (playwright snapshot each version's UI)
 // @test e2e: loading this page with the "osw" datatype query param loads the OpenSidewalks editor, and without it loads the Pathways editor (playwright snapshot each editor's UI)
+// @test e2e: loading this page with editor=rapid3 and a non-osw datatype (e.g. pathways) loads Rapid 3 instead of the Pathways editor (playwright snapshot this)
+// @test e2e: loading Rapid 3 for a pathways workspace swaps in the GTFS Pathways presets; loading it for an osw workspace keeps the OSM presets
+// @test e2e: Rapid 3 on a pathways workspace marks the editor as GTFS Pathways (hiding Rapid's generic Point/Line/Area/Relation presets, which GTFS has no equivalent for)
+// @test e2e: Rapid 3 on a pathways workspace shows a level panel next to the editor; other editors and datatypes don't
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
-  <div
-    ref="editorContainer"
-    class="editorContainer"
-    :class="{ rapid3: isRapid3 }"
-  />
+  <div class="edit-page">
+    <div
+      ref="editorContainer"
+      class="editorContainer"
+      :class="{ 'rapid3': isRapid3, 'gtfs-pathways': isRapid3 && datatype === 'pathways' }"
+    />
+    <edit-pathways-level-panel
+      v-if="levelTools"
+      :tools="levelTools"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -21,24 +31,41 @@ const datatype = route.query.datatype;
 const editor = route.query.editor;
 const editorContainer = ref<HTMLDivElement | null>(null);
 
-const oswManager = (editor === 'rapid3' && rapid3Manager) ? rapid3Manager : rapidManager
-const manager = datatype === 'osw' ? oswManager : pathwaysManager
+// editor=rapid3 opens Rapid 3 for any datatype; otherwise OSW uses Rapid 2 and
+// everything else uses the Pathways editor.
+const manager = (editor === 'rapid3' && rapid3Manager)
+  ? rapid3Manager
+  : (datatype === 'osw' ? rapidManager : pathwaysManager);
 const isRapid3 = manager === rapid3Manager;
+
+// GTFS level tools, available once Rapid 3 has started on a pathways workspace.
+const levelTools = computed(() => (isRapid3 ? rapid3Manager?.levelTools.value : undefined));
 
 function onEditorLoaded() {
   editorContainer.value!.appendChild(manager.containerNode);
-  manager.init(workspaceId);
+  if (manager === rapid3Manager) {
+    rapid3Manager.init(workspaceId, datatype as string | undefined);
+  } else {
+    manager.init(workspaceId);
+  }
 }
 
 onMounted(() => {
   // If a different Rapid version is already loaded, hard-reload to swap.
   // Only one version can occupy the global Rapid namespace at a time.
-  if (datatype === 'osw') {
+  if (manager !== pathwaysManager) {
     const otherManager = manager === rapidManager ? rapid3Manager : rapidManager
     if (otherManager?.loaded.value) {
       window.location.reload()
       return
     }
+  }
+
+  // Rapid 3's schema customizations are per-datatype and can't be undone, so a
+  // Rapid 3 instance set up for one datatype can't be reused for another.
+  if (manager === rapid3Manager && manager.loaded.value && rapid3Manager.datatype !== datatype) {
+    window.location.reload();
+    return;
   }
 
   if (!manager.loaded.value) {
@@ -57,7 +84,15 @@ onMounted(() => {
 </script>
 
 <style>
+.edit-page {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
 .editorContainer {
+  flex: 1;
+  min-width: 0;
   width: 100%;
   height: 100%;
 }
@@ -82,6 +117,39 @@ onMounted(() => {
 .editorContainer.rapid3 .save-summary > p,
 /* Like OpenStreetMap? Connect with others */
 .editorContainer.rapid3 .save-communityLinks {
+  display: none;
+}
+
+/* Labels for coded GTFS tag values in Rapid 3's tag editor (services/rapid3-tag-labels.ts) */
+.editorContainer.rapid3 .tag-row .value-wrap {
+  position: relative;
+}
+.editorContainer.rapid3 .tag-row .gtfs-value-label {
+  position: absolute;
+  top: 50%;
+  right: calc(30px + 0.25em); /* clear Rapid's 30px-wide dropdown arrow (.combobox-caret) */
+  transform: translateY(-50%);
+  max-width: calc(100% - 30px - 2.5em); /* leave room for the code itself */
+  overflow: hidden;
+  font-size: 0.85em;
+  opacity: 0.6;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The dropdown may be attached outside the editor container, so this isn't scoped to it. */
+.combobox-option .gtfs-value-option-label {
+  margin-left: 0.5em;
+  opacity: 0.6;
+}
+/* GTFS Pathways has no generic point, line, area or relation (e.g. a generic
+   node is location_type=3), so hide Rapid's built-in fallback presets from the
+   preset picker. Rapid always appends them and can't drop them from the schema;
+   their list items are classed by preset ID. */
+.editorContainer.gtfs-pathways .preset-list-item.preset-point,
+.editorContainer.gtfs-pathways .preset-list-item.preset-line,
+.editorContainer.gtfs-pathways .preset-list-item.preset-area,
+.editorContainer.gtfs-pathways .preset-list-item.preset-relation {
   display: none;
 }
 </style>
