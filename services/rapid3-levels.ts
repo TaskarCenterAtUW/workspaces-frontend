@@ -36,13 +36,13 @@ declare const Rapid: any;
 export const LEVEL_FILTER_ID = 'gtfs_other_levels';
 
 /**
- * The white box behind a highlighted station: its fill, padding past its
+ * The dark box behind a highlighted station: its fill, padding past its
  * stops, and the label in its top-left corner (sized in screen pixels). The
  * label uses Rapid's map label font and outline (PixiLayerLabels), with the
  * colors swapped: white text outlined in black.
  */
 export const STATION_HIGHLIGHT = {
-  color: 0xffffff,
+  color: 0x000000,
   alpha: 0.5,
   paddingMeters: 15,
   label: (stationName: string) => `Extent of Station ${stationName}`,
@@ -823,7 +823,7 @@ export class Rapid3LevelTools {
   }
 
   /**
-   * Draws a translucent white box behind each highlighted station (see
+   * Draws a translucent black box behind each highlighted station (see
    * `highlightedStationIds`), around its station point and stops, so what
    * belongs to it stands out from the map. It's drawn in Rapid's "debug-under"
    * group, between the background imagery and the editable data, in world

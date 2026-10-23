@@ -720,7 +720,7 @@ describe('Rapid3LevelTools', () => {
       delete (globalThis as any).PIXI;
     });
 
-    it('draws a translucent white box around the shown station\'s point and stops, under the data', () => {
+    it('draws a translucent black box around the shown station\'s point and stops, under the data', () => {
       const { context, group, boxes } = contextWithScene();
       const tools = new Rapid3LevelTools(context);
       expect(boxes().boxes).toEqual([]); // nothing shown yet
@@ -729,7 +729,7 @@ describe('Rapid3LevelTools', () => {
       expect(group.children).toHaveLength(2); // the boxes, and their labels
       expect(boxes().eventMode).toBe('none'); // doesn't block clicks on the map
       const [box] = boxes().boxes;
-      expect(box!.fill).toEqual({ color: 0xffffff, alpha: 0.5 });
+      expect(box!.fill).toEqual({ color: 0x000000, alpha: 0.5 });
       // Covers lon 0..0.001 and lat 0..0.001, padded on every side.
       expect(box!.x).toBeLessThan(0);
       expect(box!.x + box!.w).toBeGreaterThan(0.001);
