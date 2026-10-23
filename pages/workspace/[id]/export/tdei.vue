@@ -289,25 +289,32 @@ const certifiedAt = new Date().toISOString().slice(0, 10);
 const needsAgencyFeed = workspace.type === 'pathways' && !workspace.tdeiRecordId;
 const agencyFeed = shallowRef<Map<string, string>>();
 const agencyFeedError = ref('');
+// Counts feed choices, so a read that finishes after a newer choice is ignored.
+let agencyFeedChoice = 0;
 
 async function onAgencyFeedChange(event: Event) {
+  const choice = ++agencyFeedChoice;
   const file = (event.target as HTMLInputElement).files?.[0];
   agencyFeed.value = undefined;
   agencyFeedError.value = '';
   if (!file) return;
 
+  let feed: Map<string, string> | undefined;
+  let error = '';
   try {
-    const feed = await openAgencyFeed(file);
+    feed = await openAgencyFeed(file);
     const missing = missingFeedFiles(feed);
     if (missing.length) {
-      agencyFeedError.value = `This feed is missing ${missing.join(', ')}, which TDEI's validation needs.`;
-      return;
+      error = `This feed is missing ${missing.join(', ')}, which TDEI's validation needs.`;
     }
-    agencyFeed.value = feed;
   }
   catch {
-    agencyFeedError.value = 'This file couldn\'t be read as a GTFS zip.';
+    error = 'This file couldn\'t be read as a GTFS zip.';
   }
+
+  if (choice !== agencyFeedChoice) return; // another file was chosen meanwhile
+  agencyFeedError.value = error;
+  agencyFeed.value = error ? undefined : feed;
 }
 
 async function upload() {
@@ -349,7 +356,7 @@ async function upload() {
           certifiedAt,
         }
       : undefined,
-    agencyFeed: agencyFeed.value,
+    agencyFeed: agencyFeed.value
   });
 
   if (jobId) {

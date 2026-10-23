@@ -162,13 +162,15 @@ export const GENERATED_LEVEL_ID_PREFIX = 'ws-l';
  * one (drawn in the editor), or whose tag duplicates an older element's (e.g.
  * copy-pasted), get the ID `generate` makes for them (unique among `used`),
  * or else `prefix` + their OSM ID. The oldest element (lowest OSM ID, so the
- * imported one rather than a later copy) keeps a duplicated ID.
+ * imported one rather than a later copy) keeps a duplicated ID. Generated IDs
+ * also avoid `reserved` (e.g. an agency feed's IDs), which tagged IDs may match.
  */
 function assignGtfsIds(
   elements: any[],
   idTag: string,
   prefix: string,
-  generate?: (element: any, used: Set<string>) => string | undefined
+  generate?: (element: any, used: Set<string>) => string | undefined,
+  reserved: Set<string> = new Set()
 ): Map<number, string> {
   const ids = new Map<number, string>();
   const used = new Set<string>();
@@ -185,6 +187,8 @@ function assignGtfsIds(
       needsId.push(element);
     }
   }
+
+  for (const id of reserved) used.add(id);
 
   for (const element of needsId) {
     let generated = generate?.(element, used) ?? `${prefix}${element.id}`;
@@ -260,17 +264,21 @@ export async function fetchDerivedPathwaysDataset(
 /** Files a GTFS feed needs, besides its calendar, to pass TDEI's validation (MobilityData's validator). */
 const REQUIRED_FEED_FILES = ['agency.txt', 'routes.txt', 'trips.txt', 'stop_times.txt', 'stops.txt'];
 
+/** GTFS files that aren't .txt: GTFS-Flex's locations, which stop_times.txt may refer to. */
+const OTHER_FEED_FILES = new Set(['locations.geojson']);
+
 /**
- * An agency's GTFS feed, read from its zip: each .txt file's text, by file
- * name. A feed zipped inside a folder (e.g. "google_transit/stops.txt") reads
- * the same.
+ * An agency's GTFS feed, read from its zip: each GTFS file's text (the .txt
+ * files and locations.geojson), by file name. A feed zipped inside a folder
+ * (e.g. "google_transit/stops.txt") reads the same.
  */
 export async function openAgencyFeed(zip: Blob): Promise<Map<string, string>> {
   const files = await openTdeiPathwaysArchive(zip, false, false) as Map<string, string>;
   const feed = new Map<string, string>();
   for (const [path, content] of files) {
     const name = path.split('/').at(-1)!;
-    if (name.toLowerCase().endsWith('.txt') && !feed.has(name)) feed.set(name, content);
+    const isGtfsFile = name.toLowerCase().endsWith('.txt') || OTHER_FEED_FILES.has(name);
+    if (isGtfsFile && !feed.has(name)) feed.set(name, content);
   }
   return feed;
 }
@@ -358,10 +366,21 @@ export async function buildPathwaysCsvArchive(
   const ways = elements.filter(isPathway);
   const stops = stopNodes(elements);
 
+  // An agency feed's own stops and pathways, which the workspace's are merged into.
+  const feedRows = async (name: string) => (mergeWithFeed && gtfsFiles!.get(name)?.trim()
+    ? await parseCsv(gtfsFiles!.get(name)!) as CsvRow[]
+    : []);
+  const agencyStops = await feedRows('stops.txt');
+  const agencyPathways = await feedRows('pathways.txt');
+
   // Stops and pathways in a station follow the workspace's ID pattern (see
-  // gtfs-ids.ts); ones outside any station get ws-n<id> / ws-w<id>.
-  const stopIds = assignGtfsIds(stops, 'stop_id', GENERATED_STOP_ID_PREFIX, stopIdGenerator(elements));
-  const pathwayIds = assignGtfsIds(ways, 'pathway_id', GENERATED_PATHWAY_ID_PREFIX, pathwayIdGenerator(elements));
+  // gtfs-ids.ts); ones outside any station get ws-n<id> / ws-w<id>. Generated
+  // IDs avoid the agency's, so a new feature can't replace an agency stop by
+  // accident (a tagged ID still replaces its stop on purpose).
+  const stopIds = assignGtfsIds(stops, 'stop_id', GENERATED_STOP_ID_PREFIX, stopIdGenerator(elements),
+    new Set(agencyStops.map(stop => text(stop.stop_id))));
+  const pathwayIds = assignGtfsIds(ways, 'pathway_id', GENERATED_PATHWAY_ID_PREFIX, pathwayIdGenerator(elements),
+    new Set(agencyPathways.map(pathway => text(pathway.pathway_id))));
 
   const stopRows = stops.map(element => ({
     ...element.tags,
@@ -379,9 +398,7 @@ export async function buildPathwaysCsvArchive(
   let stopsOut: CsvRow[] = stopRows;
   let pathwaysOut: CsvRow[] = pathwayRows;
   if (mergeWithFeed) {
-    const rows = async (name: string) => (gtfsFiles!.get(name)?.trim() ? await parseCsv(gtfsFiles!.get(name)!) as CsvRow[] : []);
-    ({ stops: stopsOut, pathways: pathwaysOut }
-      = mergeIntoAgencyFeed(await rows('stops.txt'), await rows('pathways.txt'), stopRows, pathwayRows));
+    ({ stops: stopsOut, pathways: pathwaysOut } = mergeIntoAgencyFeed(agencyStops, agencyPathways, stopRows, pathwayRows));
   }
 
   const stopsCsv = toCsv(STOPS_COLUMNS, stopsOut);

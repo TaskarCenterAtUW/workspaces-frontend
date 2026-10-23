@@ -484,6 +484,29 @@ describe('exporting with an agency feed', () => {
     expect((files.get('pathways.txt') as Row[]).map(row => row.pathway_id)).toEqual(['T_1', 'S_0001']);
   });
 
+  it('keeps locations.geojson, which a GTFS-Flex stop_times.txt may refer to', async () => {
+    const zip = await createGtfsArchive(new Map([...feedFiles(), ['locations.geojson', '{"type":"FeatureCollection","features":[]}'], ['readme.md', 'notes']]));
+    const feed = await openAgencyFeed(zip);
+
+    expect(feed.get('locations.geojson')).toContain('FeatureCollection');
+    expect(feed.has('readme.md')).toBe(false);
+  });
+
+  it('gives a new feature an ID the agency doesn\'t use, so it can\'t replace an agency stop by accident', async () => {
+    // The agency has platform PF_S_1, which the workspace doesn't; a platform drawn in the
+    // editor (no stop_id) in station S would otherwise be numbered PF_S_1 too.
+    const files = feedFiles();
+    files.set('stops.txt', files.get('stops.txt')!.replace('PF_S,Platform S,0,S,Z1', 'PF_S_1,Platform S,0,S,Z1'));
+    const drawn = [elements[0]!, node(4, { location_type: '0', parent_station: 'S', level_id: 'S_L1' })];
+
+    const stops = await openTdeiPathwaysArchive(await buildPathwaysCsvArchive(drawn, files, { mergeWithFeed: true }), true, false)
+      .then(archive => archive.get('stops.txt') as Row[]);
+
+    expect(stops.find(stop => stop.stop_id === 'PF_S_1')!.stop_name).toBe('Platform S'); // the agency's, kept
+    expect(stops.filter(stop => stop.parent_station === 'S' && stop.location_type === '0').map(stop => stop.stop_id))
+      .toEqual(['PF_S_1', 'PF_S_2']);
+  });
+
   it('refuses to export to TDEI with neither the original dataset nor an agency feed', async () => {
     const tdeiClient = { getDatasetInfo: vi.fn(async () => undefined), uploadPathwaysDataset: vi.fn() };
     const osmClient = { getWorkspaceData: vi.fn(async () => elements) } as any;
