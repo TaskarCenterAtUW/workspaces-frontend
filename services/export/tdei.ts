@@ -25,6 +25,12 @@ interface ExportOptions {
   includeChangesets?: boolean;
   includeRawOsc?: boolean;
   adaCertification?: AdaCertificationInfo;
+  /**
+   * For a pathways workspace not made from a TDEI dataset: the agency's GTFS
+   * feed (see `openAgencyFeed`), which supplies the rest of the feed TDEI's
+   * validation needs.
+   */
+  agencyFeed?: Map<string, string>;
 }
 
 const status = {
@@ -171,7 +177,7 @@ export class TdeiExporter {
     }
 
     if (workspace.type === 'pathways') {
-      return await this._exportPathwaysToTdei(workspace, metadata, changesetArchive);
+      return await this._exportPathwaysToTdei(workspace, metadata, changesetArchive, options.agencyFeed);
     }
 
     return await this._exportOswToTdei(workspace, metadata, changesetArchive);
@@ -201,7 +207,18 @@ export class TdeiExporter {
     return jobId
   }
 
-  async _exportPathwaysToTdei(workspace: Workspace, metadata: any, changesetArchive?: Blob): Promise<string> {
+  /**
+   * Builds the workspace's GTFS on the TDEI dataset it was made from, or else on
+   * the agency feed given. TDEI's validation needs a whole feed, so with
+   * neither (e.g. the original dataset has since been deleted), it refuses
+   * rather than publish placeholder agency and service files.
+   */
+  async _exportPathwaysToTdei(
+    workspace: Workspace,
+    metadata: any,
+    changesetArchive?: Blob,
+    agencyFeed?: Map<string, string>
+  ): Promise<string> {
     const tdeiServiceId = this._requireServiceId(workspace);
 
     this._context.status = status.exportOsm;
@@ -210,8 +227,19 @@ export class TdeiExporter {
     const { datasetId: derivedFromDatasetId, files: derivedFromDataset }
       = await fetchDerivedPathwaysDataset(this._tdeiClient, workspace.tdeiRecordId);
 
+    if (!derivedFromDataset && !agencyFeed) {
+      throw new TdeiExporterValidationError(
+        workspace.tdeiRecordId
+          ? 'The TDEI dataset this workspace was made from no longer exists, so the rest of its GTFS feed '
+          + '(agency, routes, trips, stop times and calendar) is missing. Choose the agency\'s GTFS feed to export with.'
+          : 'This workspace wasn\'t made from a TDEI dataset. Choose the agency\'s GTFS feed to export with.'
+      );
+    }
+
     this._context.status = status.convertOsm;
-    const csvZip = await buildPathwaysCsvArchive(elements, derivedFromDataset);
+    const csvZip = derivedFromDataset
+      ? await buildPathwaysCsvArchive(elements, derivedFromDataset)
+      : await buildPathwaysCsvArchive(elements, new Map(agencyFeed), { mergeWithFeed: true });
 
     this._context.status = status.upload;
     const jobId = await this._tdeiClient.uploadPathwaysDataset(
