@@ -17,7 +17,8 @@ export type ConnectivitySubtype
     | 'dead_end' | 'duplicate_pathway' | 'length_mismatch' | 'traversal_time_mismatch'
     | 'stair_count_direction' | 'walkway_changes_level' | 'boarding_area_level'
     | 'pathway_to_station' | 'pathway_to_platform_with_boarding_areas' | 'pathway_loop'
-    | 'pathway_to_street_access_stop' | 'elevator_end_no_level';
+    | 'pathway_to_street_access_stop' | 'elevator_end_no_level'
+    | 'pathway_ends_far_apart' | 'far_from_station';
 
 export interface ConnectivityProblem {
   subtype: ConnectivitySubtype;
@@ -35,15 +36,23 @@ const ELEVATOR_MODE = '5';
 const LEVEL_CHANGING_MODES: Record<string, string> = { 2: 'stairs', 4: 'escalator', 5: 'elevator' };
 /** pathway_modes drawn at their real length (not stairs, escalators or elevators, which slope or rise). */
 const FLAT_MODES = new Set(['1', '3', '6', '7']);
-/** pathway_modes whose traversal_time is checked against the drawn length: moving sidewalk, escalator. */
+/** pathway_modes whose traversal_time is checked against their length: moving sidewalk, escalator. */
 const TIMED_MODES = new Set(['3', '4']);
-/** A tagged length is flagged when it's outside these multiples of the drawn length, and this far off. */
+/** A tagged length is flagged when it's outside these multiples of the straight line between its stops, and this far off. */
 const LENGTH_RATIO = { min: 0.5, max: 2 };
 const LENGTH_SLACK_METERS = 10;
-/** Pathways joining the same stops the same way are duplicates if their drawn lengths are within this fraction. */
+/** Pathways joining the same stops the same way are duplicates if their lengths are within this fraction. */
 const DUPLICATE_LENGTH_TOLERANCE = 0.1;
-/** Plausible speeds, in m/s, for a traversal_time over the drawn length. */
+/** Plausible speeds, in m/s, for a traversal_time over its length. */
 const SPEED_RANGE = { min: 0.1, max: 5 };
+/** Stops closer than this likely have copied coordinates, so the distance between them isn't measured. */
+const MIN_MEASURED_METERS = 1;
+/**
+ * How far apart a pathway's two stops can plausibly be, in a straight line, by pathway_mode, and how
+ * far a stop can be from its station, as TDEI's validation checks them (tuned on MBTA and Baltimore Metro).
+ */
+const MAX_PATHWAY_SPAN_METERS: Record<string, number> = { 1: 500, 3: 500, 2: 150, 4: 150, 5: 50, 6: 50, 7: 50 };
+const MAX_STOP_FROM_STATION_METERS = 500;
 
 /** location_types riders board from: platforms (also stops with no location_type) and boarding areas. */
 const BOARDING_TYPES = new Set(['', '0', '4']);
@@ -60,7 +69,10 @@ interface Edge {
 /**
  * Finds every connectivity problem in the workspace, by feature ID: the
  * checks span whole stations, so they're found together. A pathway goes from
- * its first node to its last, and back too unless is_bidirectional is 0.
+ * its first node to its last, and back too if is_bidirectional is 1. Checks
+ * TDEI's validation also runs follow its rules (TDEI-python-gtfs-pathways-validation
+ * src/custom_checks.py), using only what the GTFS export carries: e.g. lengths are
+ * compared with the straight line between a pathway's stops, not the drawing.
  */
 export function connectivityProblems(entities: LevelEntity[]): Map<string | number, ConnectivityProblem[]> {
   const problems = new Map<string | number, ConnectivityProblem[]>();
@@ -86,7 +98,7 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
 
   for (const way of entities.filter(isPathway)) {
     const mode = way.tags?.pathway_mode?.trim() ?? '';
-    const twoWay = way.tags?.is_bidirectional?.trim() !== '0';
+    const twoWay = way.tags?.is_bidirectional?.trim() === '1';
     const [from, to] = [way.nodes![0]!, way.nodes!.at(-1)!];
     link(from, to, mode);
     if (twoWay) link(to, from, mode);
@@ -129,42 +141,58 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
     }
   }
 
-  // Pathway details that don't fit the drawing or the levels.
+  // Pathway details that don't fit their stops or the levels.
   const levelIndex = new Map(collectLevels(entities)
     .filter(level => level.index !== undefined)
     .map(level => [level.levelId, level.index!]));
   const locOf = (id: string | number) => (byId.get(id) as { loc?: [number, number] } | undefined)?.loc;
-  const pairs = new Map<string, { id: string | number; drawn: number | undefined }[]>();
+  /** A tag as a number above 0, or undefined. */
+  const positive = (value: string | undefined) => {
+    const number = Number(value?.trim() || NaN);
+    return Number.isFinite(number) && number > 0 ? number : undefined;
+  };
+  const pairs = new Map<string, { id: string | number; length: number | undefined }[]>();
   for (const way of entities.filter(isPathway)) {
     const tags = way.tags ?? {};
     const mode = tags.pathway_mode?.trim() ?? '';
     const [from, to] = [way.nodes![0]!, way.nodes!.at(-1)!];
 
-    const locs = way.nodes!.map(locOf);
-    const drawn = locs.every(Boolean)
-      ? locs.slice(1).reduce((sum, loc, i) => sum + distanceMeters(locs[i]!, loc!), 0)
-      : undefined;
+    // The straight line between its stops (GTFS has no pathway geometry); stops under
+    // 1 m apart likely have copied coordinates, so they're not measured.
+    const [fromLoc, toLoc] = [locOf(from), locOf(to)];
+    const straight = fromLoc && toLoc ? distanceMeters(fromLoc, toLoc) : undefined;
+    const apart = straight !== undefined && straight >= MIN_MEASURED_METERS ? straight : undefined;
+    const length = positive(tags.length);
 
-    // The same two stops joined twice the same way (same type, same direction).
-    const twoWay = tags.is_bidirectional?.trim() !== '0';
-    const key = `${mode}|${twoWay ? [String(from), String(to)].sort().join('|') : `${from}>${to}`}`;
-    pairs.set(key, [...(pairs.get(key) ?? []), { id: way.id, drawn }]);
-    const length = Number(tags.length);
-    if (drawn && FLAT_MODES.has(mode) && tags.length?.trim() && Number.isFinite(length)
-      && (length < drawn * LENGTH_RATIO.min || length > drawn * LENGTH_RATIO.max)
-      && Math.abs(length - drawn) >= LENGTH_SLACK_METERS) {
+    // Stops farther apart than this kind of pathway spans: likely one placed in the wrong spot.
+    const span = MAX_PATHWAY_SPAN_METERS[mode];
+    if (straight !== undefined && span !== undefined && straight > span) {
       add(way.id, {
-        subtype: 'length_mismatch',
-        message: `length is ${length} m, but this pathway is drawn about ${Math.round(drawn)} m long`
+        subtype: 'pathway_ends_far_apart',
+        message: `This ${MODE_NAMES[mode]}'s stops are ${Math.round(straight)} m apart; it's unlikely to span more than ${span} m`
       });
     }
-    const time = Number(tags.traversal_time);
-    if (drawn && TIMED_MODES.has(mode) && tags.traversal_time?.trim() && time > 0) {
-      const speed = drawn / time;
+
+    // The same two stops joined twice the same way (same type, same direction).
+    const twoWay = tags.is_bidirectional?.trim() === '1';
+    const key = `${mode}|${twoWay ? [String(from), String(to)].sort().join('|') : `${from}>${to}`}`;
+    pairs.set(key, [...(pairs.get(key) ?? []), { id: way.id, length }]);
+    if (apart && FLAT_MODES.has(mode) && length !== undefined
+      && (length < apart * LENGTH_RATIO.min || length > apart * LENGTH_RATIO.max)
+      && Math.abs(length - apart) >= LENGTH_SLACK_METERS) {
+      add(way.id, {
+        subtype: 'length_mismatch',
+        message: `length is ${length} m, but its stops are about ${Math.round(apart)} m apart in a straight line`
+      });
+    }
+    const time = positive(tags.traversal_time);
+    const distance = length ?? apart;
+    if (distance && TIMED_MODES.has(mode) && time !== undefined) {
+      const speed = distance / time;
       if (speed < SPEED_RANGE.min || speed > SPEED_RANGE.max) {
         add(way.id, {
           subtype: 'traversal_time_mismatch',
-          message: `traversal_time is ${time} s for about ${Math.round(drawn)} m, ${speed < SPEED_RANGE.min ? 'very slow' : 'very fast'}`
+          message: `traversal_time is ${time} s for about ${Math.round(distance)} m, ${speed < SPEED_RANGE.min ? 'very slow' : 'very fast'}`
         });
       }
     }
@@ -172,7 +200,7 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
     const [fromLevel, toLevel] = [byId.get(from), byId.get(to)].map(end => (end ? stopLevelId(end) : undefined));
     const [fromIndex, toIndex] = [fromLevel, toLevel].map(id => (id ? levelIndex.get(id) : undefined));
     const stairs = Number(tags.stair_count);
-    if (mode === '2' && tags.stair_count?.trim() && stairs !== 0 && Number.isFinite(stairs)
+    if (mode === '2' && tags.stair_count?.trim() && stairs !== 0 && Number.isInteger(stairs)
       && fromIndex !== undefined && toIndex !== undefined && fromIndex !== toIndex
       && (stairs > 0) !== (toIndex > fromIndex)) {
       add(way.id, {
@@ -180,26 +208,32 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
         message: `stair_count is ${stairs}, but these stairs go ${toIndex > fromIndex ? 'up' : 'down'} from ${fromLevel} to ${toLevel}`
       });
     }
-    if (FLAT_MODES.has(mode) && fromLevel && toLevel && fromLevel !== toLevel && !tags.max_slope?.trim()) {
+    // Levels at the same height (same level_index) aren't a change of level.
+    if (FLAT_MODES.has(mode) && fromLevel && toLevel && fromLevel !== toLevel && !tags.max_slope?.trim()
+      && (fromIndex === undefined || fromIndex !== toIndex)) {
       add(way.id, {
         subtype: 'walkway_changes_level',
         message: `This pathway joins two levels (${fromLevel} and ${toLevel}) without stairs, an escalator or an elevator`
       });
     }
   }
-  // ...and drawn about as long (so separate routes between them, e.g. around
-  // either side of a mezzanine, aren't flagged). An unmeasurable one matches.
+  // ...with lengths within 10% when both have one (so separate routes between them,
+  // e.g. around either side of a mezzanine, aren't flagged). The first of each set
+  // isn't flagged; the others are, as duplicates of it.
   const similarLength = (a: number | undefined, b: number | undefined) =>
-    a === undefined || b === undefined || Math.min(a, b) >= Math.max(a, b) * (1 - DUPLICATE_LENGTH_TOLERANCE);
+    a === undefined || b === undefined || Math.abs(a - b) <= Math.max(a, b) * DUPLICATE_LENGTH_TOLERANCE;
   for (const group of pairs.values()) {
-    for (const pathway of group) {
-      if (group.some(other => other !== pathway && similarLength(pathway.drawn, other.drawn))) {
-        add(pathway.id, {
+    const flagged = new Set<string | number>();
+    group.forEach((first, i) => {
+      for (const other of group.slice(i + 1)) {
+        if (flagged.has(other.id) || !similarLength(first.length, other.length)) continue;
+        flagged.add(other.id);
+        add(other.id, {
           subtype: 'duplicate_pathway',
           message: 'Another pathway of the same type joins the same two stops along about the same route'
         });
       }
-    }
+    });
   }
 
   // Generic nodes only one pathway touches: dead ends.
@@ -255,6 +289,21 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
     const stop = byId.get(stopId);
     if (stop) members.set(stationId, [...(members.get(stationId) ?? []), stop]);
   }
+  // Stops far from their station: likely placed in the wrong spot, alone or with their level.
+  for (const station of stations.values()) {
+    const stationLoc = locOf(station.id);
+    for (const stop of members.get(station.stopId) ?? []) {
+      const loc = locOf(stop.id);
+      const meters = stationLoc && loc ? distanceMeters(stationLoc, loc) : 0;
+      if (meters > MAX_STOP_FROM_STATION_METERS) {
+        add(stop.id, {
+          subtype: 'far_from_station',
+          message: `This ${TYPE_NAMES[stop.tags?.location_type?.trim() ?? ''] ?? 'stop'} is ${Math.round(meters)} m from station ${station.name}`
+        });
+      }
+    }
+  }
+
   const stationsWithPathways = new Set([...members]
     .filter(([, stops]) => stops.some(stop => forward.has(stop.id) || backward.has(stop.id)))
     .map(([stationId]) => stationId));
@@ -287,22 +336,21 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
     return seen;
   };
 
-  const reachableLevels = new Set<string>();
-  const unreachedLevels = new Map<string, string>(); // level_id -> a station whose entrances don't reach it
+  // Routes from (or back to) any entrance, as TDEI's validation and MobilityData follow them.
+  const type = (stop: LevelEntity) => stop.tags?.location_type?.trim() ?? '';
+  const entrances = entities.filter(stop => stop.type === 'node' && type(stop) === '2').map(stop => stop.id);
+  const reachable = reach(entrances, forward);
+  const canLeave = reach(entrances, backward);
+  const stepFree = reach(entrances, forward, mode => STEPPED_MODES.has(mode));
+  const withoutElevators = reach(entrances, forward, mode => STEPPED_MODES.has(mode) || mode === ELEVATOR_MODE);
+
+  const unreachedLevels = new Map<string, string[]>(); // level_id -> stations none of whose stops on it are reached
   for (const station of stations.values()) {
     const stops = members.get(station.stopId) ?? [];
     if (!stationsWithPathways.has(station.stopId)) continue; // (an empty station is flagged elsewhere)
-    const type = (stop: LevelEntity) => stop.tags?.location_type?.trim() ?? '';
-    const entrances = stops.filter(stop => type(stop) === '2').map(stop => stop.id);
-    if (!entrances.length) {
+    if (!stops.some(stop => type(stop) === '2')) {
       add(station.id, { subtype: 'no_entrance', message: `Station ${station.name} has no entrances` });
-      continue;
     }
-
-    const reachable = reach(entrances, forward);
-    const canLeave = reach(entrances, backward);
-    const stepFree = reach(entrances, forward, mode => STEPPED_MODES.has(mode));
-    const withoutElevators = reach(entrances, forward, mode => STEPPED_MODES.has(mode) || mode === ELEVATOR_MODE);
 
     // As MobilityData checks it: generic nodes, boarding areas, and platforms
     // without boarding areas (riders board from those instead).
@@ -312,7 +360,7 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
       const what = TYPE_NAMES[type(stop)] ?? 'stop';
       if (isolated.has(stop.id)) continue; // already flagged as not connected
       if (!reachable.has(stop.id)) {
-        add(stop.id, { subtype: 'unreachable', message: `This ${what} can't be reached from any of ${station.name}'s entrances` });
+        add(stop.id, { subtype: 'unreachable', message: `This ${what} can't be reached from any entrance` });
         continue;
       }
       if (!canLeave.has(stop.id)) {
@@ -326,21 +374,24 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
       }
     }
 
+    // Levels this station's stops use where none of its stops on them can be reached.
+    const levelsReached = new Map<string, boolean>();
     for (const stop of stops) {
       const levelId = stopLevelId(stop);
-      if (!levelId) continue;
-      if (reachable.has(stop.id)) reachableLevels.add(levelId);
-      else if (!unreachedLevels.has(levelId)) unreachedLevels.set(levelId, station.name);
+      if (levelId) levelsReached.set(levelId, (levelsReached.get(levelId) ?? false) || reachable.has(stop.id));
+    }
+    for (const [levelId, reached] of levelsReached) {
+      if (!reached) unreachedLevels.set(levelId, [...(unreachedLevels.get(levelId) ?? []), station.name]);
     }
   }
 
-  // A level is flagged only if no station's entrances reach any stop on it.
   for (const area of entities) {
     const levelId = area.type === 'way' && area.tags?.level_index !== undefined ? area.tags?.level_id?.trim() : undefined;
-    if (!levelId || reachableLevels.has(levelId) || !unreachedLevels.has(levelId)) continue;
+    const names = levelId ? unreachedLevels.get(levelId) : undefined;
+    if (!names) continue;
     add(area.id, {
       subtype: 'level_unreachable',
-      message: `No stop on level ${levelId} can be reached from ${unreachedLevels.get(levelId)}'s entrances`
+      message: `No stop on level ${levelId} in ${names.join(', ')} can be reached from an entrance`
     });
   }
 

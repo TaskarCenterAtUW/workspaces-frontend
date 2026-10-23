@@ -64,7 +64,10 @@ export function levelProblems(
     .filter(level => stationId && stationsByLevel.get(level.levelId)?.has(stationId))
     .map(level => ({ levelId: level.levelId, label: label(level.levelId, level.name) }));
 
+  // As TDEI's validation checks them: stops with no level_id in a station that uses levels.
+  const stationsUsingLevels = new Set([...stationsByLevel.values()].flatMap(ids => [...ids]));
   for (const stop of unleveledStops(entities)) {
+    if (!stationsUsingLevels.has(stationOfStop.get(stop.id) ?? '')) continue;
     add(stop.id, {
       subtype: 'missing_level',
       message: `This ${typeName(stop)} has no level_id`,
@@ -117,7 +120,15 @@ export function levelProblems(
     });
   }
 
-  for (const { stop, levelId, meters } of farStops(entities)) {
+  // Stops far from the rest of their level, within their own station (as TDEI's
+  // validation checks them; stations may share level_ids).
+  const stopsByStation = new Map<string, typeof entities>();
+  for (const entity of entities) {
+    const stationId = stationOfStop.get(entity.id);
+    if (stationId) stopsByStation.set(stationId, [...(stopsByStation.get(stationId) ?? []), entity]);
+  }
+  const far = [...stopsByStation.values()].flatMap(stops => farStops(stops));
+  for (const { stop, levelId, meters } of far) {
     add(stop.id, {
       subtype: 'far_stop',
       message: `This ${typeName(stop)} is ${distanceLabel(meters)} from the rest of level ${levelId}`,

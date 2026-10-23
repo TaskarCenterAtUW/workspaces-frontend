@@ -70,7 +70,18 @@ describe('connectivityProblems', () => {
       .toContainEqual(['s', 'no_entrance', 'ERROR']);
   });
 
-  it('flags a level only if no station\'s entrances reach any stop on it', () => {
+  it('follows routes from any station\'s entrances, as TDEI\'s validation does', () => {
+    const other = node('t', { location_type: '1', stop_id: 'T', stop_name: 'Annex' });
+    const annex = (id: string, type: string) => node(id, { location_type: type, parent_station: 'T' });
+    const problems = found([
+      station, stop('e', '2'), stop('n', '3'), pathway('w1', 'e', 'n', '1'),
+      other, annex('q', '0'), pathway('w2', 'n', 'q', '1') // T's platform is reached through S's entrance
+    ]);
+    expect(problems).toContainEqual(['t', 'no_entrance', 'ERROR']);
+    expect(problems.filter(([id]) => id === 'q')).toEqual([]); // not unreachable
+  });
+
+  it('flags a level a station uses when none of its stops on it can be reached from an entrance', () => {
     const level = (id: string, levelId: string): LevelEntity =>
       ({ id, type: 'way', nodes: ['c1', 'c2', 'c3', 'c1'], tags: { level_id: levelId, level_index: '0' } });
     const problems = found([
@@ -81,6 +92,10 @@ describe('connectivityProblems', () => {
       level('a0', 'L0'), level('a2', 'L2')
     ]);
     expect(problems).toContainEqual(['a2', 'level_unreachable', 'ERROR']);
+    expect(connectivityProblems([
+      station, stop('e', '2', 'L0'), stop('p', '0', 'L0'), stop('q', '0', 'L2'), stop('r', '3', 'L2'),
+      pathway('w1', 'e', 'p', '1'), pathway('w2', 'q', 'r', '1'), level('a2', 'L2')
+    ]).get('a2')!.map(problem => problem.message)).toEqual(['No stop on level L2 in Central can be reached from an entrance']);
     expect(problems.filter(([id]) => id === 'a0')).toEqual([]);
   });
 
@@ -145,23 +160,21 @@ describe('connectivityProblems', () => {
       pathway('w1', 'e', 'p', '1'), pathway('w2', 'p', 'e', '1'), // two two-way walkways
       pathway('w3', 'e', 'p', '5'), // an elevator alongside
       pathway('w4', 'e', 'p', '4', false), pathway('w5', 'p', 'e', '4', false) // escalators up and down
-    ], 'duplicate_pathway')).toEqual([['w1', 'duplicate_pathway'], ['w2', 'duplicate_pathway']]);
+    ], 'duplicate_pathway')).toEqual([['w2', 'duplicate_pathway']]); // the second, as a duplicate of the first
   });
 
-  it('flags them only when they\'re drawn about the same length', () => {
-    const ends = [at(stop('e', '2'), [0, 0]), at(stop('p', '0'), [0.001, 0])];
-    const routes = [
-      pathway('w1', 'e', 'p', '1'), // straight: ~111 m
-      { id: 'w2', type: 'way', nodes: ['e', 'k1', 'p'], tags: { pathway_mode: '1', is_bidirectional: '1' } }, // ~114 m: a copy
-      { id: 'w3', type: 'way', nodes: ['e', 'k2', 'p'], tags: { pathway_mode: '1', is_bidirectional: '1' } } // ~245 m: another route
-    ];
+  it('flags them only when their lengths are within 10%, or one has none', () => {
     expect(only([
-      station, ...ends, at(node('k1'), [0.0005, 0.0001]), at(node('k2'), [0.0005, 0.001]), ...routes
-    ], 'duplicate_pathway')).toEqual([['w1', 'duplicate_pathway'], ['w2', 'duplicate_pathway']]);
+      station, stop('e', '2'), stop('p', '0'),
+      pathway('w1', 'e', 'p', '1', true, { length: '111' }),
+      pathway('w2', 'e', 'p', '1', true, { length: '114' }), // a copy
+      pathway('w3', 'e', 'p', '1', true, { length: '245' }), // another route
+      pathway('w4', 'e', 'p', '1') // no length: matches
+    ], 'duplicate_pathway')).toEqual([['w2', 'duplicate_pathway'], ['w4', 'duplicate_pathway']]);
   });
 
-  it('suggests checking a length or traversal_time that doesn\'t fit the drawing', () => {
-    // e to p is drawn about 111 m (0.001° of longitude at the equator).
+  it('suggests checking a length or traversal_time that doesn\'t fit the distance between its stops', () => {
+    // e and p are about 111 m apart (0.001° of longitude at the equator).
     const ends = [at(stop('e', '2'), [0, 0]), at(stop('p', '0'), [0.001, 0])];
     const lengthOf = (length: string) => only([station, ...ends, pathway('w', 'e', 'p', '1', true, { length })], 'length_mismatch');
     expect(lengthOf('111')).toEqual([]);
@@ -175,6 +188,31 @@ describe('connectivityProblems', () => {
     expect(timeOf('120')).toEqual([]); // ~0.9 m/s
     expect(timeOf('5000')).toEqual([['w', 'traversal_time_mismatch']]); // ~0.02 m/s
     expect(timeOf('10')).toEqual([['w', 'traversal_time_mismatch']]); // ~11 m/s
+    // A length is used when there is one: 10 m in 120 s is ~0.08 m/s.
+    expect(only([station, ...ends, pathway('w', 'e', 'p', '3', true, { length: '10', traversal_time: '120' })],
+      'traversal_time_mismatch')).toEqual([['w', 'traversal_time_mismatch']]);
+  });
+
+  it('flags a pathway whose stops are farther apart than its kind spans', () => {
+    // e and p are about 111 m apart: too far for an elevator (50 m), not for stairs (150 m) or a walkway (500 m).
+    const ends = [at(stop('e', '2'), [0, 0]), at(stop('p', '0'), [0.001, 0])];
+    expect(only([station, ...ends, pathway('w1', 'e', 'p', '5'), pathway('w2', 'e', 'p', '2'), pathway('w3', 'e', 'p', '1')],
+      'pathway_ends_far_apart')).toEqual([['w1', 'pathway_ends_far_apart']]);
+  });
+
+  it('flags a stop more than 500 m from its station', () => {
+    const stationAt = at(station, [0, 0]);
+    expect(only([stationAt, at(stop('e', '2'), [0.001, 0]), at(stop('p', '0'), [0.01, 0])], 'far_from_station'))
+      .toEqual([['p', 'far_from_station']]); // ~1.1 km; e is ~111 m
+  });
+
+  it('measures the straight line between the stops, not the drawing, as the GTFS export carries it', () => {
+    const ends = [at(stop('e', '2'), [0, 0]), at(stop('p', '0'), [0.001, 0])];
+    const bent = { id: 'w', type: 'way', nodes: ['e', 'k', 'p'], tags: { pathway_mode: '1', is_bidirectional: '1', length: '111' } };
+    expect(only([station, ...ends, at(node('k'), [0.0005, 0.002]), bent], 'length_mismatch')).toEqual([]);
+    // Stops under 1 m apart likely have copied coordinates, so they're not measured.
+    const close = [at(stop('e', '2'), [0, 0]), at(stop('p', '0'), [0.000001, 0])];
+    expect(only([station, ...close, pathway('w', 'e', 'p', '1', true, { length: '400' })], 'length_mismatch')).toEqual([]);
   });
 
   it('flags a stair_count whose sign doesn\'t match going up or down', () => {
@@ -194,6 +232,12 @@ describe('connectivityProblems', () => {
     ], 'walkway_changes_level');
     expect(walk()).toEqual([['w', 'walkway_changes_level']]);
     expect(walk({ max_slope: '0.08' })).toEqual([]);
+    // Levels at the same height aren't a change of level.
+    const level = (id: string, levelId: string): LevelEntity =>
+      ({ id, type: 'way', nodes: ['c1', 'c2', 'c3', 'c1'], tags: { level_id: levelId, level_index: '0' } });
+    expect(only([
+      station, stop('e', '2', 'L0'), stop('p', '0', 'L1'), level('a0', 'L0'), level('a1', 'L1'), pathway('w', 'e', 'p', '1')
+    ], 'walkway_changes_level')).toEqual([]);
   });
 
   it('flags a boarding area on a different level from its platform', () => {

@@ -80,7 +80,9 @@ export const CONNECTIVITY_SEVERITY: Record<ConnectivitySubtype, TdeiSeverity> = 
   pathway_to_platform_with_boarding_areas: 'ERROR', // MobilityData pathway_to_platform_with_boarding_areas
   pathway_loop: 'WARNING', // MobilityData pathway_loop
   pathway_to_street_access_stop: 'ERROR', // MobilityData pathway_to_stop_with_access_outside_of_station_pathways
-  elevator_end_no_level: 'ERROR' // MobilityData missing_level_id
+  elevator_end_no_level: 'ERROR', // MobilityData missing_level_id
+  pathway_ends_far_apart: 'WARNING', // tdei_pathway_ends_far_apart
+  far_from_station: 'WARNING' // tdei_stop_far_from_station
 };
 
 /** Escalators and elevators on one level fail the upload; stairs (often a few steps within a level) don't (tdei_stairs_same_level). */

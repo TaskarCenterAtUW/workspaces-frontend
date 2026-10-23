@@ -297,6 +297,10 @@ export const CONNECTIVITY_HELP: Record<string, string> = {
   exit_gate_two_way: 'In GTFS, exit gates (pathway_mode 7) only let riders leave, so is_bidirectional must be 0.',
   escalator_two_way: 'Escalators usually run one way. Set is_bidirectional to 0 unless it really runs both ways.',
   isolated: 'In GTFS, riders get between stops along pathways. Connect this stop with a pathway, or delete it.',
+  pathway_ends_far_apart: 'The stops at its ends are farther apart than this kind of pathway reaches, so one is probably '
+    + 'in the wrong spot. Move it, or check its level.',
+  far_from_station: 'Stops belong near their station. Move this one (or its whole level) into place, or check its '
+    + 'parent_station.',
   duplicate_pathway_id: 'In GTFS, each pathway_id must be unique. Change one, or clear it (the export '
     + 'generates a pathway_id when there\'s none).',
   dead_end: 'Generic nodes are where pathways meet. Connect another pathway here, or make this end a stop '

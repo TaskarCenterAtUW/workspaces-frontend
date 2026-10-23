@@ -110,3 +110,32 @@ describe('outside the level\'s outline', () => {
     ]);
   });
 });
+
+describe('scoped as TDEI\'s validation checks them', () => {
+  const subtypesOf = (entities: (LevelEntity & { loc?: [number, number] })[], subtype: string) =>
+    [...levelProblems(entities, () => undefined)]
+      .flatMap(([id, problems]) => problems.filter(p => p.subtype === subtype).map(() => id));
+
+  it('flags a stop with no level_id only in a station that uses levels', () => {
+    expect(subtypesOf([
+      ...station('A', [['A_L0', '0']]),
+      node('a-p', { location_type: '0', parent_station: 'STN_A' }), // A uses levels
+      node('s-B', { location_type: '1', stop_id: 'STN_B', stop_name: 'B' }),
+      node('b-p', { location_type: '0', parent_station: 'STN_B' }), // B doesn't
+      node('loose', { location_type: '3' }) // in no station
+    ], 'missing_level')).toEqual(['a-p']);
+  });
+
+  it('compares a stop with the rest of its level in its own station', () => {
+    const at = (id: string, code: string, loc: [number, number]) =>
+      ({ ...node(id, { location_type: '3', parent_station: `STN_${code}`, level_id: 'L0' }), loc });
+    const stationNode = (code: string) => node(`s-${code}`, { location_type: '1', stop_id: `STN_${code}`, stop_name: code });
+    // Two stations about 11 km apart share level L0; each one's stops are together.
+    const entities = [
+      stationNode('A'), at('a1', 'A', [0, 0]), at('a2', 'A', [0.0001, 0]), at('a3', 'A', [0, 0.0001]),
+      stationNode('B'), at('b1', 'B', [0.1, 0]), at('b2', 'B', [0.1001, 0]), at('b3', 'B', [0.1, 0.0001]), at('b4', 'B', [0.1, 0.0002])
+    ];
+    expect(subtypesOf(entities, 'far_stop')).toEqual([]);
+    expect(subtypesOf([...entities, at('a4', 'A', [0.01, 0])], 'far_stop')).toEqual(['a4']); // ~1.1 km from the rest of A
+  });
+});
