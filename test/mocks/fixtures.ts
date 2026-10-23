@@ -53,6 +53,30 @@ export const myWorkspaces = [
 // A single WorkspaceResponse for `GET /api/v1/workspaces/{id}` (settings/edit/etc).
 export const aWorkspace = myWorkspaces[0]!;
 
+// A pair of workspaces the merge flow accepts for each other: a workspace is an
+// eligible merge target only when it shares both `tdeiRecordId` and
+// `tdeiProjectGroupId` with the one being merged. The workspaces above carry
+// `tdeiRecordId: null`, which is deliberately eligible for nothing.
+//
+// The dataset id is a UUID because the spec types `tdeiRecordId` as
+// `format: uuid`, and the contract validator checks formats.
+const MERGE_DATASET_ID = '33333333-3333-4333-8333-333333333333';
+
+export const mergeWorkspaceA = {
+  ...myWorkspaces[0]!,
+  tdeiRecordId: MERGE_DATASET_ID
+};
+
+export const mergeWorkspaceB = {
+  ...myWorkspaces[1]!,
+  type: 'osw',
+  title: 'Seattle Sidewalks (survey)',
+  tdeiRecordId: MERGE_DATASET_ID,
+  // The base fixture is mid-import, which makes it ineligible as a merge
+  // target. A merge pair is two finished imports.
+  importStatus: 'completed'
+};
+
 // Shape mirrors `GET project-group-roles/{subject}` (the TDEI user API — not in
 // the new-API OpenAPI spec). The client maps `project_group_name` → `name`.
 export const projectGroups = [

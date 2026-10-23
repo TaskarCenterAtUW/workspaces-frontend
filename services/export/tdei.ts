@@ -133,16 +133,28 @@ export class TdeiExporter {
     this._context.status = status.validate;
     this._validate(workspace);
 
-    if (!metadata.dataset_area) {
-      this._context.status = status.bbox;
-      const bbox = await this._osmClient.getWorkspaceBbox(workspace.id);
+    this._context.status = status.bbox;
+    const bbox = await this._osmClient.getWorkspaceBbox(workspace.id);
 
-      if (bbox) {
-        const { min_lat, min_lon, max_lat, max_lon } = bbox
-        metadata.dataset_area = geojson.featureCollection([
-          geojson.bboxToPolygon(min_lat, min_lon, max_lat, max_lon)
-        ])
-      }
+    // No bounding box means the workspace has never held a node. The OSM reads
+    // reduce that to an empty result rather than failing, which suits an
+    // archive download but not an upload: an empty dataset published to TDEI
+    // cannot be undone from here. The API computes the box over every node
+    // version, deleted ones included, so a workspace whose data was all
+    // deleted still has one and is not refused here.
+    //
+    if (!bbox) {
+      throw new TdeiExporterValidationError(
+        `Workspace "${workspace.title}" holds no data, so there is nothing to export. `
+        + 'Add data to it, then export again.'
+      );
+    }
+
+    if (!metadata.dataset_area) {
+      const { min_lat, min_lon, max_lat, max_lon } = bbox;
+      metadata.dataset_area = geojson.featureCollection([
+        geojson.bboxToPolygon(min_lat, min_lon, max_lat, max_lon)
+      ]);
     }
 
     let changesetArchive: Blob | undefined;
