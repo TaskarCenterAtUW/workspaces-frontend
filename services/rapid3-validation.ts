@@ -307,7 +307,10 @@ export const CONNECTIVITY_HELP: Record<string, string> = {
     + 'riders use (e.g. a platform).',
   duplicate_pathway: 'Two pathways of the same type join the same stops in the same direction. Delete one, '
     + 'unless they really are separate (e.g. two side-by-side walkways).',
-  length_mismatch: 'length is in meters, along the pathway. Check the value, or the pathway\'s drawing.',
+  length_too_short: 'length is in meters, along the pathway, so it can\'t be much shorter than the distance between '
+    + 'its stops. Check the value, or move a stop that\'s in the wrong spot.',
+  length_too_long: 'length is in meters, along the pathway. A winding route can be much longer than the distance '
+    + 'between its stops; if this one isn\'t, check the value.',
   traversal_time_mismatch: 'traversal_time is the seconds it takes to ride this pathway. Check the value, or '
     + 'the pathway\'s drawing.',
   stair_count_direction: 'In GTFS, stair_count is positive when the stairs go up from the pathway\'s first '

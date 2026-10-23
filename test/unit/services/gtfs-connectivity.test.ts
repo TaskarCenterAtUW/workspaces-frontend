@@ -176,13 +176,18 @@ describe('connectivityProblems', () => {
   it('suggests checking a length or traversal_time that doesn\'t fit the distance between its stops', () => {
     // e and p are about 111 m apart (0.001° of longitude at the equator).
     const ends = [at(stop('e', '2'), [0, 0]), at(stop('p', '0'), [0.001, 0])];
-    const lengthOf = (length: string) => only([station, ...ends, pathway('w', 'e', 'p', '1', true, { length })], 'length_mismatch');
+    const lengthOf = (length: string) => only([station, ...ends, pathway('w', 'e', 'p', '1', true, { length })],
+      'length_too_short', 'length_too_long');
     expect(lengthOf('111')).toEqual([]);
     expect(lengthOf('80')).toEqual([]); // within half to double
-    expect(lengthOf('20')).toEqual([['w', 'length_mismatch']]);
-    expect(lengthOf('400')).toEqual([['w', 'length_mismatch']]);
+    expect(lengthOf('400')).toEqual([['w', 'length_too_long']]);
+    // Too short only between points: p is a platform, an area placed at one point.
+    expect(lengthOf('20')).toEqual([]);
+    const nodes = [at(stop('e', '2'), [0, 0]), at(stop('n', '3'), [0.001, 0])];
+    expect(only([station, ...nodes, pathway('w', 'e', 'n', '1', true, { length: '20' })], 'length_too_short'))
+      .toEqual([['w', 'length_too_short']]);
     // Stairs aren't drawn at their real length.
-    expect(only([station, ...ends, pathway('w', 'e', 'p', '2', true, { length: '20' })], 'length_mismatch')).toEqual([]);
+    expect(only([station, ...ends, pathway('w', 'e', 'p', '2', true, { length: '400' })], 'length_too_long')).toEqual([]);
 
     const timeOf = (traversal_time: string) => only([station, ...ends, pathway('w', 'e', 'p', '3', true, { traversal_time })], 'traversal_time_mismatch');
     expect(timeOf('120')).toEqual([]); // ~0.9 m/s
@@ -209,10 +214,10 @@ describe('connectivityProblems', () => {
   it('measures the straight line between the stops, not the drawing, as the GTFS export carries it', () => {
     const ends = [at(stop('e', '2'), [0, 0]), at(stop('p', '0'), [0.001, 0])];
     const bent = { id: 'w', type: 'way', nodes: ['e', 'k', 'p'], tags: { pathway_mode: '1', is_bidirectional: '1', length: '111' } };
-    expect(only([station, ...ends, at(node('k'), [0.0005, 0.002]), bent], 'length_mismatch')).toEqual([]);
+    expect(only([station, ...ends, at(node('k'), [0.0005, 0.002]), bent], 'length_too_short', 'length_too_long')).toEqual([]);
     // Stops under 1 m apart likely have copied coordinates, so they're not measured.
     const close = [at(stop('e', '2'), [0, 0]), at(stop('p', '0'), [0.000001, 0])];
-    expect(only([station, ...close, pathway('w', 'e', 'p', '1', true, { length: '400' })], 'length_mismatch')).toEqual([]);
+    expect(only([station, ...close, pathway('w', 'e', 'p', '1', true, { length: '400' })], 'length_too_long')).toEqual([]);
   });
 
   it('flags a stair_count whose sign doesn\'t match going up or down', () => {

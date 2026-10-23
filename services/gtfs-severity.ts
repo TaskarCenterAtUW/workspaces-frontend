@@ -51,7 +51,7 @@ export const LEVEL_CHECK_SEVERITY: Record<LevelCheckSubtype, TdeiSeverity> = {
   missing_level: 'WARNING', // tdei_missing_level_id
   level_area_no_id: 'WARNING', // editor only
   large_outline: 'WARNING', // editor only
-  far_stop: 'INFO', // tdei_stop_far_from_level
+  far_stop: 'WARNING', // tdei_stop_far_from_level
   station_level_order: 'WARNING', // tdei_level_index_repeated, tdei_level_index_far_from_street
   outside_level: 'WARNING' // editor only
 };
@@ -71,11 +71,12 @@ export const CONNECTIVITY_SEVERITY: Record<ConnectivitySubtype, TdeiSeverity> = 
   duplicate_pathway_id: 'ERROR', // MobilityData duplicate_key
   dead_end: 'WARNING', // MobilityData pathway_dangling_generic_node
   duplicate_pathway: 'WARNING', // tdei_duplicate_pathway
-  length_mismatch: 'INFO', // tdei_length_mismatch
+  length_too_short: 'WARNING', // tdei_length_too_short
+  length_too_long: 'INFO', // tdei_length_too_long
   traversal_time_mismatch: 'WARNING', // tdei_traversal_time_mismatch
-  stair_count_direction: 'ERROR', // tdei_stair_count_direction
+  stair_count_direction: 'WARNING', // tdei_stair_count_direction
   walkway_changes_level: 'WARNING', // tdei_walkway_changes_level
-  boarding_area_level: 'WARNING', // tdei_boarding_area_level
+  boarding_area_level: 'ERROR', // tdei_boarding_area_level
   pathway_to_station: 'ERROR', // MobilityData pathway_to_wrong_location_type
   pathway_to_platform_with_boarding_areas: 'ERROR', // MobilityData pathway_to_platform_with_boarding_areas
   pathway_loop: 'WARNING', // MobilityData pathway_loop

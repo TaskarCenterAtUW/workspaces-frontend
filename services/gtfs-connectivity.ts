@@ -14,7 +14,7 @@ export type ConnectivitySubtype
     | 'level_unreachable' | 'no_entrance'
     | 'same_level' | 'exit_gate_two_way' | 'escalator_two_way'
     | 'isolated' | 'duplicate_pathway_id'
-    | 'dead_end' | 'duplicate_pathway' | 'length_mismatch' | 'traversal_time_mismatch'
+    | 'dead_end' | 'duplicate_pathway' | 'length_too_short' | 'length_too_long' | 'traversal_time_mismatch'
     | 'stair_count_direction' | 'walkway_changes_level' | 'boarding_area_level'
     | 'pathway_to_station' | 'pathway_to_platform_with_boarding_areas' | 'pathway_loop'
     | 'pathway_to_street_access_stop' | 'elevator_end_no_level'
@@ -54,6 +54,8 @@ const MIN_MEASURED_METERS = 1;
 const MAX_PATHWAY_SPAN_METERS: Record<string, number> = { 1: 500, 3: 500, 2: 150, 4: 150, 5: 50, 6: 50, 7: 50 };
 const MAX_STOP_FROM_STATION_METERS = 500;
 
+/** location_types that are areas placed at one point: platforms (also stops with no location_type) and boarding areas. */
+const AREA_TYPES = new Set(['', '0', '4']);
 /** location_types riders board from: platforms (also stops with no location_type) and boarding areas. */
 const BOARDING_TYPES = new Set(['', '0', '4']);
 /** Pathway types by pathway_mode, for messages. */
@@ -177,13 +179,21 @@ export function connectivityProblems(entities: LevelEntity[]): Map<string | numb
     const twoWay = tags.is_bidirectional?.trim() === '1';
     const key = `${mode}|${twoWay ? [String(from), String(to)].sort().join('|') : `${from}>${to}`}`;
     pairs.set(key, [...(pairs.get(key) ?? []), { id: way.id, length }]);
-    if (apart && FLAT_MODES.has(mode) && length !== undefined
-      && (length < apart * LENGTH_RATIO.min || length > apart * LENGTH_RATIO.max)
-      && Math.abs(length - apart) >= LENGTH_SLACK_METERS) {
-      add(way.id, {
-        subtype: 'length_mismatch',
-        message: `length is ${length} m, but its stops are about ${Math.round(apart)} m apart in a straight line`
-      });
+    if (apart && FLAT_MODES.has(mode) && length !== undefined && Math.abs(length - apart) >= LENGTH_SLACK_METERS) {
+      // A platform or boarding area is an area placed at one point, so a path into it can be
+      // shorter than the line to that point.
+      const area = [from, to].some(id => AREA_TYPES.has(byId.get(id)?.tags?.location_type?.trim() ?? ''));
+      if (length < apart * LENGTH_RATIO.min && !area) {
+        add(way.id, {
+          subtype: 'length_too_short',
+          message: `length is ${length} m, but its stops are about ${Math.round(apart)} m apart in a straight line`
+        });
+      } else if (length > apart * LENGTH_RATIO.max) {
+        add(way.id, {
+          subtype: 'length_too_long',
+          message: `length is ${length} m, over twice the ${Math.round(apart)} m between its stops in a straight line`
+        });
+      }
     }
     const time = positive(tags.traversal_time);
     const distance = length ?? apart;
