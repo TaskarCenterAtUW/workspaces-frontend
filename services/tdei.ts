@@ -367,7 +367,8 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
         id: d.tdei_dataset_id,
         name: d.metadata?.dataset_detail?.name ?? d.tdei_dataset_id,
         version: d.metadata?.dataset_detail?.version,
-        projectGroupName: d.project_group?.name
+        projectGroupName: d.project_group?.name,
+        raw: d
       }));
   }
 
@@ -674,6 +675,28 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
 
     // Re-login worked, so retry with the new token.
     return await this.#sendWithAccessToken(send);
+  }
+
+  /**
+   * Restores the session after an API rejected its access token: refreshes the
+   * token, and if the refresh is rejected too (or the refresh token has
+   * expired), asks the user to sign in again, like `sendProtectedRequest`.
+   * Other failures (e.g. offline) are thrown, for the caller to retry later.
+   */
+  async recoverSession(): Promise<void> {
+    if (!this.#auth.refreshTokenExpired) {
+      try {
+        await this.refreshToken();
+        return;
+      }
+      catch (error: unknown) {
+        if (!this.#isUnauthorized(error)) {
+          throw error;
+        }
+      }
+    }
+
+    await this.#requestSessionReauthentication();
   }
 
   async #sendWithAccessToken(

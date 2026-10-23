@@ -72,6 +72,7 @@
             <project-group-picker
               id="create_file_project_group"
               v-model="projectGroupId"
+              :options="eligibleProjectGroups"
               :disabled="context.active || createdWorkspaceId !== undefined"
               required
             />
@@ -177,14 +178,40 @@ const importer = new FileImporter(workspacesClient, context);
 const createdWorkspaceId = ref<number | undefined>();
 const creationInitiatedModal = useTemplateRef<ComponentExposed<typeof WorkspaceCreationModal>>('creationInitiatedModal');
 
+const {
+  canCreateAnyWorkspace,
+  getEligibleProjectGroupsForType,
+  load: loadCapabilities
+} = useUserCapabilities();
+
+await loadCapabilities();
+
+if (!canCreateAnyWorkspace.value) {
+  await navigateTo('/dashboard');
+}
+
 const workspaceTitle = ref('');
 const projectGroupId = ref<string | null>(null);
 const datasetType = ref<string | null>(null);
 const {
   available: titleAvailable,
   checking: checkingTitleAvailability,
-  error: titleAvailabilityError,
+  error: titleAvailabilityError
 } = useWorkspaceTitleAvailability(workspaceTitle, projectGroupId);
+
+const eligibleProjectGroups = computed(() =>
+  getEligibleProjectGroupsForType(datasetType.value ?? undefined)
+);
+
+watch(
+  eligibleProjectGroups,
+  (groups) => {
+    if (groups.length > 0 && (!projectGroupId.value || !groups.some(g => g.tdei_project_group_id === projectGroupId.value))) {
+      projectGroupId.value = groups[0]!.tdei_project_group_id;
+    }
+  },
+  { immediate: true }
+);
 const datasetFile = ref<File | null>(null);
 const archiveInspection = ref<DatasetArchiveInspection | null>(null);
 const archiveChecking = ref(false);

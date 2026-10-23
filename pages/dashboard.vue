@@ -17,6 +17,7 @@
       </div>
 
       <nuxt-link
+        v-if="canCreateInCurrentProjectGroup"
         class="btn btn-primary dashboard-create-button"
         to="/workspace/create"
       >
@@ -27,6 +28,31 @@
         />
         Create Workspace
       </nuxt-link>
+      <div
+        v-else-if="canCreateAnyWorkspace"
+        class="dashboard-create-button-wrapper"
+        tabindex="0"
+      >
+        <button
+          type="button"
+          class="btn btn-primary dashboard-create-button disabled"
+          disabled
+          aria-disabled="true"
+        >
+          <app-icon
+            variant="add"
+            size="22"
+            no-margin
+          />
+          Create Workspace
+        </button>
+        <span
+          class="dashboard-disabled-tooltip"
+          role="tooltip"
+        >
+          You do not have permission to create workspaces in this project group
+        </span>
+      </div>
     </header>
     <section
       v-if="requestedWorkspaceNotFound"
@@ -63,6 +89,7 @@
       <h2>No workspaces yet</h2>
       <p>No workspaces exist in the selected project group.</p>
       <nuxt-link
+        v-if="canCreateInCurrentProjectGroup"
         class="btn btn-primary"
         to="/workspace/create"
       >
@@ -298,6 +325,13 @@ const [initialWorkspaces, { items: myProjectGroups }] = await Promise.all([
   tdeiUserClient.getMyProjectGroups(1, '', 10000)
 ]);
 const workspaces = ref<Workspace[]>(initialWorkspaces);
+
+const { setProjectGroups, canCreateInProjectGroup, canCreateAnyWorkspace } = useUserCapabilities();
+setProjectGroups(myProjectGroups);
+
+const canCreateInCurrentProjectGroup = computed(() =>
+  canCreateInProjectGroup(currentProjectGroup.value)
+);
 
 const rolesByProjectGroup = new Map(
   myProjectGroups.map(projectGroup => [projectGroup.tdei_project_group_id, projectGroup.roles])
@@ -688,6 +722,50 @@ $dashboard-create-button-radius: 0.375rem;
   border-radius: $dashboard-create-button-radius;
   box-shadow: $control-shadow;
   white-space: nowrap;
+}
+
+.dashboard-create-button-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: not-allowed;
+
+  .dashboard-create-button.disabled {
+    pointer-events: none;
+  }
+
+  .dashboard-disabled-tooltip {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    z-index: $zindex-tooltip;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.75rem;
+    color: $text-tooltip;
+    background: $surface-tooltip;
+    border-radius: $border-radius;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    pointer-events: none;
+    box-shadow: $box-shadow-sm;
+
+    &::after {
+      content: "";
+      position: absolute;
+      bottom: 100%;
+      right: 1.5rem;
+      border: 0.3rem solid transparent;
+      border-bottom-color: $surface-tooltip;
+    }
+  }
+
+  &:hover .dashboard-disabled-tooltip,
+  &:focus-within .dashboard-disabled-tooltip {
+    opacity: 1;
+    visibility: visible;
+  }
 }
 
 .dashboard-empty-state {

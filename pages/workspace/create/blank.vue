@@ -65,6 +65,8 @@
             <project-group-picker
               id="create_blank_project_group"
               v-model="projectGroupId"
+              :options="eligibleProjectGroups"
+              required
             />
           </div>
 
@@ -120,6 +122,18 @@ import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 import infoIcon from '~/assets/img/info-icon.svg';
 
+const {
+  canCreateAnyWorkspace,
+  getEligibleProjectGroupsForType,
+  load: loadCapabilities
+} = useUserCapabilities();
+
+await loadCapabilities();
+
+if (!canCreateAnyWorkspace.value) {
+  await navigateTo('/dashboard');
+}
+
 const creating = reactive(new LoadingContext());
 const workspaceTitle = ref('');
 const projectGroupId = ref<string | null>(null);
@@ -127,8 +141,22 @@ const datasetType = ref<string | null>('osw');
 const {
   available: titleAvailable,
   checking: checkingTitleAvailability,
-  error: titleAvailabilityError,
+  error: titleAvailabilityError
 } = useWorkspaceTitleAvailability(workspaceTitle, projectGroupId);
+
+const eligibleProjectGroups = computed(() =>
+  getEligibleProjectGroupsForType(datasetType.value ?? undefined)
+);
+
+watch(
+  eligibleProjectGroups,
+  (groups) => {
+    if (groups.length > 0 && (!projectGroupId.value || !groups.some(g => g.tdei_project_group_id === projectGroupId.value))) {
+      projectGroupId.value = groups[0]!.tdei_project_group_id;
+    }
+  },
+  { immediate: true }
+);
 
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0

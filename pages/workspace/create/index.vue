@@ -112,6 +112,13 @@ import createIcon from '~/assets/img/create-icon.svg';
 import createBlankIcon from '~/assets/img/create_blank.svg';
 import createTdeiIcon from '~/assets/img/create_tdei.svg';
 import createFileIcon from '~/assets/img/create_file.svg';
+
+const { canCreateAnyWorkspace, load: loadCapabilities } = useUserCapabilities();
+await loadCapabilities();
+
+if (!canCreateAnyWorkspace.value) {
+  await navigateTo('/dashboard');
+}
 </script>
 
 <style lang="scss" scoped>
