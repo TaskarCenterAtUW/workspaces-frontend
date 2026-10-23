@@ -340,6 +340,30 @@ test.describe('dashboard', () => {
     expect(bboxRequestCount).toBe(1);
   });
 
+  test('outlines nothing when the bbox API finds no data, even if the metadata names an area', async ({ page }) => {
+    // A broad default dataset area, as an empty workspace's TDEI metadata may carry.
+    const broadDatasetArea = {
+      type: 'Polygon',
+      coordinates: [[[-170, -60], [170, -60], [170, 75], [-170, 75], [-170, -60]]],
+    };
+
+    await seedAuthenticatedSession(page);
+    await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
+    await page.route('**/workspaces/mine', route => route.fulfill({
+      json: [{
+        ...aWorkspace,
+        tdeiMetadata: { metadata: { dataset_detail: { dataset_area: broadDatasetArea } } },
+      }],
+    }));
+    await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
+    await page.route('**/workspaces/1/bbox', route => route.fulfill({ status: 204 }));
+
+    await page.goto('/dashboard');
+
+    await expect(page.getByText('This workspace is empty.', { exact: true })).toBeVisible();
+    await expect(page.locator('.workspace-map-surface')).toBeHidden();
+  });
+
   test('treats a completed import with an unsuccessful response as failed', async ({ page }) => {
     const failedWorkspace = {
       id: 1769,
