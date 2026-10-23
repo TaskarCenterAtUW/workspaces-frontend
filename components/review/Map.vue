@@ -5,49 +5,18 @@
   />
 </template>
 
-<script lang="ts">
-import type { StyleSpecification } from 'maplibre-gl';
-</script>
-
 <script setup lang="ts">
 import maplibregl from 'maplibre-gl';
 import { MapLibreAugmentedDiffViewer } from '@osmcha/maplibre-adiff-viewer';
 
 import { changesetManager } from '~/services/index';
 import { prepareAdiffForMap } from '~/util/adiff';
+import { bingImageryStyle } from '~/util/map-style';
 import type { ReviewListItem } from '~/services/review';
 
 import type { AdiffAction } from '~/types/adiff';
 import type { OsmChangeset, OsmNote } from '~/types/osm';
 import type { TdeiFeedback } from '~/types/tdei';
-// import { OPENFREEMAP_STYLE_URL } from '~/util/map-style';
-// const reviewMapStyle = OPENFREEMAP_STYLE_URL;
-
-const reviewMapStyle: StyleSpecification = {
-  version: 8,
-  sources: {
-    bing: {
-      type: 'raster',
-      scheme: 'xyz',
-      tiles: [
-        'https://ecn.t0.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=587&mkt=en-gb&n=z',
-        'https://ecn.t1.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=587&mkt=en-gb&n=z',
-        'https://ecn.t2.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=587&mkt=en-gb&n=z',
-        'https://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=587&mkt=en-gb&n=z',
-      ],
-      tileSize: 256,
-      maxzoom: 20,
-      attribution: 'Imagery © Microsoft Corporation',
-    },
-  },
-  layers: [
-    {
-      id: 'imagery',
-      type: 'raster',
-      source: 'bing',
-    },
-  ],
-};
 
 interface Props {
   workspaceId: number;
@@ -93,7 +62,7 @@ function initMap() {
   if (mapRef.value) {
     reviewMap = new maplibregl.Map({
       container: mapRef.value,
-      style: reviewMapStyle,
+      style: bingImageryStyle(),
     });
 
     resizeObserver = new ResizeObserver(() => reviewMap?.resize());
@@ -117,7 +86,7 @@ async function resetMap(): Promise<void> {
     reviewMap.once('style.load', onStyleLoaded);
 
     try {
-      reviewMap.setStyle(reviewMapStyle, { diff: false });
+      reviewMap.setStyle(bingImageryStyle(), { diff: false });
     }
     catch (error) {
       window.clearTimeout(timeoutId);

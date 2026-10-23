@@ -149,7 +149,13 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
       }
 
       // The v1 API returns coordinates already in decimal degrees.
-      return await response.json();
+      const bbox: BoundingBox | null = await response.json();
+
+      if (!bbox || !isCompleteBbox(bbox)) {
+        return undefined;
+      }
+
+      return bbox;
     }
     finally {
       this._baseUrl = originalBaseUrl;
@@ -167,15 +173,43 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     workspace.createdByName = this.#tdeiClient.auth.displayName;
 
     const workspaceResponse = await this._post('workspaces', workspace);
-    const workspaceId = (await workspaceResponse.json()).workspaceId;
+    const body: unknown = await workspaceResponse.json();
+    const workspaceId = (body as { workspaceId?: unknown } | null)?.workspaceId;
+
+    // Checked because a failed commit rolls back by deleting this ID, and a
+    // rollback must never be aimed at something the response did not name:
+    //
+    if (typeof workspaceId !== 'number' || !Number.isInteger(workspaceId)) {
+      throw new Error('Workspace creation response did not include a valid integer workspace ID.');
+    }
 
     return workspaceId;
   }
 
-  /// Create a new workspace (Blank) and provision it in the OSM API.
+  /** Creates the workspace row and provisions its OSM database. */
   async createBlankWorkspace(workspace: WorkspaceCreation): Promise<WorkspaceId> {
     const workspaceId = await this.createWorkspace(workspace);
-    await this.#osmClient.createWorkspace(workspaceId);
+
+    try {
+      await this.#osmClient.createWorkspace(workspaceId);
+    }
+    catch (error) {
+      // The row exists now but has no OSM database behind it, so leaving it
+      // would put an unusable workspace on the dashboard and every retry would
+      // add another. The provisioning failure is the one to report, but a
+      // failed rollback is logged rather than lost, since it leaves that
+      // workspace behind:
+      //
+      try {
+        await this.deleteWorkspace(workspaceId);
+      }
+      catch (rollbackError) {
+        console.warn(`Rollback of workspace ${workspaceId} failed.`, rollbackError);
+      }
+
+      throw error;
+    }
+
     return workspaceId;
   }
 
@@ -380,4 +414,9 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
       throw e;
     }
   }
+}
+
+function isCompleteBbox(bbox: BoundingBox): boolean {
+  return [bbox.min_lon, bbox.min_lat, bbox.max_lon, bbox.max_lat]
+    .every(Number.isFinite);
 }

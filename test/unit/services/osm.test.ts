@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
-import { OsmApiClient } from '~/services/osm';
+import { describe, expect, it, vi } from 'vitest';
+import { BaseHttpClientError } from '~/services/http';
+import { OsmApiClient, OsmApiClientError } from '~/services/osm';
 import { server } from '../../mocks/server';
 
 import type { TdeiClient } from '~/services/tdei';
@@ -41,7 +42,7 @@ function stubDownload(xml: string = OSM_CHANGE_XML) {
 describe('OsmApiClient.getOsmChange', () => {
   // Regression: parseOsmChangeXml is async (it resolves a Promise once the
   // streaming sax parse completes). Using it without `await` left a Promise
-  // here, which JSON.stringify's to "{}" — the bug that made the exported
+  // here, which JSON.stringify's to "{}", the bug that made the exported
   // changesets/{id}.json empty even when the .osc had content.
   it('parses the downloaded osmChange XML into a populated object', async () => {
     stubDownload();
@@ -116,7 +117,7 @@ describe('OsmApiClient.getChangesetComments', () => {
 
 describe('OsmApiClient comment posting', () => {
   // Regression: the comment text must be sent in the query string, not a
-  // multipart body — the OSM API only reads params[:text] from the query, and
+  // multipart body. The OSM API only reads params[:text] from the query, and
   // this backend 401s a write whose text it can't find.
   it('posts a changeset comment with the message text as a query parameter', async () => {
     const urls: string[] = [];
@@ -158,5 +159,92 @@ describe('OsmApiClient comment posting', () => {
 
     // URLSearchParams encodes the space as `+`, not `%20`.
     expect(urls.some(u => u.includes('text=thanks+for+flagging'))).toBe(true);
+  });
+});
+
+describe('OsmApiClient.getWorkspaceData', () => {
+  // The API reports no bounding box for a workspace that has never held a
+  // node, and the archive export reads such a workspace legitimately, so this
+  // must not throw.
+  it('reads an empty workspace as no elements rather than failing', async () => {
+    const client = makeClient();
+
+    vi.spyOn(client, 'getExportBbox').mockResolvedValue(undefined);
+
+    await expect(client.getWorkspaceData(1)).resolves.toEqual([]);
+  });
+
+  it('exports an empty workspace as an empty document rather than failing', async () => {
+    const client = makeClient();
+
+    vi.spyOn(client, 'getExportBbox').mockResolvedValue(undefined);
+
+    const blob = await client.exportWorkspaceXml(1);
+
+    expect(await blob.text()).toContain('<osm version="0.6"');
+  });
+
+  it('does not request map data when there is no bounding box', async () => {
+    const client = makeClient();
+    let requested = false;
+
+    server.use(
+      http.get(`${OSM_API_BASE}map.json`, () => {
+        requested = true;
+
+        return HttpResponse.json({ elements: [] });
+      })
+    );
+
+    vi.spyOn(client, 'getExportBbox').mockResolvedValue(undefined);
+
+    await client.getWorkspaceData(1);
+
+    expect(requested).toBe(false);
+  });
+});
+
+describe('OsmApiClient errors', () => {
+  it('reports a failed OSM request as an OSM API error', async () => {
+    server.use(
+      http.delete(`${OSM_API_BASE}workspaces/7`, () => new HttpResponse(null, { status: 500 }))
+    );
+
+    const error = await makeClient().deleteWorkspace(7).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(OsmApiClientError);
+    expect((error as OsmApiClientError).response.status).toBe(500);
+  });
+
+  it('passes a failed session refresh through rather than as the OSM server\'s answer', async () => {
+    // The refresh fails before the OSM request is sent, so nothing here came
+    // from the OSM server.
+    const refreshFailure = new BaseHttpClientError(new Response(null, { status: 503 }));
+    const client = new OsmApiClient(OSM_WEB_BASE, OSM_API_BASE, {
+      sendProtectedRequest: async () => {
+        throw refreshFailure;
+      }
+    } as unknown as TdeiClient);
+
+    await expect(client.deleteWorkspace(7)).rejects.toBe(refreshFailure);
+  });
+
+  it('passes through a refresh that fails after the OSM server answered 401', async () => {
+    // The OSM 401 has already been recorded by then, so only telling the two
+    // errors apart, not merely noticing that a request was sent, keeps the
+    // refresh failure from being reported as the OSM server's answer.
+    server.use(
+      http.delete(`${OSM_API_BASE}workspaces/7`, () => new HttpResponse(null, { status: 401 }))
+    );
+
+    const refreshFailure = new BaseHttpClientError(new Response(null, { status: 503 }));
+    const client = new OsmApiClient(OSM_WEB_BASE, OSM_API_BASE, {
+      sendProtectedRequest: async (send: (accessToken: string) => Promise<Response>) => {
+        await send('expired-token').catch(() => undefined);
+        throw refreshFailure;
+      }
+    } as unknown as TdeiClient);
+
+    await expect(client.deleteWorkspace(7)).rejects.toBe(refreshFailure);
   });
 });

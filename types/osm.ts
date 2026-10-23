@@ -13,7 +13,7 @@ interface BaseElement {
   user: string;
   uid: number;
   type: OsmElementType;
-  tags: OsmTags;
+  tags?: OsmTags;
 };
 
 export interface OsmNode extends BaseElement {
