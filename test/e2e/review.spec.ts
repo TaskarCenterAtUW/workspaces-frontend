@@ -436,7 +436,41 @@ test.describe('workspace review', () => {
     }, { timeout: 30_000 }).toBe(true);
 
     const url = new URL(page.url());
+    expect(url.searchParams.get('editor')).toBe('rapid');
     // Verify that Edit Here targets the selected feedback.
+    const [zoom, lat, lon] = url.hash.slice('#map='.length).split('/').map(Number);
+    expect(zoom).toBeCloseTo(18);
+    expect(lat).toBeCloseTo(selectedFeedback.location_latitude);
+    expect(lon).toBeCloseTo(selectedFeedback.location_longitude);
+  });
+
+  test('selecting Rapid 3 opens that editor at the reviewed location', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubReviewApis(page);
+    await page.route('https://ecn.*.tiles.virtualearth.net/**', route => route.abort());
+
+    await page.goto('/workspace/1/review');
+
+    const feedbackItem = sidebar(page)
+      .locator('.review-item', { hasText: 'This crossing is hard to navigate' });
+    await feedbackItem.click();
+
+    await expect(page.locator('.maplibregl-popup')).toContainText(selectedFeedback.feedback_text);
+    await expect(page.locator('.map-loading-overlay')).toBeHidden();
+
+    const editorDropdown = page.locator('.review-editor-dropdown');
+    await editorDropdown.locator('.dropdown-toggle').click();
+    await page.getByRole('menuitem', { name: 'Rapid 3 (beta)' }).click();
+
+    await expect.poll(() => {
+      const url = new URL(page.url());
+      return url.pathname === '/workspace/1/edit'
+        && url.searchParams.get('datatype') === 'osw'
+        && url.searchParams.get('editor') === 'rapid3'
+        && /^#map=[^/]+\/[^/]+\/[^/]+$/.test(url.hash);
+    }, { timeout: 30_000 }).toBe(true);
+
+    const url = new URL(page.url());
     const [zoom, lat, lon] = url.hash.slice('#map='.length).split('/').map(Number);
     expect(zoom).toBeCloseTo(18);
     expect(lat).toBeCloseTo(selectedFeedback.location_latitude);
@@ -683,8 +717,18 @@ test.describe('workspace review', () => {
       route.fulfill({ json: { changeset: { ...changesets.changesets[0], comments } } })
     );
 
+    // Select by clicking rather than a ?changeset= deep link, which is flaky
+    // headless (see the changeset deep links tests).
     await page.goto('/workspace/1/review');
+    // Selecting a changeset sets ?changeset=, which makes the page reload the
+    // list (changesets, then notes) with resolved items included. That swaps
+    // in a new item object and closes any panel opened meanwhile, so let the
+    // reload finish before opening one.
+    const reloaded = page.waitForResponse('**/osm/api/0.6/notes/search.json?*closed=-1*');
     await sidebar(page).locator('.review-item', { hasText: '#4242' }).click();
+    await reloaded;
+    await page.evaluate(() => new Promise(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve))));
 
     const overlay = page.locator('.review-overlay');
     await expect(overlay.locator('.review-toolbar')).toContainText('#4242');

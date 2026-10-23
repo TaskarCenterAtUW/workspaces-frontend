@@ -32,7 +32,11 @@ import { LoadingContext } from '~/services/loading';
 import { workspacesClient } from '~/services/index';
 import { isRecord, parseMetadata } from '~/util/metadata';
 import { createMaplibreMap } from '~/util/map-style';
-import { bboxToPolygon, getGeoJsonBounds } from '~/util/geojson';
+import {
+  bboxToPolygon,
+  getGeoJsonBounds,
+  isValidGeoJsonBounds,
+} from '~/util/geojson';
 
 import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
 
@@ -85,7 +89,6 @@ function resizeMap() {
     }
 
     map.resize();
-
     const camera = map.cameraForBounds(currentAreaBounds, { padding: AREA_PADDING });
 
     if (!camera?.center || camera.zoom === undefined) {
@@ -172,7 +175,7 @@ async function getWorkspaceArea(workspace: Workspace): Promise<WorkspaceArea | n
   const metadataArea = getMetadataArea(parseMetadata(workspace.tdeiMetadata));
   const metadataBounds = metadataArea ? getGeoJsonBounds(metadataArea) : null;
 
-  if (metadataArea && metadataBounds) {
+  if (metadataArea && metadataBounds && isValidGeoJsonBounds(metadataBounds)) {
     return { geojson: metadataArea, bounds: metadataBounds };
   }
 
@@ -181,20 +184,19 @@ async function getWorkspaceArea(workspace: Workspace): Promise<WorkspaceArea | n
   await loadingBbox.cancelable(workspacesClient, async (client) => {
     const bbox = await client.getWorkspaceBbox(workspace.id);
 
-    if (
-      !bbox
-      || ![
-        bbox.min_lat,
-        bbox.min_lon,
-        bbox.max_lat,
-        bbox.max_lon
-      ].every(Number.isFinite)
-    ) {
+    if (!bbox) {
       return;
     }
+
+    const bounds: Bounds = [[bbox.min_lon, bbox.min_lat], [bbox.max_lon, bbox.max_lat]];
+
+    if (!isValidGeoJsonBounds(bounds)) {
+      return;
+    }
+
     area = {
       geojson: bboxToPolygon(bbox.min_lat, bbox.min_lon, bbox.max_lat, bbox.max_lon),
-      bounds: [[bbox.min_lon, bbox.min_lat], [bbox.max_lon, bbox.max_lat]],
+      bounds,
     };
   });
 
