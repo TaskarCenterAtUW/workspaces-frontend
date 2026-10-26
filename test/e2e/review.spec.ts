@@ -545,7 +545,7 @@ test.describe('workspace review', () => {
   });
 
   // @test e2e: fixme entries (elements with a fixme tag, from the workspaces API) display in the sidebar with their note;
-  // clicking one shows its details, and "Edit" opens the editor with that element selected (assert() the hash selects it, e.g. id=n5);
+  // clicking one draws its element on the map and shows its details, and "Edit" opens the editor with that element selected (assert() the hash selects it, e.g. id=n5);
   // the "gear" menu's "Fixmes" switch hides them
   test('lists elements with a fixme tag, opens one selected in the editor, and filters them', async ({ page }) => {
     const fixme = {
@@ -563,6 +563,11 @@ test.describe('workspace review', () => {
     await seedAuthenticatedSession(page);
     await stubReviewApis(page, { fixmes: [fixme] });
     await page.route('https://ecn.*.tiles.virtualearth.net/**', route => route.abort());
+    // The element is fetched to draw it.
+    const elementRequest = page.waitForRequest('**/osm/api/0.6/node/5.json');
+    await page.route('**/osm/api/0.6/node/5.json', route => route.fulfill({
+      json: { elements: [{ type: 'node', id: 5, lat: fixme.lat, lon: fixme.lon, version: 2, tags: fixme.tags }] }
+    }));
 
     await page.goto('/workspace/1/review');
 
@@ -573,7 +578,9 @@ test.describe('workspace review', () => {
     await expect(fixmeItem).toContainText('Platform A (node)');
 
     await fixmeItem.click();
+    await elementRequest;
     await expect(page.locator('.maplibregl-popup')).toContainText(fixme.note);
+    await expect(page.getByText('Could not display')).toHaveCount(0);
     // The details (info) button: the toolbar's first popup toggle (its icon gives it no accessible name).
     await page.locator('.review-toolbar button[aria-haspopup="true"]').first().click();
     await expect(page.locator('.review-details')).toContainText('node 5');

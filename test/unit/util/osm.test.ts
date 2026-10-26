@@ -7,6 +7,7 @@ import {
   copyOsmElement,
   editorHashFor,
   editorRoute,
+  elementGeoJson,
   geometryEqual,
   mapHash,
   newerOsmElement,
@@ -199,5 +200,45 @@ describe('editorRoute', () => {
       query: { datatype: 'pathways' }
     });
     expect(editorRoute(99, 'osw', undefined)).not.toHaveProperty('hash');
+  });
+});
+
+describe('elementGeoJson', () => {
+  const nodes = [
+    osmNode(1, { lat: 0, lon: 0 }),
+    osmNode(2, { lat: 0, lon: 1 }),
+    osmNode(3, { lat: 1, lon: 1 }),
+    osmNode(4, { lat: 5, lon: 5 })
+  ];
+
+  it('draws a node as a point', () => {
+    expect(elementGeoJson('node', 4, nodes).features.map(f => f.geometry))
+      .toEqual([{ type: 'Point', coordinates: [5, 5] }]);
+  });
+
+  it('draws an open way as a line and a closed way as a polygon', () => {
+    expect(elementGeoJson('way', 10, [...nodes, osmWay(10, [1, 2, 3])]).features.map(f => f.geometry))
+      .toEqual([{ type: 'LineString', coordinates: [[0, 0], [1, 0], [1, 1]] }]);
+    expect(elementGeoJson('way', 11, [...nodes, osmWay(11, [1, 2, 3, 1])]).features.map(f => f.geometry.type))
+      .toEqual(['Polygon']);
+  });
+
+  it('draws a relation\'s member ways and nodes, skipping parts whose nodes are missing', () => {
+    const elements = [
+      ...nodes,
+      osmWay(10, [1, 2]),
+      osmWay(12, [1, 99]), // node 99 wasn't returned
+      osmRelation(20, [
+        { type: 'way', ref: 10, role: 'outer' },
+        { type: 'way', ref: 12, role: 'outer' },
+        { type: 'node', ref: 4, role: 'label' }
+      ])
+    ];
+
+    expect(elementGeoJson('relation', 20, elements).features.map(f => f.geometry.type)).toEqual(['LineString', 'Point']);
+  });
+
+  it('draws nothing for an element that wasn\'t returned', () => {
+    expect(elementGeoJson('way', 404, nodes).features).toEqual([]);
   });
 });

@@ -9,8 +9,9 @@
 import maplibregl from 'maplibre-gl';
 import { MapLibreAugmentedDiffViewer } from '@osmcha/maplibre-adiff-viewer';
 
-import { changesetManager } from '~/services/index';
+import { changesetManager, osmClient } from '~/services/index';
 import { prepareAdiffForMap } from '~/util/adiff';
+import { elementGeoJson } from '~/util/osm';
 import { bingImageryStyle } from '~/util/map-style';
 import type { ReviewListItem } from '~/services/review';
 
@@ -235,7 +236,14 @@ async function drawNote(note: OsmNote, generation: number) {
   });
 }
 
-/** Shows a fixme's note at its element's location (none for a relation). */
+/** How the element a fixme is on is drawn. */
+const FIXME_ELEMENT_COLOR = '#ff3d00';
+
+/**
+ * Draws the element a fixme is on (a node's point, a way's line or outline, a
+ * relation's members) and shows the fixme's note on it. If the element can't
+ * be loaded, the note is still shown at the fixme's location.
+ */
 async function drawFixme(fixme: OsmFixme, generation: number) {
   await resetMap();
 
@@ -243,20 +251,74 @@ async function drawFixme(fixme: OsmFixme, generation: number) {
     return;
   }
 
-  if (fixme.lat === null || fixme.lon === null) {
+  let geometry: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+  try {
+    geometry = elementGeoJson(fixme.type, fixme.id, await osmClient.getElementFull(props.workspaceId, fixme.type, fixme.id));
+  }
+  catch (error: unknown) {
+    console.warn(`Could not load ${fixme.type} ${fixme.id} to draw it.`, error);
+  }
+
+  if (generation !== drawGeneration) {
+    return;
+  }
+
+  const bounds = new maplibregl.LngLatBounds();
+  for (const feature of geometry.features) {
+    const geom = feature.geometry;
+    const points = geom.type === 'Point'
+      ? [geom.coordinates]
+      : geom.type === 'LineString'
+        ? geom.coordinates
+        : geom.type === 'Polygon' ? geom.coordinates.flat() : [];
+    for (const [lon, lat] of points as [number, number][]) bounds.extend([lon, lat]);
+  }
+
+  if (geometry.features.length) {
+    reviewMap.addSource('fixme-element', { type: 'geojson', data: geometry });
+    reviewMap.addLayer({
+      id: 'fixme-element-fill',
+      type: 'fill',
+      source: 'fixme-element',
+      filter: ['==', ['geometry-type'], 'Polygon'],
+      paint: { 'fill-color': FIXME_ELEMENT_COLOR, 'fill-opacity': 0.15 }
+    });
+    reviewMap.addLayer({
+      id: 'fixme-element-line',
+      type: 'line',
+      source: 'fixme-element',
+      filter: ['!=', ['geometry-type'], 'Point'],
+      paint: { 'line-color': FIXME_ELEMENT_COLOR, 'line-width': 4 }
+    });
+    reviewMap.addLayer({
+      id: 'fixme-element-point',
+      type: 'circle',
+      source: 'fixme-element',
+      filter: ['==', ['geometry-type'], 'Point'],
+      paint: { 'circle-color': FIXME_ELEMENT_COLOR, 'circle-radius': 7, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 }
+    });
+  }
+
+  // The note goes at the fixme's location, or the middle of what was drawn.
+  const at: [number, number] | undefined = fixme.lat !== null && fixme.lon !== null
+    ? [fixme.lon, fixme.lat]
+    : bounds.isEmpty() ? undefined : bounds.getCenter().toArray() as [number, number];
+  if (!at) {
     mapError.value = `This ${fixme.type} has no location to show on the map. Open it in the editor to see it.`;
     return;
   }
 
   popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false })
-    .setLngLat([fixme.lon, fixme.lat])
+    .setLngLat(at)
     .setText(fixme.note)
     .addTo(reviewMap);
 
-  reviewMap.jumpTo({
-    center: [fixme.lon, fixme.lat],
-    zoom: 19,
-  });
+  if (bounds.isEmpty() || geometry.features.every(feature => feature.geometry.type === 'Point')) {
+    reviewMap.jumpTo({ center: at, zoom: 19 });
+  }
+  else {
+    reviewMap.fitBounds(bounds, { padding: 80, maxZoom: 20, duration: 0 });
+  }
 }
 
 function onAdiffClick(_event: object, action: AdiffAction) {

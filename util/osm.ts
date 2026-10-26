@@ -51,6 +51,62 @@ export function wayToGeoJsonCoords(
   return coords;
 }
 
+/**
+ * An element's geometry as GeoJSON, from the elements making it up (see
+ * `OsmApiClient.getElementFull`): a node's point; a way's line, or polygon if
+ * it's closed; a relation's member ways and member nodes. Parts whose nodes are
+ * missing are left out.
+ */
+export function elementGeoJson(
+  type: OsmElementType,
+  id: number,
+  elements: OsmElement[]
+): GeoJSON.FeatureCollection {
+  const byKey = new Map(elements.map(element => [`${element.type}/${element.id}`, element]));
+  const features: GeoJSON.Feature[] = [];
+
+  const addNode = (nodeId: number) => {
+    const node = byKey.get(`node/${nodeId}`) as OsmNode | undefined;
+    if (node) {
+      features.push({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [node.lon, node.lat] } });
+    }
+  };
+  const addWay = (wayId: number) => {
+    const way = byKey.get(`way/${wayId}`) as OsmWay | undefined;
+    const coords = way?.nodes.map(nodeId => byKey.get(`node/${nodeId}`) as OsmNode | undefined);
+    if (!way || !coords?.length || coords.some(node => !node)) {
+      return;
+    }
+    const line = coords.map(node => [node!.lon, node!.lat]);
+    const closed = way.nodes.length >= 4 && way.nodes[0] === way.nodes.at(-1);
+    features.push({
+      type: 'Feature',
+      properties: {},
+      geometry: closed ? { type: 'Polygon', coordinates: [line] } : { type: 'LineString', coordinates: line }
+    });
+  };
+
+  if (type === 'node') {
+    addNode(id);
+  }
+  else if (type === 'way') {
+    addWay(id);
+  }
+  else {
+    const relation = byKey.get(`relation/${id}`) as OsmRelation | undefined;
+    for (const member of relation?.members ?? []) {
+      if (member.type === 'way') {
+        addWay(member.ref);
+      }
+      else if (member.type === 'node') {
+        addNode(member.ref);
+      }
+    }
+  }
+
+  return { type: 'FeatureCollection', features };
+}
+
 export function editorHashFor(elements: Iterable<OsmElement>): string | undefined {
   let minLat = Infinity;
   let maxLat = -Infinity;
