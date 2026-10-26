@@ -15,7 +15,7 @@ import { bingImageryStyle } from '~/util/map-style';
 import type { ReviewListItem } from '~/services/review';
 
 import type { AdiffAction } from '~/types/adiff';
-import type { OsmChangeset, OsmNote } from '~/types/osm';
+import type { OsmChangeset, OsmFixme, OsmNote } from '~/types/osm';
 import type { TdeiFeedback } from '~/types/tdei';
 
 interface Props {
@@ -130,6 +130,9 @@ async function drawItem(item: ReviewListItem | undefined, refreshAdiff: boolean 
     else if (item.isNote) {
       await drawNote(item.data as OsmNote, generation);
     }
+    else if (item.isFixme) {
+      await drawFixme(item.data as OsmFixme, generation);
+    }
   }
   catch (error: unknown) {
     // Discard result if the user already selected a different changeset.
@@ -229,6 +232,30 @@ async function drawNote(note: OsmNote, generation: number) {
   reviewMap.jumpTo({
     center: [note.lon, note.lat],
     zoom: 18,
+  });
+}
+
+/** Shows a fixme's note at its element's location (none for a relation). */
+async function drawFixme(fixme: OsmFixme, generation: number) {
+  await resetMap();
+
+  if (generation !== drawGeneration) {
+    return;
+  }
+
+  if (fixme.lat === null || fixme.lon === null) {
+    mapError.value = `This ${fixme.type} has no location to show on the map. Open it in the editor to see it.`;
+    return;
+  }
+
+  popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false })
+    .setLngLat([fixme.lon, fixme.lat])
+    .setText(fixme.note)
+    .addTo(reviewMap);
+
+  reviewMap.jumpTo({
+    center: [fixme.lon, fixme.lat],
+    zoom: 19,
   });
 }
 

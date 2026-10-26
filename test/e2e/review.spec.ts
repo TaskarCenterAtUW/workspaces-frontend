@@ -131,6 +131,7 @@ async function stubReviewApis(page: Page, opts: {
   changesets?: object;
   notes?: object;
   feedback?: object;
+  fixmes?: object;
 } = {}) {
   // New-API: GET workspaces/{id} (called twice on load).
   await page.route('**/api.test/workspaces/1', route =>
@@ -152,6 +153,11 @@ async function stubReviewApis(page: Page, opts: {
   // OSM: changeset OSC download (text/xml) for items scrolled into view.
   await page.route('**/osm/api/0.6/changeset/*/download**', route =>
     route.fulfill({ contentType: 'application/xml', body: osmChangeXml })
+  );
+
+  // New-API: elements with a fixme tag (none unless a test passes some).
+  await page.route('**/workspaces/1/fixmes', route =>
+    route.fulfill({ json: opts.fixmes ?? [] })
   );
 
   // TDEI: dataset feedback list.
@@ -536,6 +542,54 @@ test.describe('workspace review', () => {
     await expect(items.first()).toContainText('Feedback');
     await expect(items.first())
       .toContainText('This crossing is hard to navigate in a wheelchair');
+  });
+
+  // @test e2e: fixme entries (elements with a fixme tag, from the workspaces API) display in the sidebar with their note;
+  // clicking one shows its details, and "Edit" opens the editor with that element selected (assert() the hash selects it, e.g. id=n5);
+  // the "gear" menu's "Fixmes" switch hides them
+  test('lists elements with a fixme tag, opens one selected in the editor, and filters them', async ({ page }) => {
+    const fixme = {
+      type: 'node',
+      id: 5,
+      version: 2,
+      changeset: 4242,
+      timestamp: '2026-06-15T09:00:00',
+      key: 'fixme',
+      note: 'set stop_id to the agency\'s platform stop',
+      lat: 47.605,
+      lon: -122.335,
+      tags: { stop_name: 'Platform A', fixme: 'set stop_id to the agency\'s platform stop' }
+    };
+    await seedAuthenticatedSession(page);
+    await stubReviewApis(page, { fixmes: [fixme] });
+    await page.route('https://ecn.*.tiles.virtualearth.net/**', route => route.abort());
+
+    await page.goto('/workspace/1/review');
+
+    const items = sidebar(page).locator('.review-item');
+    await expect(items).toHaveCount(4);
+    const fixmeItem = items.filter({ hasText: 'Fixme' });
+    await expect(fixmeItem).toContainText(fixme.note);
+    await expect(fixmeItem).toContainText('Platform A (node)');
+
+    await fixmeItem.click();
+    await expect(page.locator('.maplibregl-popup')).toContainText(fixme.note);
+    // The details (info) button: the toolbar's first popup toggle (its icon gives it no accessible name).
+    await page.locator('.review-toolbar button[aria-haspopup="true"]').first().click();
+    await expect(page.locator('.review-details')).toContainText('node 5');
+
+    await page.locator('.review-toolbar').getByRole('button', { name: /Edit Here/ }).click();
+    await expect.poll(() => new URL(page.url()).hash, { timeout: 30_000 }).toMatch(/^#map=[^&]+&id=n5$/);
+    expect(new URL(page.url()).pathname).toBe('/workspace/1/edit');
+
+    // Back on the review page, the gear menu's "Fixmes" switch hides them.
+    await page.goto('/workspace/1/review');
+    await expect(items).toHaveCount(4);
+    await sidebar(page).getByRole('button', { name: /Settings/ }).click();
+    await page.getByRole('checkbox', { name: 'Fixmes' }).uncheck();
+    await page.getByRole('button', { name: 'Apply' }).click();
+    await expect(items).toHaveCount(3);
+    await expect(items.filter({ hasText: 'Fixme' })).toHaveCount(0);
   });
 
   // @test e2e: clicking the "refresh" button in the sidebar refreshes the data in the sidebar and on the map (playwright snapshot this)

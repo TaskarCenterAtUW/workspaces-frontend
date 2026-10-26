@@ -12,6 +12,7 @@ import type { ICancelableClient } from '~/services/loading';
 import type { OsmApiClient } from '~/services/osm';
 import type { TdeiAuthStore, TdeiClient } from '~/services/tdei';
 import type { AugmentedDiff } from '~/types/adiff';
+import type { OsmFixme } from '~/types/osm';
 import type { BoundingBox } from '~/types/bbox';
 import type { ImagerySettings } from '~/types/imagery';
 import type {
@@ -387,6 +388,14 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
 
   async resolveChangeset(workspaceId: WorkspaceId, changesetId: number): Promise<void> {
     await this._put(`workspaces/${workspaceId}/changesets/${changesetId}/resolve`);
+  }
+
+  /** The workspace's elements with a `fixme` tag, newest first. */
+  async getFixmes(workspaceId: WorkspaceId): Promise<OsmFixme[]> {
+    const response = await this._get(`workspaces/${workspaceId}/fixmes`);
+    const fixmes: (Omit<OsmFixme, 'created_at'> & { timestamp: string })[] = await response.json();
+
+    return fixmes.map(({ timestamp, ...fixme }) => ({ ...fixme, created_at: new Date(timestamp) }));
   }
 
   async getChangesetAdiff(workspaceId: WorkspaceId, changesetId: number): Promise<AugmentedDiff> {
