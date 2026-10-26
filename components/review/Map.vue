@@ -236,12 +236,19 @@ async function drawNote(note: OsmNote, generation: number) {
   });
 }
 
-/** How the element a fixme is on is drawn. */
-const FIXME_ELEMENT_COLOR = '#ff3d00';
+/**
+ * How the element a fixme is on is drawn: like a selected element in a
+ * changeset (the adiff viewer's casing under a core line or dot), in red.
+ */
+const FIXME_ELEMENT_STYLE = {
+  color: '#ff3d00',
+  casingColor: 'hsla(0, 0%, 45%, 0.5)'
+};
 
 /**
  * Draws the element a fixme is on (a node's point, a way's line or outline, a
- * relation's members) and shows the fixme's note on it. If the element can't
+ * relation's members), styled like a selected changeset element, and shows the
+ * fixme's note on it. If the element can't
  * be loaded, the note is still shown at the fixme's location.
  */
 async function drawFixme(fixme: OsmFixme, generation: number) {
@@ -276,26 +283,36 @@ async function drawFixme(fixme: OsmFixme, generation: number) {
 
   if (geometry.features.length) {
     reviewMap.addSource('fixme-element', { type: 'geojson', data: geometry });
+    const lines = ['!=', ['geometry-type'], 'Point'] as maplibregl.FilterSpecification;
+    const points = ['==', ['geometry-type'], 'Point'] as maplibregl.FilterSpecification;
     reviewMap.addLayer({
-      id: 'fixme-element-fill',
-      type: 'fill',
+      id: 'fixme-element-line-casing',
+      type: 'line',
       source: 'fixme-element',
-      filter: ['==', ['geometry-type'], 'Polygon'],
-      paint: { 'fill-color': FIXME_ELEMENT_COLOR, 'fill-opacity': 0.15 }
+      filter: lines,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-width': 8, 'line-color': FIXME_ELEMENT_STYLE.casingColor, 'line-blur': 2 }
+    });
+    reviewMap.addLayer({
+      id: 'fixme-element-node-casing',
+      type: 'circle',
+      source: 'fixme-element',
+      filter: points,
+      paint: { 'circle-radius': 8, 'circle-color': FIXME_ELEMENT_STYLE.casingColor }
     });
     reviewMap.addLayer({
       id: 'fixme-element-line',
       type: 'line',
       source: 'fixme-element',
-      filter: ['!=', ['geometry-type'], 'Point'],
-      paint: { 'line-color': FIXME_ELEMENT_COLOR, 'line-width': 4 }
+      filter: lines,
+      paint: { 'line-width': 2, 'line-color': FIXME_ELEMENT_STYLE.color }
     });
     reviewMap.addLayer({
-      id: 'fixme-element-point',
+      id: 'fixme-element-node',
       type: 'circle',
       source: 'fixme-element',
-      filter: ['==', ['geometry-type'], 'Point'],
-      paint: { 'circle-color': FIXME_ELEMENT_COLOR, 'circle-radius': 7, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 }
+      filter: points,
+      paint: { 'circle-radius': 4, 'circle-color': FIXME_ELEMENT_STYLE.color }
     });
   }
 
