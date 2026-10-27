@@ -392,10 +392,18 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
 
   /** The workspace's elements with a `fixme` tag, newest first. */
   async getFixmes(workspaceId: WorkspaceId): Promise<OsmFixme[]> {
-    const response = await this._get(`workspaces/${workspaceId}/fixmes`);
-    const fixmes: (Omit<OsmFixme, 'created_at'> & { timestamp: string })[] = await response.json();
+    const originalBaseUrl = this._baseUrl;
+    this._baseUrl = this.#newApiUrl;
 
-    return fixmes.map(({ timestamp, ...fixme }) => ({ ...fixme, created_at: new Date(timestamp) }));
+    try {
+      const response = await this._send(`workspaces/${workspaceId}/fixmes`, 'GET');
+      const fixmes: (Omit<OsmFixme, 'created_at'> & { timestamp: string })[] = await response.json();
+
+      return fixmes.map(({ timestamp, ...fixme }) => ({ ...fixme, created_at: new Date(timestamp) }));
+    }
+    finally {
+      this._baseUrl = originalBaseUrl;
+    }
   }
 
   async getChangesetAdiff(workspaceId: WorkspaceId, changesetId: number): Promise<AugmentedDiff> {
