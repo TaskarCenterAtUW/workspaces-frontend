@@ -125,7 +125,7 @@ status API and refreshes the list (assert() the request body and that the item l
 <script setup lang="ts">
 import { toast } from 'vue3-toastify';
 
-import { reviewManager, tdeiClient, workspacesClient } from '~/services/index';
+import { rapid3Manager, reviewManager, tdeiClient, workspacesClient } from '~/services/index';
 import { kartaViewImageUrl, convertKartaViewUrl } from '~/util/kartaview';
 import { parsePositiveIntegerQuery } from '~/util/route-query';
 import type ReviewMap from '~/components/review/Map.vue';
@@ -344,13 +344,15 @@ async function openEditor(editor: 'rapid' | 'rapid3' = 'rapid') {
   }
 
   const { lat, lon, zoom } = map.value.getLatLonZoom();
+  const datatype = reviewList.workspace?.type;
+  // OSW opens the chosen Rapid; pathways opens in Rapid 3, as from the dashboard.
+  const editorQuery = datatype === 'osw'
+    ? { editor }
+    : (datatype === 'pathways' && rapid3Manager ? { editor: 'rapid3' } : {});
 
   await navigateTo({
     path: `/workspace/${workspaceId}/edit`,
-    query: {
-      datatype: reviewList.workspace?.type,
-      ...(reviewList.workspace?.type === 'osw' ? { editor } : {})
-    },
+    query: { datatype, ...editorQuery },
     hash: `#map=${zoom}/${lat}/${lon}`,
   });
 }
