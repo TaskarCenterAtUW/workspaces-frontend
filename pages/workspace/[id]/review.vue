@@ -11,6 +11,9 @@ display on the UI matches (playright snapshot or assert() this)
 snapshot this)
 // @test e2e: check that both changeset entries and feedback entries display in the sidebar, and that clicking on each
 shows the proper details in the map and attribute diff panel (playwright snapshot this)
+// @test e2e: fixme entries (elements with a fixme tag, from the workspaces API) display in the sidebar with their note;
+clicking one draws its element on the map and shows its details, and "Edit" opens the editor with that element selected (assert() the hash selects it, e.g. id=n5);
+the "gear" menu's "Fixmes" switch hides them
 // @test e2e: for a feedback item, "Mark as Resolved" opens a dialog; confirming sends the resolution to TDEI's feedback
 status API and refreshes the list (assert() the request body and that the item leaves the open list)
 // @test e2e: validate that all the API calls used on this page match the Swagger spec
@@ -344,6 +347,8 @@ async function openEditor(editor: 'rapid' | 'rapid3' = 'rapid') {
   }
 
   const { lat, lon, zoom } = map.value.getLatLonZoom();
+  // A fixme's element opens selected in the editor.
+  const selected = currentItem.value?.elementRef;
 
   await navigateTo({
     path: `/workspace/${workspaceId}/edit`,
@@ -351,7 +356,7 @@ async function openEditor(editor: 'rapid' | 'rapid3' = 'rapid') {
       datatype: reviewList.workspace?.type,
       ...(reviewList.workspace?.type === 'osw' ? { editor } : {})
     },
-    hash: `#map=${zoom}/${lat}/${lon}`,
+    hash: `#map=${zoom}/${lat}/${lon}${selected ? `&id=${selected}` : ''}`,
   });
 }
 </script>

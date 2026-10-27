@@ -18,6 +18,7 @@ import type {
   OsmChangeset,
   OsmChangesetComment,
   OsmElement,
+  OsmElementType,
   OsmNode,
   OsmNote,
   OsmTags,
@@ -297,6 +298,22 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     element.tags = element.tags ?? { };
 
     return element;
+  }
+
+  /**
+   * An element as it is now, with what it's made of: a node alone, or a way or
+   * relation with its nodes (and a relation's member ways) — enough to draw it.
+   */
+  async getElementFull(workspaceId: WorkspaceId, type: OsmElementType, id: number): Promise<OsmElement[]> {
+    const path = type === 'node' ? `node/${id}.json` : `${type}/${id}/full.json`;
+    const response = await this._get(path, {
+      headers: {
+        'Accept': 'application/json',
+        'X-Workspace': String(workspaceId),
+      },
+    });
+
+    return (await response.json()).elements ?? [];
   }
 
   async getNodes(workspaceId: WorkspaceId, nodeIds: (number | string)[]): Promise<OsmNode[]> {

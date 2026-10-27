@@ -89,3 +89,23 @@ export interface OsmNote {
   created_at: Date;
   comments: OsmNoteComment[];
 }
+
+/**
+ * A current element with a `fixme` tag: something a mapper asked to have
+ * checked (from the workspaces API's GET workspaces/{id}/fixmes).
+ */
+export interface OsmFixme {
+  type: 'node' | 'way' | 'relation';
+  id: number;
+  version: number;
+  changeset: number;
+  /** When the element was last edited (the API's `timestamp`). */
+  created_at: Date;
+  /** The tag's key as written, e.g. "fixme" or "FIXME". */
+  key: string;
+  note: string;
+  /** A node's position, or the middle of a way's nodes; none for a relation. */
+  lat: number | null;
+  lon: number | null;
+  tags: Record<string, string>;
+}
