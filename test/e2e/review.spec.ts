@@ -483,6 +483,29 @@ test.describe('workspace review', () => {
     expect(lon).toBeCloseTo(selectedFeedback.location_longitude);
   });
 
+  test('editing a pathways workspace opens Rapid 3, as from the dashboard', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubReviewApis(page, { workspace: { ...reviewWorkspace, type: 'pathways' } });
+    await page.route('https://ecn.*.tiles.virtualearth.net/**', route => route.abort());
+
+    await page.goto('/workspace/1/review');
+
+    const feedbackItem = sidebar(page)
+      .locator('.review-item', { hasText: 'This crossing is hard to navigate' });
+    await feedbackItem.click();
+    await expect(page.locator('.map-loading-overlay')).toBeHidden();
+
+    await page.locator('.review-toolbar').getByRole('button', { name: /Edit Here/ }).click();
+
+    await expect.poll(() => {
+      const url = new URL(page.url());
+      return url.pathname === '/workspace/1/edit'
+        && url.searchParams.get('datatype') === 'pathways'
+        && url.searchParams.get('editor') === 'rapid3'
+        && /^#map=[^/]+\/[^/]+\/[^/]+$/.test(url.hash);
+    }, { timeout: 30_000 }).toBe(true);
+  });
+
   // @test e2e: while the data is loading on the map a spinner appears (assert() this is true)
   test('shows a spinner on the map while data is loading', async ({ page }) => {
     await seedAuthenticatedSession(page);
