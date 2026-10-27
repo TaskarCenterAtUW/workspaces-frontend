@@ -144,7 +144,7 @@ async function stubAllEditors(page: import('@playwright/test').Page) {
   await page.route('**/rapid/rapid.css', CSS);
   await page.route('**/rapid/rapid.js', RAPID2_SCRIPT);
   await page.route('**/rapid3/css/rapid.css', CSS);
-  await page.route('**/rapid3/js/rapid-dev.js', RAPID3_SCRIPT);
+  await page.route('**/rapid3/js/rapid-dev.min.js', RAPID3_SCRIPT);
   await page.route('**/pathways/iD.css', CSS);
   await page.route('**/pathways/iD.js', PATHWAYS_SCRIPT);
 }

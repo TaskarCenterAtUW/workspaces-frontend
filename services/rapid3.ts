@@ -118,7 +118,8 @@ export class Rapid3Manager {
     document.head.appendChild(style)
 
     const script = document.createElement('script')
-    script.src = this.#baseUrl + 'js/rapid-dev.js'
+    // Minified dev build: still sets the PIXI and Rapid.sdk globals we use, at ~60% of the size
+    script.src = this.#baseUrl + 'js/rapid-dev.min.js'
     script.async = true
     script.onload = this.#onRapidLoaded.bind(this)
     script.onerror = (e) => {
