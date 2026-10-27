@@ -3,6 +3,7 @@ import { tdeiOsmAuth } from '~/services/osm-auth'
 import type { TdeiAuthStore } from '~/services/tdei'
 import pathwaysSchema from '~/services/rapid3-pathways-schema.json'
 import { Rapid3LevelTools } from '~/services/rapid3-levels'
+import { chooseBackgroundForWorkspace } from '~/util/rapid-background'
 import { installComboDescriptions, installSingleChoiceDropdowns, installTagValueLabels, installTagValueSuggestions } from '~/services/rapid3-tag-labels'
 import {
   COMPLETENESS_VALIDATOR_ID,
@@ -185,6 +186,7 @@ export class Rapid3Manager {
       .then(() => context.initAsync())
       .then(() => this.#preStart())
       .then(() => context.startAsync())
+      .then(() => chooseBackgroundForWorkspace(context))
       .then(() => {
         if (datatype === 'pathways') {
           this.levelTools.value = new Rapid3LevelTools(context, { fetchReference: this.#fetchReference })
@@ -580,6 +582,7 @@ export class Rapid3Manager {
 
     // For pathways, the reset reloads the whole new workspace (see #reloadWholeWorkspaceAfterResets).
     return this.rapidContext.resetAsync()
+      .then(() => chooseBackgroundForWorkspace(this.rapidContext))
   }
 
 //

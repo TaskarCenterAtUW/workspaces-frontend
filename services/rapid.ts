@@ -3,6 +3,7 @@ import { tdeiOsmAuth } from '~/services/osm-auth';
 import type { TdeiAuthStore } from '~/services/tdei';
 import type { ImagerySource } from '~/types/imagery';
 import { convertToRapidImagerySource } from '~/util/rapid-imagery';
+import { chooseBackgroundForWorkspace } from '~/util/rapid-background';
 
 /** Global `Rapid` namespace injected by the Rapid script at runtime. */
 declare const Rapid: any;
@@ -114,6 +115,7 @@ export class RapidManager {
 
     // Rapid creates its hash settings during init, so add the task hashtag again.
     this.#setInitialChangesetHashtags(changesetHashtags);
+    await chooseBackgroundForWorkspace(this.rapidContext);
     this.#addCustomImagerySource(customImagerySource);
     this.#bindRapidEvents();
   }
@@ -152,6 +154,7 @@ export class RapidManager {
     await this.rapidContext.resetAsync();
     // Reset can clear the hashtag, so add it back for the current task.
     this.#setInitialChangesetHashtags(changesetHashtags);
+    await chooseBackgroundForWorkspace(this.rapidContext);
     this.#addCustomImagerySource(customImagerySource);
   }
 
