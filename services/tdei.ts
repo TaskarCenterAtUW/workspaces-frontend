@@ -1,4 +1,4 @@
-import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
+import { BlobReader, BlobWriter, TextWriter, ZipReader } from '@zip.js/zip.js';
 import type { FileEntry } from '@zip.js/zip.js';
 
 import {
@@ -378,6 +378,59 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     });
 
     return (await response.blob());
+  }
+
+  /**
+   * Reference data a TDEI job stored, as JSON: e.g. pathways-converter's drawing of
+   * a level, whose outline names it in `ext:reference_url` as a TDEI API path like
+   * `/api/v1/job/download/4521?file=beacon_hill/reference/platform.geojson`. Only
+   * TDEI API paths are fetched, so the user's sign-in isn't sent anywhere else.
+   */
+  async getReferenceData(path: string): Promise<unknown> {
+    const match = /^\/api\/v1\/(.+)$/.exec(path.trim());
+    if (!match) {
+      throw new Error(`Not a TDEI API path: ${path}`);
+    }
+
+    const response = await this._get(match[1]!, { headers: { Accept: 'application/json, */*' } });
+    const data = await response.blob();
+
+    // Until TDEI serves `?file=` (TDEI-osw-datasvc-ts#400), a job download returns the
+    // job's zip of all its output instead, which holds the file at that same path.
+    const file = new URL(match[1]!, 'http://tdei.invalid/').searchParams.get('file');
+    const head = new Uint8Array(await data.slice(0, 2).arrayBuffer());
+    if (file && head[0] === 0x50 && head[1] === 0x4b) { // "PK": a zip
+      const reader = new ZipReader(new BlobReader(data));
+      try {
+        const entry = (await reader.getEntries()).find(e => !e.directory && e.filename === file) as FileEntry | undefined;
+        if (!entry) {
+          throw new Error(`The job's files don't include ${file}`);
+        }
+        return JSON.parse(await entry.getData(new TextWriter()));
+      }
+      finally {
+        await reader.close();
+      }
+    }
+
+    return JSON.parse(await data.text());
+  }
+
+  /**
+   * A pathways level's reference data, from its outline's `ext:reference_url`:
+   * a full https URL (e.g. a blob storage link) is fetched as is, without the
+   * user's sign-in; a TDEI API path goes through `getReferenceData`.
+   */
+  async getLevelReference(url: string): Promise<unknown> {
+    if (!/^https:\/\//i.test(url.trim())) {
+      return await this.getReferenceData(url);
+    }
+
+    const response = await fetch(url.trim(), { credentials: 'omit' });
+    if (!response.ok) {
+      throw new Error(`${response.status} ${response.statusText} loading ${url}`);
+    }
+    return await response.json();
   }
 
   async downloadPathwaysDataset(tdeiDatasetId: string): Promise<Blob> {

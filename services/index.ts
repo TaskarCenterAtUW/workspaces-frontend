@@ -72,5 +72,9 @@ export const workspaceMergerFactory = new WorkspaceMergerFactory(
 // After an API auth error in Rapid: refresh the TDEI session, or ask the user to sign in again.
 const refreshTdeiAuth = () => tdeiClient.recoverSession();
 export const rapidManager = new RapidManager(rapidUrl, osmWebUrl, tdeiAuth, refreshTdeiAuth);
-export const rapid3Manager = rapid3Url ? new Rapid3Manager(rapid3Url, osmWebUrl, tdeiAuth, refreshTdeiAuth) : null;
+// Pathways levels' reference drawings: blob storage links, or TDEI API paths fetched with the user's TDEI sign-in.
+const fetchReference = (url: string) => tdeiClient.getLevelReference(url);
+export const rapid3Manager = rapid3Url
+  ? new Rapid3Manager(rapid3Url, osmWebUrl, tdeiAuth, refreshTdeiAuth, fetchReference)
+  : null;
 export const pathwaysManager = new PathwaysEditorManager(pathwaysUrl, osmWebUrl, tdeiAuth);

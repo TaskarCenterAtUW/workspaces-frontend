@@ -1,5 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { changedStopLevels, FAR_END_ALPHA, graphEntities, LEVEL_FILTER_ID, Rapid3LevelTools, STATION_HIGHLIGHT } from '~/services/rapid3-levels';
+import {
+  changedStopLevels,
+  FAR_END_ALPHA,
+  graphEntities,
+  LEVEL_FILTER_ID,
+  Rapid3LevelTools,
+  REFERENCE_STYLE,
+  referenceLegend,
+  referencePaths,
+  referenceUrls,
+  STATION_HIGHLIGHT
+} from '~/services/rapid3-levels';
 
 // Rapid3LevelTools against a minimal fake of the Rapid 3 context: a two-layer
 // graph (base + local edits), an editor that applies the actions it's given,
@@ -668,6 +679,13 @@ describe('Rapid3LevelTools', () => {
         addChild(child: { parent?: unknown }) {
           child.parent = this;
           this.children.push(child);
+        },
+        addChildAt(child: { parent?: unknown }, index: number) {
+          child.parent = this;
+          this.children.splice(index, 0, child);
+        },
+        getChildIndex(child: unknown) {
+          return this.children.indexOf(child);
         }
       };
       const origin = { scale: { x: 1 } };
@@ -702,7 +720,7 @@ describe('Rapid3LevelTools', () => {
       delete (globalThis as any).PIXI;
     });
 
-    it('draws a translucent white box around the shown station\'s point and stops, under the data', () => {
+    it('draws a translucent black box around the shown station\'s point and stops, under the data', () => {
       const { context, group, boxes } = contextWithScene();
       const tools = new Rapid3LevelTools(context);
       expect(boxes().boxes).toEqual([]); // nothing shown yet
@@ -711,7 +729,7 @@ describe('Rapid3LevelTools', () => {
       expect(group.children).toHaveLength(2); // the boxes, and their labels
       expect(boxes().eventMode).toBe('none'); // doesn't block clicks on the map
       const [box] = boxes().boxes;
-      expect(box!.fill).toEqual({ color: 0xffffff, alpha: 0.5 });
+      expect(box!.fill).toEqual({ color: 0x000000, alpha: 0.5 });
       // Covers lon 0..0.001 and lat 0..0.001, padded on every side.
       expect(box!.x).toBeLessThan(0);
       expect(box!.x + box!.w).toBeGreaterThan(0.001);
@@ -1203,5 +1221,215 @@ describe('changedStopLevels', () => {
     expect(levels([['c1', { base: node('c1'), head: undefined }]])).toEqual([]);
     expect(levels([['w1', { base: way('w1', ['a', 'b'], { level_id: 'L0' }), head: undefined }]])).toEqual([]);
     expect([...changedStopLevels(undefined)]).toEqual([]);
+  });
+});
+
+describe('reference drawings', () => {
+  const URL_L0 = '/api/v1/job/download/7?file=s/reference/street.geojson';
+  const drawing = {
+    type: 'FeatureCollection',
+    features: [
+      { type: 'Feature', properties: { role: 'barrier' }, geometry: { type: 'LineString', coordinates: [[-122.3, 47.6], [-122.2999, 47.6]] } },
+      { type: 'Feature', properties: { role: 'stair' }, geometry: { type: 'Polygon', coordinates: [[[-122.3, 47.6], [-122.2999, 47.6], [-122.2999, 47.6001], [-122.3, 47.6]]] } },
+      { type: 'Feature', properties: { role: 'label' }, geometry: { type: 'Point', coordinates: [-122.3, 47.6] } }
+    ]
+  };
+  // Station data whose street level (L0) outline names a reference drawing.
+  const withReference = () => station().map(entity => (entity.id === 'a0'
+    ? { ...entity, tags: { ...entity.tags, 'ext:reference_url': URL_L0 } }
+    : entity));
+
+  /** A fake of the Pixi Graphics the drawing is made with, recording its calls. */
+  class FakeGraphics {
+    label = '';
+    eventMode = '';
+    calls: unknown[][] = [];
+    parent: unknown;
+    position = { set: (...args: number[]) => this.calls.push(['position', ...args]) };
+    clear() {
+      this.calls = [];
+      return this;
+    }
+
+    moveTo(x: number, y: number) {
+      this.calls.push(['moveTo', x, y]);
+      return this;
+    }
+
+    lineTo(x: number, y: number) {
+      this.calls.push(['lineTo', x, y]);
+      return this;
+    }
+
+    closePath() {
+      this.calls.push(['closePath']);
+      return this;
+    }
+
+    stroke(style: unknown) {
+      this.calls.push(['stroke', style]);
+      return this;
+    }
+  }
+
+  // The station highlight draws in the same group, with these too.
+  class FakeContainer {
+    label = '';
+    eventMode = '';
+    parent: unknown;
+    removeChildren() {
+      return [];
+    }
+  }
+
+  function drawingContext() {
+    const context = fakeContext(withReference());
+    const children: { label: string; parent?: unknown }[] = [];
+    const group = {
+      children,
+      addChild(child: { label: string; parent?: unknown }) {
+        child.parent = group;
+        children.push(child);
+      },
+      addChildAt(child: { label: string; parent?: unknown }, index: number) {
+        child.parent = group;
+        children.splice(index, 0, child);
+      },
+      getChildIndex(child: { label: string }) {
+        return children.indexOf(child);
+      },
+      /** The reference drawing's graphics, once made. */
+      get drawing() {
+        return children.find(child => child.label === 'gtfs-reference-drawing') as FakeGraphics | undefined;
+      }
+    };
+    (context.systems.gfx as any).scene = { groups: new Map([['debug-under', group]]) };
+    (context.systems.gfx as any).deferredRedraw = vi.fn();
+    (globalThis as any).PIXI = { Graphics: FakeGraphics, Container: FakeContainer, Text: FakeContainer };
+    (globalThis as any).Rapid.sdk = { projWgs84ToWorld: ([lon, lat]: [number, number]) => [lon * 1e4, lat * 1e4] };
+    return { context, group };
+  }
+
+  afterEach(() => {
+    delete (globalThis as any).PIXI;
+  });
+
+  it('finds the reference URLs on a level\'s outlines', () => {
+    expect(referenceUrls(withReference(), 'L0')).toEqual([URL_L0]);
+    expect(referenceUrls(withReference(), 'L1')).toEqual([]);
+  });
+
+  it('draws a drawing\'s lines and outlines, colored by role, but not its points', () => {
+    expect(referencePaths(drawing).map(path => [path.role, path.color, path.coordinates.length, path.closed])).toEqual([
+      ['barrier', REFERENCE_STYLE.roleColors.barrier, 2, false],
+      ['stair', REFERENCE_STYLE.roleColors.stair, 4, true]
+    ]);
+  });
+
+  it('gives each role its own color, none of them gray, and lists the roles a drawing uses as its legend', () => {
+    const colors = Object.values(REFERENCE_STYLE.roleColors);
+    expect(new Set([...colors, REFERENCE_STYLE.defaultColor]).size).toBe(colors.length + 1);
+    // No grays (or near-grays): every color's channels differ by more than a little, except white.
+    const channels = (color: number) => [color >> 16, (color >> 8) & 0xff, color & 0xff];
+    for (const color of [...colors, REFERENCE_STYLE.defaultColor].filter(c => c !== 0xffffff)) {
+      expect(Math.max(...channels(color)) - Math.min(...channels(color))).toBeGreaterThan(96);
+    }
+    expect(Object.keys(REFERENCE_STYLE.roleNames).sort()).toEqual(Object.keys(REFERENCE_STYLE.roleColors).sort());
+
+    expect(referenceLegend([{ role: 'stair' }, { role: 'barrier' }, { role: undefined }, { role: 'stair' }])).toEqual([
+      { label: 'Walls', color: '#e040fb' },
+      { label: 'Stairs', color: '#ff6d00' },
+      { label: 'Other linework', color: '#aeea00' }
+    ]);
+  });
+
+  it('loads and draws the shown level\'s drawing under the map data, and clears it for other levels', async () => {
+    const { context, group } = drawingContext();
+    const fetchReference = vi.fn(async () => drawing);
+    const tools = new Rapid3LevelTools(context, { fetchReference });
+
+    tools.showLevel('L0');
+    expect(tools.referenceDrawing.value).toEqual({ levelId: 'L0', status: 'loading' });
+    await vi.waitFor(() => expect(tools.referenceDrawing.value?.status).toBe('shown'));
+
+    expect(fetchReference).toHaveBeenCalledWith(URL_L0);
+    expect(tools.referenceDrawing.value!.legend!.map(entry => entry.label)).toEqual(['Walls', 'Stairs']);
+    const graphics = group.drawing!;
+    // Drawn relative to its first point, in 1px lines.
+    expect(graphics.calls[0]).toEqual(['position', -1223000, 476000]);
+    // 1px lines at any zoom.
+    expect(graphics.calls.filter(call => call[0] === 'stroke')).toEqual([
+      ['stroke', { width: 1, color: REFERENCE_STYLE.roleColors.barrier, alpha: REFERENCE_STYLE.alpha, pixelLine: true }],
+      ['stroke', { width: 1, color: REFERENCE_STYLE.roleColors.stair, alpha: REFERENCE_STYLE.alpha, pixelLine: true }]
+    ]);
+    expect(graphics.calls[1]).toEqual(['moveTo', 0, 0]);
+
+    // Over the station highlight's shading, under its labels.
+    expect(group.children.map(child => child.label))
+      .toEqual(['gtfs-station-highlight', 'gtfs-reference-drawing', 'gtfs-station-highlight-labels']);
+
+    tools.showLevel('L1'); // no drawing
+    await vi.waitFor(() => expect(tools.referenceDrawing.value).toBeUndefined());
+    expect(graphics.calls).toEqual([]);
+
+    tools.showLevel('L0'); // loaded once
+    await vi.waitFor(() => expect(tools.referenceDrawing.value?.status).toBe('shown'));
+    expect(fetchReference).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides and shows drawings', async () => {
+    const { context, group } = drawingContext();
+    const tools = new Rapid3LevelTools(context, { fetchReference: async () => drawing });
+    tools.showLevel('L0');
+    await vi.waitFor(() => expect(tools.referenceDrawing.value?.status).toBe('shown'));
+
+    tools.toggleReferenceDrawings();
+    await vi.waitFor(() => expect(tools.referenceDrawing.value).toEqual({ levelId: 'L0', status: 'hidden' }));
+    expect(group.drawing!.calls).toEqual([]);
+
+    tools.toggleReferenceDrawings();
+    await vi.waitFor(() => expect(tools.referenceDrawing.value?.status).toBe('shown'));
+    expect(group.drawing!.calls.length).toBeGreaterThan(0);
+  });
+
+  it('reports a drawing that couldn\'t load, and tries again on Retry', async () => {
+    const { context } = drawingContext();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fetchReference = vi.fn()
+      .mockRejectedValueOnce(new Error('403'))
+      .mockResolvedValueOnce(drawing);
+    const tools = new Rapid3LevelTools(context, { fetchReference });
+
+    tools.showLevel('L0');
+    await vi.waitFor(() => expect(tools.referenceDrawing.value).toEqual({ levelId: 'L0', status: 'failed' }));
+
+    await tools.updateReferenceDrawing();
+    expect(tools.referenceDrawing.value).toMatchObject({ levelId: 'L0', status: 'shown' });
+    expect(fetchReference).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores a drawing that finishes loading after the view changed', async () => {
+    const { context, group } = drawingContext();
+    let finish!: (value: unknown) => void;
+    const tools = new Rapid3LevelTools(context, {
+      fetchReference: () => new Promise((resolve) => {
+        finish = resolve;
+      })
+    });
+
+    tools.showLevel('L0');
+    tools.showLevel(undefined);
+    finish(drawing);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(tools.referenceDrawing.value).toBeUndefined();
+    expect(group.drawing?.calls ?? []).toEqual([]);
+  });
+
+  it('shows no drawings without a way to fetch them', () => {
+    const tools = new Rapid3LevelTools(fakeContext(withReference()));
+    tools.showLevel('L0');
+    expect(tools.referenceDrawing.value).toBeUndefined();
   });
 });
