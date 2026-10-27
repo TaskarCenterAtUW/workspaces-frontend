@@ -31,9 +31,9 @@ const MAP_MOVE_TIMEOUT_MS = 2000;
 const MAP_AT_TOLERANCE = 1e-4;
 
 /**
- * The background imagery to show where the map is now: the imagery marked
- * best here, else the current imagery if it covers this place, else the first
- * that does, as Rapid itself chooses.
+ * The background imagery to show where the map is now: the current imagery if
+ * it covers this place, else the imagery marked best here, else the first that
+ * covers it.
  */
 export function chooseBackground(imagery: RapidBackgroundImagery): RapidBackgroundSource | null {
   const current = imagery._baseLayer;
@@ -52,8 +52,8 @@ export function chooseBackground(imagery: RapidBackgroundImagery): RapidBackgrou
     && s.id !== 'none'
     && !(s.id === 'custom' && !s.template));
 
-  return backgrounds.find(s => s.best ?? s.props?.best)
-    ?? backgrounds.find(s => s.id === current?.id)
+  return backgrounds.find(s => s.id === current?.id)
+    ?? backgrounds.find(s => s.best ?? s.props?.best)
     ?? backgrounds[0]
     ?? null;
 }

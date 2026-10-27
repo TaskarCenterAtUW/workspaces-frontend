@@ -41,9 +41,15 @@ describe('chooseBackground', () => {
     expect(imagery._baseLayer).toBe(sfOrtho);
   });
 
-  it('prefers the imagery marked best here, in either Rapid', () => {
+  it('otherwise prefers the imagery marked best here, in either Rapid', () => {
     expect(chooseBackground(fakeImagery([bing, { ...kingCounty, best: true }], sfOrtho))?.id).toBe('King_County');
-    expect(chooseBackground(fakeImagery([bing, { ...kingCounty, props: { best: true } }], bing))?.id).toBe('King_County');
+    expect(chooseBackground(fakeImagery([bing, { ...kingCounty, props: { best: true } }], sfOrtho))?.id).toBe('King_County');
+  });
+
+  it('keeps the current imagery over the imagery marked best', () => {
+    const imagery = fakeImagery([bing, { ...kingCounty, best: true }], bing);
+
+    expect(chooseBackground(imagery)).toBe(bing);
   });
 
   it('skips overlays, none and an empty custom source', () => {
