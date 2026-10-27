@@ -47,6 +47,16 @@
           Notes
         </label>
       </div>
+      <div class="form-check form-switch">
+        <label class="form-check-label">
+          <input
+            v-model="filter.includeFixmes"
+            type="checkbox"
+            class="form-check-input"
+          >
+          Fixmes
+        </label>
+      </div>
     </div>
 
     <b-dropdown-divider />

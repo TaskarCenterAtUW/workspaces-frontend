@@ -24,7 +24,7 @@
 import type { ReviewListItem } from '~/services/review';
 import { formatShort } from '~/util/time';
 
-import type { OsmChangeset, OsmNote } from '~/types/osm';
+import type { OsmChangeset, OsmFixme, OsmNote } from '~/types/osm';
 import type { TdeiFeedback } from '~/types/tdei';
 
 interface Props {
@@ -66,6 +66,13 @@ const getNoteMetadata = (note: OsmNote) => ({
   'Created At': formatShort(note.created_at),
   'Status': note.status,
 });
+const getFixmeMetadata = (fixme: OsmFixme) => ({
+  'Element': `${fixme.type} ${fixme.id}`,
+  'Tag': fixme.key,
+  'Version': fixme.version,
+  'Changeset': fixme.changeset,
+  'Last Edited': formatShort(fixme.created_at),
+});
 const metadata = computed(() => {
   if (props.item.isChangeset) {
     return getChangesetMetadata(props.item.data as OsmChangeset);
@@ -75,6 +82,9 @@ const metadata = computed(() => {
   }
   if (props.item.isNote) {
     return getNoteMetadata(props.item.data as OsmNote);
+  }
+  if (props.item.isFixme) {
+    return getFixmeMetadata(props.item.data as OsmFixme);
   }
 
   return { };

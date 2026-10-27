@@ -152,6 +152,26 @@ describe('WorkspacesClient.getWorkspaceBbox', () => {
   });
 });
 
+describe('WorkspacesClient.getFixmes', () => {
+  // A distinct new-API base, as for getWorkspaceBbox: the fixmes endpoint is
+  // only on the new API, so a call on the legacy base wouldn't match the stub.
+  const NEW_API_BASE = 'http://new-api.test/';
+
+  it('fetches the fixmes from the new API and turns their timestamps into Dates', async () => {
+    const fixme = {
+      type: 'node', id: 7, version: 2, changeset: 30, timestamp: '2026-10-20T12:00:00Z',
+      key: 'fixme', note: 'Check the curb ramp', lat: 47.6, lon: -122.33, tags: { fixme: 'Check the curb ramp' }
+    };
+    server.use(
+      http.get(`${NEW_API_BASE}workspaces/1/fixmes`, () => HttpResponse.json([fixme]))
+    );
+
+    const client = new WorkspacesClient(TEST_API_BASE, NEW_API_BASE, tdeiClient, osmClient);
+    const { timestamp, ...rest } = fixme;
+    await expect(client.getFixmes(1)).resolves.toEqual([{ ...rest, created_at: new Date(timestamp) }]);
+  });
+});
+
 describe('WorkspacesClient.deleteWorkspace', () => {
   it('reports failed OSM cleanup after the workspace record is deleted', async () => {
     const deleteOsmWorkspace = vi.fn().mockRejectedValue(new Error('Forbidden'));
