@@ -27,7 +27,7 @@ describe('WorkspacesClient.createWorkspace', () => {
   };
 
   function makeClient() {
-    return new WorkspacesClient(TEST_API_BASE, TEST_API_BASE, tdeiClient, osmClient);
+    return new WorkspacesClient(TEST_API_BASE, tdeiClient, osmClient);
   }
 
   it('returns the workspaceId the API responds with', async () => {
@@ -57,7 +57,7 @@ describe('WorkspacesClient.createWorkspace', () => {
 
 describe('WorkspacesClient.createBlankWorkspace', () => {
   function makeBlankClient(osm: unknown) {
-    return new WorkspacesClient(TEST_API_BASE, TEST_API_BASE, tdeiClient, osm as OsmApiClient);
+    return new WorkspacesClient(TEST_API_BASE, tdeiClient, osm as OsmApiClient);
   }
 
   function blankWorkspace(type: 'osw' | 'pathways') {

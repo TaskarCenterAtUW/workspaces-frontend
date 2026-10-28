@@ -6,7 +6,7 @@ import type { Page, Route } from '@playwright/test';
 // Generated from the @test outline in pages/workspace/create/tdei.vue.
 //
 // The page sets a workspace title + picks a TDEI dataset, then submits. On
-// submit it initiates workspace creation through the new API. On success it
+// submit it initiates workspace creation through the workspaces API. On success it
 // shows a confirmation with a link to the dashboard, where the user can refresh
 // to check the import status. API errors surface an error message + a "Try
 // again" button that resets the form.
@@ -134,7 +134,7 @@ async function stubHappyPath(
     route.fulfill({ json: [TDEI_DATASET] })
   );
 
-  // New-API create. 201 with { workspaceId } per the OpenAPI spec.
+  // Workspace create. 201 with { workspaceId } per the OpenAPI spec.
   await page.route('**/workspaces', (route: Route) => {
     if (route.request().method() !== 'POST') return route.continue();
     if (override.workspace) {

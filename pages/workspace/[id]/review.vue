@@ -17,7 +17,7 @@ the "gear" menu's "Fixmes" switch hides them
 // @test e2e: for a feedback item, "Mark as Resolved" opens a dialog; confirming sends the resolution to TDEI's feedback
 status API and refreshes the list (assert() the request body and that the item leaves the open list)
 // @test e2e: validate that all the API calls used on this page match the Swagger spec
-(https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+(https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
   <section

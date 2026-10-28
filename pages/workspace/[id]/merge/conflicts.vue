@@ -18,7 +18,7 @@ is in progress on the way out (assert() the URL and that the notice never appear
 the toast text)
 // @test e2e: a non-owner sees the commit controls disabled with an explanation (assert() the disabled state)
 // @test e2e: validate that all the API calls used on this page match the Swagger spec
-(https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+(https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
   <section

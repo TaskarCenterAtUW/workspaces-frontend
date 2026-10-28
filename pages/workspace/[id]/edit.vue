@@ -6,7 +6,7 @@
 // @test e2e: loading Rapid 3 for a pathways workspace swaps in the GTFS Pathways presets; loading it for an osw workspace keeps the OSM presets
 // @test e2e: Rapid 3 on a pathways workspace marks the editor as GTFS Pathways (hiding Rapid's generic Point/Line/Area/Relation presets, which GTFS has no equivalent for)
 // @test e2e: Rapid 3 on a pathways workspace shows a level panel next to the editor; other editors and datatypes don't
-// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
   <div class="edit-page">

@@ -63,11 +63,11 @@ test/
   `PROJECT_GROUP_ID`, `USER_ID`, `TEST_API_BASE`) from `../mocks/fixtures`.
 - **API stubbing:** in e2e ALL API base URLs point at host `http://api.test/`
   (set in `playwright.config.ts` `webServer.env`). Stub **every** endpoint a page
-  hits or the page 500s on the failed fetch. New-API response bodies **must be
+  hits or the page 500s on the failed fetch. Workspaces API response bodies **must be
   spec-conformant** (the contract validator checks them).
 - **Contract testing:** for a page's "validate API calls match the Swagger spec"
   outline, `const c = recordContract(page)` before navigating, drive the page,
-  then `expect(c.violations()).toEqual([])`. Only `api.test` new-API calls are
+  then `expect(c.violations()).toEqual([])`. Only `api.test` workspaces API calls are
   checked (TDEI/OSM hosts are out of spec scope).
 - **Snapshots:** use **ARIA** snapshots (`toMatchAriaSnapshot()`), not pixel
   screenshots — they're text-based and cross-platform stable. Don't snapshot

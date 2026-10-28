@@ -6,7 +6,7 @@ import { aWorkspace, PROJECT_GROUP_ID } from '../mocks/fixtures';
 // Generated from the @test outline in pages/workspace/[id]/export/tdei.vue.
 //
 // The page (pages/workspace/[id]/export/tdei.vue) top-level `await`s
-//   - workspacesClient.getWorkspace(id)        -> GET workspaces/{id}        (new API)
+//   - workspacesClient.getWorkspace(id)        -> GET workspaces/{id}        (workspaces API)
 //   - tdeiUserClient.getMyProjectGroups(...)   -> GET tdei-user/project-group-roles/{subject}
 // so BOTH must be stubbed or the page 500s.
 //
@@ -156,9 +156,9 @@ test('submitting with valid values shows a loading state', async ({ page }) => {
   await stubPageLoad(page, [eligibleProjectGroup]);
   await stubServices(page);
 
-  // Workspace bbox (new-API, decimal degrees) + OSM xml export so the flow reaches
+  // Workspace bbox (decimal degrees) + OSM xml export so the flow reaches
   // the convert step. The OSM map base is http://api.test/osm/api/0.6/, so those
-  // globs must include api/0.6/; the bbox now lives on the new API.
+  // globs must include api/0.6/; the bbox comes from the workspaces API.
   await page.route('**/workspaces/1/bbox', route =>
     route.fulfill({ json: { min_lat: 47.6, min_lon: -122.34, max_lat: 47.62, max_lon: -122.32 } })
   );

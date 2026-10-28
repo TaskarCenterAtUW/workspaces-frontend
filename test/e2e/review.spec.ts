@@ -133,7 +133,7 @@ async function stubReviewApis(page: Page, opts: {
   feedback?: object;
   fixmes?: object;
 } = {}) {
-  // New-API: GET workspaces/{id} (called twice on load).
+  // GET workspaces/{id} (called twice on load).
   await page.route('**/api.test/workspaces/1', route =>
     route.fulfill({ json: opts.workspace ?? reviewWorkspace })
   );
@@ -155,7 +155,7 @@ async function stubReviewApis(page: Page, opts: {
     route.fulfill({ contentType: 'application/xml', body: osmChangeXml })
   );
 
-  // New-API: elements with a fixme tag (none unless a test passes some).
+  // Elements with a fixme tag (none unless a test passes some).
   await page.route('**/workspaces/1/fixmes', route =>
     route.fulfill({ json: opts.fixmes ?? [] })
   );
@@ -918,14 +918,14 @@ test.describe('workspace review', () => {
   });
 
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
-  test('new-API calls conform to the OpenAPI spec', async ({ page }) => {
+  test('API calls conform to the OpenAPI spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
     const contract = recordContract(page);
     await stubReviewApis(page);
 
     await page.goto('/workspace/1/review');
 
-    // Drive enough of the page to exercise its new-API surface.
+    // Drive enough of the page to exercise its API surface.
     await expect(sidebar(page).getByText('Seattle Sidewalks')).toBeVisible();
     await expect(sidebar(page).locator('.review-item')).toHaveCount(3);
 
