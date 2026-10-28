@@ -29,13 +29,19 @@ const CSS = (route: Route) => route.fulfill({ body: '', contentType: 'text/css' 
 // A fake Rapid 2 global (services/rapid.ts). `#onLoaded` does `new Rapid.Context()`
 // then sets containerNode/assetPath; `init` sets workspaceId/tdeiAuth/preauth,
 // awaits `initAsync()`, then `#patchRapid` reads `services.osm._oauth`.
+// A test can set `window.__holdEditorInit` (a promise) to keep `initAsync()`
+// pending until it settles, or `window.__failEditorInit` to make it reject.
 const RAPID2_SCRIPT = (route: Route) => route.fulfill({
   contentType: 'application/javascript',
   body: `
     window.Rapid = {
       Context: class {
+        constructor() { window.__fakeRapidContext = this; }
         embed() {}
+        async resetAsync() {}
         async initAsync() {
+          await window.__holdEditorInit;
+          if (window.__failEditorInit) throw new Error('fake editor failed to start');
           this.containerNode.innerHTML =
             '<div class="fake-editor" role="application" aria-label="Rapid 2 editor">Rapid 2 editor</div>';
         }
@@ -68,6 +74,7 @@ const RAPID2_SCRIPT = (route: Route) => route.fulfill({
 //                                        fake records merged assetIDs on window.__schemaMerges)
 //   - context.systems.editor / .filters (pathways level tools read the graph and wrap
 //                                        the filter methods once Rapid has started)
+//   - context.resetAsync                (wrapped to reload a pathways workspace after resets)
 const RAPID3_SCRIPT = (route: Route) => route.fulfill({
   contentType: 'application/javascript',
   body: `
@@ -82,6 +89,7 @@ const RAPID3_SCRIPT = (route: Route) => route.fulfill({
           this.containerNode.innerHTML =
             '<div class="fake-editor" role="application" aria-label="Rapid 3 editor">Rapid 3 editor</div>';
         }
+        async resetAsync() {}
         async startAsync() {}
         services = { osm: { _oauth: { fetch: () => {}, authenticated: () => true }, userDetails: () => {} } };
         systems = {
@@ -368,7 +376,8 @@ test.describe('workspace edit (editor host)', () => {
         await fake(route);
       });
 
-      await page.goto(`/workspace/1/edit?${query}`);
+      // Don't wait for `load`: the held script could hold it back until released.
+      await page.goto(`/workspace/1/edit?${query}`, { waitUntil: 'domcontentloaded' });
 
       const loading = page.locator('.edit-page .editor-loading');
       await expect(loading.getByRole('status')).toBeVisible();
@@ -380,6 +389,50 @@ test.describe('workspace edit (editor host)', () => {
       await expect(loading).toHaveCount(0);
     });
   }
+
+  // @test e2e: leaving this page and coming back while the editor is still starting shows the spinner again until it has started
+  test('shows the spinner again on coming back while the editor is still starting', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubAllEditors(page);
+    await page.addInitScript(() => {
+      (window as any).__holdEditorInit = new Promise((resolve) => {
+        (window as any).__releaseEditorInit = resolve;
+      });
+    });
+
+    await page.goto('/workspace/1/edit?datatype=osw');
+    const loading = page.locator('.edit-page .editor-loading');
+    await expect(loading.getByRole('status')).toBeVisible();
+
+    // Leave for another workspace's editor in the app (no reload), while the editor is still starting.
+    await page.evaluate(() => (document.querySelector('#__nuxt') as any).__vue_app__
+      .config.globalProperties.$router.push('/workspace/2/edit?datatype=osw'));
+    await expect(page).toHaveURL(/\/workspace\/2\/edit/);
+    // The new page has mounted once it has switched the editor to workspace 2.
+    await expect.poll(() => page.evaluate(() => (window as any).__fakeRapidContext?.workspaceId)).toBe(2);
+    await expect(page.locator('.edit-page')).toHaveCount(1);
+    await expect(loading.getByRole('status')).toBeVisible();
+
+    await page.evaluate(() => (window as any).__releaseEditorInit());
+
+    await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+    await expect(loading).toHaveCount(0);
+  });
+
+  // @test e2e: if the editor fails to start, the page says so in place of the spinner
+  test('says so when the editor fails to start', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubAllEditors(page);
+    await page.addInitScript(() => {
+      (window as any).__failEditorInit = true;
+    });
+
+    await page.goto('/workspace/1/edit?datatype=osw');
+
+    const loading = page.locator('.edit-page .editor-loading');
+    await expect(loading.getByRole('alert')).toHaveText(/The editor couldn't start/);
+    await expect(loading.getByRole('status')).toHaveCount(0);
+  });
 
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
   test('all API calls conform to the OpenAPI spec', async ({ page }) => {
