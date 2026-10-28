@@ -95,6 +95,7 @@
             v-show="props.item.isFeedback && !props.item.isResolved"
             class="btn btn-sm btn-success"
             :disabled="!isValidator"
+            @click="emit('resolve-feedback')"
           >
             <app-icon
               variant="check"
@@ -143,7 +144,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits(['back', 'edit', 'resolve']);
+const emit = defineEmits(['back', 'edit', 'resolve', 'resolve-feedback']);
 
 const { isValidator } = useWorkspaceRole();
 const rapid3Available = Boolean(rapid3Manager);

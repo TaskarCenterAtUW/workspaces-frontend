@@ -8,6 +8,7 @@ import {
   ChangesetManager,
 } from '~/services/changesets';
 import { OsmApiClient } from '~/services/osm';
+import { WorkspaceMergerFactory } from '~/services/merge';
 import { PathwaysEditorManager } from '~/services/pathways';
 import { ProjectWizardClient } from '~/services/project-wizard';
 import { ReviewManager } from '~/services/review';
@@ -19,11 +20,6 @@ import { WorkspacesClient } from '~/services/workspaces';
 const tdeiApiUrl = import.meta.env.VITE_TDEI_API_URL;
 const tdeiUserApiUrl = import.meta.env.VITE_TDEI_USER_API_URL;
 const apiUrl = import.meta.env.VITE_API_URL;
-const newApiUrl = import.meta.env.VITE_NEW_API_URL;
-
-if (!newApiUrl) {
-  throw new Error('VITE_NEW_API_URL is required');
-}
 const osmWebUrl = import.meta.env.VITE_OSM_URL;
 const osmApiUrl = osmWebUrl + 'api/0.6/';
 const rapidUrl = import.meta.env.VITE_RAPID_URL;
@@ -36,12 +32,12 @@ export const tdeiUserClient = new TdeiUserClient(tdeiUserApiUrl, tdeiClient);
 tdeiClient.restartAutoAuthRefresh();
 
 export const osmClient = new OsmApiClient(osmWebUrl, osmApiUrl, tdeiClient);
-export const workspacesClient = new WorkspacesClient(apiUrl, newApiUrl, tdeiClient, osmClient);
+export const workspacesClient = new WorkspacesClient(apiUrl, tdeiClient, osmClient);
 export const workspaceProjectsClient = new WorkspaceProjectsClient(
-  newApiUrl,
+  apiUrl,
   tdeiClient,
 );
-export const projectWizardClient = new ProjectWizardClient(newApiUrl, tdeiClient);
+export const projectWizardClient = new ProjectWizardClient(apiUrl, tdeiClient);
 
 const oscCacheTtl = 1000 * 60 * 60 * 24 * 45; // 45 days
 const adiffCacheTtl = oscCacheTtl;
@@ -63,6 +59,17 @@ export const reviewManager = new ReviewManager(
   workspacesClient,
 );
 
-export const rapidManager = new RapidManager(rapidUrl, osmWebUrl, tdeiAuth);
-export const rapid3Manager = rapid3Url ? new Rapid3Manager(rapid3Url, osmWebUrl, tdeiAuth) : null;
+export const workspaceMergerFactory = new WorkspaceMergerFactory(
+  workspacesClient,
+  osmClient,
+);
+
+// After an API auth error in Rapid: refresh the TDEI session, or ask the user to sign in again.
+const refreshTdeiAuth = () => tdeiClient.recoverSession();
+export const rapidManager = new RapidManager(rapidUrl, osmWebUrl, tdeiAuth, refreshTdeiAuth);
+// Pathways levels' reference drawings: blob storage links, or TDEI API paths fetched with the user's TDEI sign-in.
+const fetchReference = (url: string) => tdeiClient.getLevelReference(url);
+export const rapid3Manager = rapid3Url
+  ? new Rapid3Manager(rapid3Url, osmWebUrl, tdeiAuth, refreshTdeiAuth, fetchReference)
+  : null;
 export const pathwaysManager = new PathwaysEditorManager(pathwaysUrl, osmWebUrl, tdeiAuth);

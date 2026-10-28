@@ -1,0 +1,8 @@
+- heading "Merge Workspace" [level=1]
+- text: 
+- paragraph:
+  - text: No existing workspaces will merge with
+  - strong: Seattle Sidewalks
+  - text: .
+- paragraph: Eligible workspaces must be created from the same TDEI dataset and belong to the same project group.
+- button "Return to Dashboard"

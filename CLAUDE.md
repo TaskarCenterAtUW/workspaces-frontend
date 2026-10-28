@@ -63,11 +63,11 @@ test/
   `PROJECT_GROUP_ID`, `USER_ID`, `TEST_API_BASE`) from `../mocks/fixtures`.
 - **API stubbing:** in e2e ALL API base URLs point at host `http://api.test/`
   (set in `playwright.config.ts` `webServer.env`). Stub **every** endpoint a page
-  hits or the page 500s on the failed fetch. New-API response bodies **must be
+  hits or the page 500s on the failed fetch. Workspaces API response bodies **must be
   spec-conformant** (the contract validator checks them).
 - **Contract testing:** for a page's "validate API calls match the Swagger spec"
   outline, `const c = recordContract(page)` before navigating, drive the page,
-  then `expect(c.violations()).toEqual([])`. Only `api.test` new-API calls are
+  then `expect(c.violations()).toEqual([])`. Only `api.test` workspaces API calls are
   checked (TDEI/OSM hosts are out of spec scope).
 - **Snapshots:** use **ARIA** snapshots (`toMatchAriaSnapshot()`), not pixel
   screenshots — they're text-based and cross-platform stable. Don't snapshot
@@ -165,6 +165,17 @@ Project Lead
   ([export/tdei.vue](pages/workspace/[id]/export/tdei.vue)). A Lead without one
   of those TDEI roles cannot export; a non-lead with `poc` can.
 * Validate Changeset — ✅ enforced (`isValidator`, [review/Toolbar.vue](components/review/Toolbar.vue))
+* Merge Changes From Another Workspace: ⚠️ enforced in the UI only (`isLead`,
+  on the menu entry in [Toolbar.vue](components/dashboard/Toolbar.vue) and on
+  both [merge/index.vue](pages/workspace/[id]/merge/index.vue) and
+  [merge/conflicts.vue](pages/workspace/[id]/merge/conflicts.vue)). **No
+  server-side merge endpoint exists**, so the merge runs entirely in the browser
+  and nothing checks the `lead` role on the server. The one backend control on
+  the path is `POST /api/v1/workspaces`, which rejects a project group the
+  caller does not belong to. Merge targets are restricted to workspaces built from the same TDEI dataset
+  **and** in the same project group, and the destination picker is constrained
+  to the workspace's own project group, so a merge cannot move data across a
+  tenant boundary.
 * Move Workspace from Project Group to Project Group — ❌ **not implemented.**
   No `move`/`transfer`/`changeProjectGroup` code exists anywhere in the frontend.
 * Edit POSM Element — ✅ available, but **not role-gated** (see note below)
@@ -190,8 +201,9 @@ would have to be enforced by the backend / changeset-validation flow.
 
 ## Test status
 
-The e2e suite currently passes aside from **6 intentionally-skipped tests**: 6
-`test.fixme` dashboard flows blocked by maplibre/external-editor rendering. Some
+The e2e suite currently passes aside from **7 intentionally-skipped tests**: 6
+`test.fixme` dashboard flows blocked by maplibre/external-editor rendering, and
+the merge conflicts map-and-tag-table flow, which needs WebGL. Some
 heavy authed pages (e.g. `settings/members`) can flake under high parallelism
 (the lazy-compile issue above) — run serially (`--workers=1`) for deterministic
 results.

@@ -1,7 +1,7 @@
 import parseOsmChangeXml from '@osmcha/osmchange-parser';
 import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js';
 import type { OsmApiClient } from '~/services/osm';
-import { buildPathwaysCsvArchive, openTdeiPathwaysArchive } from '~/services/pathways';
+import { buildPathwaysCsvArchive, fetchDerivedPathwaysDataset } from '~/services/pathways';
 import type { TdeiClient } from '~/services/tdei';
 import { TdeiClientError, TdeiConversionError } from '~/services/tdei';
 import type { TdeiDatasetMetadataDatasetDetail } from '~/types/tdei';
@@ -25,6 +25,12 @@ interface ExportOptions {
   includeChangesets?: boolean;
   includeRawOsc?: boolean;
   adaCertification?: AdaCertificationInfo;
+  /**
+   * For a pathways workspace not made from a TDEI dataset: the agency's GTFS
+   * feed (see `openAgencyFeed`), which supplies the rest of the feed TDEI's
+   * validation needs.
+   */
+  agencyFeed?: Map<string, string>;
 }
 
 const status = {
@@ -90,6 +96,8 @@ export class TdeiExporter {
     try {
       return await this._run(workspace, metadata, options);
     } catch (e: any) {
+      // The message shown keeps only e.toString(); log the error for its stack.
+      console.error(`TDEI export failed while: ${this._context.status}`, e);
       if (e instanceof TdeiExporterValidationError) {
         this._context.error = e.message;
       } else {
@@ -133,16 +141,28 @@ export class TdeiExporter {
     this._context.status = status.validate;
     this._validate(workspace);
 
-    if (!metadata.dataset_area) {
-      this._context.status = status.bbox;
-      const bbox = await this._osmClient.getWorkspaceBbox(workspace.id);
+    this._context.status = status.bbox;
+    const bbox = await this._osmClient.getWorkspaceBbox(workspace.id);
 
-      if (bbox) {
-        const { min_lat, min_lon, max_lat, max_lon } = bbox
-        metadata.dataset_area = geojson.featureCollection([
-          geojson.bboxToPolygon(min_lat, min_lon, max_lat, max_lon)
-        ])
-      }
+    // No bounding box means the workspace has never held a node. The OSM reads
+    // reduce that to an empty result rather than failing, which suits an
+    // archive download but not an upload: an empty dataset published to TDEI
+    // cannot be undone from here. The API computes the box over every node
+    // version, deleted ones included, so a workspace whose data was all
+    // deleted still has one and is not refused here.
+    //
+    if (!bbox) {
+      throw new TdeiExporterValidationError(
+        `Workspace "${workspace.title}" holds no data, so there is nothing to export. `
+        + 'Add data to it, then export again.'
+      );
+    }
+
+    if (!metadata.dataset_area) {
+      const { min_lat, min_lon, max_lat, max_lon } = bbox;
+      metadata.dataset_area = geojson.featureCollection([
+        geojson.bboxToPolygon(min_lat, min_lon, max_lat, max_lon)
+      ]);
     }
 
     let changesetArchive: Blob | undefined;
@@ -157,7 +177,7 @@ export class TdeiExporter {
     }
 
     if (workspace.type === 'pathways') {
-      return await this._exportPathwaysToTdei(workspace, metadata, changesetArchive);
+      return await this._exportPathwaysToTdei(workspace, metadata, changesetArchive, options.agencyFeed);
     }
 
     return await this._exportOswToTdei(workspace, metadata, changesetArchive);
@@ -187,16 +207,39 @@ export class TdeiExporter {
     return jobId
   }
 
-  async _exportPathwaysToTdei(workspace: Workspace, metadata: any, changesetArchive?: Blob): Promise<string> {
+  /**
+   * Builds the workspace's GTFS on the TDEI dataset it was made from, or else on
+   * the agency feed given. TDEI's validation needs a whole feed, so with
+   * neither (e.g. the original dataset has since been deleted), it refuses
+   * rather than publish placeholder agency and service files.
+   */
+  async _exportPathwaysToTdei(
+    workspace: Workspace,
+    metadata: any,
+    changesetArchive?: Blob,
+    agencyFeed?: Map<string, string>
+  ): Promise<string> {
     const tdeiServiceId = this._requireServiceId(workspace);
 
     this._context.status = status.exportOsm;
     const elements = await this._osmClient.getWorkspaceData(workspace.id);
-    const derivedFromDatasetId = await this._filterNonexistentDataset(workspace.tdeiRecordId);
-    const derivedFromDataset = await this._fetchPathwaysDataset(derivedFromDatasetId);
+    this._context.status = status.checkDerived;
+    const { datasetId: derivedFromDatasetId, files: derivedFromDataset }
+      = await fetchDerivedPathwaysDataset(this._tdeiClient, workspace.tdeiRecordId);
+
+    if (!derivedFromDataset && !agencyFeed) {
+      throw new TdeiExporterValidationError(
+        workspace.tdeiRecordId
+          ? 'The TDEI dataset this workspace was made from no longer exists, so the rest of its GTFS feed '
+          + '(agency, routes, trips, stop times and calendar) is missing. Choose the agency\'s GTFS feed to export with.'
+          : 'This workspace wasn\'t made from a TDEI dataset. Choose the agency\'s GTFS feed to export with.'
+      );
+    }
 
     this._context.status = status.convertOsm;
-    const csvZip = await buildPathwaysCsvArchive(elements, derivedFromDataset);
+    const csvZip = derivedFromDataset
+      ? await buildPathwaysCsvArchive(elements, derivedFromDataset)
+      : await buildPathwaysCsvArchive(elements, new Map(agencyFeed), { mergeWithFeed: true });
 
     this._context.status = status.upload;
     const jobId = await this._tdeiClient.uploadPathwaysDataset(
@@ -242,21 +285,6 @@ export class TdeiExporter {
     }
 
     return undefined;
-  }
-
-  async _fetchPathwaysDataset(tdeiRecordId: string | undefined) {
-    if (!tdeiRecordId) {
-      return undefined;
-    }
-
-    const zip = await this._tdeiClient.downloadPathwaysDataset(tdeiRecordId);
-    const { dataset } = await this._tdeiClient.openDatasetArchive(zip);
-
-    if (!dataset) {
-      return undefined;
-    }
-
-    return await openTdeiPathwaysArchive(dataset, false, false);
   }
 
   private async _buildChangesetArchive(workspace: Workspace, includeRawOsc: boolean, adaCertification?: AdaCertificationInfo): Promise<Blob> {

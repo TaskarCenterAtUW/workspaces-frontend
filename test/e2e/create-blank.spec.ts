@@ -54,6 +54,11 @@ async function stubCreateFlow(
     route.fulfill({ status: 200, json: { available: titleAvailable } })
   );
 
+  // Backend creation pre-check: allowed. Tests that need a "no" re-route it.
+  await page.route('**/workspaces/check-create', route =>
+    route.fulfill({ status: 200, json: { canCreate: true } })
+  );
+
   // POST workspaces -> { workspaceId } (spec 201 is additionalProperties:integer).
   await page.route('**/workspaces', (route) => {
     if (route.request().method() !== 'POST') {
@@ -70,7 +75,7 @@ async function stubCreateFlow(
     route.fulfill({ status: 200, body: '' })
   );
 
-  // Dashboard map bbox (new-API) -> 204 so the map init is skipped in headless.
+  // Dashboard map bbox (workspaces API) -> 204 so the map init is skipped in headless.
   await page.route('**/workspaces/*/bbox', route =>
     route.fulfill({ status: 204, body: '' })
   );
@@ -127,13 +132,13 @@ test.describe('create blank workspace', () => {
   });
 
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
-  //            (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
-  test('all new-API calls on this page match the Swagger spec', async ({ page }) => {
+  //            (https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+  test('all API calls on this page match the Swagger spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
     await stubCreateFlow(page);
 
-    const contract = recordContract(page, { ignoredPaths: ['workspaces/check'] });
+    const contract = recordContract(page, { ignoredPaths: ['workspaces/check', 'workspaces/check-create'] });
 
     await page.goto('/workspace/create/blank');
     await fillForm(page);
@@ -141,6 +146,22 @@ test.describe('create blank workspace', () => {
     await expect(page).toHaveURL(/\/dashboard/);
 
     expect(contract.violations()).toEqual([]);
+  });
+
+  test('blocks creation and shows the reason when the backend pre-check says no', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
+    await stubCreateFlow(page);
+    const reason = 'User does not have permissions to create a workspace of that type in that project group.';
+    await page.route('**/workspaces/check-create', route =>
+      route.fulfill({ status: 200, json: { canCreate: false, reason } })
+    );
+
+    await page.goto('/workspace/create/blank');
+    await fillForm(page);
+
+    await expect(page.getByRole('alert')).toContainText(reason);
+    await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeDisabled();
   });
 
   test('warns when the title already exists in the selected project group', async ({ page }) => {

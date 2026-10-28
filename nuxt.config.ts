@@ -51,7 +51,6 @@ export default defineNuxtConfig({
     // `changeOrigin` makes the upstream see its own Host (needed for TLS/vhosts).
     devProxy: {
       '/api': { target: 'https://api.workspaces-dev.sidewalks.washington.edu/api/', changeOrigin: true },
-      '/new-api': { target: 'https://new-api.workspaces-dev.sidewalks.washington.edu/api/', changeOrigin: true },
       '/osm': { target: 'https://osm.workspaces-dev.sidewalks.washington.edu/', changeOrigin: true },
       '/tdei': { target: 'https://api-dev.tdei.us/api/', changeOrigin: true },
       '/tdei-user': { target: 'https://portal-api-dev.tdei.us/api/', changeOrigin: true },

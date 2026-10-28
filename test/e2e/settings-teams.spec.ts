@@ -232,7 +232,7 @@ test.describe('workspace settings — teams', () => {
   // @test e2e: validate that all the API calls used on this page match the Swagger spec.
   //
   // Drive the page through load + the write flows (create, edit, members, delete)
-  // so every new-API call is recorded, then assert zero contract violations.
+  // so every API call is recorded, then assert zero contract violations.
   test('all API calls conform to the OpenAPI spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await stubTeamsPage(page, leadWorkspace);

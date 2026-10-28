@@ -6,7 +6,7 @@
 //            button when the file is ready, and clicking the "Save" button downloads the file to your device (playwright snapshot
 //            each change in state here of the button)
 // @test e2e: if an error occurs when preparing the download, an error message is shown in a toast (playwright snapshot this)
-// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
   <app-page>

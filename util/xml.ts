@@ -12,8 +12,10 @@ export function serialize(input: XMLDocument): string {
 export function makeNode(doc: XMLDocument, tag: string, attrs: Record<string, unknown>): Element {
   const node = doc.createElement(tag);
 
-  for (const prop in attrs) {
-    node.setAttribute(prop, String(attrs[prop]));
+  // A for...in loop here could pollute this by walking the prototype chain:
+  //
+  for (const [prop, value] of Object.entries(attrs)) {
+    node.setAttribute(prop, String(value));
   }
 
   return node;

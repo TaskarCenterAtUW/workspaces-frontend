@@ -1,7 +1,9 @@
 import { ref } from 'vue';
+import { tdeiOsmAuth } from '~/services/osm-auth';
 import type { TdeiAuthStore } from '~/services/tdei';
 import type { ImagerySource } from '~/types/imagery';
 import { convertToRapidImagerySource } from '~/util/rapid-imagery';
+import { chooseBackgroundForWorkspace } from '~/util/rapid-background';
 
 /** Global `Rapid` namespace injected by the Rapid script at runtime. */
 declare const Rapid: any;
@@ -21,6 +23,7 @@ export class RapidManager {
   #baseUrl: string;
   #osmUrl: string;
   #tdeiAuth: TdeiAuthStore;
+  #refreshAuth: () => Promise<void>;
   #stateCallback: ((state: any) => void) | null = null;
   #uploadCallback: ((result: any) => void) | null = null;
 
@@ -33,10 +36,14 @@ export class RapidManager {
   /** The Rapid `Context` instance, available after loading completes. */
   rapidContext: any;
 
-  constructor(baseUrl: string, osmUrl: string, tdeiAuth: TdeiAuthStore) {
+  /**
+   * @param refreshAuth - Refreshes the TDEI access token (see services/osm-auth.ts).
+   */
+  constructor(baseUrl: string, osmUrl: string, tdeiAuth: TdeiAuthStore, refreshAuth: () => Promise<void>) {
     this.#baseUrl = baseUrl;
     this.#osmUrl = osmUrl.replace(/\/+$/, '');
     this.#tdeiAuth = tdeiAuth;
+    this.#refreshAuth = refreshAuth;
 
     this.loaded = ref(false);
     this.containerNode = document.createElement('div');
@@ -108,6 +115,7 @@ export class RapidManager {
 
     // Rapid creates its hash settings during init, so add the task hashtag again.
     this.#setInitialChangesetHashtags(changesetHashtags);
+    await chooseBackgroundForWorkspace(this.rapidContext);
     this.#addCustomImagerySource(customImagerySource);
     this.#bindRapidEvents();
   }
@@ -146,6 +154,7 @@ export class RapidManager {
     await this.rapidContext.resetAsync();
     // Reset can clear the hashtag, so add it back for the current task.
     this.#setInitialChangesetHashtags(changesetHashtags);
+    await chooseBackgroundForWorkspace(this.rapidContext);
     this.#addCustomImagerySource(customImagerySource);
   }
 
@@ -180,7 +189,16 @@ export class RapidManager {
     const rapidOsmClient = rapidOsmService._oauth;
 
     rapidOsmClient.fetch = this.#wrapFetch(rapidOsmClient.fetch);
-    rapidOsmClient.authenticated = () => this.#tdeiAuth.ok;
+
+    // Sign in with TDEI. Rapid logs out and retries on an API auth error; refresh
+    // the TDEI token instead, so the retry fails once rather than looping
+    // forever (see services/osm-auth.ts).
+    const auth = tdeiOsmAuth(() => this.#tdeiAuth.ok, this.#refreshAuth);
+    rapidOsmClient.authenticated = auth.authenticated;
+    rapidOsmService.logout = () => {
+      auth.logout();
+      return rapidOsmService;
+    };
 
     // Don't bother to fetch user details when uploading changesets:
     rapidOsmService.userDetails = (callback: (error: string) => void) => {

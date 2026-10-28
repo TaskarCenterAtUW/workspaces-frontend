@@ -5,49 +5,20 @@
   />
 </template>
 
-<script lang="ts">
-import type { StyleSpecification } from 'maplibre-gl';
-</script>
-
 <script setup lang="ts">
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
+import '~/util/maplibre-worker';
 import { MapLibreAugmentedDiffViewer } from '@osmcha/maplibre-adiff-viewer';
 
-import { changesetManager } from '~/services/index';
+import { changesetManager, osmClient } from '~/services/index';
 import { prepareAdiffForMap } from '~/util/adiff';
+import { elementGeoJson } from '~/util/osm';
+import { bingImageryStyle } from '~/util/map-style';
 import type { ReviewListItem } from '~/services/review';
 
 import type { AdiffAction } from '~/types/adiff';
-import type { OsmChangeset, OsmNote } from '~/types/osm';
+import type { OsmChangeset, OsmFixme, OsmNote } from '~/types/osm';
 import type { TdeiFeedback } from '~/types/tdei';
-// import { OPENFREEMAP_STYLE_URL } from '~/util/map-style';
-// const reviewMapStyle = OPENFREEMAP_STYLE_URL;
-
-const reviewMapStyle: StyleSpecification = {
-  version: 8,
-  sources: {
-    bing: {
-      type: 'raster',
-      scheme: 'xyz',
-      tiles: [
-        'https://ecn.t0.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=587&mkt=en-gb&n=z',
-        'https://ecn.t1.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=587&mkt=en-gb&n=z',
-        'https://ecn.t2.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=587&mkt=en-gb&n=z',
-        'https://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=587&mkt=en-gb&n=z',
-      ],
-      tileSize: 256,
-      maxzoom: 20,
-      attribution: 'Imagery © Microsoft Corporation',
-    },
-  },
-  layers: [
-    {
-      id: 'imagery',
-      type: 'raster',
-      source: 'bing',
-    },
-  ],
-};
 
 interface Props {
   workspaceId: number;
@@ -93,7 +64,7 @@ function initMap() {
   if (mapRef.value) {
     reviewMap = new maplibregl.Map({
       container: mapRef.value,
-      style: reviewMapStyle,
+      style: bingImageryStyle(),
     });
 
     resizeObserver = new ResizeObserver(() => reviewMap?.resize());
@@ -117,7 +88,7 @@ async function resetMap(): Promise<void> {
     reviewMap.once('style.load', onStyleLoaded);
 
     try {
-      reviewMap.setStyle(reviewMapStyle, { diff: false });
+      reviewMap.setStyle(bingImageryStyle(), { diff: false });
     }
     catch (error) {
       window.clearTimeout(timeoutId);
@@ -160,6 +131,9 @@ async function drawItem(item: ReviewListItem | undefined, refreshAdiff: boolean 
     }
     else if (item.isNote) {
       await drawNote(item.data as OsmNote, generation);
+    }
+    else if (item.isFixme) {
+      await drawFixme(item.data as OsmFixme, generation);
     }
   }
   catch (error: unknown) {
@@ -261,6 +235,108 @@ async function drawNote(note: OsmNote, generation: number) {
     center: [note.lon, note.lat],
     zoom: 18,
   });
+}
+
+/**
+ * How the element a fixme is on is drawn: like a selected element in a
+ * changeset (the adiff viewer's casing under a core line or dot), in red.
+ */
+const FIXME_ELEMENT_STYLE = {
+  color: '#ff3d00',
+  casingColor: 'hsla(0, 0%, 45%, 0.5)'
+};
+
+/**
+ * Draws the element a fixme is on (a node's point, a way's line or outline, a
+ * relation's members), styled like a selected changeset element, and shows the
+ * fixme's note on it. If the element can't
+ * be loaded, the note is still shown at the fixme's location.
+ */
+async function drawFixme(fixme: OsmFixme, generation: number) {
+  await resetMap();
+
+  if (generation !== drawGeneration) {
+    return;
+  }
+
+  let geometry: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+  try {
+    geometry = elementGeoJson(fixme.type, fixme.id, await osmClient.getElementFull(props.workspaceId, fixme.type, fixme.id));
+  }
+  catch (error: unknown) {
+    console.warn(`Could not load ${fixme.type} ${fixme.id} to draw it.`, error);
+  }
+
+  if (generation !== drawGeneration) {
+    return;
+  }
+
+  const bounds = new maplibregl.LngLatBounds();
+  for (const feature of geometry.features) {
+    const geom = feature.geometry;
+    const points = geom.type === 'Point'
+      ? [geom.coordinates]
+      : geom.type === 'LineString'
+        ? geom.coordinates
+        : geom.type === 'Polygon' ? geom.coordinates.flat() : [];
+    for (const [lon, lat] of points as [number, number][]) bounds.extend([lon, lat]);
+  }
+
+  if (geometry.features.length) {
+    reviewMap.addSource('fixme-element', { type: 'geojson', data: geometry });
+    const lines = ['!=', ['geometry-type'], 'Point'] as maplibregl.FilterSpecification;
+    const points = ['==', ['geometry-type'], 'Point'] as maplibregl.FilterSpecification;
+    reviewMap.addLayer({
+      id: 'fixme-element-line-casing',
+      type: 'line',
+      source: 'fixme-element',
+      filter: lines,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-width': 8, 'line-color': FIXME_ELEMENT_STYLE.casingColor, 'line-blur': 2 }
+    });
+    reviewMap.addLayer({
+      id: 'fixme-element-node-casing',
+      type: 'circle',
+      source: 'fixme-element',
+      filter: points,
+      paint: { 'circle-radius': 8, 'circle-color': FIXME_ELEMENT_STYLE.casingColor }
+    });
+    reviewMap.addLayer({
+      id: 'fixme-element-line',
+      type: 'line',
+      source: 'fixme-element',
+      filter: lines,
+      paint: { 'line-width': 2, 'line-color': FIXME_ELEMENT_STYLE.color }
+    });
+    reviewMap.addLayer({
+      id: 'fixme-element-node',
+      type: 'circle',
+      source: 'fixme-element',
+      filter: points,
+      paint: { 'circle-radius': 4, 'circle-color': FIXME_ELEMENT_STYLE.color }
+    });
+  }
+
+  // The note goes at the fixme's location, or the middle of what was drawn.
+  const at: [number, number] | undefined = fixme.lat !== null && fixme.lon !== null
+    ? [fixme.lon, fixme.lat]
+    : bounds.isEmpty() ? undefined : bounds.getCenter().toArray() as [number, number];
+  if (!at) {
+    mapError.value = `This ${fixme.type} has no location to show on the map. Open it in the editor to see it.`;
+    return;
+  }
+
+  popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false })
+    .setLngLat(at)
+    .setText(fixme.note)
+    .addTo(reviewMap);
+
+  if (bounds.isEmpty() || geometry.features.every(feature => feature.geometry.type === 'Point')) {
+    reviewMap.jumpTo({ center: at, zoom: 19 });
+  }
+  else {
+    reviewMap.fitBounds(bounds, { padding: 80, maxZoom: 20, duration: 0 });
+  }
 }
 
 function onAdiffClick(_event: object, action: AdiffAction) {

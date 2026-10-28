@@ -54,6 +54,7 @@ test.describe('create landing page', () => {
   // @test e2e: there are three buttons on this screen--blank workspace, from tdei and from file (playwright snapshot this)
   test('shows the three create cards with links to each form (snapshot)', async ({ page }) => {
     await seedAuthenticatedSession(page);
+    await stubProjectGroups(page);
     await page.goto('/workspace/create');
 
     await expect(page.getByRole('heading', { name: 'Create a Workspace' })).toBeVisible();
@@ -277,7 +278,7 @@ test.describe('create landing page', () => {
   });
 
   // @test e2e: validate that all the API calls used on this page (the blank create flow) match the Swagger spec.
-  test('the blank create flow makes only Swagger-conformant new-API calls', async ({ page }) => {
+  test('the blank create flow makes only Swagger-conformant API calls', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await stubProjectGroups(page);
     await stubCreateWorkspaceOk(page, 123);

@@ -3,7 +3,7 @@
 //             new workspace and takes you to the dashboard with the new workspace selected (playwright snapshot the form and loading state)
 // @test e2e: test that both a valid file upload and an invalid file upload (e.g. wrong file type) are handled correctly, with the valid file successfully creating a
 //            workspace and the invalid file showing an error message (playwright snapshot both scenarios)
-// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 // @test e2e: if an API error occurs when creating a workspace from either form, an error message is shown
 
 <template>
@@ -72,6 +72,7 @@
             <project-group-picker
               id="create_file_project_group"
               v-model="projectGroupId"
+              :options="eligibleProjectGroups"
               :disabled="context.active || createdWorkspaceId !== undefined"
               required
             />
@@ -84,6 +85,13 @@
             :disabled="context.active || createdWorkspaceId !== undefined"
             required
           />
+          <div
+            v-if="createCheckError"
+            class="alert alert-danger py-2"
+            role="alert"
+          >
+            {{ createCheckError }}
+          </div>
 
           <label class="d-block input-label">
             Dataset File
@@ -177,14 +185,40 @@ const importer = new FileImporter(workspacesClient, context);
 const createdWorkspaceId = ref<number | undefined>();
 const creationInitiatedModal = useTemplateRef<ComponentExposed<typeof WorkspaceCreationModal>>('creationInitiatedModal');
 
+const {
+  canCreateAnyWorkspace,
+  getEligibleProjectGroupsForType,
+  load: loadCapabilities
+} = useUserCapabilities();
+
+await loadCapabilities();
+
+if (!canCreateAnyWorkspace.value) {
+  await navigateTo('/dashboard');
+}
+
 const workspaceTitle = ref('');
 const projectGroupId = ref<string | null>(null);
 const datasetType = ref<string | null>(null);
 const {
   available: titleAvailable,
   checking: checkingTitleAvailability,
-  error: titleAvailabilityError,
+  error: titleAvailabilityError
 } = useWorkspaceTitleAvailability(workspaceTitle, projectGroupId);
+
+const eligibleProjectGroups = computed(() =>
+  getEligibleProjectGroupsForType(datasetType.value ?? undefined)
+);
+
+watch(
+  eligibleProjectGroups,
+  (groups) => {
+    if (groups.length > 0 && (!projectGroupId.value || !groups.some(g => g.tdei_project_group_id === projectGroupId.value))) {
+      projectGroupId.value = groups[0]!.tdei_project_group_id;
+    }
+  },
+  { immediate: true }
+);
 const datasetFile = ref<File | null>(null);
 const archiveInspection = ref<DatasetArchiveInspection | null>(null);
 const archiveChecking = ref(false);
@@ -206,10 +240,13 @@ const archiveWarning = computed(() => {
   );
 });
 
+const { reason: createCheckError } = useWorkspaceCreateCheck(datasetType, projectGroupId);
+
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
   && projectGroupId.value != null
   && datasetType.value !== null
+  && createCheckError.value === null
   && datasetFile.value instanceof File
   && datasetFile.value.name.toLowerCase().endsWith('.zip')
   && archiveInspection.value !== null

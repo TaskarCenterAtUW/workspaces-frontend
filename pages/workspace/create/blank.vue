@@ -1,7 +1,7 @@
 // Test outline
 // @test e2e: the "from blank workspace" button takes you to a form that allows you to set the title, workspace type and project group, and submitting
 //             creates a new workspace and takes you to the dashboard with the new workspace selected (playwright snapshot the form and loading state)
-// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 // @test e2e: if an API error occurs when creating a workspace from either form, an error message is shown
 
 <template>
@@ -65,6 +65,8 @@
             <project-group-picker
               id="create_blank_project_group"
               v-model="projectGroupId"
+              :options="eligibleProjectGroups"
+              required
             />
           </div>
 
@@ -73,6 +75,13 @@
             v-model="datasetType"
             class="mb-3"
           />
+          <div
+            v-if="createCheckError"
+            class="alert alert-danger py-2"
+            role="alert"
+          >
+            {{ createCheckError }}
+          </div>
 
           <div class="info-what-next-card">
             <img
@@ -120,6 +129,18 @@ import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 import infoIcon from '~/assets/img/info-icon.svg';
 
+const {
+  canCreateAnyWorkspace,
+  getEligibleProjectGroupsForType,
+  load: loadCapabilities
+} = useUserCapabilities();
+
+await loadCapabilities();
+
+if (!canCreateAnyWorkspace.value) {
+  await navigateTo('/dashboard');
+}
+
 const creating = reactive(new LoadingContext());
 const workspaceTitle = ref('');
 const projectGroupId = ref<string | null>(null);
@@ -127,13 +148,30 @@ const datasetType = ref<string | null>('osw');
 const {
   available: titleAvailable,
   checking: checkingTitleAvailability,
-  error: titleAvailabilityError,
+  error: titleAvailabilityError
 } = useWorkspaceTitleAvailability(workspaceTitle, projectGroupId);
+
+const eligibleProjectGroups = computed(() =>
+  getEligibleProjectGroupsForType(datasetType.value ?? undefined)
+);
+
+watch(
+  eligibleProjectGroups,
+  (groups) => {
+    if (groups.length > 0 && (!projectGroupId.value || !groups.some(g => g.tdei_project_group_id === projectGroupId.value))) {
+      projectGroupId.value = groups[0]!.tdei_project_group_id;
+    }
+  },
+  { immediate: true }
+);
+
+const { reason: createCheckError } = useWorkspaceCreateCheck(datasetType, projectGroupId);
 
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
   && projectGroupId.value != null
   && datasetType.value !== null
+  && createCheckError.value === null
 );
 
 async function handleCancel() {

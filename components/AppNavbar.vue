@@ -56,7 +56,10 @@
               @click="closeOnMobile"
             >Dashboard</nuxt-link>
           </li>
-          <li class="nav-item">
+          <li
+            v-if="canCreateAnyWorkspace"
+            class="nav-item"
+          >
             <!-- Use document navigation to avoid overlapping with unresolved dashboard setup. -->
             <nuxt-link
               class="nav-link nav-link-item"
@@ -136,6 +139,7 @@ import { tdeiClient } from '~/services/index'
 import { startTdeiSsoLogout } from '~/services/sso'
 
 const auth = tdeiClient.auth
+const { canCreateAnyWorkspace, load: loadCapabilities } = useUserCapabilities()
 const mobileMenuOpen = ref(false)
 const isMobileView = ref(false)
 const toggleButtonRef = ref<{ $el: HTMLElement } | null>(null)
@@ -178,6 +182,9 @@ function logout() {
 
 onMounted(() => {
   syncMobileView()
+  if (auth.ok) {
+    void loadCapabilities()
+  }
   window.addEventListener('resize', syncMobileView)
   document.addEventListener('keydown', onKeydown)
 })

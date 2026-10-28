@@ -1,9 +1,23 @@
-- paragraph:
-  - text: You don't have permission to export this workspace to the TDEI. Exporting requires a
-  - strong: POC
-  - text: or
-  - strong: osw_data_generator
-  - text: role in at least one TDEI project group.
-- paragraph: Contact your TDEI project group POC to request the appropriate role.
-- link " Go back":
-  - /url: /workspace/1/export
+- group:
+  - text: Dataset Name
+  - textbox "Dataset Name": Seattle Sidewalks
+  - text: Project Group
+  - textbox "Project Group":
+    - /placeholder: Search project groups...
+    - text: Puget Sound
+  - text: Service
+  - combobox "Service Selection"
+  - text: No services available Dataset Version
+  - textbox "Dataset Version"
+  - checkbox "Export change history"
+  - text: Export change history Attaches a
+  - code: changeset.zip
+  - text: to the export which contains a
+  - code: manifest.json
+  - text: summary metadata file and a
+  - code: changesets/
+  - text: directory with one
+  - code: "{id}.json"
+  - text: file per change history entry.
+  - paragraph: Required to certify the export for ADA compliance.
+- button "Upload "

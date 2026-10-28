@@ -79,13 +79,14 @@
               <project-group-picker
                 id="create_tdei_project_group"
                 v-model="projectGroupId"
+                :options="selectableProjectGroups"
                 :disabled="context.active || createdWorkspaceId !== undefined"
                 required
               />
             </div>
 
             <label
-              v-if="!$route.query.tdeiRecordId"
+              v-if="!route.query.tdeiRecordId"
               class="d-block mb-3 input-label"
             >
               Dataset
@@ -102,6 +103,13 @@
               role="alert"
             >
               {{ datasetError }}
+            </div>
+            <div
+              v-else-if="createCheckError"
+              class="alert alert-danger py-2"
+              role="alert"
+            >
+              {{ createCheckError }}
             </div>
           </div><!-- .card-body -->
 
@@ -283,11 +291,59 @@ const selectedDataset = computed<TdeiDatasetSummary | undefined>(() => {
 
 watch(tdeiRecordId, val => getDatasetInfo(val));
 
+const {
+  canCreateAnyWorkspace,
+  eligibleCreationProjectGroups,
+  canCreateInProjectGroup,
+  getEligibleProjectGroupsForType,
+  load: loadCapabilities
+} = useUserCapabilities();
+
+await loadCapabilities();
+
+if (!canCreateAnyWorkspace.value) {
+  await navigateTo('/dashboard');
+}
+
+const selectableProjectGroups = computed(() => {
+  const isReleased = record.status === 'Publish' || record.is_released === true;
+  if (record.tdei_dataset_id && !isReleased && record.project_group?.tdei_project_group_id) {
+    const isEligible = canCreateInProjectGroup(record.project_group.tdei_project_group_id, record.data_type);
+    if (isEligible) {
+      return [
+        {
+          tdei_project_group_id: record.project_group.tdei_project_group_id,
+          name: record.project_group.name,
+          roles: []
+        }
+      ];
+    }
+    return [];
+  }
+  if (record.data_type) {
+    return getEligibleProjectGroupsForType(record.data_type);
+  }
+  return eligibleCreationProjectGroups.value;
+});
+
+if (!projectGroupId.value && eligibleCreationProjectGroups.value.length > 0) {
+  projectGroupId.value = eligibleCreationProjectGroups.value[0]!.tdei_project_group_id;
+}
+
+// The role filtering above only shapes the picker; the backend's answer here
+// is the authority and blocks the form.
+const { reason: createCheckError } = useWorkspaceCreateCheck(
+  computed(() => record.data_type),
+  projectGroupId,
+  tdeiRecordId
+);
+
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
   && projectGroupId.value != null
   && tdeiRecordId.value !== null
-  && datasetError.value === null,
+  && datasetError.value === null
+  && createCheckError.value === null
 );
 const createButtonLabel = computed(() => {
   if (createdWorkspaceId.value !== undefined) return 'Creation initiated';
@@ -297,7 +353,7 @@ const createButtonLabel = computed(() => {
 let datasetInfoSequence = 0;
 async function getDatasetInfo(id: string | null) {
   const requestId = ++datasetInfoSequence;
-  datasetError.value = null
+  datasetError.value = null;
 
   if (id === null) {
     for (const prop in record) {
@@ -311,15 +367,15 @@ async function getDatasetInfo(id: string | null) {
   await loading.wrap(tdeiClient, async (client) => {
     const info = await client.getDatasetInfo(id);
     if (requestId !== datasetInfoSequence) return;
-    if (!info) return
+    if (!info) return;
 
     // Clear stale keys from any previously loaded dataset before merging,
     // so switching datasets never leaves orphaned fields in record.
     for (const key of Object.keys(record)) {
-      Reflect.deleteProperty(record, key)
+      Reflect.deleteProperty(record, key);
     }
 
-    Object.assign(record, info)
+    Object.assign(record, info);
   });
 
   await nextTick();
@@ -327,12 +383,35 @@ async function getDatasetInfo(id: string | null) {
   if (requestId !== datasetInfoSequence) return;
 
   if (!record.project_group?.tdei_project_group_id || !record.tdei_dataset_id) {
-    datasetError.value = 'The selected dataset returned incomplete data. Please try a different dataset or contact support.'
-    return
+    datasetError.value = 'The selected dataset returned incomplete data. Please try a different dataset or contact support.';
+    return;
   }
 
-  workspaceTitle.value = record.metadata?.dataset_detail?.name ?? ''
-  tdeiRecordId.value = record.tdei_dataset_id
+  const isReleased = record.status === 'Publish' || record.is_released === true;
+  const datasetPgId = record.project_group.tdei_project_group_id;
+
+  if (isReleased) {
+    const eligibleGroups = getEligibleProjectGroupsForType(record.data_type);
+    if (eligibleGroups.length === 0) {
+      datasetError.value = 'You do not have permission to create workspaces in any project group.';
+      projectGroupId.value = null;
+      return;
+    }
+    if (!projectGroupId.value || !eligibleGroups.some(g => g.tdei_project_group_id === projectGroupId.value)) {
+      projectGroupId.value = eligibleGroups[0]!.tdei_project_group_id;
+    }
+  } else {
+    const canCreateInDatasetPg = canCreateInProjectGroup(datasetPgId, record.data_type);
+    if (!canCreateInDatasetPg) {
+      datasetError.value = 'You do not have permission to create a workspace from an unreleased dataset in this project group.';
+      projectGroupId.value = null;
+      return;
+    }
+    projectGroupId.value = datasetPgId;
+  }
+
+  workspaceTitle.value = record.metadata?.dataset_detail?.name ?? '';
+  tdeiRecordId.value = record.tdei_dataset_id;
 
   void initMap();
 }
