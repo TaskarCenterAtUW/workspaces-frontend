@@ -16,7 +16,7 @@ import { bingImageryStyle } from '~/util/map-style';
 import { OsmElementLookup, wayToGeoJsonCoords } from '~/util/osm';
 
 import type { FeatureCollection } from 'geojson';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 
 import type { MergeConflict } from '~/services/merge';
 import type { OsmElement } from '~/types/osm';
@@ -80,7 +80,7 @@ onMounted(async () => {
   // Imported on mount so maplibre-gl stays out of the critical bundle for
   // pages that never show a map:
   //
-  const maplibre = await import('maplibre-gl');
+  const [maplibre] = await Promise.all([import('maplibre-gl'), import('~/util/maplibre-worker')]);
 
   // The component can unmount while that import is in flight, which would
   // otherwise build a map against a detached container and never dispose it:

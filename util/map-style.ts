@@ -53,7 +53,7 @@ export async function createMaplibreMap(
     controlPosition?: import('maplibre-gl').ControlPosition;
   }
 ): Promise<MaplibreMapHandle> {
-  const maplibregl = await import('maplibre-gl');
+  const [maplibregl] = await Promise.all([import('maplibre-gl'), import('~/util/maplibre-worker')]);
 
   const map = new maplibregl.Map({
     container,
