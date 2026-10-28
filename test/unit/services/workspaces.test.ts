@@ -246,6 +246,55 @@ describe('WorkspacesClient.checkWorkspaceTitleAvailability', () => {
   });
 });
 
+describe('WorkspacesClient.checkWorkspaceCreate', () => {
+  const LEGACY_API_BASE = 'http://legacy-api.test/';
+  const NEW_API_BASE = 'http://new-api.test/';
+
+  it('posts the type, project group and dataset to the new API and returns the answer', async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(`${NEW_API_BASE}workspaces/check-create`, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({ canCreate: false, reason: 'Not allowed' });
+      })
+    );
+    const client = new WorkspacesClient(
+      LEGACY_API_BASE,
+      NEW_API_BASE,
+      tdeiClient,
+      osmClient
+    );
+
+    const request = {
+      type: 'osw' as const,
+      tdeiProjectGroupId: '11111111-1111-4111-8111-111111111111',
+      tdeiRecordId: '22222222-2222-4222-8222-222222222222',
+    };
+    await expect(client.checkWorkspaceCreate(request))
+      .resolves.toEqual({ canCreate: false, reason: 'Not allowed' });
+    expect(receivedBody).toEqual(request);
+  });
+
+  it('rejects when the backend answers with an error, e.g. a 502 from TDEI', async () => {
+    server.use(
+      http.post(`${NEW_API_BASE}workspaces/check-create`, () =>
+        new HttpResponse(null, { status: 502 })
+      )
+    );
+    const client = new WorkspacesClient(
+      LEGACY_API_BASE,
+      NEW_API_BASE,
+      tdeiClient,
+      osmClient
+    );
+
+    await expect(client.checkWorkspaceCreate({
+      type: 'osw',
+      tdeiProjectGroupId: '11111111-1111-4111-8111-111111111111',
+    })).rejects.toThrow();
+  });
+});
+
 describe('WorkspacesClient.getWorkspaceJobs', () => {
   it('returns workspace jobs from the jobs endpoint in API order', async () => {
     const jobs = [{

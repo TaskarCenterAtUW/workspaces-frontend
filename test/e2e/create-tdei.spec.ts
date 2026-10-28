@@ -107,7 +107,7 @@ const DATASET_ZIP = buildDatasetZip();
 // by a short label to fail a specific call with a 500 for the error-path tests.
 async function stubHappyPath(
   page: Page,
-  override: { workspace?: boolean; titleAvailable?: boolean } = {}
+  override: { workspace?: boolean; titleAvailable?: boolean; createCheckReason?: string } = {}
 ) {
   // ProjectGroupPicker -> TDEI user API.
   await page.route('**/tdei-user/project-group-roles/**', (route: Route) =>
@@ -116,6 +116,16 @@ async function stubHappyPath(
 
   await page.route('**/workspaces/check', (route: Route) =>
     route.fulfill({ status: 200, json: { available: override.titleAvailable ?? true } })
+  );
+
+  // Backend pre-flight: allowed unless the test supplies a denial reason.
+  await page.route('**/workspaces/check-create', (route: Route) =>
+    route.fulfill({
+      status: 200,
+      json: override.createCheckReason
+        ? { canCreate: false, reason: override.createCheckReason }
+        : { canCreate: true }
+    })
   );
 
   // DatasetPicker list + getDatasetInfo both hit /tdei/datasets; one dataset
@@ -247,6 +257,33 @@ test.describe('create workspace from TDEI', () => {
     await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeEnabled();
   });
 
+  test('blocks creation and shows the reason when the backend pre-check says no', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    const reason = 'User does not have permissions to create a workspace of that type in that project group.';
+    await stubHappyPath(page, { createCheckReason: reason });
+
+    await page.goto('/workspace/create/tdei');
+    const pgInput = page.locator('#create_tdei_project_group');
+    await pgInput.click();
+    await page.getByRole('listitem').filter({ hasText: 'Puget Sound' }).first().click();
+    await page.getByRole('combobox', { name: 'Dataset Selection' }).click();
+    await page.getByRole('option', { name: /Downtown Sidewalks/ }).click();
+
+    await expect(page.getByRole('alert')).toContainText(reason);
+    await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeDisabled();
+  });
+
+  test('a failed backend pre-check does not block creation', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubHappyPath(page);
+    await page.route('**/workspaces/check-create', (route: Route) =>
+      route.fulfill({ status: 502, body: 'TDEI unreachable' })
+    );
+
+    await page.goto('/workspace/create/tdei');
+    await fillForm(page);
+  });
+
   // @test e2e: submitting the form with an API error shows an error message and a "try again" button, and
   //            clicking the "try again" button resets the form (playwright snapshot the error state)
   // @test e2e: if an API error occurs when creating a workspace from either form, an error message and "try again"
@@ -278,7 +315,7 @@ test.describe('create workspace from TDEI', () => {
   test('the create-workspace API calls match the Swagger spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await stubHappyPath(page);
-    const contract = recordContract(page, { ignoredPaths: ['workspaces/check'] });
+    const contract = recordContract(page, { ignoredPaths: ['workspaces/check', 'workspaces/check-create'] });
 
     await page.goto('/workspace/create/tdei');
     await fillForm(page);

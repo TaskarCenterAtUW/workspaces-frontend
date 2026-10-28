@@ -29,6 +29,8 @@ import type {
   WorkspaceTeam,
   WorkspaceTitleAvailability,
   WorkspaceTitleAvailabilityRequest,
+  WorkspaceCreateCheck,
+  WorkspaceCreateCheckRequest,
 } from '~/types/workspaces';
 
 export function compareWorkspaceCreatedAtDesc(a: Workspace, b: Workspace) {
@@ -222,6 +224,23 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
 
     try {
       const response = await this._post('workspaces/check', request);
+      return await response.json();
+    }
+    finally {
+      this._baseUrl = originalBaseUrl;
+    }
+  }
+
+  // Asks the backend whether creating this workspace would be allowed, using
+  // the same checks as the create call itself.
+  async checkWorkspaceCreate(
+    request: WorkspaceCreateCheckRequest
+  ): Promise<WorkspaceCreateCheck> {
+    const originalBaseUrl = this._baseUrl;
+    this._baseUrl = this.#newApiUrl;
+
+    try {
+      const response = await this._post('workspaces/check-create', request);
       return await response.json();
     }
     finally {

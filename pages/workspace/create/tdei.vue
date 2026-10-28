@@ -104,6 +104,13 @@
             >
               {{ datasetError }}
             </div>
+            <div
+              v-else-if="createCheckError"
+              class="alert alert-danger py-2"
+              role="alert"
+            >
+              {{ createCheckError }}
+            </div>
           </div><!-- .card-body -->
 
           <div class="card-footer">
@@ -242,6 +249,7 @@ import { TdeiImporter, TdeiImporterContext } from '~/services/import/tdei';
 import { tdeiClient, workspacesClient } from '~/services/index';
 import type { WorkspaceCreationModal } from '#components';
 import type { TdeiDatasetSummary } from '~/types/tdei';
+import type { WorkspaceType } from '~/types/workspaces';
 import type { ComponentExposed } from 'vue-component-type-helpers';
 import { createMaplibreMap } from '~/util/map-style';
 import { getGeoJsonBounds } from '~/util/geojson';
@@ -323,11 +331,39 @@ if (!projectGroupId.value && eligibleCreationProjectGroups.value.length > 0) {
   projectGroupId.value = eligibleCreationProjectGroups.value[0]!.tdei_project_group_id;
 }
 
+// The role filtering above only shapes the picker. The backend's check-create
+// is the authority, so its "no" (with reason) blocks the form. A failed check
+// doesn't: the create call enforces the same rules and reports its own error.
+const createCheckError = ref<string | null>(null);
+let createCheckSequence = 0;
+
+watch([projectGroupId, tdeiRecordId, () => record.data_type], async ([pgId, recordId, dataType]) => {
+  const requestId = ++createCheckSequence;
+  createCheckError.value = null;
+  if (!pgId || !recordId || !dataType) return;
+
+  try {
+    const result = await workspacesClient.checkWorkspaceCreate({
+      type: String(dataType).trim().toLowerCase() as WorkspaceType,
+      tdeiProjectGroupId: pgId,
+      tdeiRecordId: recordId,
+    });
+    if (requestId !== createCheckSequence) return;
+    if (!result.canCreate) {
+      createCheckError.value = result.reason || 'You do not have permission to create this workspace.';
+    }
+  }
+  catch (e) {
+    console.warn('Workspace create pre-check failed; the create call will enforce permissions', e);
+  }
+});
+
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
   && projectGroupId.value != null
   && tdeiRecordId.value !== null
   && datasetError.value === null
+  && createCheckError.value === null
 );
 const createButtonLabel = computed(() => {
   if (createdWorkspaceId.value !== undefined) return 'Creation initiated';
