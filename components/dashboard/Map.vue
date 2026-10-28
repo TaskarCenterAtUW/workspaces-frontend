@@ -30,6 +30,7 @@
 <script setup lang="ts">
 import { LoadingContext } from '~/services/loading';
 import { workspacesClient } from '~/services/index';
+import { loadWorkspaceMetadata } from '~/services/workspace-metadata';
 import { isRecord, parseMetadata } from '~/util/metadata';
 import { createMaplibreMap } from '~/util/map-style';
 import {
@@ -181,6 +182,9 @@ onBeforeUnmount(() => {
 async function getWorkspaceArea(workspace: Workspace): Promise<WorkspaceArea | null> {
   let bbox: BoundingBox | undefined;
 
+  // Fetched alongside the bbox. If it fails, the bbox outline is still drawn.
+  const metadata = loadWorkspaceMetadata(workspace.id).catch(() => undefined);
+
   await loadingBbox.cancelable(workspacesClient, async (client) => {
     bbox = await client.getWorkspaceBbox(workspace.id);
   });
@@ -189,7 +193,7 @@ async function getWorkspaceArea(workspace: Workspace): Promise<WorkspaceArea | n
     return null;
   }
 
-  const metadataArea = getMetadataArea(parseMetadata(workspace.tdeiMetadata));
+  const metadataArea = getMetadataArea(parseMetadata(await metadata));
   const metadataBounds = metadataArea ? getGeoJsonBounds(metadataArea) : null;
 
   if (metadataArea && metadataBounds && isValidGeoJsonBounds(metadataBounds)) {
