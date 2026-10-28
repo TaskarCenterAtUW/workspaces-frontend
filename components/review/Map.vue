@@ -7,6 +7,7 @@
 
 <script setup lang="ts">
 import * as maplibregl from 'maplibre-gl';
+import '~/util/maplibre-worker';
 import { MapLibreAugmentedDiffViewer } from '@osmcha/maplibre-adiff-viewer';
 
 import { changesetManager, osmClient } from '~/services/index';
