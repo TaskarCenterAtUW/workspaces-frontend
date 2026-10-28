@@ -18,7 +18,7 @@ the URL)
 // @test e2e: a failing merge shows an error toast and re-enables the Merge button rather than failing silently
 (assert() the toast text)
 // @test e2e: validate that all the API calls used on this page match the Swagger spec
-(https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+(https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
   <app-page class="merge-page">

@@ -7,7 +7,7 @@ import { TEST_API_BASE } from '../../mocks/fixtures';
 import type { OsmApiClient } from '~/services/osm';
 import type { TdeiClient } from '~/services/tdei';
 
-// getMyWorkspaces only touches the new-API HTTP client, so the osm collaborator
+// getMyWorkspaces only touches the workspaces API, so the osm collaborator
 // can be inert. The tdei stub just needs the bits WorkspacesClient._send uses:
 // a no-op auth refresh and an `auth` object whose `complete` flag gates the
 // Authorization header. The real BaseHttpClient runs end to end — MSW
@@ -21,7 +21,7 @@ const tdeiClient = {
 const osmClient = {} as unknown as OsmApiClient;
 
 function makeClient() {
-  return new WorkspacesClient(TEST_API_BASE, TEST_API_BASE, tdeiClient, osmClient);
+  return new WorkspacesClient(TEST_API_BASE, tdeiClient, osmClient);
 }
 
 describe('WorkspacesClient.getMyWorkspaces', () => {
@@ -88,32 +88,23 @@ describe('WorkspacesClient.getMyWorkspaces', () => {
 });
 
 describe('WorkspacesClient.getWorkspaceBbox', () => {
-  // Use a DISTINCT new-API base so the test proves the call base-swaps onto the
-  // v1 (tasking) API — if it used the legacy base, the new-API stub wouldn't
-  // match and the fetch would fail.
-  const NEW_API_BASE = 'http://new-api.test/';
-
-  function makeBboxClient() {
-    return new WorkspacesClient(TEST_API_BASE, NEW_API_BASE, tdeiClient, osmClient);
-  }
-
   it('fetches the bbox from the v1 endpoint and returns it unchanged (backend sends decimal degrees)', async () => {
     // Regression: coordinates come pre-scaled from the backend, so the client
     // must NOT re-scale them — bbox in === bbox out.
     const bbox = { min_lat: 47.6, min_lon: -122.34, max_lat: 47.62, max_lon: -122.32 };
     server.use(
-      http.get(`${NEW_API_BASE}workspaces/1/bbox`, () => HttpResponse.json(bbox))
+      http.get(`${TEST_API_BASE}workspaces/1/bbox`, () => HttpResponse.json(bbox))
     );
 
-    await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toEqual(bbox);
+    await expect(makeClient().getWorkspaceBbox(1)).resolves.toEqual(bbox);
   });
 
   it('returns undefined when the workspace has no extent (204)', async () => {
     server.use(
-      http.get(`${NEW_API_BASE}workspaces/1/bbox`, () => new HttpResponse(null, { status: 204 }))
+      http.get(`${TEST_API_BASE}workspaces/1/bbox`, () => new HttpResponse(null, { status: 204 }))
     );
 
-    await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toBeUndefined();
+    await expect(makeClient().getWorkspaceBbox(1)).resolves.toBeUndefined();
   });
 
   // The backend computes the box as a MIN/MAX over the workspace's nodes, and
@@ -122,22 +113,22 @@ describe('WorkspacesClient.getWorkspaceBbox', () => {
   // that on would put "null" into a bbox query string and NaN into a map fit.
   it('returns undefined when the coordinates come back null', async () => {
     server.use(
-      http.get(`${NEW_API_BASE}workspaces/1/bbox`, () =>
+      http.get(`${TEST_API_BASE}workspaces/1/bbox`, () =>
         HttpResponse.json({ min_lat: null, min_lon: null, max_lat: null, max_lon: null })
       )
     );
 
-    await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toBeUndefined();
+    await expect(makeClient().getWorkspaceBbox(1)).resolves.toBeUndefined();
   });
 
   it('returns undefined when only some coordinates are missing', async () => {
     server.use(
-      http.get(`${NEW_API_BASE}workspaces/1/bbox`, () =>
+      http.get(`${TEST_API_BASE}workspaces/1/bbox`, () =>
         HttpResponse.json({ min_lat: 47.6, min_lon: null, max_lat: 47.62, max_lon: -122.32 })
       )
     );
 
-    await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toBeUndefined();
+    await expect(makeClient().getWorkspaceBbox(1)).resolves.toBeUndefined();
   });
 
   it('keeps a box whose coordinates are legitimately zero', async () => {
@@ -145,28 +136,24 @@ describe('WorkspacesClient.getWorkspaceBbox', () => {
     const bbox = { min_lat: 0, min_lon: 0, max_lat: 0, max_lon: 0 };
 
     server.use(
-      http.get(`${NEW_API_BASE}workspaces/1/bbox`, () => HttpResponse.json(bbox))
+      http.get(`${TEST_API_BASE}workspaces/1/bbox`, () => HttpResponse.json(bbox))
     );
 
-    await expect(makeBboxClient().getWorkspaceBbox(1)).resolves.toEqual(bbox);
+    await expect(makeClient().getWorkspaceBbox(1)).resolves.toEqual(bbox);
   });
 });
 
 describe('WorkspacesClient.getFixmes', () => {
-  // A distinct new-API base, as for getWorkspaceBbox: the fixmes endpoint is
-  // only on the new API, so a call on the legacy base wouldn't match the stub.
-  const NEW_API_BASE = 'http://new-api.test/';
-
-  it('fetches the fixmes from the new API and turns their timestamps into Dates', async () => {
+  it('fetches the fixmes and turns their timestamps into Dates', async () => {
     const fixme = {
       type: 'node', id: 7, version: 2, changeset: 30, timestamp: '2026-10-20T12:00:00Z',
       key: 'fixme', note: 'Check the curb ramp', lat: 47.6, lon: -122.33, tags: { fixme: 'Check the curb ramp' }
     };
     server.use(
-      http.get(`${NEW_API_BASE}workspaces/1/fixmes`, () => HttpResponse.json([fixme]))
+      http.get(`${TEST_API_BASE}workspaces/1/fixmes`, () => HttpResponse.json([fixme]))
     );
 
-    const client = new WorkspacesClient(TEST_API_BASE, NEW_API_BASE, tdeiClient, osmClient);
+    const client = makeClient();
     const { timestamp, ...rest } = fixme;
     await expect(client.getFixmes(1)).resolves.toEqual([{ ...rest, created_at: new Date(timestamp) }]);
   });
@@ -176,7 +163,6 @@ describe('WorkspacesClient.deleteWorkspace', () => {
   it('reports failed OSM cleanup after the workspace record is deleted', async () => {
     const deleteOsmWorkspace = vi.fn().mockRejectedValue(new Error('Forbidden'));
     const client = new WorkspacesClient(
-      TEST_API_BASE,
       TEST_API_BASE,
       tdeiClient,
       { deleteWorkspace: deleteOsmWorkspace } as unknown as OsmApiClient
@@ -198,7 +184,6 @@ describe('WorkspacesClient.deleteWorkspace', () => {
     const deleteOsmWorkspace = vi.fn().mockResolvedValue(undefined);
     const client = new WorkspacesClient(
       TEST_API_BASE,
-      TEST_API_BASE,
       tdeiClient,
       { deleteWorkspace: deleteOsmWorkspace } as unknown as OsmApiClient
     );
@@ -216,20 +201,16 @@ describe('WorkspacesClient.deleteWorkspace', () => {
 });
 
 describe('WorkspacesClient.checkWorkspaceTitleAvailability', () => {
-  const LEGACY_API_BASE = 'http://legacy-api.test/';
-  const NEW_API_BASE = 'http://new-api.test/';
-
-  it('posts the title and project group to the new API and returns availability', async () => {
+  it('posts the title and project group and returns availability', async () => {
     let receivedBody: unknown;
     server.use(
-      http.post(`${NEW_API_BASE}workspaces/check`, async ({ request }) => {
+      http.post(`${TEST_API_BASE}workspaces/check`, async ({ request }) => {
         receivedBody = await request.json();
         return HttpResponse.json({ available: false });
       })
     );
     const client = new WorkspacesClient(
-      LEGACY_API_BASE,
-      NEW_API_BASE,
+      TEST_API_BASE,
       tdeiClient,
       osmClient
     );
@@ -247,20 +228,16 @@ describe('WorkspacesClient.checkWorkspaceTitleAvailability', () => {
 });
 
 describe('WorkspacesClient.checkWorkspaceCreate', () => {
-  const LEGACY_API_BASE = 'http://legacy-api.test/';
-  const NEW_API_BASE = 'http://new-api.test/';
-
-  it('posts the type, project group and dataset to the new API and returns the answer', async () => {
+  it('posts the type, project group and dataset and returns the answer', async () => {
     let receivedBody: unknown;
     server.use(
-      http.post(`${NEW_API_BASE}workspaces/check-create`, async ({ request }) => {
+      http.post(`${TEST_API_BASE}workspaces/check-create`, async ({ request }) => {
         receivedBody = await request.json();
         return HttpResponse.json({ canCreate: false, reason: 'Not allowed' });
       })
     );
     const client = new WorkspacesClient(
-      LEGACY_API_BASE,
-      NEW_API_BASE,
+      TEST_API_BASE,
       tdeiClient,
       osmClient
     );
@@ -275,47 +252,14 @@ describe('WorkspacesClient.checkWorkspaceCreate', () => {
     expect(receivedBody).toEqual(request);
   });
 
-  it('leaves later requests on the legacy API when checks overlap', async () => {
-    let checks = 0;
-    server.use(
-      // The first check answers at once; the second only after the first has finished.
-      http.post(`${NEW_API_BASE}workspaces/check-create`, async () => {
-        checks += 1;
-        if (checks === 2) {
-          await new Promise(resolve => setTimeout(resolve, 20));
-        }
-        return HttpResponse.json({ canCreate: true });
-      }),
-      http.get(`${LEGACY_API_BASE}workspaces/mine`, () => HttpResponse.json([]))
-    );
-    const client = new WorkspacesClient(
-      LEGACY_API_BASE,
-      NEW_API_BASE,
-      tdeiClient,
-      osmClient
-    );
-    const request = {
-      type: 'osw' as const,
-      tdeiProjectGroupId: '11111111-1111-4111-8111-111111111111',
-    };
-
-    await Promise.all([
-      client.checkWorkspaceCreate(request),
-      client.checkWorkspaceCreate(request)
-    ]);
-
-    await expect(client.getMyWorkspaces()).resolves.toEqual([]);
-  });
-
   it('rejects when the backend answers with an error, e.g. a 502 from TDEI', async () => {
     server.use(
-      http.post(`${NEW_API_BASE}workspaces/check-create`, () =>
+      http.post(`${TEST_API_BASE}workspaces/check-create`, () =>
         new HttpResponse(null, { status: 502 })
       )
     );
     const client = new WorkspacesClient(
-      LEGACY_API_BASE,
-      NEW_API_BASE,
+      TEST_API_BASE,
       tdeiClient,
       osmClient
     );
@@ -354,28 +298,18 @@ describe('WorkspacesClient.getWorkspaceJobs', () => {
 });
 
 describe('WorkspacesClient.createWorkspaceFromFile', () => {
-  const LEGACY_API_BASE = 'http://legacy-api.test/';
-  const NEW_API_BASE = 'http://new-api.test/';
-
-  it('posts multipart data to the new API without changing the shared legacy base', async () => {
-    let legacyUploadCalled = false;
+  it('posts multipart data and returns the new workspace ID', async () => {
     let receivedBody: FormData | undefined;
 
     server.use(
-      http.post(`${LEGACY_API_BASE}workspaces/from-file`, () => {
-        legacyUploadCalled = true;
-        return HttpResponse.json({ id: 999 });
-      }),
-      http.post(`${NEW_API_BASE}workspaces/from-file`, async ({ request }) => {
+      http.post(`${TEST_API_BASE}workspaces/from-file`, async ({ request }) => {
         receivedBody = await request.formData();
         return HttpResponse.json({ id: 456 }, { status: 201 });
-      }),
-      http.get(`${LEGACY_API_BASE}workspaces/mine`, () => HttpResponse.json([]))
+      })
     );
 
     const client = new WorkspacesClient(
-      LEGACY_API_BASE,
-      NEW_API_BASE,
+      TEST_API_BASE,
       tdeiClient,
       osmClient
     );
@@ -389,14 +323,12 @@ describe('WorkspacesClient.createWorkspaceFromFile', () => {
     );
 
     expect(workspaceId).toBe(456);
-    expect(legacyUploadCalled).toBe(false);
     expect(receivedBody?.get('title')).toBe('Uploaded workspace');
     expect(receivedBody?.get('type')).toBe('pathways');
     expect(receivedBody?.get('tdeiProjectGroupId')).toBe('11111111-1111-4111-8111-111111111111');
     const uploadedFile = receivedBody?.get('file');
     expect(uploadedFile).toBeInstanceOf(Blob);
     await expect((uploadedFile as Blob).text()).resolves.toBe('dataset');
-    await expect(client.getMyWorkspaces()).resolves.toEqual([]);
   });
 
   it.each([
@@ -405,14 +337,13 @@ describe('WorkspacesClient.createWorkspaceFromFile', () => {
     ['a non-integer ID', { id: 45.6 }]
   ])('rejects %s in a successful response', async (_label, responseBody) => {
     server.use(
-      http.post(`${NEW_API_BASE}workspaces/from-file`, () => {
+      http.post(`${TEST_API_BASE}workspaces/from-file`, () => {
         return HttpResponse.json(responseBody, { status: 201 });
       })
     );
 
     const client = new WorkspacesClient(
-      LEGACY_API_BASE,
-      NEW_API_BASE,
+      TEST_API_BASE,
       tdeiClient,
       osmClient
     );

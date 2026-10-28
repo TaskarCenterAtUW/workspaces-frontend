@@ -334,7 +334,7 @@ describe('both exports build on the original dataset', () => {
   });
 
   it('keeps the original\'s other files and levels in a Download', async () => {
-    const download = await read(await new WorkspacesClient('http://api.test/', 'http://api.test/', fakeTdeiClient() as any, osmClient)
+    const download = await read(await new WorkspacesClient('http://api.test/', fakeTdeiClient() as any, osmClient)
       .exportWorkspaceArchive(workspace));
 
     expect(download['agency.txt']).toContain('WMATA,Metro');
@@ -350,7 +350,7 @@ describe('both exports build on the original dataset', () => {
     const uploaded = await read((tdeiClient.uploadPathwaysDataset.mock.calls[0] as unknown[])[3] as Blob);
     expect((tdeiClient.uploadPathwaysDataset.mock.calls[0] as unknown[])[0]).toBe('D1'); // derived from it
 
-    const download = await read(await new WorkspacesClient('http://api.test/', 'http://api.test/', fakeTdeiClient() as any, osmClient)
+    const download = await read(await new WorkspacesClient('http://api.test/', fakeTdeiClient() as any, osmClient)
       .exportWorkspaceArchive(workspace));
     expect(download).toEqual(uploaded);
   });

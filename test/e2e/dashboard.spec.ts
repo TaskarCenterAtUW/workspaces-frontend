@@ -113,9 +113,9 @@ test.describe('dashboard', () => {
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
   // Use the empty case so no workspace is auto-selected and the maplibre map
   // never mounts (WebGL is unreliable headless). The recorder still sees the
-  // new-API call (GET workspaces/mine) and validates its response shape.
+  // workspaces API call (GET workspaces/mine) and validates its response shape.
   // (The populated WorkspaceResponse shape is also asserted at the unit level.)
-  test('makes no new-API calls that violate the OpenAPI spec', async ({ page }) => {
+  test('makes no API calls that violate the OpenAPI spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await page.route(`${TEST_API_BASE}workspaces/mine`, EMPTY);
     await page.route(`${TEST_API_BASE}tdei-user/project-group-roles/**`, EMPTY);

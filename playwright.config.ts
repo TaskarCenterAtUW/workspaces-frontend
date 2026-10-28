@@ -9,7 +9,6 @@ const baseURL = `http://localhost:${PORT}`;
 // can never reach a real backend. See test/e2e/fixtures.ts.
 const E2E_ENV = {
   VITE_API_URL: 'http://api.test/',
-  VITE_NEW_API_URL: 'http://api.test/',
   VITE_TDEI_API_URL: 'http://api.test/tdei/',
   VITE_TDEI_USER_API_URL: 'http://api.test/tdei-user/',
   VITE_TDEI_PORTAL_URL: 'https://portal.test',

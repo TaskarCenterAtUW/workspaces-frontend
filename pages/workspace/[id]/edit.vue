@@ -9,7 +9,7 @@
 // @test e2e: while the editor is loading, the page shows a loading spinner over the editor area; it goes away once the editor has started
 // @test e2e: leaving this page and coming back while the editor is still starting shows the spinner again until it has started
 // @test e2e: if the editor fails to start, the page says so in place of the spinner
-// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
   <div class="edit-page">

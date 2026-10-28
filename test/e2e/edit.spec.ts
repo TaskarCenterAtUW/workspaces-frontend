@@ -18,7 +18,7 @@ import { recordContract } from './contract';
 // with exactly enough of a fake editor to make the manager's load+init path run
 // to completion and paint a recognizable editor surface.
 //
-// The page itself makes NO new-API (api.test/workspaces/...) calls — it reads
+// The page itself makes NO workspaces API (api.test/workspaces/...) calls — it reads
 // the workspace id straight off the route — so the contract test should see an
 // empty violation list.
 

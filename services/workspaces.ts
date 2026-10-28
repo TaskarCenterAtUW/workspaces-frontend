@@ -89,12 +89,9 @@ export interface DeleteWorkspaceResult {
 export class WorkspacesClient extends BaseHttpClient implements ICancelableClient {
   #tdeiClient: TdeiClient;
   #osmClient: OsmApiClient;
-  /** Base URL for the new tasking API — the one that returns `role` on workspace responses. */
-  #newApiUrl: string;
 
   constructor(
     apiUrl: string,
-    newApiUrl: string,
     tdeiClient: TdeiClient,
     osmClient: OsmApiClient,
     signal?: AbortSignal
@@ -103,7 +100,6 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
 
     this.#tdeiClient = tdeiClient;
     this.#osmClient = osmClient;
-    this.#newApiUrl = newApiUrl;
   }
 
   get auth(): TdeiAuthStore {
@@ -113,21 +109,9 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   clone(signal?: AbortSignal): WorkspacesClient {
     return new WorkspacesClient(
       this._baseUrl,
-      this.#newApiUrl,
       this.#tdeiClient,
       this.#osmClient,
       signal ?? this._abortSignal
-    );
-  }
-
-  /** A client for the new API, for requests to it that mustn't touch this client's base URL. */
-  #newApiClient(): WorkspacesClient {
-    return new WorkspacesClient(
-      this.#newApiUrl,
-      this.#newApiUrl,
-      this.#tdeiClient,
-      this.#osmClient,
-      this._abortSignal
     );
   }
 
@@ -139,41 +123,25 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   }
 
   async getWorkspace(id: WorkspaceId): Promise<Workspace> {
-    const originalBaseUrl = this._baseUrl;
-    this._baseUrl = this.#newApiUrl;
-
-    try {
-      const response = await this._send(`workspaces/${id}`, 'GET');
-      return normalizeWorkspace(await response.json());
-    }
-    finally {
-      this._baseUrl = originalBaseUrl;
-    }
+    const response = await this._send(`workspaces/${id}`, 'GET');
+    return normalizeWorkspace(await response.json());
   }
 
   async getWorkspaceBbox(id: WorkspaceId): Promise<BoundingBox | undefined> {
-    const originalBaseUrl = this._baseUrl;
-    this._baseUrl = this.#newApiUrl;
+    const response = await this._send(`workspaces/${id}/bbox`, 'GET');
 
-    try {
-      const response = await this._send(`workspaces/${id}/bbox`, 'GET');
-
-      if (response.status === 204) {
-        return undefined;
-      }
-
-      // The v1 API returns coordinates already in decimal degrees.
-      const bbox: BoundingBox | null = await response.json();
-
-      if (!bbox || !isCompleteBbox(bbox)) {
-        return undefined;
-      }
-
-      return bbox;
+    if (response.status === 204) {
+      return undefined;
     }
-    finally {
-      this._baseUrl = originalBaseUrl;
+
+    // The v1 API returns coordinates already in decimal degrees.
+    const bbox: BoundingBox | null = await response.json();
+
+    if (!bbox || !isCompleteBbox(bbox)) {
+      return undefined;
     }
+
+    return bbox;
   }
 
   async getWorkspaceJobs(id: WorkspaceId): Promise<WorkspaceJob[]> {
@@ -230,16 +198,8 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   async checkWorkspaceTitleAvailability(
     request: WorkspaceTitleAvailabilityRequest
   ): Promise<WorkspaceTitleAvailability> {
-    const originalBaseUrl = this._baseUrl;
-    this._baseUrl = this.#newApiUrl;
-
-    try {
-      const response = await this._post('workspaces/check', request);
-      return await response.json();
-    }
-    finally {
-      this._baseUrl = originalBaseUrl;
-    }
+    const response = await this._post('workspaces/check', request);
+    return await response.json();
   }
 
   // Asks the backend whether creating this workspace would be allowed, using
@@ -247,8 +207,7 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   async checkWorkspaceCreate(
     request: WorkspaceCreateCheckRequest
   ): Promise<WorkspaceCreateCheck> {
-    // A client of its own, since checks can overlap and must not swap this one's base URL.
-    const response = await this.#newApiClient()._post('workspaces/check-create', request);
+    const response = await this._post('workspaces/check-create', request);
     return await response.json();
   }
 
@@ -262,7 +221,7 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
       formData.append('description', workspace.description);
     }
 
-    const workspaceResponse = await this.#newApiClient()._post('workspaces/from-file', formData);
+    const workspaceResponse = await this._post('workspaces/from-file', formData);
     const body: unknown = await workspaceResponse.json();
     const responseBody = body !== null && typeof body === 'object'
       ? body as Record<string, unknown>
@@ -408,18 +367,10 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
 
   /** The workspace's elements with a `fixme` tag, newest first. */
   async getFixmes(workspaceId: WorkspaceId): Promise<OsmFixme[]> {
-    const originalBaseUrl = this._baseUrl;
-    this._baseUrl = this.#newApiUrl;
+    const response = await this._send(`workspaces/${workspaceId}/fixmes`, 'GET');
+    const fixmes: (Omit<OsmFixme, 'created_at'> & { timestamp: string })[] = await response.json();
 
-    try {
-      const response = await this._send(`workspaces/${workspaceId}/fixmes`, 'GET');
-      const fixmes: (Omit<OsmFixme, 'created_at'> & { timestamp: string })[] = await response.json();
-
-      return fixmes.map(({ timestamp, ...fixme }) => ({ ...fixme, created_at: new Date(timestamp) }));
-    }
-    finally {
-      this._baseUrl = originalBaseUrl;
-    }
+    return fixmes.map(({ timestamp, ...fixme }) => ({ ...fixme, created_at: new Date(timestamp) }));
   }
 
   async getChangesetAdiff(workspaceId: WorkspaceId, changesetId: number): Promise<AugmentedDiff> {

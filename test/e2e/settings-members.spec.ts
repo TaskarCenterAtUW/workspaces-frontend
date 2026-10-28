@@ -17,15 +17,15 @@ import { aWorkspace, PROJECT_GROUP_ID } from '../mocks/fixtures';
 //          A 403 here flips the page into its `accessDenied` state.
 //   - IF the injected workspace.role === 'lead' (useWorkspaceRole().isLead):
 //       workspacesClient.getWorkspaceMembers(1) -> GET workspaces/1/users
-//          (new API). Returns WorkspaceUserRoleItem[] (id, auth_uid,
+//          (workspaces API). Returns WorkspaceUserRoleItem[] (id, auth_uid,
 //          display_name, role). Used to seed each member's local workspace role.
 //   - Role writes from the owner dropdown:
 //       assignRole -> PUT workspaces/1/users/{auth_uid}/role  (SetRoleRequest)
 //       removeRole -> DELETE workspaces/1/users/{auth_uid}
 //
 // In E2E all hosts are http://api.test/. The TDEI user API base is
-// http://api.test/tdei-user/ and the new API base is http://api.test/. Every
-// endpoint a flow reaches must be stubbed or the page 500s. New-API response
+// http://api.test/tdei-user/ and the workspaces API base is http://api.test/. Every
+// endpoint a flow reaches must be stubbed or the page 500s. Workspaces API response
 // bodies must be spec-conformant (the contract validator checks them); the
 // TDEI/KeyCloak response only needs to match what the page consumes.
 //
@@ -89,7 +89,7 @@ const projectGroupUsers = [
   tdeiUser({ user_id: MEMBER_UID, first_name: 'Mona', last_name: 'Member', roles: [] })
 ];
 
-// --- New API workspace members (WorkspaceUserRoleItem[]) ----------------------
+// --- Workspace members (WorkspaceUserRoleItem[]) ----------------------------
 // Spec-conformant: { id, auth_uid, display_name, role }. auth_uid must match the
 // TDEI user_id so the role attaches to the right person on the page.
 const workspaceMembers = [
@@ -130,7 +130,7 @@ async function stubMembersPage(page: Page, options: {
     return route.fallback();
   });
 
-  // New-API privileged workspace members (only fetched when isLead).
+  // Privileged workspace members (only fetched when isLead).
   await page.route('**/workspaces/1/users', (route) => {
     if (route.request().method() === 'GET') {
       return route.fulfill({ json: members });

@@ -78,7 +78,7 @@ export const mergeWorkspaceB = {
 };
 
 // Shape mirrors `GET project-group-roles/{subject}` (the TDEI user API — not in
-// the new-API OpenAPI spec). The client maps `project_group_name` → `name`.
+// the workspaces API OpenAPI spec). The client maps `project_group_name` → `name`.
 export const projectGroups = [
   {
     tdei_project_group_id: PROJECT_GROUP_ID,

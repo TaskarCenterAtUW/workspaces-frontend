@@ -4,7 +4,7 @@ import { aWorkspace, USER_ID, TEST_API_BASE } from '../mocks/fixtures';
 // Generated from the @test outline in pages/workspace/[id]/teams/[teamId].vue
 // (the "Join Team" page).
 //
-// The page top-level `await`s a Promise.all of three new-API calls, so all
+// The page top-level `await`s a Promise.all of three API calls, so all
 // three MUST be stubbed or the page 500s:
 //   - workspacesClient.getWorkspace(id)            -> GET  workspaces/{id}
 //   - workspacesClient.getTeam(id, teamId)         -> GET  workspaces/{id}/teams/{teamId}

@@ -52,7 +52,7 @@ async function stubCreateFlow(
     route.fulfill({ status: 200, json: { canCreate: true } })
   );
 
-  // new-API: create the workspace from file. Spec: 201/200 with { workspaceId: <integer> }.
+  // Create the workspace from file. Spec: 201/200 with { workspaceId: <integer> }.
   await page.route(`${TEST_API_BASE}workspaces/from-file`, (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     if (opts.failCreate) {
@@ -215,8 +215,8 @@ test.describe('create workspace from file', () => {
   });
 
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
-  //            (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
-  test('all new-API calls match the OpenAPI spec', async ({ page }) => {
+  //            (https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+  test('all API calls match the OpenAPI spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
     await stubCreateFlow(page);

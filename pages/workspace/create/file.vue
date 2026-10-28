@@ -3,7 +3,7 @@
 //             new workspace and takes you to the dashboard with the new workspace selected (playwright snapshot the form and loading state)
 // @test e2e: test that both a valid file upload and an invalid file upload (e.g. wrong file type) are handled correctly, with the valid file successfully creating a
 //            workspace and the invalid file showing an error message (playwright snapshot both scenarios)
-// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 // @test e2e: if an API error occurs when creating a workspace from either form, an error message is shown
 
 <template>

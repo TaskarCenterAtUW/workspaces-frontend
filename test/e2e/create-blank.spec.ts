@@ -75,7 +75,7 @@ async function stubCreateFlow(
     route.fulfill({ status: 200, body: '' })
   );
 
-  // Dashboard map bbox (new-API) -> 204 so the map init is skipped in headless.
+  // Dashboard map bbox (workspaces API) -> 204 so the map init is skipped in headless.
   await page.route('**/workspaces/*/bbox', route =>
     route.fulfill({ status: 204, body: '' })
   );
@@ -132,8 +132,8 @@ test.describe('create blank workspace', () => {
   });
 
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
-  //            (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
-  test('all new-API calls on this page match the Swagger spec', async ({ page }) => {
+  //            (https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+  test('all API calls on this page match the Swagger spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
     await stubCreateFlow(page);
