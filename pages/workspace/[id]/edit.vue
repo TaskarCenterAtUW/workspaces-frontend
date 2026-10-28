@@ -6,6 +6,9 @@
 // @test e2e: loading Rapid 3 for a pathways workspace swaps in the GTFS Pathways presets; loading it for an osw workspace keeps the OSM presets
 // @test e2e: Rapid 3 on a pathways workspace marks the editor as GTFS Pathways (hiding Rapid's generic Point/Line/Area/Relation presets, which GTFS has no equivalent for)
 // @test e2e: Rapid 3 on a pathways workspace shows a level panel next to the editor; other editors and datatypes don't
+// @test e2e: while the editor is loading, the page shows a loading spinner over the editor area; it goes away once the editor has started
+// @test e2e: leaving this page and coming back while the editor is still starting shows the spinner again until it has started
+// @test e2e: if the editor fails to start, the page says so in place of the spinner
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
@@ -15,6 +18,21 @@
       class="editorContainer"
       :class="{ 'rapid3': isRapid3, 'gtfs-pathways': isRapid3 && datatype === 'pathways' }"
     />
+    <div
+      v-if="editorState !== 'ready'"
+      class="editor-loading"
+    >
+      <template v-if="editorState === 'loading'">
+        <app-spinner class="editor-loading-spinner" />
+        Loading the editor…
+      </template>
+      <span
+        v-else
+        role="alert"
+      >
+        The editor couldn't start. Reload the page to try again.
+      </span>
+    </div>
     <edit-pathways-level-panel
       v-if="levelTools"
       :tools="levelTools"
@@ -41,13 +59,37 @@ const isRapid3 = manager === rapid3Manager;
 // GTFS level tools, available once Rapid 3 has started on a pathways workspace.
 const levelTools = computed(() => (isRapid3 ? rapid3Manager?.levelTools.value : undefined));
 
+// Covers the editor until it has started; an editor that has already started
+// opens straight away.
+const starting = manager.loaded.value ? editorStarts.get(manager) : undefined;
+const editorState = ref<'loading' | 'ready' | 'failed'>(
+  manager.loaded.value && !starting ? 'ready' : 'loading'
+);
+
+function waitForStart(started: Promise<void>) {
+  started.then(
+    () => {
+      editorState.value = 'ready';
+    },
+    (err) => {
+      console.error('The editor failed to start:', err);
+      editorState.value = 'failed';
+    }
+  );
+}
+
+if (starting) {
+  waitForStart(starting);
+}
+
 function onEditorLoaded() {
   editorContainer.value!.appendChild(manager.containerNode);
-  if (manager === rapid3Manager) {
-    rapid3Manager.init(workspaceId, datatype as string | undefined);
-  } else {
-    manager.init(workspaceId);
-  }
+  const started = (manager === rapid3Manager
+    ? rapid3Manager.init(workspaceId, datatype as string | undefined)
+    : manager.init(workspaceId)
+  ).finally(() => editorStarts.delete(manager));
+  editorStarts.set(manager, started);
+  waitForStart(started);
 }
 
 onMounted(() => {
@@ -83,11 +125,35 @@ onMounted(() => {
 });
 </script>
 
+<script lang="ts">
+// Each editor's start while it's still running, kept across visits to this page,
+// so coming back before the editor has started waits for the same start.
+const editorStarts = new Map<object, Promise<void>>();
+</script>
+
 <style>
 .edit-page {
+  position: relative;
   display: flex;
   width: 100%;
   height: 100%;
+}
+
+/* Hides Rapid's half-built UI while it starts up */
+.edit-page .editor-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: var(--bs-body-bg);
+}
+.edit-page .editor-loading-spinner {
+  width: 3rem;
+  height: 3rem;
 }
 
 .editorContainer {
