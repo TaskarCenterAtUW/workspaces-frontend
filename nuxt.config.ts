@@ -38,6 +38,8 @@ export default defineNuxtConfig({
   css: [
     '~/assets/scss/main.scss',
   ],
+  // Shown in the empty index.html until the app has loaded (it's a client-only SPA).
+  spaLoadingTemplate: 'spa-loading-template.html',
   runtimeConfig: {
     public: {
       // Reported as Sentry's `environment`: the build's ENV (production, stage or dev,
