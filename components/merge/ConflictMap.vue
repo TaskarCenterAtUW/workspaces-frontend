@@ -16,7 +16,7 @@ import { bingImageryStyle } from '~/util/map-style';
 import { OsmElementLookup, wayToGeoJsonCoords } from '~/util/osm';
 
 import type { FeatureCollection } from 'geojson';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 
 import type { MergeConflict } from '~/services/merge';
 import type { OsmElement } from '~/types/osm';

@@ -86,7 +86,7 @@
             </div>
 
             <label
-              v-if="!$route.query.tdeiRecordId"
+              v-if="!route.query.tdeiRecordId"
               class="d-block mb-3 input-label"
             >
               Dataset

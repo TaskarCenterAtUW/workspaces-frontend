@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { MapLibreAugmentedDiffViewer } from '@osmcha/maplibre-adiff-viewer';
 
 import { changesetManager, osmClient } from '~/services/index';
