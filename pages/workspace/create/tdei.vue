@@ -104,6 +104,13 @@
             >
               {{ datasetError }}
             </div>
+            <div
+              v-else-if="createCheckError"
+              class="alert alert-danger py-2"
+              role="alert"
+            >
+              {{ createCheckError }}
+            </div>
           </div><!-- .card-body -->
 
           <div class="card-footer">
@@ -323,11 +330,20 @@ if (!projectGroupId.value && eligibleCreationProjectGroups.value.length > 0) {
   projectGroupId.value = eligibleCreationProjectGroups.value[0]!.tdei_project_group_id;
 }
 
+// The role filtering above only shapes the picker; the backend's answer here
+// is the authority and blocks the form.
+const { reason: createCheckError } = useWorkspaceCreateCheck(
+  computed(() => record.data_type),
+  projectGroupId,
+  tdeiRecordId
+);
+
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
   && projectGroupId.value != null
   && tdeiRecordId.value !== null
   && datasetError.value === null
+  && createCheckError.value === null
 );
 const createButtonLabel = computed(() => {
   if (createdWorkspaceId.value !== undefined) return 'Creation initiated';

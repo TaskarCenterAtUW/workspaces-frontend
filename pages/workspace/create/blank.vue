@@ -75,6 +75,13 @@
             v-model="datasetType"
             class="mb-3"
           />
+          <div
+            v-if="createCheckError"
+            class="alert alert-danger py-2"
+            role="alert"
+          >
+            {{ createCheckError }}
+          </div>
 
           <div class="info-what-next-card">
             <img
@@ -158,10 +165,13 @@ watch(
   { immediate: true }
 );
 
+const { reason: createCheckError } = useWorkspaceCreateCheck(datasetType, projectGroupId);
+
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
   && projectGroupId.value != null
   && datasetType.value !== null
+  && createCheckError.value === null
 );
 
 async function handleCancel() {

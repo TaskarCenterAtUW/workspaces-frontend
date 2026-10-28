@@ -29,6 +29,8 @@ import type {
   WorkspaceTeam,
   WorkspaceTitleAvailability,
   WorkspaceTitleAvailabilityRequest,
+  WorkspaceCreateCheck,
+  WorkspaceCreateCheckRequest,
 } from '~/types/workspaces';
 
 export function compareWorkspaceCreatedAtDesc(a: Workspace, b: Workspace) {
@@ -115,6 +117,17 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
       this.#tdeiClient,
       this.#osmClient,
       signal ?? this._abortSignal
+    );
+  }
+
+  /** A client for the new API, for requests to it that mustn't touch this client's base URL. */
+  #newApiClient(): WorkspacesClient {
+    return new WorkspacesClient(
+      this.#newApiUrl,
+      this.#newApiUrl,
+      this.#tdeiClient,
+      this.#osmClient,
+      this._abortSignal
     );
   }
 
@@ -229,6 +242,16 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     }
   }
 
+  // Asks the backend whether creating this workspace would be allowed, using
+  // the same checks as the create call itself.
+  async checkWorkspaceCreate(
+    request: WorkspaceCreateCheckRequest
+  ): Promise<WorkspaceCreateCheck> {
+    // A client of its own, since checks can overlap and must not swap this one's base URL.
+    const response = await this.#newApiClient()._post('workspaces/check-create', request);
+    return await response.json();
+  }
+
   async createWorkspaceFromFile(file: Blob, workspace: WorkspaceCreation): Promise<WorkspaceId> {
     const formData = new FormData();
     formData.append('file', file);
@@ -239,14 +262,7 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
       formData.append('description', workspace.description);
     }
 
-    const newApiClient = new WorkspacesClient(
-      this.#newApiUrl,
-      this.#newApiUrl,
-      this.#tdeiClient,
-      this.#osmClient,
-      this._abortSignal
-    );
-    const workspaceResponse = await newApiClient._post('workspaces/from-file', formData);
+    const workspaceResponse = await this.#newApiClient()._post('workspaces/from-file', formData);
     const body: unknown = await workspaceResponse.json();
     const responseBody = body !== null && typeof body === 'object'
       ? body as Record<string, unknown>

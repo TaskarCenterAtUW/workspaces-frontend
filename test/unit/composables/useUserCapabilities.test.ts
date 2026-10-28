@@ -13,8 +13,10 @@ describe('hasCreationRole', () => {
     expect(hasCreationRole(['member', 'poc'])).toBe(true);
   });
 
-  it('returns true for tdei-admin role', () => {
-    expect(hasCreationRole(['tdei-admin'])).toBe(true);
+  it('gives tdei-admin no creation rights of its own', () => {
+    expect(hasCreationRole(['tdei-admin'])).toBe(false);
+    expect(hasCreationRole(['tdei-admin', 'member'], 'osw')).toBe(false);
+    expect(hasCreationRole(['tdei-admin', 'osw_data_generator'], 'osw')).toBe(true);
   });
 
   it('returns false for only member role', () => {

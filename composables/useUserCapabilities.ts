@@ -2,10 +2,12 @@ import { computed } from 'vue';
 import { tdeiUserClient } from '~/services/index';
 import type { TdeiProjectGroup } from '~/types/tdei';
 
-// hasCreationRole checks if the user has the creation role for a given project group and dataset type
+// hasCreationRole checks if the user has the creation role for a given project group and dataset type.
+// Must match the backend's _CREATABLE_WORKSPACE_TYPES (api/core/security.py), which
+// gives tdei-admin no creation rights -- it is a TDEI realm role, not a project-group role.
 export function hasCreationRole(roles: string[] = [], type?: string): boolean {
   const normalized = roles.map(r => r.trim().toLowerCase());
-  if (normalized.includes('poc') || normalized.includes('tdei-admin')) {
+  if (normalized.includes('poc')) {
     return true;
   }
   if (type) {

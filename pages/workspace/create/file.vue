@@ -85,6 +85,13 @@
             :disabled="context.active || createdWorkspaceId !== undefined"
             required
           />
+          <div
+            v-if="createCheckError"
+            class="alert alert-danger py-2"
+            role="alert"
+          >
+            {{ createCheckError }}
+          </div>
 
           <label class="d-block input-label">
             Dataset File
@@ -233,10 +240,13 @@ const archiveWarning = computed(() => {
   );
 });
 
+const { reason: createCheckError } = useWorkspaceCreateCheck(datasetType, projectGroupId);
+
 const complete = computed(() =>
   workspaceTitle.value.trim().length > 0
   && projectGroupId.value != null
   && datasetType.value !== null
+  && createCheckError.value === null
   && datasetFile.value instanceof File
   && datasetFile.value.name.toLowerCase().endsWith('.zip')
   && archiveInspection.value !== null

@@ -47,6 +47,11 @@ async function stubCreateFlow(
     route.fulfill({ status: 200, json: { available: opts.titleAvailable ?? true } })
   );
 
+  // Backend creation pre-check: allowed. Tests that need a "no" re-route it.
+  await page.route('**/workspaces/check-create', route =>
+    route.fulfill({ status: 200, json: { canCreate: true } })
+  );
+
   // new-API: create the workspace from file. Spec: 201/200 with { workspaceId: <integer> }.
   await page.route(`${TEST_API_BASE}workspaces/from-file`, (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
@@ -138,6 +143,22 @@ test.describe('create workspace from file', () => {
     await expect(page).toHaveURL(new RegExp('/dashboard\\?workspace=' + NEW_WORKSPACE_ID));
   });
 
+  test('blocks creation and shows the reason when the backend pre-check says no', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
+    await stubCreateFlow(page);
+    const reason = 'User does not have permissions to create a workspace of that type in that project group.';
+    await page.route('**/workspaces/check-create', route =>
+      route.fulfill({ status: 200, json: { canCreate: false, reason } })
+    );
+
+    await page.goto('/workspace/create/file');
+    await fillForm(page, VALID_ZIP_FILE);
+
+    await expect(page.getByRole('alert')).toContainText(reason);
+    await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeDisabled();
+  });
+
   test('warns when the title already exists in the selected project group', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
@@ -200,7 +221,7 @@ test.describe('create workspace from file', () => {
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
     await stubCreateFlow(page);
 
-    const contract = recordContract(page, { ignoredPaths: ['workspaces/check'] });
+    const contract = recordContract(page, { ignoredPaths: ['workspaces/check', 'workspaces/check-create'] });
 
     await page.goto('/workspace/create/file');
     await fillForm(page, VALID_ZIP_FILE);
