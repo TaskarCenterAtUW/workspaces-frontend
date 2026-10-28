@@ -120,6 +120,17 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
     );
   }
 
+  /** A client for the new API, for requests to it that mustn't touch this client's base URL. */
+  #newApiClient(): WorkspacesClient {
+    return new WorkspacesClient(
+      this.#newApiUrl,
+      this.#newApiUrl,
+      this.#tdeiClient,
+      this.#osmClient,
+      this._abortSignal
+    );
+  }
+
   async getMyWorkspaces(): Promise<Workspace[]> {
     const response = await this._get('workspaces/mine');
     const workspaces = (await response.json()) ?? [];
@@ -236,16 +247,9 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
   async checkWorkspaceCreate(
     request: WorkspaceCreateCheckRequest
   ): Promise<WorkspaceCreateCheck> {
-    const originalBaseUrl = this._baseUrl;
-    this._baseUrl = this.#newApiUrl;
-
-    try {
-      const response = await this._post('workspaces/check-create', request);
-      return await response.json();
-    }
-    finally {
-      this._baseUrl = originalBaseUrl;
-    }
+    // A client of its own, since checks can overlap and must not swap this one's base URL.
+    const response = await this.#newApiClient()._post('workspaces/check-create', request);
+    return await response.json();
   }
 
   async createWorkspaceFromFile(file: Blob, workspace: WorkspaceCreation): Promise<WorkspaceId> {
@@ -258,14 +262,7 @@ export class WorkspacesClient extends BaseHttpClient implements ICancelableClien
       formData.append('description', workspace.description);
     }
 
-    const newApiClient = new WorkspacesClient(
-      this.#newApiUrl,
-      this.#newApiUrl,
-      this.#tdeiClient,
-      this.#osmClient,
-      this._abortSignal
-    );
-    const workspaceResponse = await newApiClient._post('workspaces/from-file', formData);
+    const workspaceResponse = await this.#newApiClient()._post('workspaces/from-file', formData);
     const body: unknown = await workspaceResponse.json();
     const responseBody = body !== null && typeof body === 'object'
       ? body as Record<string, unknown>
