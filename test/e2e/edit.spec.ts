@@ -33,6 +33,7 @@ const CSS = (route: Route) => route.fulfill({ body: '', contentType: 'text/css' 
 // pending until it settles, or `window.__failEditorInit` to make it reject.
 const RAPID2_SCRIPT = (route: Route) => route.fulfill({
   contentType: 'application/javascript',
+  headers: { 'Access-Control-Allow-Origin': '*' }, // the app loads editor scripts with CORS
   body: `
     window.Rapid = {
       Context: class {
@@ -77,6 +78,7 @@ const RAPID2_SCRIPT = (route: Route) => route.fulfill({
 //   - context.resetAsync                (wrapped to reload a pathways workspace after resets)
 const RAPID3_SCRIPT = (route: Route) => route.fulfill({
   contentType: 'application/javascript',
+  headers: { 'Access-Control-Allow-Origin': '*' }, // the app loads editor scripts with CORS
   body: `
     window.Rapid = {
       utilDetect: () => ({ isSupported: true }),
@@ -121,6 +123,7 @@ const RAPID3_SCRIPT = (route: Route) => route.fulfill({
 // calls `init()`; `#patchEditor` reads `connection().oauthClient.xhr`.
 const PATHWAYS_SCRIPT = (route: Route) => route.fulfill({
   contentType: 'application/javascript',
+  headers: { 'Access-Control-Allow-Origin': '*' }, // the app loads editor scripts with CORS
   body: `
     (function () {
       var node = null;
