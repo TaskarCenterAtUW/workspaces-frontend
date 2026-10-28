@@ -295,6 +295,7 @@
 <script setup lang="ts">
 import timelineIcon from '~/assets/img/timeline.svg';
 import { tdeiAuth, tdeiUserClient, workspacesClient } from '~/services/index';
+import { clearWorkspaceMetadata } from '~/services/workspace-metadata';
 import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 import { formatElapsed } from '~/util/time';
 import { ROLE_LABELS } from '~/util/roles';
@@ -319,6 +320,11 @@ const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
 const route = useRoute();
 const router = useRouter();
 const requestedWorkspaceNotFound = ref(false);
+
+// Fresh metadata on every visit (an export may have changed it). Done here, in
+// setup, because the map and information panel mount, and start loading it,
+// before this page's onMounted runs.
+clearWorkspaceMetadata();
 
 const [initialWorkspaces, { items: myProjectGroups }] = await Promise.all([
   workspacesClient.getMyWorkspaces().then(items => items.sort(compareWorkspaceCreatedAtDesc)),
@@ -555,6 +561,7 @@ async function refreshWorkspaces(): Promise<void> {
   refreshingWorkspaces.value = true;
 
   try {
+    clearWorkspaceMetadata();
     const refreshedWorkspaces = await workspacesClient.getMyWorkspaces();
     verifiedCompletedImports.clear();
     const existingWorkspaces = new Map(
