@@ -6,6 +6,7 @@
 // @test e2e: loading Rapid 3 for a pathways workspace swaps in the GTFS Pathways presets; loading it for an osw workspace keeps the OSM presets
 // @test e2e: Rapid 3 on a pathways workspace marks the editor as GTFS Pathways (hiding Rapid's generic Point/Line/Area/Relation presets, which GTFS has no equivalent for)
 // @test e2e: Rapid 3 on a pathways workspace shows a level panel next to the editor; other editors and datatypes don't
+// @test e2e: while the editor is loading, the page shows a loading spinner over the editor area; it goes away once the editor has started
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
@@ -15,6 +16,13 @@
       class="editorContainer"
       :class="{ 'rapid3': isRapid3, 'gtfs-pathways': isRapid3 && datatype === 'pathways' }"
     />
+    <div
+      v-if="editorLoading"
+      class="editor-loading"
+    >
+      <app-spinner class="editor-loading-spinner" />
+      Loading the editor…
+    </div>
     <edit-pathways-level-panel
       v-if="levelTools"
       :tools="levelTools"
@@ -41,13 +49,18 @@ const isRapid3 = manager === rapid3Manager;
 // GTFS level tools, available once Rapid 3 has started on a pathways workspace.
 const levelTools = computed(() => (isRapid3 ? rapid3Manager?.levelTools.value : undefined));
 
+// Covers the editor from the first visit until it has started; an editor that's
+// already loaded opens straight away.
+const editorLoading = ref(!manager.loaded.value);
+
 function onEditorLoaded() {
   editorContainer.value!.appendChild(manager.containerNode);
-  if (manager === rapid3Manager) {
-    rapid3Manager.init(workspaceId, datatype as string | undefined);
-  } else {
-    manager.init(workspaceId);
-  }
+  const started = manager === rapid3Manager
+    ? rapid3Manager.init(workspaceId, datatype as string | undefined)
+    : manager.init(workspaceId);
+  started.finally(() => {
+    editorLoading.value = false;
+  });
 }
 
 onMounted(() => {
@@ -85,9 +98,27 @@ onMounted(() => {
 
 <style>
 .edit-page {
+  position: relative;
   display: flex;
   width: 100%;
   height: 100%;
+}
+
+/* Hides Rapid's half-built UI while it starts up */
+.edit-page .editor-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: var(--bs-body-bg);
+}
+.edit-page .editor-loading-spinner {
+  width: 3rem;
+  height: 3rem;
 }
 
 .editorContainer {

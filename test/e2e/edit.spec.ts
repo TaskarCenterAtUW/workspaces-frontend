@@ -348,6 +348,39 @@ test.describe('workspace edit (editor host)', () => {
     });
   }
 
+  // @test e2e: while the editor is loading, the page shows a loading spinner over the editor area; it goes away once the editor has started
+  for (const [query, script, fake] of [
+    ['datatype=osw', '**/rapid/rapid.js', RAPID2_SCRIPT],
+    ['datatype=pathways&editor=rapid3', '**/rapid3/js/rapid-dev.min.js', RAPID3_SCRIPT],
+    ['datatype=pathways', '**/pathways/iD.js', PATHWAYS_SCRIPT]
+  ] as const) {
+    test(`shows a loading spinner until the editor has started (${query})`, async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubAllEditors(page);
+
+      // Hold the editor's script back so the page stays loading until released.
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await page.route(script, async (route) => {
+        await held;
+        await fake(route);
+      });
+
+      await page.goto(`/workspace/1/edit?${query}`);
+
+      const loading = page.locator('.edit-page .editor-loading');
+      await expect(loading.getByRole('status')).toBeVisible();
+      await expect(loading).toContainText('Loading the editor');
+
+      release();
+
+      await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+      await expect(loading).toHaveCount(0);
+    });
+  }
+
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
   test('all API calls conform to the OpenAPI spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
