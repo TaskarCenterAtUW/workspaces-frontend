@@ -452,6 +452,8 @@ export class PathwaysEditorManager {
 
     const script = document.createElement('script');
     script.src = this.#baseUrl + 'iD.js';
+    // Loaded with CORS so the editor's errors reach Sentry with their details (wsrapid serves `Access-Control-Allow-Origin: *`)
+    script.crossOrigin = 'anonymous';
     script.async = true;
     script.onload = this.#onLoaded.bind(this);
     document.body.appendChild(script);
