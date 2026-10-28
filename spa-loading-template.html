@@ -1,0 +1,32 @@
+<!-- Shown in index.html while the app loads, so the page isn't blank meanwhile; Nuxt removes it once the app has mounted. -->
+<div class="spa-loading" role="status">
+  <div class="spa-loading-spinner"></div>
+  <span class="spa-loading-text">Loading Workspaces…</span>
+</div>
+<style>
+  .spa-loading {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    color: #32006e;
+  }
+  .spa-loading-spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 0.3rem solid #f1eeff;
+    border-top-color: #32006e;
+    border-radius: 50%;
+    animation: spa-loading-spin 0.8s linear infinite;
+  }
+  @keyframes spa-loading-spin {
+    to { transform: rotate(360deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spa-loading-spinner { animation-duration: 2.4s; }
+  }
+</style>
