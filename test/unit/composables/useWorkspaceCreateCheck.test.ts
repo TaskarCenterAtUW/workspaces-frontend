@@ -77,4 +77,16 @@ describe('useWorkspaceCreateCheck', () => {
 
     expect(reason.value).toBeNull();
   });
+
+  it('tracks in-flight checking state and allows invoking check() manually', async () => {
+    checkWorkspaceCreate.mockResolvedValue({ canCreate: true });
+    const { checking, check } = useWorkspaceCreateCheck(ref('osw'), ref(PG_ID));
+    expect(checking.value).toBe(true);
+    await settle();
+    expect(checking.value).toBe(false);
+
+    const result = await check();
+    expect(result).toEqual({ canCreate: true });
+    expect(checking.value).toBe(false);
+  });
 });

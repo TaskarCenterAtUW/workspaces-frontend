@@ -98,7 +98,18 @@
               />
             </label>
             <div
-              v-if="datasetError"
+              v-if="isCheckingPermissions"
+              class="alert alert-info py-2 d-flex align-items-center"
+              role="status"
+            >
+              <span
+                class="spinner-border spinner-border-sm me-2"
+                aria-hidden="true"
+              />
+              Checking workspace creation permissions...
+            </div>
+            <div
+              v-else-if="datasetError"
               class="alert alert-danger py-2"
               role="alert"
             >
@@ -142,10 +153,16 @@
             <button
               v-else
               type="submit"
-              class="btn btn-primary"
-              :disabled="!complete || context.active || createdWorkspaceId !== undefined"
+              class="btn btn-primary d-inline-flex align-items-center"
+              :disabled="!complete || isCheckingPermissions || context.active || createdWorkspaceId !== undefined"
               @click.prevent="create"
             >
+              <span
+                v-if="isCheckingPermissions || context.active"
+                class="spinner-border spinner-border-sm me-2"
+                role="status"
+                aria-hidden="true"
+              />
               {{ createButtonLabel }}
             </button>
           </div><!-- .card-footer -->
@@ -332,7 +349,11 @@ if (!projectGroupId.value && eligibleCreationProjectGroups.value.length > 0) {
 
 // The role filtering above only shapes the picker; the backend's answer here
 // is the authority and blocks the form.
-const { reason: createCheckError } = useWorkspaceCreateCheck(
+const {
+  reason: createCheckError,
+  checking: isCheckingPermissions,
+  check: checkPermissions,
+} = useWorkspaceCreateCheck(
   computed(() => record.data_type),
   projectGroupId,
   tdeiRecordId
@@ -347,6 +368,7 @@ const complete = computed(() =>
 );
 const createButtonLabel = computed(() => {
   if (createdWorkspaceId.value !== undefined) return 'Creation initiated';
+  if (isCheckingPermissions.value) return 'Checking permissions...';
   return context.active ? 'Initiating...' : 'Create Workspace';
 });
 
@@ -476,6 +498,20 @@ async function handleCancel() {
 }
 
 async function create() {
+  if (!projectGroupId.value || !tdeiRecordId.value || !record.data_type) {
+    return;
+  }
+
+  // First verify permissions with check-create
+  const checkResult = await checkPermissions();
+  if (checkResult && !checkResult.canCreate) {
+    createCheckError.value = checkResult.reason || 'You do not have permission to create this workspace.';
+    return;
+  }
+  if (createCheckError.value) {
+    return;
+  }
+
   const workspaceId = await importer.import({
     title: workspaceTitle.value,
     type: record.data_type,
