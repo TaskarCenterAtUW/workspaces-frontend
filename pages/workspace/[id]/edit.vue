@@ -105,7 +105,8 @@ async function startAtDataExtent() {
     const bbox = await workspacesClient.getWorkspaceBbox(workspaceId);
     if (bbox && editorContainer.value) {
       const { clientWidth: width, clientHeight: height } = editorContainer.value;
-      const hash = mapHash(viewForBbox(bbox, { width, height }));
+      const others = window.location.hash.replace(/^#/, ''); // e.g. a background=
+      const hash = `${mapHash(viewForBbox(bbox, { width, height }))}${others ? `&${others}` : ''}`;
       window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}${hash}`);
     }
   }

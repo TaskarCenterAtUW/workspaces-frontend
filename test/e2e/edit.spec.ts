@@ -458,6 +458,19 @@ test.describe('workspace edit (editor host)', () => {
       await expect(page).toHaveURL(/\/workspace\/1\/edit\?datatype=osw#map=/);
     });
 
+    test('keeps the rest of the URL\'s hash when adding the location', async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubAllEditors(page);
+      await page.route(/\/workspaces\/1\/bbox/, route => route.fulfill({
+        json: { min_lat: 47.6, min_lon: -122.34, max_lat: 47.62, max_lon: -122.32 }
+      }));
+
+      await page.goto('/workspace/1/edit?datatype=osw#background=Bing');
+
+      await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+      expect(await hashAtStart(page)).toMatch(/^#map=.+&background=Bing$/);
+    });
+
     test('keeps a location already in the URL', async ({ page }) => {
       await seedAuthenticatedSession(page);
       await stubAllEditors(page);

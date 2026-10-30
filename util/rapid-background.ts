@@ -23,6 +23,8 @@ export interface RapidBackgroundImagery {
   _baseLayer: RapidBackgroundSource | null;
   visibleSources(): RapidBackgroundSource[];
   baseLayerSource(source: RapidBackgroundSource): unknown;
+  /** Also handles Esri Wayback's dated IDs. */
+  setSourceByID(id: string): void;
   /** Rapid 3's coverage index. */
   _whichPolygon?: CoverageQuery | null;
   /** Rapid 2's coverage index, and the coverage areas by lowercase source ID. */
@@ -31,7 +33,13 @@ export interface RapidBackgroundImagery {
 
 /** The parts of a Rapid context used here. */
 export interface RapidBackgroundContext {
-  systems: { imagery: RapidBackgroundImagery };
+  systems: {
+    imagery: RapidBackgroundImagery;
+    /** Where Rapid 3's Background pane records a pick. */
+    settings?: { set(path: string, value: unknown): void };
+    /** Where Rapid 2's Background pane records a pick. */
+    storage?: { setItem(key: string, value: string): unknown };
+  };
   viewport: { centerLoc(): [number, number] };
   workspaceId?: number;
 }
@@ -62,12 +70,8 @@ function coversExtent(imagery: RapidBackgroundImagery, source: RapidBackgroundSo
     .every(loc => (query(loc, true) ?? []).some(hit => hit.id.toLowerCase() === id));
 }
 
-/**
- * The background imagery to show where the map is now: the current imagery if
- * it covers this place, else the imagery marked best here, else the first that
- * covers it. With an `extent`, imagery covering all of it comes first.
- */
-export function chooseBackground(imagery: RapidBackgroundImagery, extent?: BoundingBox): RapidBackgroundSource | null {
+/** Background imagery covering the center of the view, leaving out the current one if it doesn't. */
+function backgroundsHere(imagery: RapidBackgroundImagery): RapidBackgroundSource[] {
   const current = imagery._baseLayer;
 
   // Rapid always lists the current imagery as visible, so ask without it.
@@ -80,9 +84,20 @@ export function chooseBackground(imagery: RapidBackgroundImagery, extent?: Bound
     imagery._baseLayer = current;
   }
 
-  const here = visible.filter(s => !(s.overlay ?? s.props?.overlay)
+  return visible.filter(s => !(s.overlay ?? s.props?.overlay)
     && s.id !== 'none'
     && !(s.id === 'custom' && !s.template));
+}
+
+/**
+ * The background imagery we'd pick where the map is now: the current imagery if
+ * it covers this place, else the imagery marked best here, else the first that
+ * covers it. With an `extent`, imagery covering all of it comes first; only if
+ * none does, what covers the center of the view.
+ */
+export function chooseBackground(imagery: RapidBackgroundImagery, extent?: BoundingBox): RapidBackgroundSource | null {
+  const current = imagery._baseLayer;
+  const here = backgroundsHere(imagery);
   const covering = extent ? here.filter(s => coversExtent(imagery, s, extent)) : here;
   const backgrounds = covering.length ? covering : here;
 
@@ -92,14 +107,95 @@ export function chooseBackground(imagery: RapidBackgroundImagery, extent?: Bound
     ?? null;
 }
 
+const pickKey = (workspaceId: number) => `workspace-background:${workspaceId}`;
+
+/** The imagery the user last picked for this workspace, in this browser. */
+function savedPick(workspaceId: number | undefined): string | undefined {
+  if (workspaceId === undefined) return undefined;
+  try {
+    return window.localStorage.getItem(pickKey(workspaceId)) ?? undefined;
+  }
+  catch {
+    return undefined;
+  }
+}
+
 /**
- * Once the map has moved to the location in the URL, switches the background
- * imagery if what's shown doesn't cover it. Never throws: failing to choose
- * shouldn't stop the editor opening.
+ * Remembers imagery the user picks, per workspace. Rapid's Background pane records
+ * a pick in one place, which our own choice and URL changes don't go through.
+ */
+function rememberPicks(context: RapidBackgroundContext) {
+  const save = (id: unknown) => {
+    if (context.workspaceId === undefined || typeof id !== 'string') return;
+    try {
+      window.localStorage.setItem(pickKey(context.workspaceId), id);
+    }
+    catch { /* private browsing: the pick just won't stick */ }
+  };
+
+  const { settings, storage } = context.systems;
+  if (settings) {
+    const set = settings.set.bind(settings);
+    settings.set = (path, value) => {
+      if (path === 'imagery.lastUsed') save(value);
+      set(path, value);
+    };
+  }
+  if (storage) {
+    const setItem = storage.setItem.bind(storage);
+    storage.setItem = (key, value) => {
+      if (key === 'background-last-used') save(value);
+      return setItem(key, value);
+    };
+  }
+}
+
+/** Contexts already remembering picks: they're set up once, but chosen for on every open. */
+const remembering = new WeakSet<object>();
+
+/** The `background=` in the URL, if any. */
+function urlBackground(): string | undefined {
+  const match = window.location.hash.match(/[#&]background=([^&]*)/);
+  return match?.[1] ? decodeURIComponent(match[1]) : undefined;
+}
+
+/**
+ * Shows imagery someone chose: from the URL, or their saved pick for this
+ * workspace. It only has to cover the center of the view, not the whole
+ * workspace. Returns whether it applied.
+ */
+function applyChosen(context: RapidBackgroundContext): boolean {
+  const imagery = context.systems.imagery;
+  const chosen = [urlBackground(), savedPick(context.workspaceId)].filter(Boolean) as string[];
+  if (!chosen.length) return false;
+
+  const here = backgroundsHere(imagery);
+  for (const id of chosen) {
+    // Rapid has already applied a custom template from the URL.
+    if (id.startsWith('custom:')) return true;
+    const source = here.find(s => s.id === id || id.startsWith(`${s.id}_`)); // e.g. EsriWayback_2024-01-01
+    if (id === 'none' || source) {
+      if (id !== imagery._baseLayer?.id) imagery.setSourceByID(id);
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Once the map has moved to the location in the URL, shows imagery someone
+ * chose if there is any, else picks imagery covering the whole workspace. Never
+ * throws: failing to choose shouldn't stop the editor opening.
  */
 export async function chooseBackgroundForWorkspace(context: RapidBackgroundContext): Promise<void> {
   try {
+    if (!remembering.has(context)) {
+      remembering.add(context);
+      rememberPicks(context);
+    }
+
     await mapAtUrlLocation(context);
+    if (applyChosen(context)) return;
 
     const imagery = context.systems.imagery;
     const chosen = chooseBackground(imagery, await workspaceExtent(context.workspaceId));

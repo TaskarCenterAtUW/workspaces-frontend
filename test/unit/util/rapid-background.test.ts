@@ -21,7 +21,8 @@ function fakeImagery(here: RapidBackgroundSource[], current: RapidBackgroundSour
     },
     baseLayerSource: vi.fn((source: RapidBackgroundSource) => {
       imagery._baseLayer = source;
-    })
+    }),
+    setSourceByID: vi.fn()
   };
   return imagery;
 }
@@ -196,5 +197,105 @@ describe('chooseBackgroundForWorkspace with a workspace', () => {
     expect(imagery.baseLayerSource).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+});
+
+describe('choosing the background in order', () => {
+  const coverageContext = (imagery: RapidBackgroundImagery, systems: object = {}): RapidBackgroundContext => {
+    imagery._whichPolygon = coverageOf(boxes);
+    return { systems: { imagery, ...systems }, viewport: { centerLoc: () => [0, 0] }, workspaceId: 7 };
+  };
+  const choose = (context: RapidBackgroundContext) => chooseBackgroundForWorkspace(context);
+
+  afterEach(() => {
+    window.localStorage.clear();
+    window.location.hash = '';
+  });
+
+  it('1: uses the URL\'s background, even over a saved pick and with partial coverage', async () => {
+    window.localStorage.setItem('workspace-background:7', 'County');
+    window.location.hash = '#background=Downtown';
+    getWorkspaceBbox.mockResolvedValue(extent);
+    const imagery = fakeImagery([partial, whole, worldwide], worldwide);
+
+    await choose(coverageContext(imagery));
+
+    expect(imagery.setSourceByID).toHaveBeenCalledWith('Downtown');
+    expect(imagery.baseLayerSource).not.toHaveBeenCalled();
+  });
+
+  it('leaves a custom template from the URL as Rapid applied it', async () => {
+    window.location.hash = '#background=custom:https%3A%2F%2Ftiles%2F%7Bz%7D';
+    getWorkspaceBbox.mockResolvedValue(extent);
+    const imagery = fakeImagery([partial, worldwide], worldwide);
+
+    await choose(coverageContext(imagery));
+
+    expect(imagery.setSourceByID).not.toHaveBeenCalled();
+    expect(imagery.baseLayerSource).not.toHaveBeenCalled();
+  });
+
+  it('2: uses the saved pick when it covers the center, even with partial coverage', async () => {
+    window.localStorage.setItem('workspace-background:7', 'Downtown');
+    getWorkspaceBbox.mockResolvedValue(extent);
+    const imagery = fakeImagery([partial, whole, worldwide], worldwide);
+
+    await choose(coverageContext(imagery));
+
+    expect(imagery.setSourceByID).toHaveBeenCalledWith('Downtown');
+  });
+
+  it('keeps a saved choice of no imagery', async () => {
+    window.localStorage.setItem('workspace-background:7', 'none');
+    getWorkspaceBbox.mockResolvedValue(extent);
+    const imagery = fakeImagery([whole, worldwide], worldwide);
+
+    await choose(coverageContext(imagery));
+
+    expect(imagery.setSourceByID).toHaveBeenCalledWith('none');
+  });
+
+  it('3: ignores a saved pick that doesn\'t cover the center, and picks full coverage', async () => {
+    window.localStorage.setItem('workspace-background:7', 'SF_Ortho');
+    getWorkspaceBbox.mockResolvedValue(extent);
+    const imagery = fakeImagery([partial, whole], partial);
+
+    await choose(coverageContext(imagery));
+
+    expect(imagery.setSourceByID).not.toHaveBeenCalled();
+    expect(imagery.baseLayerSource).toHaveBeenCalledWith(whole);
+  });
+
+  it('keeps a pick per workspace, from either Rapid\'s Background pane', async () => {
+    getWorkspaceBbox.mockResolvedValue(extent);
+    const set = vi.fn();
+    const setItem = vi.fn();
+    const context = coverageContext(fakeImagery([worldwide], worldwide), { settings: { set }, storage: { setItem } });
+    await choose(context);
+    await choose(context); // chosen for again on a switch: still only wrapped once
+
+    context.systems.settings!.set('imagery.lastUsed', 'Downtown');
+    expect(window.localStorage.getItem('workspace-background:7')).toBe('Downtown');
+    expect(set).toHaveBeenCalledTimes(1);
+
+    context.workspaceId = 8;
+    context.systems.storage!.setItem('background-last-used', 'County');
+    expect(window.localStorage.getItem('workspace-background:8')).toBe('County');
+    expect(window.localStorage.getItem('workspace-background:7')).toBe('Downtown');
+
+    context.systems.settings!.set('imagery.brightness', 1);
+    context.systems.storage!.setItem('other', 'x');
+    expect(window.localStorage.length).toBe(2);
+    expect(setItem).toHaveBeenCalledTimes(2);
+  });
+
+  it('doesn\'t treat our own pick as the user\'s', async () => {
+    getWorkspaceBbox.mockResolvedValue(extent);
+    const imagery = fakeImagery([partial, whole], partial);
+
+    await choose(coverageContext(imagery, { settings: { set: vi.fn() } }));
+
+    expect(imagery.baseLayerSource).toHaveBeenCalledWith(whole);
+    expect(window.localStorage.getItem('workspace-background:7')).toBeNull();
   });
 });
