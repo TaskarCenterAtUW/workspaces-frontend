@@ -3,6 +3,7 @@ import {
   COMPLETENESS_HELP,
   CONNECTIVITY_HELP,
   CONNECTIVITY_VALIDATOR_ID,
+  installCloseNodesFilter,
   installConnectivityValidator,
   COMPLETENESS_VALIDATOR_ID,
   installCompletenessValidator,
@@ -13,6 +14,7 @@ import {
   LEVELS_HELP,
   LEVELS_VALIDATOR_ID,
   perGraph,
+  pointsMayShareLocation,
   showRulesInIssuesPane,
   REFERENCE_HELP,
   REFERENCE_VALIDATOR_ID,
@@ -113,6 +115,73 @@ describe('installReferenceValidator', () => {
 
   it('does nothing without a validation system', () => {
     expect(() => installReferenceValidator({ systems: {} })).not.toThrow();
+  });
+});
+
+describe('pointsMayShareLocation', () => {
+  const point = (tags?: Record<string, string>) => ({ tags });
+
+  it('allows points on different levels', () => {
+    expect(pointsMayShareLocation(point({ level_id: 'L0' }), point({ level_id: 'L1' }))).toBe(true);
+    expect(pointsMayShareLocation(point({ level_id: 'L0' }), point())).toBe(true);
+  });
+
+  it('allows points of different types', () => {
+    expect(pointsMayShareLocation(point({ location_type: '1' }), point({ location_type: '3' }))).toBe(true);
+    expect(pointsMayShareLocation(point({ location_type: '1' }), point())).toBe(true);
+  });
+
+  it('flags points of the same type on the same level', () => {
+    expect(pointsMayShareLocation(point({ level_id: 'L0', location_type: '3' }), point({ level_id: ' L0 ', location_type: '3' }))).toBe(false);
+    expect(pointsMayShareLocation(point(), point())).toBe(false);
+  });
+
+  it('treats a missing or blank location_type as 0, as GTFS does', () => {
+    expect(pointsMayShareLocation(point({ location_type: '0' }), point())).toBe(false);
+    expect(pointsMayShareLocation(point({ location_type: ' ' }), point({ location_type: '0' }))).toBe(false);
+  });
+});
+
+describe('installCloseNodesFilter', () => {
+  const station = { id: 's1', type: 'node', tags: { location_type: '1' } };
+  const node = { id: 'n1', type: 'node', tags: { location_type: '3', level_id: 'L0' } };
+  const sameNode = { id: 'n2', type: 'node', tags: { location_type: '3', level_id: 'L0' } };
+  const graph = fakeGraph([station, node, sameNode]);
+  const detached = (...entityIds: string[]) => ({ subtype: 'detached', entityIds });
+
+  function filtered(issues: object[]) {
+    const validators = new Map<string, any>([['close_nodes', () => ({ issues })]]);
+    installCloseNodesFilter({ systems: { validator: { _validators: validators } } });
+    return validators.get('close_nodes')(node, graph).issues;
+  }
+
+  it('drops the warning for points of different types or on different levels', () => {
+    expect(filtered([detached('n1', 's1')])).toEqual([]);
+  });
+
+  it('drops it for points of the same type on different levels', () => {
+    const [up, down] = [{ id: 'u', type: 'node', tags: { location_type: '3', level_id: 'L1' } },
+      { id: 'd', type: 'node', tags: { location_type: '3', level_id: 'L0' } }];
+    const validators = new Map<string, any>([['close_nodes', () => ({ issues: [detached('u', 'd')] })]]);
+    installCloseNodesFilter({ systems: { validator: { _validators: validators } } });
+
+    expect(validators.get('close_nodes')(up, fakeGraph([up, down])).issues).toEqual([]);
+  });
+
+  it('keeps it for points of the same type on the same level', () => {
+    const issue = detached('n1', 'n2');
+    expect(filtered([issue])).toEqual([issue]);
+  });
+
+  it('leaves warnings about points within a line or area alone', () => {
+    const issue = { subtype: 'vertices', entityIds: ['w1', 'n1', 's1'] };
+    expect(filtered([issue])).toEqual([issue]);
+  });
+
+  it('does nothing if Rapid has no such check', () => {
+    const validators = new Map<string, any>();
+    installCloseNodesFilter({ systems: { validator: { _validators: validators } } });
+    expect(validators.size).toBe(0);
   });
 });
 
@@ -406,7 +475,7 @@ describe('installLevelsValidator', () => {
     const [issue] = validators.get(LEVELS_VALIDATOR_ID)(features[3], graph).issues;
     expect(issue.dynamicFixes()).toEqual([]);
     expect(Object.keys(LEVELS_HELP).sort()).toEqual([
-      'far_stop', 'large_outline', 'level_area_no_id', 'missing_level', 'outside_level', 'station_level_order'
+      'far_stop', 'large_outline', 'level_area_no_id', 'missing_level', 'outside_level', 'repeated_outline', 'station_level_order'
     ]);
   });
 });

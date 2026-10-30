@@ -89,7 +89,6 @@
             </button>
           </div>
           <div
-            v-if="group.station"
             class="list-group-item level-view-row"
             :class="{ active: isViewShown(viewFor(group)) }"
           >
@@ -97,8 +96,8 @@
               type="button"
               class="btn btn-sm level-expand"
               :aria-expanded="isExpanded(group, undefined)"
-              :aria-label="`${isExpanded(group, undefined) ? 'Hide' : 'Show'} ${group.station.name}'s stops with no level`"
-              :title="`${isExpanded(group, undefined) ? 'Hide' : 'Show'} ${group.station.name}'s stops with no level`"
+              :aria-label="`${isExpanded(group, undefined) ? 'Hide' : 'Show'} ${unleveledName(group)}`"
+              :title="`${isExpanded(group, undefined) ? 'Hide' : 'Show'} ${unleveledName(group)}`"
               :disabled="!stopsIn(group, undefined).length && !edgesIn(group, undefined).length"
               @click="toggleExpanded(group, undefined)"
             >
@@ -115,9 +114,10 @@
               :title="viewTitle(group)"
               @click="toggleView(viewFor(group))"
             >
-              Street / No level
+              {{ group.station ? 'No level' : 'No station' }}
             </button>
             <button
+              v-if="group.station"
               type="button"
               class="btn btn-sm level-zoom"
               :title="`Zoom to ${group.station.name}'s features with no level`"
@@ -131,28 +131,16 @@
             </button>
           </div>
           <edit-pathways-level-contents
-            v-if="group.station && isExpanded(group, undefined)"
+            v-if="isExpanded(group, undefined)"
             :nodes="stopsIn(group, undefined)"
             :edges="edgesIn(group, undefined)"
-            :label="`Contents of ${group.station.name}'s Street / No level`"
-            :scope="`with no level in ${group.station.name}`"
+            :label="group.station ? `Contents of ${group.station.name} with no level` : 'Contents with no station and no level'"
+            :scope="group.station ? `with no level in ${group.station.name}` : 'with no station and no level'"
             @select="(id) => tools.select(id)"
             @hover="(id) => hover(id ? [id] : [])"
           />
-          <button
-            v-if="!group.station"
-            type="button"
-            role="radio"
-            class="list-group-item list-group-item-action level-view-entry"
-            :class="{ active: isViewShown(viewFor(group)) }"
-            :aria-checked="isViewShown(viewFor(group))"
-            :title="viewTitle(group)"
-            @click="toggleView(viewFor(group))"
-          >
-            No station
-          </button>
           <template
-            v-for="level in group.levels"
+            v-for="level in levelsHighestFirst(group.levels)"
             :key="`${groupKey(group)}:${level.levelId}`"
           >
             <div
@@ -223,7 +211,28 @@
                 @focus="hover(level.areaIds.map(String))"
                 @blur="hover([])"
               >
-                <span class="level-title">{{ levelLabel(level) }}</span>
+                <span class="level-heading">
+                  <span
+                    class="level-index"
+                    :title="level.index === undefined ? 'No level_index' : `level_index ${level.index}`"
+                  >{{ level.index ?? '–' }}</span>
+                  <span
+                    v-if="rowTitle(level)"
+                    class="level-title"
+                  >{{ rowTitle(level) }}</span>
+                  <span
+                    v-if="levelError(level)"
+                    class="level-error"
+                    role="img"
+                    :aria-label="levelError(level)"
+                    :title="levelError(level)"
+                  >
+                    <app-icon
+                      variant="error_outline"
+                      no-margin
+                    />
+                  </span>
+                </span>
                 <span class="level-counts">
                   <span
                     class="badge text-bg-light"
@@ -380,22 +389,28 @@
 </template>
 
 <script setup lang="ts">
+import { levelsHighestFirst } from '~/services/pathways-levels';
+
 import type { LevelPathway, LevelStop, Rapid3LevelTools, ReferenceDrawingStatus } from '~/services/rapid3-levels';
 import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-levels';
 
 // @test unit: every level row has "Refit", which reshapes its outline into a box around its stops; disabled (saying why) without one outline and some stops
 // @test unit: each level shows its name, node count and edge (pathway) count; "Outline all" by the heading boxes every level that has no outline (level problems are Rapid issues, see services/rapid3-validation.ts)
 // @test unit: an outline much bigger than its stops need has its level's "Refit" highlighted
-// @test unit: each level (and "Street / No level") expands to list its nodes and edges in that station, under their own categories; clicking one selects it
-// @test unit: lists levels lowest first, and selecting one shows only that level and selects its outline; selecting it again shows everything
+// @test unit: each level (and "No level") expands to list its nodes and edges in that station, under their own categories; clicking one selects it
+// @test unit: lists levels highest first (positive level_index, 0, then negative), each showing its level_index, and selecting one shows only that level and selects its outline; selecting it again shows everything
 // @test unit: "No station" (at the top, over the levels no station uses) shows only features not tied to a station; it's hidden when there's nothing outside a station
 // @test unit: only stations with features in the map view are listed, even the one being viewed
 // @test unit: clicking a station's name selects the station in the editor
 // @test unit: pointing at a station's name, a level or a listed node or edge highlights it on the map
-// @test unit: each station starts with "Street / No level", which shows that station's features that have no level
-// @test unit: the station heading and "Street / No level" each have a zoom button (the whole station, or its features with no level)
+// @test unit: each station starts with "No level", which shows that station's features that have no level
+// @test unit: the station heading and "No level" each have a zoom button (the whole station, or its features with no level)
 // @test unit: with more than one station, levels are grouped under the stations whose stops use them
 // @test unit: levels with an outline can be reordered by dragging or with the arrow keys, which renumbers level_index
+// @test unit: moving a level with no level_index numbers it by its new position; moving another level leaves it blank
+// @test unit: a row doesn't repeat a level_id or level_name that equals its level_index, or a level_name that equals its level_id
+// @test unit: "No station" expands to list the nodes and edges with no station and no level, and shows when only an edge is there
+// @test unit: levels missing an outline or a level_index are flagged as errors on their rows, which sit below the numbered levels
 // @test unit: levels without an outline show a disabled handle saying to add an outline first
 // @test unit: while the whole workspace is loading, a note says levels may show under "No station"; if it fails, a note offers "Retry"
 // @test unit: a "Things to review (N)" section lists every feature with a fixme note (its label and the note), and is hidden when there are none (and no reference drawing); "Hide"/"Show" collapses the list
@@ -422,25 +437,30 @@ const fixmesExpanded = ref(true);
 // Levels stops use that have no outline yet ("Outline all" boxes them).
 const unoutlinedIds = computed(() => levels.value.filter(level => !level.areaIds.length).map(level => level.levelId));
 
-// Levels grouped by station, each lowest first. The first group (no station)
-// sits under the "No station" entry; each station's group starts with "Street / No level".
+// Levels grouped by station, each lowest first (the rows list them highest first). The first group (no station)
+// sits under the "No station" entry; each station's group starts with "No level".
 const levelGroups = computed(() => props.tools.levelGroups.value);
 
 // "No station" is hidden when it has nothing to list or show: no levels under
-// it and no stops outside a station. Stations are listed only while some of
+// it, and no stops or pathways outside a station. Stations are listed only while some of
 // their features are in the map view, even the one being viewed.
 const visibleGroups = computed(() => levelGroups.value.filter(group => (group.station
   ? isStationListed(group)
-  : group.levels.length > 0 || props.tools.noStationStopCount.value > 0)));
+  : group.levels.length > 0 || props.tools.noStationStopCount.value > 0 || edgesIn(group, undefined).length > 0)));
 const hiddenStationCount = computed(() => levelGroups.value.filter(group => group.station).length
   - visibleGroups.value.filter(group => group.station).length);
+
+/** What a group's first entry lists, for its expand button. */
+function unleveledName(group: StationLevelGroup): string {
+  return group.station ? `${group.station.name}'s stops with no level` : 'stops and pathways with no station and no level';
+}
 
 function isStationListed(group: StationLevelGroup): boolean {
   const inView = props.tools.visibleStationIds.value;
   return !inView || inView.has(group.station!.stopId);
 }
 
-/** The view a group's entry selects: "No station", or a station's "Street / No level". */
+/** The view a group's entry selects: "No station", or a station's "No level". */
 function viewFor(group: StationLevelGroup): LevelView {
   return group.station ? { kind: 'stationNoLevel', stationId: group.station.stopId } : { kind: 'noStation' };
 }
@@ -479,7 +499,7 @@ function isMovable(level: Level): boolean {
 }
 
 function movableIds(group: StationLevelGroup): string[] {
-  return group.levels.filter(isMovable).map(level => level.levelId);
+  return levelsHighestFirst(group.levels).filter(isMovable).map(level => level.levelId);
 }
 
 /** Moves `levelId` to `position` among the group's movable levels and renumbers them. */
@@ -488,7 +508,11 @@ function moveTo(group: StationLevelGroup, levelId: string, position: number) {
   const ids = current.filter(id => id !== levelId);
   ids.splice(Math.max(0, Math.min(position, ids.length)), 0, levelId);
   if (ids.join('\n') !== current.join('\n')) {
-    props.tools.reorderLevels(ids);
+    // Only the level being moved gets a number from its position; other blank ones stay flagged.
+    const indexOf = new Map(group.levels.map(level => [level.levelId, level.index]));
+    const numbered = ids.filter(id => id === levelId || indexOf.get(id) !== undefined);
+    // The panel lists levels top down; reorderLevels takes them lowest first.
+    props.tools.reorderLevels(numbered.reverse());
   }
 }
 
@@ -615,7 +639,7 @@ function hover(ids: string[]) {
 }
 onBeforeUnmount(() => hover([]));
 
-// Levels (and "Street / No level" rows) whose stops are listed, by group and level.
+// Levels (and "No level" rows) whose stops are listed, by group and level.
 const expanded = ref(new Set<string>());
 const expandKey = (group: StationLevelGroup, levelId: string | undefined) => `${groupKey(group)}|${levelId ?? ''}`;
 
@@ -629,6 +653,21 @@ function toggleExpanded(group: StationLevelGroup, levelId: string | undefined) {
   const key = expandKey(group, levelId);
   if (!next.delete(key)) next.add(key);
   expanded.value = next;
+}
+
+/** What GTFS still needs from this level: its row in levels.txt comes from its outline. */
+function levelError(level: Level): string | undefined {
+  if (!level.areaIds.length) return `${levelLabel(level)} has no outline, so it won't be in levels.txt`;
+  if (level.index === undefined) return `${levelLabel(level)} needs a level_index`;
+  return undefined;
+}
+
+/** The row's text beside its level_index, without repeating what's already shown. */
+function rowTitle(level: Level): string {
+  const repeatsIndex = (text: string) => text.trim() !== '' && Number(text) === level.index;
+  const name = repeatsIndex(level.name) ? '' : level.name;
+  if (!name) return repeatsIndex(level.levelId) ? '' : level.levelId;
+  return repeatsIndex(level.levelId) || name === level.levelId ? name : levelLabel(level);
 }
 
 function levelLabel(level: Level): string {
@@ -812,7 +851,7 @@ function stopCount(levelId: string): number {
   color: var(--bs-secondary-color);
 }
 
-// "Street / No level": the view toggle, with a zoom button beside it.
+// "No level": the view toggle, with a zoom button beside it.
 .level-view-row {
   display: flex;
   align-items: center;
@@ -879,6 +918,24 @@ function stopCount(levelId: string): number {
   background: none;
   color: inherit;
   text-align: left;
+}
+
+.level-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  max-width: 100%;
+}
+
+.level-error {
+  flex: none;
+  color: var(--bs-danger);
+}
+
+.level-index {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 .level-title {
