@@ -10,6 +10,7 @@ import {
   elementGeoJson,
   geometryEqual,
   mapHash,
+  viewForBbox,
   newerOsmElement,
   OsmElementLookup,
   wayToGeoJsonCoords
@@ -240,5 +241,35 @@ describe('elementGeoJson', () => {
 
   it('draws nothing for an element that wasn\'t returned', () => {
     expect(elementGeoJson('way', 404, nodes).features).toEqual([]);
+  });
+});
+
+describe('viewForBbox', () => {
+  const size = { width: 1400, height: 800 };
+
+  it('centers on the box and zooms in as it gets smaller', () => {
+    const wide = viewForBbox({ min_lat: 47, min_lon: -123, max_lat: 48, max_lon: -122 }, size);
+    const narrow = viewForBbox({ min_lat: 47.6, min_lon: -122.34, max_lat: 47.62, max_lon: -122.32 }, size);
+
+    expect(wide.lat).toBeCloseTo(47.5);
+    expect(wide.lon).toBeCloseTo(-122.5);
+    // A box 50 times smaller is about 5.6 zoom levels closer (log2 50).
+    expect(narrow.zoom - wide.zoom).toBeCloseTo(Math.log2(50), 1);
+  });
+
+  it('fits the box inside the map, beside the editor sidebar', () => {
+    const bbox = { min_lat: 47.6, min_lon: -122.34, max_lat: 47.62, max_lon: -122.32 };
+    const { zoom } = viewForBbox(bbox, size);
+
+    expect((bbox.max_lon - bbox.min_lon) / 360 * 256 * 2 ** zoom).toBeLessThanOrEqual(size.width - 400);
+  });
+
+  it('uses the closest zoom for a single point', () => {
+    expect(viewForBbox({ min_lat: 47.6, min_lon: -122.3, max_lat: 47.6, max_lon: -122.3 }, size))
+      .toEqual({ zoom: 20, lat: 47.6, lon: -122.3 });
+  });
+
+  it('goes no farther out than a whole-world view', () => {
+    expect(viewForBbox({ min_lat: -80, min_lon: -180, max_lat: 80, max_lon: 180 }, { width: 500, height: 300 }).zoom).toBe(2);
   });
 });

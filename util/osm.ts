@@ -9,6 +9,7 @@ import type {
   OsmRelation,
   OsmWay
 } from '~/types/osm';
+import type { BoundingBox } from '~/types/bbox';
 import type { WorkspaceType } from '~/types/workspaces';
 
 export function geometryEqual(a: OsmElement, b: OsmElement): boolean {
@@ -131,6 +132,30 @@ export function editorHashFor(elements: Iterable<OsmElement>): string | undefine
 
 export function mapHash(view: { zoom: number; lat: number; lon: number }): string {
   return `#map=${view.zoom}/${view.lat}/${view.lon}`;
+}
+
+/** The width Rapid's sidebar takes from the editor's map, in pixels. */
+const EDITOR_SIDEBAR_WIDTH = 400;
+const WORLD_SIZE = 256; // a web mercator map's width at zoom 0, in pixels
+const MIN_FIT_ZOOM = 2;
+const MAX_FIT_ZOOM = 20; // a single point has no extent to fit
+const FIT_PADDING = 0.9;
+
+/** The center and zoom that fit `bbox` in an editor of the given size, in web mercator. */
+export function viewForBbox(bbox: BoundingBox, size: { width: number; height: number }) {
+  const mercatorY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) / (2 * Math.PI);
+  const spanX = (bbox.max_lon - bbox.min_lon) / 360;
+  const spanY = mercatorY(bbox.max_lat) - mercatorY(bbox.min_lat);
+  const mapWidth = Math.max(size.width - EDITOR_SIDEBAR_WIDTH, WORLD_SIZE) * FIT_PADDING;
+  const mapHeight = Math.max(size.height, WORLD_SIZE) * FIT_PADDING;
+  const scale = Math.min(mapWidth / (WORLD_SIZE * spanX), mapHeight / (WORLD_SIZE * spanY));
+  const zoom = Math.min(Math.max(Math.log2(scale), MIN_FIT_ZOOM), MAX_FIT_ZOOM);
+
+  return {
+    zoom: Math.floor(zoom * 100) / 100,
+    lat: (bbox.min_lat + bbox.max_lat) / 2,
+    lon: (bbox.min_lon + bbox.max_lon) / 2
+  };
 }
 
 export function editorRoute(workspaceId: number, datatype: WorkspaceType, hash?: string) {
