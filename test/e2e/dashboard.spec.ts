@@ -42,7 +42,14 @@ test.describe('dashboard', () => {
     test.beforeEach(async ({ page }) => {
       await seedAuthenticatedSession(page);
       await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
-      await page.route(`${TEST_API_BASE}workspaces/mine`, route => route.fulfill({ json: workspaces }));
+      // As the backend sends them: /mine leaves out tdeiMetadata, which the
+      // dashboard reads from the selected workspace's own GET.
+      await page.route(`${TEST_API_BASE}workspaces/mine`, route => route.fulfill({
+        json: workspaces.map(({ tdeiMetadata: _metadata, ...listed }) => listed)
+      }));
+      for (const workspace of workspaces) {
+        await page.route(`${TEST_API_BASE}workspaces/${workspace.id}`, route => route.fulfill({ json: workspace }));
+      }
       await page.route(`${TEST_API_BASE}tdei-user/project-group-roles/**`, route => route.fulfill({ json: projectGroups }));
       // Empty map data keeps these metadata tests independent of WebGL.
       await page.route(`${TEST_API_BASE}workspaces/{1926,2207}/bbox{,?*}`, route =>
@@ -322,11 +329,12 @@ test.describe('dashboard', () => {
 
     await seedAuthenticatedSession(page);
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
-    await page.route('**/workspaces/mine', route => route.fulfill({
-      json: [{
+    await page.route('**/workspaces/mine', route => route.fulfill({ json: [aWorkspace] }));
+    await page.route('**/workspaces/1', route => route.fulfill({
+      json: {
         ...aWorkspace,
         tdeiMetadata: { metadata: { dataset_detail: { dataset_area: reversedDatasetArea } } },
-      }],
+      },
     }));
     await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
     await page.route('**/workspaces/1/bbox', (route) => {
@@ -349,11 +357,12 @@ test.describe('dashboard', () => {
 
     await seedAuthenticatedSession(page);
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
-    await page.route('**/workspaces/mine', route => route.fulfill({
-      json: [{
+    await page.route('**/workspaces/mine', route => route.fulfill({ json: [aWorkspace] }));
+    await page.route('**/workspaces/1', route => route.fulfill({
+      json: {
         ...aWorkspace,
         tdeiMetadata: { metadata: { dataset_detail: { dataset_area: broadDatasetArea } } },
-      }],
+      },
     }));
     await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
     await page.route('**/workspaces/1/bbox', route => route.fulfill({ status: 204 }));

@@ -120,6 +120,8 @@ export class Rapid3Manager {
     const script = document.createElement('script')
     // Minified dev build: still sets the PIXI and Rapid.sdk globals we use, at ~60% of the size
     script.src = this.#baseUrl + 'js/rapid-dev.min.js'
+    // Loaded with CORS so the editor's errors reach Sentry with their details (wsrapid serves `Access-Control-Allow-Origin: *`)
+    script.crossOrigin = 'anonymous'
     script.async = true
     script.onload = this.#onRapidLoaded.bind(this)
     script.onerror = (e) => {

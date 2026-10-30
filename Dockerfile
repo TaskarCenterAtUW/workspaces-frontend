@@ -17,6 +17,8 @@ ARG VITE_LONG_FORM_QUEST_SCHEMA
 ARG VITE_LONG_FORM_QUEST_EXAMPLE_URL
 ARG VITE_SENTRY_AUTH_TOKEN
 ARG VITE_SENTRY_DSN
+# The deploy this build is for (production, stage, dev), e.g. for Sentry's environment.
+ARG ENV
 
 ARG CODE_VERSION=unknown
 
