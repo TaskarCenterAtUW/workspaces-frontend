@@ -26,6 +26,66 @@ function fakeImagery(here: RapidBackgroundSource[], current: RapidBackgroundSour
   return imagery;
 }
 
+const getWorkspaceBbox = vi.hoisted(() => vi.fn());
+vi.mock('~/services/index', () => ({ workspacesClient: { getWorkspaceBbox } }));
+
+// A workspace from 47 to 48 N, 123 to 122 W.
+const extent = { min_lat: 47, min_lon: -123, max_lat: 48, max_lon: -122 };
+
+/** A coverage index where a source covers only points inside its [minLon, minLat, maxLon, maxLat] box. */
+function coverageOf(boxes: Record<string, [number, number, number, number]>) {
+  return ([lon, lat]: [number, number]) => Object.entries(boxes)
+    .filter(([, [w, s, e, n]]) => lon >= w && lon <= e && lat >= s && lat <= n)
+    .map(([id]) => ({ id }));
+}
+
+const partial = { id: 'Downtown', template: 'https://downtown/{z}', props: { best: true, feature: {} } };
+const whole = { id: 'County', template: 'https://county/{z}', props: { feature: {} } };
+const worldwide = { id: 'Esri', template: 'https://esri/{z}', props: {} };
+const boxes: Record<string, [number, number, number, number]> = {
+  Downtown: [-122.6, 47.4, -122.4, 47.6],
+  County: [-124, 46, -121, 49]
+};
+
+describe('chooseBackground with a workspace extent', () => {
+  it('passes over imagery marked best that covers only part of the extent', () => {
+    const imagery = fakeImagery([partial, whole, worldwide], null);
+    imagery._whichPolygon = coverageOf(boxes);
+
+    expect(chooseBackground(imagery, extent)?.id).toBe('County');
+  });
+
+  it('switches away from current imagery that covers only part of the extent', () => {
+    const imagery = fakeImagery([partial, worldwide], partial);
+    imagery._whichPolygon = coverageOf(boxes);
+
+    expect(chooseBackground(imagery, extent)?.id).toBe('Esri');
+  });
+
+  it('keeps current imagery that covers the whole extent', () => {
+    const imagery = fakeImagery([worldwide, whole], whole);
+    imagery._whichPolygon = coverageOf(boxes);
+
+    expect(chooseBackground(imagery, extent)?.id).toBe('County');
+  });
+
+  it('falls back to what covers the center when nothing covers the whole extent', () => {
+    const imagery = fakeImagery([partial], null);
+    imagery._whichPolygon = coverageOf(boxes);
+
+    expect(chooseBackground(imagery, extent)?.id).toBe('Downtown');
+  });
+
+  it('reads coverage from Rapid 2, whose sources keep their fields directly', () => {
+    const downtown = { id: 'Downtown', template: 'https://downtown/{z}', best: true };
+    const bingV2 = { id: 'Bing', template: 'https://bing/{z}' };
+    const imagery = fakeImagery([downtown, bingV2], null);
+    imagery._imageryIndex = { query: coverageOf(boxes), features: new Map([['downtown', {}]]) };
+
+    expect(chooseBackground(imagery, extent)?.id).toBe('Bing');
+  });
+});
+
 describe('chooseBackground', () => {
   it('keeps the current imagery where it has coverage', () => {
     const imagery = fakeImagery([bing, esri, sfOrtho], sfOrtho);
@@ -102,6 +162,38 @@ describe('chooseBackgroundForWorkspace', () => {
     const context = { systems: { imagery: {} }, viewport: {} } as unknown as RapidBackgroundContext;
 
     await expect(chooseBackgroundForWorkspace(context)).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
+describe('chooseBackgroundForWorkspace with a workspace', () => {
+  const contextFor = (imagery: RapidBackgroundImagery): RapidBackgroundContext => ({
+    systems: { imagery },
+    viewport: { centerLoc: () => [0, 0] },
+    workspaceId: 7
+  });
+
+  it('chooses imagery covering the workspace\'s whole extent', async () => {
+    getWorkspaceBbox.mockResolvedValueOnce(extent);
+    const imagery = fakeImagery([partial, whole], partial);
+    imagery._whichPolygon = coverageOf(boxes);
+
+    await chooseBackgroundForWorkspace(contextFor(imagery));
+
+    expect(getWorkspaceBbox).toHaveBeenCalledWith(7);
+    expect(imagery.baseLayerSource).toHaveBeenCalledWith(whole);
+  });
+
+  it('still chooses by the center when the extent can\'t be fetched', async () => {
+    getWorkspaceBbox.mockRejectedValueOnce(new Error('offline'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const imagery = fakeImagery([partial, whole], partial);
+    imagery._whichPolygon = coverageOf(boxes);
+
+    await chooseBackgroundForWorkspace(contextFor(imagery));
+
+    expect(imagery.baseLayerSource).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
