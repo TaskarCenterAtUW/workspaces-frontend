@@ -520,7 +520,8 @@ export class Rapid3LevelTools {
         stationIds: [...new Set(ends.flatMap(end => stationIdsOf(end.id)))]
       };
       const stops = ends.filter(end => Object.keys(end.tags ?? {}).length);
-      for (const levelId of new Set(stops.map(end => stopLevelId(end) ?? ''))) {
+      // With no stops at its ends, it's on no level either.
+      for (const levelId of new Set(stops.length ? stops.map(end => stopLevelId(end) ?? '') : [''])) {
         levelPathways.set(levelId, [...(levelPathways.get(levelId) ?? []), pathway]);
       }
     }

@@ -336,6 +336,23 @@ describe('PathwaysLevelPanel', () => {
       ]);
     });
 
+    // @test unit: levels missing an outline or a level_index are flagged as errors on their rows, which sit below the numbered levels
+    it('flags levels missing an outline or a level_index, below the numbered ones', async () => {
+      const tools = stubTools();
+      const noIndex: Level = { levelId: 'MZ', index: undefined, name: 'Mezzanine', areaIds: ['a9'] };
+      setLevels(tools, [roof, noIndex, street]);
+      const wrapper = await mountPanel(tools);
+
+      expect(wrapper.findAll('.level-row').map(r => [
+        r.find('.level-title').text(),
+        r.find('.level-error').exists() ? r.find('.level-error').attributes('aria-label') : undefined
+      ])).toEqual([
+        ['Street (L0)', undefined],
+        ['Mezzanine (MZ)', 'Mezzanine (MZ) needs a level_index'],
+        ['ROOF', 'ROOF has no outline, so it won\'t be in levels.txt']
+      ]);
+    });
+
     it('only lets levels with an outline move', async () => {
       const { wrapper, row } = await mountThreeLevels();
 

@@ -546,6 +546,15 @@ describe('Rapid3LevelTools', () => {
     expect(tools.levelPathways.value.get('L1')!.map(pathway => pathway.id)).toEqual(['p1']);
   });
 
+  it('groups a pathway with no stops at its ends under ""', () => {
+    const tools = new Rapid3LevelTools(fakeContext([
+      node('a'),
+      node('b'),
+      way('p1', ['a', 'b'], { pathway_mode: '1' })
+    ]));
+    expect(tools.levelPathways.value.get('')!.map(pathway => pathway.id)).toEqual(['p1']);
+  });
+
   it('counts the pathways touching each level, with their stations', () => {
     const tools = new Rapid3LevelTools(fakeContext([
       node('s1', { location_type: '1', stop_id: 'CENTRAL' }),

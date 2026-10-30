@@ -229,6 +229,18 @@
                     :title="level.index === undefined ? 'No level_index' : `level_index ${level.index}`"
                   >{{ level.index ?? '–' }}</span>
                   <span class="level-title">{{ levelLabel(level) }}</span>
+                  <span
+                    v-if="levelError(level)"
+                    class="level-error"
+                    role="img"
+                    :aria-label="levelError(level)"
+                    :title="levelError(level)"
+                  >
+                    <app-icon
+                      variant="error_outline"
+                      no-margin
+                    />
+                  </span>
                 </span>
                 <span class="level-counts">
                   <span
@@ -404,6 +416,7 @@ import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-le
 // @test unit: the station heading and "No level" each have a zoom button (the whole station, or its features with no level)
 // @test unit: with more than one station, levels are grouped under the stations whose stops use them
 // @test unit: levels with an outline can be reordered by dragging or with the arrow keys, which renumbers level_index
+// @test unit: levels missing an outline or a level_index are flagged as errors on their rows, which sit below the numbered levels
 // @test unit: levels without an outline show a disabled handle saying to add an outline first
 // @test unit: while the whole workspace is loading, a note says levels may show under "No station"; if it fails, a note offers "Retry"
 // @test unit: a "Things to review (N)" section lists every feature with a fixme note (its label and the note), and is hidden when there are none (and no reference drawing); "Hide"/"Show" collapses the list
@@ -638,6 +651,13 @@ function toggleExpanded(group: StationLevelGroup, levelId: string | undefined) {
   const key = expandKey(group, levelId);
   if (!next.delete(key)) next.add(key);
   expanded.value = next;
+}
+
+/** What GTFS still needs from this level: its row in levels.txt comes from its outline. */
+function levelError(level: Level): string | undefined {
+  if (!level.areaIds.length) return `${levelLabel(level)} has no outline, so it won't be in levels.txt`;
+  if (level.index === undefined) return `${levelLabel(level)} needs a level_index`;
+  return undefined;
 }
 
 function levelLabel(level: Level): string {
@@ -895,6 +915,11 @@ function stopCount(levelId: string): number {
   align-items: baseline;
   gap: 0.375rem;
   max-width: 100%;
+}
+
+.level-error {
+  flex: none;
+  color: var(--bs-danger);
 }
 
 .level-index {
