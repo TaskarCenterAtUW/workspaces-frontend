@@ -194,7 +194,7 @@ export class Rapid3Manager {
       .then(() => {
         if (datatype === 'pathways') {
           this.levelTools.value = new Rapid3LevelTools(context, { fetchReference: this.#fetchReference })
-          this.#loadWholeWorkspace(workspaceId, { outlineMissingLevels: true })
+          this.#loadWholeWorkspace(workspaceId)
           this.#reloadWholeWorkspaceAfterResets()
         }
       })
@@ -232,18 +232,15 @@ export class Rapid3Manager {
   }
 
   /**
-   * @param options.outlineMissingLevels - once loaded, outline the levels that
-   *   have stops but no outline (one undoable edit). Only on first opening the
-   *   editor, and not while Rapid offers to restore unsaved edits: an edit then
-   *   could interleave with the restored history. Reloads after a reset
-   *   (restore, workspace switch) leave them to the level panel's warning.
+   * Once loaded, outlines the levels that have stops but no outline, unless
+   * that has to wait for a restore (see `outlineMissingLevelsWhenSettled`).
    */
-  async #loadWholeWorkspace(workspaceId: number, options: { outlineMissingLevels?: boolean } = {}, attempt = 0) {
+  async #loadWholeWorkspace(workspaceId: number, attempt = 0) {
     const tools = this.levelTools.value
     const setStatus = (status: 'loading' | 'loaded' | 'failed') => {
       if (tools && this.rapidContext.workspaceId === workspaceId) tools.workspaceLoad.value = status
     }
-    if (tools) tools.retryWorkspaceLoad = () => this.#loadWholeWorkspace(workspaceId, options)
+    if (tools) tools.retryWorkspaceLoad = () => this.#loadWholeWorkspace(workspaceId)
     setStatus('loading')
 
     // A failed load (e.g. a timeout on a big workspace) is retried after 2 s and 5 s.
@@ -254,7 +251,7 @@ export class Rapid3Manager {
         setStatus('failed')
         return
       }
-      setTimeout(() => this.#loadWholeWorkspace(workspaceId, options, attempt + 1), delay)
+      setTimeout(() => this.#loadWholeWorkspace(workspaceId, attempt + 1), delay)
     }
 
     let bbox: string | undefined
@@ -299,9 +296,7 @@ export class Rapid3Manager {
       const results = envelope.value
       if (Array.isArray(results?.data)) {
         context.systems.editor.merge(results.data, results.seenIDs)
-        if (options.outlineMissingLevels && !context.systems.editor.canRestoreBackup) {
-          this.levelTools.value?.outlineMissingLevels()
-        }
+        this.levelTools.value?.outlineMissingLevelsWhenSettled()
       }
     }).catch((err: any) => {
       if (osm._connectionID !== connection || context.workspaceId !== workspaceId) return

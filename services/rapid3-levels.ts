@@ -429,6 +429,7 @@ export class Rapid3LevelTools {
 
   #context: any;
   #refreshTimer: ReturnType<typeof setTimeout> | undefined;
+  #restoring = false;
   #viewportTimer: ReturnType<typeof setTimeout> | undefined;
   #stationIndex: StationIndex = { stations: new Map(), stationOfStop: new Map(), stationsByLevel: new Map() };
   /** The area each station's point and stops cover, by stop_id. */
@@ -460,6 +461,7 @@ export class Rapid3LevelTools {
     this.#context = context;
     this.#fetchReference = fetchReference;
     this.#installLevelFilter();
+    this.#watchRestorePrompt();
     farEndHook.isFarEnd = id => this.#isFarEnd(id);
     installFarEndFading();
 
@@ -1104,6 +1106,42 @@ export class Rapid3LevelTools {
     });
     this.refresh();
     return outlined.length;
+  }
+
+  /**
+   * `outlineMissingLevels`, once the whole workspace has loaded and Rapid isn't
+   * offering or doing a restore: an edit then could interleave with the restored
+   * history, and a partial load could outline a level whose outline isn't here yet.
+   */
+  outlineMissingLevelsWhenSettled(): number {
+    const { canRestoreBackup } = this.#context.systems.editor;
+    if (this.workspaceLoad.value !== 'loaded' || canRestoreBackup || this.#restoring) return 0;
+    return this.outlineMissingLevels();
+  }
+
+  /** Outlines missing levels once the user has answered Rapid's restore prompt. */
+  #watchRestorePrompt() {
+    const editor = this.#context.systems.editor;
+    const dismiss = editor.dismissRestore?.bind(editor);
+    if (dismiss) {
+      editor.dismissRestore = () => {
+        dismiss();
+        this.outlineMissingLevelsWhenSettled();
+      };
+    }
+    const restore = editor.restoreSessionAsync?.bind(editor);
+    if (restore) {
+      editor.restoreSessionAsync = async (id: string) => {
+        this.#restoring = true;
+        try {
+          return await restore(id);
+        }
+        finally {
+          this.#restoring = false;
+          this.outlineMissingLevelsWhenSettled();
+        }
+      };
+    }
   }
 
   /**
