@@ -10,6 +10,7 @@ import {
   COMPLETENESS_VALIDATOR_STRINGS,
   CONNECTIVITY_VALIDATOR_ID,
   CONNECTIVITY_VALIDATOR_STRINGS,
+  installCloseNodesFilter,
   installCompletenessValidator,
   installConnectivityValidator,
   installReferenceValidator,
@@ -558,6 +559,8 @@ export class Rapid3Manager {
       installConnectivityValidator(context)
       // Level problems (formerly the Stations panel's warnings), with fixes.
       installLevelsValidator(context, () => this.levelTools.value)
+      // Allow stops on different levels, or of different types, at the same spot.
+      installCloseNodesFilter(context)
       // Re-run those workspace-spanning checks everywhere after each edit, not just near it.
       installWorkspaceRevalidation(context)
       // List those rules in Rapid's Issues pane, and show their issues on existing data.

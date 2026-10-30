@@ -422,6 +422,46 @@ export function installLevelsValidator(context: any, getTools: () => Rapid3Level
   validation._validators.set(LEVELS_VALIDATOR_ID, validator);
 }
 
+/** Rapid's check for points that nearly share a location. */
+const CLOSE_NODES_VALIDATOR_ID = 'close_nodes';
+
+/**
+ * Whether two nearby points are on different levels or are different kinds of
+ * stop, so being together is expected: a station's point and a generic node,
+ * or stops stacked on different floors. A missing location_type means 0 in GTFS.
+ */
+export function pointsMayShareLocation(a: { tags?: Record<string, string> }, b: { tags?: Record<string, string> }): boolean {
+  const levelId = (point: typeof a) => point.tags?.level_id?.trim() ?? '';
+  const locationType = (point: typeof a) => point.tags?.location_type?.trim() || '0';
+  return levelId(a) !== levelId(b) || locationType(a) !== locationType(b);
+}
+
+/**
+ * Stops Rapid warning that points are too close (`close_nodes`) when
+ * `pointsMayShareLocation` says they can be: Rapid compares OSM's level and
+ * layer tags, which GTFS doesn't use. Call it after `initAsync`.
+ */
+export function installCloseNodesFilter(context: any) {
+  const validators = context.systems.validator?._validators;
+  const checkCloseNodes = validators?.get(CLOSE_NODES_VALIDATOR_ID);
+  if (!checkCloseNodes) return;
+
+  const validator = (entity: any, graph: any) => {
+    const result = checkCloseNodes(entity, graph);
+    return {
+      ...result,
+      issues: result.issues.filter((issue: any) => {
+        if (issue.subtype !== 'detached') return true;
+        const [a, b] = issue.entityIds.map((id: string) => graph.hasEntity(id));
+        return !(a && b && pointsMayShareLocation(a, b));
+      })
+    };
+  };
+  validator.type = CLOSE_NODES_VALIDATOR_ID;
+
+  validators.set(CLOSE_NODES_VALIDATOR_ID, validator);
+}
+
 /** Help shown under a level issue, by subtype. */
 export const LEVELS_HELP: Record<string, string> = {
   missing_level: 'Platforms, generic nodes and boarding areas need a level_id, so riders know which level '
