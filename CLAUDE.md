@@ -85,6 +85,25 @@ intended behavior. Tests are generated **to the comment (the spec), not the
 current code** — if the code diverges, the test is left RED to document the bug.
 Don't soften assertions to make buggy code pass.
 
+## Background imagery
+
+When a workspace opens in Rapid, [util/rapid-background.ts](util/rapid-background.ts)
+chooses its background, in this order. Keep to it when changing imagery selection:
+
+1. **`background=` in the URL**, if it covers the center of the view (a custom
+   template in the URL is always honored, since it declares no coverage).
+2. **The user's saved pick for this workspace**, if it covers the center of the
+   view. Partial coverage is fine because they chose it. A pick that doesn't
+   cover the workspace resets to step 3. Picks are per workspace, in the
+   browser's local storage, recorded only from Rapid's Background pane; a custom
+   pick saves its own template, because Rapid has one custom slot.
+3. **Our pick, only from sources covering the whole extent** (sampled at nine
+   points across the bbox; worldwide sources qualify): the current imagery, then
+   the area's best, then the first. Never custom imagery, since we can't know
+   what it covers.
+4. **If nothing covers the whole extent**, what covers the center of the view,
+   rather than no imagery.
+
 ## Gotchas (learned the hard way)
 
 - **OSM URLs include `/api/0.6/`.** The OSM client base is

@@ -12,6 +12,9 @@ const kingCounty: RapidBackgroundSource = { id: 'King_County', template: 'https:
  * An imagery system covering `here` and showing `current`. Like Rapid's,
  * `visibleSources` always includes the current imagery.
  */
+/** Rapid's one custom imagery slot. */
+const customSlot: RapidBackgroundSource = { id: 'custom', template: '' };
+
 function fakeImagery(here: RapidBackgroundSource[], current: RapidBackgroundSource | null): RapidBackgroundImagery {
   const imagery: RapidBackgroundImagery = {
     _baseLayer: current,
@@ -22,7 +25,8 @@ function fakeImagery(here: RapidBackgroundSource[], current: RapidBackgroundSour
     baseLayerSource: vi.fn((source: RapidBackgroundSource) => {
       imagery._baseLayer = source;
     }),
-    setSourceByID: vi.fn()
+    setSourceByID: vi.fn(),
+    getSourceByID: (id: string) => (id === 'custom' ? customSlot : undefined)
   };
   return imagery;
 }
@@ -287,6 +291,43 @@ describe('choosing the background in order', () => {
     context.systems.storage!.setItem('other', 'x');
     expect(window.localStorage.length).toBe(2);
     expect(setItem).toHaveBeenCalledTimes(2);
+  });
+
+  it('resets custom imagery on a workspace nobody chose it for', async () => {
+    getWorkspaceBbox.mockResolvedValue(extent);
+    const custom = { id: 'custom', template: 'https://mine/{z}', props: {} };
+    const imagery = fakeImagery([custom, worldwide], custom);
+
+    await choose(coverageContext(imagery));
+
+    expect(imagery.baseLayerSource).toHaveBeenCalledWith(worldwide);
+  });
+
+  it('resets a pick from another workspace when it doesn\'t cover this one', async () => {
+    window.localStorage.setItem('workspace-background:8', 'Downtown');
+    getWorkspaceBbox.mockResolvedValue(extent);
+    const imagery = fakeImagery([partial, worldwide], partial);
+
+    await choose(coverageContext(imagery)); // workspace 7
+
+    expect(imagery.baseLayerSource).toHaveBeenCalledWith(worldwide);
+  });
+
+  it('keeps a custom pick\'s own template for its workspace', async () => {
+    getWorkspaceBbox.mockResolvedValue(extent);
+    customSlot.template = 'https://first/{z}';
+    const imagery = fakeImagery([worldwide], worldwide);
+    const context = coverageContext(imagery, { settings: { set: vi.fn() } });
+    await choose(context);
+
+    context.systems.settings!.set('imagery.lastUsed', 'custom');
+    expect(window.localStorage.getItem('workspace-background:7')).toBe('custom:https://first/{z}');
+
+    customSlot.template = 'https://other-workspace/{z}';
+    await choose(context);
+
+    expect(customSlot.template).toBe('https://first/{z}');
+    expect(imagery.baseLayerSource).toHaveBeenCalledWith(customSlot);
   });
 
   it('doesn\'t treat our own pick as the user\'s', async () => {
