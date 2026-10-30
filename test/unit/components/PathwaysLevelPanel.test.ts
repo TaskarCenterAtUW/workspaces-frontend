@@ -336,6 +336,23 @@ describe('PathwaysLevelPanel', () => {
       ]);
     });
 
+    // @test unit: a row doesn't repeat a level_id that equals its level_index, or a level_name that equals its level_id
+    it('doesn\'t repeat a level_id equal to the level_index, or a name equal to the level_id', async () => {
+      const tools = stubTools();
+      setLevels(tools, [
+        { levelId: '2', index: 2, name: '', areaIds: ['a2'] },
+        { levelId: '1.0', index: 1, name: 'Mezzanine', areaIds: ['a1'] },
+        { levelId: 'B', index: 0, name: 'B', areaIds: ['a0'] },
+        { levelId: '-1', index: -2, name: '', areaIds: ['a3'] }
+      ]);
+      const wrapper = await mountPanel(tools);
+
+      expect(wrapper.findAll('.level-row').map(r => [r.find('.level-index').text(), r.find('.level-title').exists() ? r.find('.level-title').text() : null]))
+        .toEqual([['2', null], ['1', 'Mezzanine'], ['0', 'B'], ['-2', '-1']]);
+      // Tooltips and labels still name the level in full.
+      expect(wrapper.findAll('.level-row')[0]!.find('button.level-handle').attributes('aria-label')).toContain('Move 2');
+    });
+
     // @test unit: levels missing an outline or a level_index are flagged as errors on their rows, which sit below the numbered levels
     it('flags levels missing an outline or a level_index, below the numbered ones', async () => {
       const tools = stubTools();

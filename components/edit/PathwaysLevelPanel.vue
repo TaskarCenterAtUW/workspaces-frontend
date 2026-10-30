@@ -228,7 +228,10 @@
                     class="level-index"
                     :title="level.index === undefined ? 'No level_index' : `level_index ${level.index}`"
                   >{{ level.index ?? '–' }}</span>
-                  <span class="level-title">{{ levelLabel(level) }}</span>
+                  <span
+                    v-if="rowTitle(level)"
+                    class="level-title"
+                  >{{ rowTitle(level) }}</span>
                   <span
                     v-if="levelError(level)"
                     class="level-error"
@@ -416,6 +419,7 @@ import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-le
 // @test unit: the station heading and "No level" each have a zoom button (the whole station, or its features with no level)
 // @test unit: with more than one station, levels are grouped under the stations whose stops use them
 // @test unit: levels with an outline can be reordered by dragging or with the arrow keys, which renumbers level_index
+// @test unit: a row doesn't repeat a level_id that equals its level_index, or a level_name that equals its level_id
 // @test unit: levels missing an outline or a level_index are flagged as errors on their rows, which sit below the numbered levels
 // @test unit: levels without an outline show a disabled handle saying to add an outline first
 // @test unit: while the whole workspace is loading, a note says levels may show under "No station"; if it fails, a note offers "Retry"
@@ -658,6 +662,13 @@ function levelError(level: Level): string | undefined {
   if (!level.areaIds.length) return `${levelLabel(level)} has no outline, so it won't be in levels.txt`;
   if (level.index === undefined) return `${levelLabel(level)} needs a level_index`;
   return undefined;
+}
+
+/** The row's text beside its level_index, without repeating what's already shown. */
+function rowTitle(level: Level): string {
+  const idIsIndex = level.levelId.trim() !== '' && Number(level.levelId) === level.index;
+  if (!level.name) return idIsIndex ? '' : level.levelId;
+  return idIsIndex || level.name === level.levelId ? level.name : levelLabel(level);
 }
 
 function levelLabel(level: Level): string {
