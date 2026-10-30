@@ -233,6 +233,18 @@ export function levelsLowestFirst(levels: Level[]): Level[] {
   return [...known, ...unknown, ...levels.filter(level => !level.areaIds.length)];
 }
 
+/**
+ * Orders levels top to bottom, as a station stacks: drawn levels highest first
+ * (above street level, then 0, then below it; unknown indexes after them), then
+ * levels only stops use.
+ */
+export function levelsHighestFirst(levels: Level[]): Level[] {
+  const drawn = levels.filter(level => level.areaIds.length);
+  const known = drawn.filter(level => level.index !== undefined).sort((a, b) => compareLevels(b, a));
+  const unknown = drawn.filter(level => level.index === undefined);
+  return [...known, ...unknown, ...levels.filter(level => !level.areaIds.length)];
+}
+
 export interface Station {
   /** The station's entity ID. */
   id: string | number;
@@ -658,7 +670,7 @@ export function farStops<T extends LevelEntity & { loc?: [number, number] }>(
 
 /**
  * The stations (by stop_id) to highlight on the map: the one whose
- * "Street / No level" view is shown, those whose stops use the level shown,
+ * "No level" view is shown, those whose stops use the level shown,
  * and any station selected in the editor.
  */
 export function highlightedStationIds(

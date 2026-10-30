@@ -20,6 +20,7 @@ import {
   levelsByStation,
   levelsLowestFirst,
   nextLevelIndex,
+  levelsHighestFirst,
   reorderedLevelIndexes,
   spanMeters,
   stopNodes,
@@ -251,6 +252,17 @@ describe('reordering levels', () => {
     ]);
     expect(levelsLowestFirst(levels).map(l => l.levelId)).toEqual(['DOWN', 'STREET', 'UP', 'ODD', 'LOST']);
   });
+
+  it('lists drawn levels highest first, then unknown indexes, then levels with no outline', () => {
+    const levels = collectLevels([
+      levelArea('w1', { level_id: 'STREET', level_index: '0' }),
+      levelArea('w2', { level_id: 'UP', level_index: '1' }),
+      levelArea('w3', { level_id: 'ODD', level_index: 'roof' }),
+      levelArea('w4', { level_id: 'DOWN', level_index: '-1' }),
+      node('n1', { level_id: 'LOST', stop_name: 'x' })
+    ]);
+    expect(levelsHighestFirst(levels).map(l => l.levelId)).toEqual(['UP', 'STREET', 'DOWN', 'ODD', 'LOST']);
+  });
 });
 
 describe('levelsByStation', () => {
@@ -393,7 +405,7 @@ describe('isOutsideView', () => {
     expect(outside({ kind: 'noStation' })).toEqual(['s1', 'e1', 'n1']);
   });
 
-  it('for a station\'s "Street / No level", is true for its leveled stops and anything else', () => {
+  it('for a station\'s "No level", is true for its leveled stops and anything else', () => {
     expect(outside({ kind: 'stationNoLevel', stationId: 'CENTRAL' })).toEqual(['n1', 'x1']);
   });
 });
@@ -501,7 +513,7 @@ describe('highlightedStationIds', () => {
   ]);
   const ids = (view: LevelView | undefined, selected: string[] = []) => [...highlightedStationIds(view, selected, index)].sort();
 
-  it('highlights the station whose Street / No level view is shown', () => {
+  it('highlights the station whose No level view is shown', () => {
     expect(ids({ kind: 'stationNoLevel', stationId: 'CENTRAL' })).toEqual(['CENTRAL']);
   });
 

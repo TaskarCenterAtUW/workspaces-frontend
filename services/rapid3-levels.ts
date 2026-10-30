@@ -889,7 +889,7 @@ export class Rapid3LevelTools {
   /** Pans and zooms the map to a level's area, or to its stops if it has no area. */
   /**
    * Pans and zooms the map to a station: its station point and stops, or with
-   * `noLevel`, just those its "Street / No level" view shows (the station point
+   * `noLevel`, just those its "No level" view shows (the station point
    * and its stops without a level_id).
    */
   zoomToStation(stationId: string, { noLevel = false }: { noLevel?: boolean } = {}) {

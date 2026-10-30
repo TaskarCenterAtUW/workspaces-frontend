@@ -189,8 +189,8 @@ describe('PathwaysLevelPanel', () => {
     expect(row('L0').find('.level-refit').classes()).not.toContain('level-refit-needed');
   });
 
-  // @test unit: lists levels lowest first, and selecting one shows only that level; selecting it again shows everything
-  it('lists levels lowest first and toggles showing the one picked', async () => {
+  // @test unit: lists levels highest first (positive level_index, 0, then negative), each showing its level_index, and selecting one shows only that level; selecting it again shows everything
+  it('lists levels highest first with their indexes, and toggles showing the one picked', async () => {
     const tools = stubTools();
     const wrapper = await mountPanel(tools);
 
@@ -201,8 +201,7 @@ describe('PathwaysLevelPanel', () => {
       ['Street (L0)', '1 node'],
       ['Concourse (L1)', '1 node']
     ]);
-    // The order conveys the level; the index itself isn't shown.
-    expect(options[1]!.find('.level-index').exists()).toBe(false);
+    expect(options.slice(1).map(option => option.find('.level-index').text())).toEqual(['0', '-1']);
     // Nothing is selected at first: everything is shown.
     expect(options.map(option => option.attributes('aria-checked'))).toEqual(['false', 'false', 'false']);
 
@@ -280,8 +279,8 @@ describe('PathwaysLevelPanel', () => {
 
     const rows = wrapper.findAll('.level-row');
     expect(rows.map(row => [row.find('.level-title').text(), row.find('.badge').text()])).toEqual([
-      ['Concourse (L1)', '2 nodes'],
       ['Street (L0)', '0 nodes'],
+      ['Concourse (L1)', '2 nodes'],
       ['ROOF', '0 nodes']
     ]);
   });
@@ -326,6 +325,17 @@ describe('PathwaysLevelPanel', () => {
       return { tools, wrapper, row };
     }
 
+    it('orders positive indexes, then 0, then negative, with levels without an index last', async () => {
+      const { wrapper } = await mountThreeLevels();
+
+      expect(wrapper.findAll('.level-row').map(r => [r.find('.level-index').text(), r.find('.level-title').text()])).toEqual([
+        ['1', 'Upper (UP)'],
+        ['0', 'Street (L0)'],
+        ['-1', 'Concourse (L1)'],
+        ['–', 'ROOF']
+      ]);
+    });
+
     it('only lets levels with an outline move', async () => {
       const { wrapper, row } = await mountThreeLevels();
 
@@ -349,15 +359,16 @@ describe('PathwaysLevelPanel', () => {
     it('moves a level down with the arrow keys and keeps focus on it', async () => {
       const { tools, row } = await mountThreeLevels();
 
-      await row('L1').find('button.level-handle').trigger('keydown', { key: 'ArrowDown' });
+      await row('UP').find('button.level-handle').trigger('keydown', { key: 'ArrowDown' });
 
-      expect(tools.reorderLevels).toHaveBeenCalledWith(['L0', 'L1', 'UP']);
+      // Now listed L0, UP, L1, which is L1, UP, L0 from the lowest up.
+      expect(tools.reorderLevels).toHaveBeenCalledWith(['L1', 'UP', 'L0']);
     });
 
     it('does nothing when moving past the top', async () => {
       const { tools, row } = await mountThreeLevels();
 
-      await row('L1').find('button.level-handle').trigger('keydown', { key: 'ArrowUp' });
+      await row('UP').find('button.level-handle').trigger('keydown', { key: 'ArrowUp' });
 
       expect(tools.reorderLevels).not.toHaveBeenCalled();
     });
@@ -369,28 +380,28 @@ describe('PathwaysLevelPanel', () => {
         (row(r).element as HTMLElement).getBoundingClientRect = () => rect;
       }
 
-      // Drag the concourse onto the lower half of the street row -> below it.
-      await row('L1').trigger('dragstart', { dataTransfer: { setData: vi.fn() } });
+      // Drag UP onto the lower half of the street row -> below it, so one floor lower.
+      await row('UP').trigger('dragstart', { dataTransfer: { setData: vi.fn() } });
       await row('L0').trigger('dragover', { clientY: 130, dataTransfer: {} });
       expect(row('L0').classes()).toContain('level-drop-after');
       await row('L0').trigger('drop');
-      expect(tools.reorderLevels).toHaveBeenLastCalledWith(['L0', 'L1', 'UP']);
+      expect(tools.reorderLevels).toHaveBeenLastCalledWith(['L1', 'UP', 'L0']);
 
-      // Drag UP onto the upper half of the top row -> to the top.
-      await row('UP').trigger('dragstart', { dataTransfer: { setData: vi.fn() } });
-      await row('L1').trigger('dragover', { clientY: 105, dataTransfer: {} });
-      await row('L1').trigger('drop');
-      expect(tools.reorderLevels).toHaveBeenLastCalledWith(['UP', 'L1', 'L0']);
+      // Drag the concourse onto the upper half of the top row -> to the top.
+      await row('L1').trigger('dragstart', { dataTransfer: { setData: vi.fn() } });
+      await row('UP').trigger('dragover', { clientY: 105, dataTransfer: {} });
+      await row('UP').trigger('drop');
+      expect(tools.reorderLevels).toHaveBeenLastCalledWith(['L0', 'UP', 'L1']);
     });
 
     it('treats dropping on a level without an outline as moving to the bottom', async () => {
       const { tools, row } = await mountThreeLevels();
 
-      await row('L1').trigger('dragstart', { dataTransfer: { setData: vi.fn() } });
+      await row('UP').trigger('dragstart', { dataTransfer: { setData: vi.fn() } });
       await row('ROOF').trigger('dragover', { clientY: 0, dataTransfer: {} });
       await row('ROOF').trigger('drop');
 
-      expect(tools.reorderLevels).toHaveBeenCalledWith(['L0', 'UP', 'L1']);
+      expect(tools.reorderLevels).toHaveBeenCalledWith(['UP', 'L1', 'L0']);
     });
   });
 
@@ -439,7 +450,7 @@ describe('PathwaysLevelPanel', () => {
       const rows = central.findAll('.level-row');
 
       await rows[0]!.find('button.level-handle').trigger('keydown', { key: 'ArrowDown' });
-      expect(tools.reorderLevels).toHaveBeenCalledWith(['L0', 'UP', 'L1']);
+      expect(tools.reorderLevels).toHaveBeenCalledWith(['L1', 'UP', 'L0']);
 
       // Dragging a Central level over Annex's group isn't a drop target.
       const annexRow = wrapper.findAll('[role="group"]')[0]!.find('.level-row');
@@ -465,7 +476,7 @@ describe('PathwaysLevelPanel', () => {
       expect(listed()).toEqual(['Central']);
       expect(hint()).toBe('1 station is out of view; pan or zoom the map to list it.');
 
-      // Annex stays out while its Street / No level view is shown...
+      // Annex stays out while its No level view is shown...
       tools.view.value = { kind: 'stationNoLevel', stationId: 'ANNEX' };
       await nextTick();
       expect(listed()).toEqual(['Central']);
@@ -478,7 +489,7 @@ describe('PathwaysLevelPanel', () => {
       expect(hint()).toBe('2 stations are out of view; pan or zoom the map to list them.');
     });
 
-    // @test unit: the station heading and "Street / No level" each have a zoom button (the whole station, or its features with no level)
+    // @test unit: the station heading and "No level" each have a zoom button (the whole station, or its features with no level)
     it('zooms to a station, or to its features with no level', async () => {
       const { tools, wrapper } = await mountStations();
       const central = wrapper.findAll('[role="group"]').find(g => g.attributes('aria-label') === 'Central')!;
@@ -487,13 +498,13 @@ describe('PathwaysLevelPanel', () => {
       expect(tools.zoomToStation).toHaveBeenLastCalledWith('CENTRAL');
 
       const street = central.find('.level-view-row');
-      expect(street.find('[role="radio"]').text()).toBe('Street / No level');
+      expect(street.find('[role="radio"]').text()).toBe('No level');
       await street.find('.level-zoom').trigger('click');
       expect(tools.zoomToStation).toHaveBeenLastCalledWith('CENTRAL', { noLevel: true });
       expect(tools.showView).not.toHaveBeenCalled(); // zooming doesn't change the view
     });
 
-    // @test unit: each level (and "Street / No level") expands to list its nodes and edges in that station, under their own categories; clicking one selects it
+    // @test unit: each level (and "No level") expands to list its nodes and edges in that station, under their own categories; clicking one selects it
     it('lists a level\'s nodes and edges in that station under it, and selects one when clicked', async () => {
       const { tools, wrapper } = await mountStations();
       tools.stopGroups.value = [
@@ -533,7 +544,7 @@ describe('PathwaysLevelPanel', () => {
       expect(tools.select).toHaveBeenCalledWith('c1');
       expect(tools.select.mock.contexts.at(-1)).toBe(tools); // called on the tools, not detached
 
-      // "Street / No level" lists the station's nodes and edges with no level.
+      // "No level" lists the station's nodes and edges with no level.
       await central().find('.level-view-row .level-expand').trigger('click');
       expect(items('Nodes with no level in Central')).toEqual(['Station: Central']);
       expect(items('Edges with no level in Central')).toEqual(['Walkway: Station ↔ North']);
@@ -583,15 +594,15 @@ describe('PathwaysLevelPanel', () => {
       expect(tools.select).toHaveBeenCalledWith('s1');
     });
 
-    // @test unit: each station starts with "Street / No level", which shows that station's features that have no level
-    it('starts each station with a Street / No level entry for its unleveled features', async () => {
+    // @test unit: each station starts with "No level", which shows that station's features that have no level
+    it('starts each station with a No level entry for its unleveled features', async () => {
       const { tools, wrapper } = await mountStations();
       const stationRadios = (i: number) => wrapper.findAll('[role="group"]')[i]!.findAll('[role="radio"]');
 
       // First under each station, above its levels.
       expect([0, 1].map(i => stationRadios(i).map(option => option.text().replace(/\s+/g, ' ')))).toEqual([
-        ['Street / No level', expect.stringContaining('Street (L0)')],
-        ['Street / No level', expect.stringContaining('Upper (UP)'), expect.stringContaining('Street (L0)'),
+        ['No level', expect.stringContaining('Street (L0)')],
+        ['No level', expect.stringContaining('Upper (UP)'), expect.stringContaining('Street (L0)'),
           expect.stringContaining('Concourse (L1)')]
       ]);
 
