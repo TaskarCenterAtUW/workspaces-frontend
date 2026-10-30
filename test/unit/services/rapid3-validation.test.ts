@@ -466,7 +466,7 @@ describe('installLevelsValidator', () => {
     const [issue] = validators.get(LEVELS_VALIDATOR_ID)(features[3], graph).issues;
     expect(issue.dynamicFixes()).toEqual([]);
     expect(Object.keys(LEVELS_HELP).sort()).toEqual([
-      'far_stop', 'large_outline', 'level_area_no_id', 'missing_level', 'outside_level', 'station_level_order'
+      'far_stop', 'large_outline', 'level_area_no_id', 'missing_level', 'outside_level', 'repeated_outline', 'station_level_order'
     ]);
   });
 });

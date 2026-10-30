@@ -467,6 +467,9 @@ export const LEVELS_HELP: Record<string, string> = {
   missing_level: 'Platforms, generic nodes and boarding areas need a level_id, so riders know which level '
     + 'they\'re on. Pick one of the station\'s levels.',
   level_area_no_id: 'Stops refer to a level by its level_id, so a level outline needs one.',
+  repeated_outline: 'Each level is one row in levels.txt, so it should have one outline. Remove the extras, or give '
+    + 'them their own level_id. Outlines that disagree on level_index or level_name stop the workspace exporting, '
+    + 'since choosing between them would lose data.',
   large_outline: 'A level outline should cover its stops. A very large one usually means a stray stop '
     + 'stretched it, or the level is shared by stations far apart. Refit reshapes it into a box around its stops.',
   far_stop: 'This stop is far from the other stops on its level. Check its location, or whether its level_id '
