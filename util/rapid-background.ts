@@ -25,6 +25,7 @@ export interface RapidBackgroundImagery {
   baseLayerSource(source: RapidBackgroundSource): unknown;
   /** Also handles Esri Wayback's dated IDs. */
   setSourceByID(id: string): void;
+  getSourceByID(id: string): RapidBackgroundSource | undefined;
   /** Rapid 3's coverage index. */
   _whichPolygon?: CoverageQuery | null;
   /** Rapid 2's coverage index, and the coverage areas by lowercase source ID. */
@@ -93,11 +94,12 @@ function backgroundsHere(imagery: RapidBackgroundImagery): RapidBackgroundSource
  * The background imagery we'd pick where the map is now: the current imagery if
  * it covers this place, else the imagery marked best here, else the first that
  * covers it. With an `extent`, imagery covering all of it comes first; only if
- * none does, what covers the center of the view.
+ * none does, what covers the center of the view. Never custom imagery: it
+ * declares no coverage, so only someone choosing it can know it fits.
  */
 export function chooseBackground(imagery: RapidBackgroundImagery, extent?: BoundingBox): RapidBackgroundSource | null {
   const current = imagery._baseLayer;
-  const here = backgroundsHere(imagery);
+  const here = backgroundsHere(imagery).filter(s => s.id !== 'custom');
   const covering = extent ? here.filter(s => coversExtent(imagery, s, extent)) : here;
   const backgrounds = covering.length ? covering : here;
 
@@ -127,8 +129,10 @@ function savedPick(workspaceId: number | undefined): string | undefined {
 function rememberPicks(context: RapidBackgroundContext) {
   const save = (id: unknown) => {
     if (context.workspaceId === undefined || typeof id !== 'string') return;
+    // Rapid has one custom slot, so a custom pick keeps its own template.
+    const pick = id === 'custom' ? `custom:${context.systems.imagery.getSourceByID('custom')?.template ?? ''}` : id;
     try {
-      window.localStorage.setItem(pickKey(context.workspaceId), id);
+      window.localStorage.setItem(pickKey(context.workspaceId), pick);
     }
     catch { /* private browsing: the pick just won't stick */ }
   };
@@ -166,13 +170,22 @@ function urlBackground(): string | undefined {
  */
 function applyChosen(context: RapidBackgroundContext): boolean {
   const imagery = context.systems.imagery;
-  const chosen = [urlBackground(), savedPick(context.workspaceId)].filter(Boolean) as string[];
+  const fromUrl = urlBackground();
+  // Rapid has already applied a custom template from the URL.
+  if (fromUrl?.startsWith('custom:')) return true;
+
+  const chosen = [fromUrl, savedPick(context.workspaceId)].filter(Boolean) as string[];
   if (!chosen.length) return false;
 
   const here = backgroundsHere(imagery);
   for (const id of chosen) {
-    // Rapid has already applied a custom template from the URL.
-    if (id.startsWith('custom:')) return true;
+    if (id.startsWith('custom:')) {
+      const custom = imagery.getSourceByID('custom');
+      if (!custom) continue;
+      custom.template = id.slice('custom:'.length);
+      imagery.baseLayerSource(custom);
+      return true;
+    }
     const source = here.find(s => s.id === id || id.startsWith(`${s.id}_`)); // e.g. EsriWayback_2024-01-01
     if (id === 'none' || source) {
       if (id !== imagery._baseLayer?.id) imagery.setSourceByID(id);
