@@ -370,6 +370,36 @@ describe('PathwaysLevelPanel', () => {
       ]);
     });
 
+    // @test unit: moving a level with no level_index numbers it by its new position; moving another level leaves it blank
+    describe('with a blank level_index', () => {
+      const blank: Level = { levelId: 'MZ', index: undefined, name: 'Mezzanine', areaIds: ['a9'] };
+
+      async function mountWithBlank() {
+        const tools = stubTools();
+        setLevels(tools, [concourse, street, upper, blank]); // lists UP, L0, L1, MZ
+        const wrapper = await mountPanel(tools);
+        const row = (levelId: string) => wrapper.findAll('.level-row')
+          .find(r => r.find('.level-title').text().includes(levelId))!;
+        return { tools, row };
+      }
+
+      it('leaves it out when another level moves', async () => {
+        const { tools, row } = await mountWithBlank();
+
+        await row('UP').find('button.level-handle').trigger('keydown', { key: 'ArrowDown' });
+
+        expect(tools.reorderLevels).toHaveBeenCalledWith(['L1', 'UP', 'L0']);
+      });
+
+      it('includes it, at its new position, when it moves', async () => {
+        const { tools, row } = await mountWithBlank();
+
+        await row('MZ').find('button.level-handle').trigger('keydown', { key: 'ArrowUp' });
+
+        expect(tools.reorderLevels).toHaveBeenCalledWith(['L1', 'MZ', 'L0', 'UP']);
+      });
+    });
+
     it('only lets levels with an outline move', async () => {
       const { wrapper, row } = await mountThreeLevels();
 

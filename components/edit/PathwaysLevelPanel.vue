@@ -419,6 +419,7 @@ import type { Level, LevelView, StationLevelGroup } from '~/services/pathways-le
 // @test unit: the station heading and "No level" each have a zoom button (the whole station, or its features with no level)
 // @test unit: with more than one station, levels are grouped under the stations whose stops use them
 // @test unit: levels with an outline can be reordered by dragging or with the arrow keys, which renumbers level_index
+// @test unit: moving a level with no level_index numbers it by its new position; moving another level leaves it blank
 // @test unit: a row doesn't repeat a level_id that equals its level_index, or a level_name that equals its level_id
 // @test unit: levels missing an outline or a level_index are flagged as errors on their rows, which sit below the numbered levels
 // @test unit: levels without an outline show a disabled handle saying to add an outline first
@@ -513,8 +514,11 @@ function moveTo(group: StationLevelGroup, levelId: string, position: number) {
   const ids = current.filter(id => id !== levelId);
   ids.splice(Math.max(0, Math.min(position, ids.length)), 0, levelId);
   if (ids.join('\n') !== current.join('\n')) {
+    // Only the level being moved gets a number from its position; other blank ones stay flagged.
+    const indexOf = new Map(group.levels.map(level => [level.levelId, level.index]));
+    const numbered = ids.filter(id => id === levelId || indexOf.get(id) !== undefined);
     // The panel lists levels top down; reorderLevels takes them lowest first.
-    props.tools.reorderLevels([...ids].reverse());
+    props.tools.reorderLevels(numbered.reverse());
   }
 }
 
