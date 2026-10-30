@@ -213,6 +213,16 @@ describe('generated level IDs', () => {
     expect(nextLevelIndex([])).toBe(0);
   });
 
+  it('reads whole numbers written as decimals, and doesn\'t rewrite them when renumbering leaves them alone', () => {
+    const levels = collectLevels([
+      levelArea('w1', { level_id: 'STREET', level_index: '0.0' }),
+      levelArea('w2', { level_id: 'UP', level_index: '1.0' }),
+      levelArea('w3', { level_id: 'HALF', level_index: '0.5' })
+    ]);
+    expect(levels.map(level => [level.levelId, level.index])).toEqual([['STREET', 0], ['HALF', 0.5], ['UP', 1]]);
+    expect(Object.fromEntries(reorderedLevelIndexes(levels.filter(level => level.levelId !== 'HALF')))).toEqual({ STREET: 0, UP: 1 });
+  });
+
   it('reads a level area index only when it is numeric', () => {
     expect(levelAreaIndex(levelArea('w1', { level_index: '-1' }))).toBe(-1);
     expect(levelAreaIndex(levelArea('w2', { level_index: 'roof' }))).toBeUndefined();
