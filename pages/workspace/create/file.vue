@@ -28,7 +28,7 @@
       <div class="card create-workspace-card">
         <div class="creat-workspace-card-header">
           <h1 class="create-workspace-card-title">Create a Workspace from a File</h1>
-          <p class="create-workspace-card-desc">Create a workspace from an OpenSidewalks data file on your computer.</p>
+          <p class="create-workspace-card-desc">Create a workspace from an OpenSidewalks or GTFS Pathways data file on your computer.</p>
         </div>
         <div class="card-body">
           <label class="d-block mb-3 input-label">

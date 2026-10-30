@@ -9,6 +9,7 @@
 // @test e2e: while the editor is loading, the page shows a loading spinner over the editor area; it goes away once the editor has started
 // @test e2e: leaving this page and coming back while the editor is still starting shows the spinner again until it has started
 // @test e2e: if the editor fails to start, the page says so in place of the spinner
+// @test e2e: opening this page with no map location in the URL starts the editor at the extent of the workspace's data; a location in the URL is kept, and an empty workspace keeps the editor's default
 // @test e2e: validate that all the API calls used on this page match the Swagger spec (https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 
 <template>
@@ -41,7 +42,8 @@
 </template>
 
 <script setup lang="ts">
-import { pathwaysManager, rapidManager, rapid3Manager } from '~/services/index';
+import { pathwaysManager, rapidManager, rapid3Manager, workspacesClient } from '~/services/index';
+import { mapHash, viewForBbox } from '~/util/osm';
 
 const route = useRoute();
 const workspaceId = Number(route.params.id);
@@ -92,7 +94,28 @@ function onEditorLoaded() {
   waitForStart(started);
 }
 
-onMounted(() => {
+// The URL holds the editor's location (Rapid keeps it updated as the map moves).
+// Without one, put the workspace's extent there for the editor to start from.
+async function startAtDataExtent() {
+  if (window.location.hash.includes('map=')) {
+    return;
+  }
+
+  try {
+    const bbox = await workspacesClient.getWorkspaceBbox(workspaceId);
+    if (bbox && editorContainer.value) {
+      const { clientWidth: width, clientHeight: height } = editorContainer.value;
+      const others = window.location.hash.replace(/^#/, ''); // e.g. a background=
+      const hash = `${mapHash(viewForBbox(bbox, { width, height }))}${others ? `&${others}` : ''}`;
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}${hash}`);
+    }
+  }
+  catch (err) {
+    console.warn('Could not find the workspace extent to start the editor at:', err);
+  }
+}
+
+onMounted(async () => {
   // If a different Rapid version is already loaded, hard-reload to swap.
   // Only one version can occupy the global Rapid namespace at a time.
   if (manager !== pathwaysManager) {
@@ -108,6 +131,11 @@ onMounted(() => {
   if (manager === rapid3Manager && manager.loaded.value && rapid3Manager.datatype !== datatype) {
     window.location.reload();
     return;
+  }
+
+  await startAtDataExtent();
+  if (!editorContainer.value) {
+    return; // left the page meanwhile
   }
 
   if (!manager.loaded.value) {

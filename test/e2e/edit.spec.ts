@@ -18,7 +18,7 @@ import { recordContract } from './contract';
 // with exactly enough of a fake editor to make the manager's load+init path run
 // to completion and paint a recognizable editor surface.
 //
-// The page itself makes NO workspaces API (api.test/workspaces/...) calls — it reads
+// Beyond the bbox lookup below (when the URL has no map location), the page itself makes NO workspaces API (api.test/workspaces/...) calls — it reads
 // the workspace id straight off the route — so the contract test should see an
 // empty violation list.
 
@@ -37,7 +37,7 @@ const RAPID2_SCRIPT = (route: Route) => route.fulfill({
   body: `
     window.Rapid = {
       Context: class {
-        constructor() { window.__fakeRapidContext = this; }
+        constructor() { window.__fakeRapidContext = this; window.__hashAtStart = location.hash; }
         embed() {}
         async resetAsync() {}
         async initAsync() {
@@ -158,6 +158,8 @@ async function stubAllEditors(page: import('@playwright/test').Page) {
   await page.route('**/rapid3/js/rapid-dev.min.js', RAPID3_SCRIPT);
   await page.route('**/pathways/iD.css', CSS);
   await page.route('**/pathways/iD.js', PATHWAYS_SCRIPT);
+  // An empty workspace by default: the editor keeps its own starting location.
+  await page.route(/\/workspaces\/\d+\/bbox/, route => route.fulfill({ status: 204 }));
 }
 
 test.describe('workspace edit (editor host)', () => {
@@ -435,6 +437,76 @@ test.describe('workspace edit (editor host)', () => {
     const loading = page.locator('.edit-page .editor-loading');
     await expect(loading.getByRole('alert')).toHaveText(/The editor couldn't start/);
     await expect(loading.getByRole('status')).toHaveCount(0);
+  });
+
+  // @test e2e: opening this page with no map location in the URL starts the editor at the extent of the workspace's data; a location in the URL is kept, and an empty workspace keeps the editor's default
+  test.describe('starting location', () => {
+    const hashAtStart = (page: import('@playwright/test').Page) =>
+      page.evaluate(() => (window as any).__hashAtStart);
+
+    test('starts at the data extent when the URL has no location', async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubAllEditors(page);
+      await page.route(/\/workspaces\/1\/bbox/, route => route.fulfill({
+        json: { min_lat: 47.6, min_lon: -122.34, max_lat: 47.62, max_lon: -122.32 }
+      }));
+
+      await page.goto('/workspace/1/edit?datatype=osw');
+
+      await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+      expect(await hashAtStart(page)).toMatch(/^#map=[\d.]+\/47\.61\d*\/-122\.33\d*$/);
+      await expect(page).toHaveURL(/\/workspace\/1\/edit\?datatype=osw#map=/);
+    });
+
+    test('keeps the rest of the URL\'s hash when adding the location', async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubAllEditors(page);
+      await page.route(/\/workspaces\/1\/bbox/, route => route.fulfill({
+        json: { min_lat: 47.6, min_lon: -122.34, max_lat: 47.62, max_lon: -122.32 }
+      }));
+
+      await page.goto('/workspace/1/edit?datatype=osw#background=Bing');
+
+      await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+      expect(await hashAtStart(page)).toMatch(/^#map=.+&background=Bing$/);
+    });
+
+    test('keeps a location already in the URL', async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubAllEditors(page);
+      let lookedUp = false;
+      await page.route(/\/workspaces\/1\/bbox/, (route) => {
+        lookedUp = true;
+        return route.fulfill({ status: 204 });
+      });
+
+      await page.goto('/workspace/1/edit?datatype=osw#map=15/40/-70');
+
+      await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+      expect(await hashAtStart(page)).toBe('#map=15/40/-70');
+      expect(lookedUp).toBe(false);
+    });
+
+    test('keeps the default location for an empty workspace', async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubAllEditors(page);
+
+      await page.goto('/workspace/1/edit?datatype=osw');
+
+      await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+      expect(await hashAtStart(page)).toBe('');
+    });
+
+    test('still opens the editor when the extent lookup fails', async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubAllEditors(page);
+      await page.route(/\/workspaces\/1\/bbox/, route => route.fulfill({ status: 500 }));
+
+      await page.goto('/workspace/1/edit?datatype=osw');
+
+      await expect(page.locator('.editorContainer .fake-editor')).toBeVisible();
+      expect(await hashAtStart(page)).toBe('');
+    });
   });
 
   // @test e2e: validate that all the API calls used on this page match the Swagger spec

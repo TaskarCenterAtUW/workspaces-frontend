@@ -76,7 +76,7 @@ async function fillForm(page: import('@playwright/test').Page, file: typeof VALI
   // Dataset type radio: GTFS Pathways skips the TDEI convert step.
   // DatasetTypeRadio uses Bootstrap's .btn-check pattern (visually-hidden input
   // + adjacent visible label); click the label rather than .check() the input.
-  await page.getByText('GTFS Pathways').click();
+  await page.getByText('GTFS Pathways', { exact: true }).click();
 
   await page.locator('input[type="file"]').setInputFiles(file);
 }

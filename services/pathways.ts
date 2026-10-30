@@ -7,7 +7,7 @@ import {
 
 import { parseCsv } from '~/util/csv';
 import { pathwayIdGenerator, stopIdGenerator } from '~/services/gtfs-ids';
-import { isLevelArea, isPathway, stopNodes } from '~/services/pathways-levels';
+import { combineLevelOutlines, isLevelArea, isPathway, stopNodes } from '~/services/pathways-levels';
 import { createEmptyGtfsDataset, createGtfsArchive } from '~/util/gtfs';
 import * as xml from '~/util/xml';
 import type { TdeiAuthStore, TdeiClient } from '~/services/tdei';
@@ -202,6 +202,14 @@ function assignGtfsIds(
   return ids;
 }
 
+/** A level's outlines disagree, so levels.txt can't be written without losing data. */
+export class LevelOutlinesConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'LevelOutlinesConflictError';
+  }
+}
+
 /**
  * Builds levels.txt from the level areas drawn in the workspace, on top of the
  * dataset's original levels.txt (if any). Original levels are kept, since stops
@@ -218,24 +226,36 @@ async function buildLevelsCsv(levelAreas: any[], originalCsv?: string): Promise<
     }
   }
 
-  // Areas sharing a level_id are the same level; the first one's tags win.
-  const levelIds = new Map<string, any>();
+  // Areas sharing a level_id are the same level.
+  const levelIds = new Map<string, any[]>();
   for (const area of levelAreas) {
     const levelId = String(area.tags.level_id ?? '').trim();
-    if (levelId && !levelIds.has(levelId)) levelIds.set(levelId, area);
+    if (levelId) levelIds.set(levelId, [...(levelIds.get(levelId) ?? []), area]);
   }
   const untagged = levelAreas.filter(area => !String(area.tags.level_id ?? '').trim());
   const generatedIds = assignGtfsIds(untagged, 'level_id', GENERATED_LEVEL_ID_PREFIX);
 
-  const drawn: [string, any][] = [
+  const drawn: [string, any[]][] = [
     ...levelIds.entries(),
-    ...untagged.map(area => [generatedIds.get(area.id)!, area] as [string, any])
+    ...untagged.map(area => [generatedIds.get(area.id)!, [area]] as [string, any[]])
   ];
-  for (const [levelId, area] of drawn) {
-    // An outline without a level_name keeps the original's.
-    const originalName = String(rows.get(levelId)?.level_name ?? '').trim();
-    const name = String(area.tags.level_name ?? '').trim() || originalName;
-    rows.set(levelId, { ...area.tags, level_id: levelId, level_name: name });
+
+  // Choosing between outlines that disagree would lose data, so that's up to the user.
+  const conflicts = drawn.flatMap(([levelId, areas]) => combineLevelOutlines(areas).conflicts
+    .map(({ field, values }) => `${levelId} has outlines with different ${field} (${values.join(', ')})`));
+  if (conflicts.length) {
+    throw new LevelOutlinesConflictError(`Can't export until these levels are fixed: ${conflicts.join('; ')}.`);
+  }
+
+  for (const [levelId, areas] of drawn) {
+    // A value no outline has keeps the original's.
+    const original = rows.get(levelId);
+    const { level_index, level_name } = combineLevelOutlines(areas);
+    rows.set(levelId, {
+      level_id: levelId,
+      level_index: level_index || String(original?.level_index ?? '').trim(),
+      level_name: level_name || String(original?.level_name ?? '').trim()
+    });
   }
 
   return rows.size ? toCsv(LEVELS_COLUMNS, [...rows.values()]) : undefined;

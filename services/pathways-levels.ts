@@ -129,6 +129,29 @@ export function collectLevels(entities: LevelEntity[]): Level[] {
   return [...levels.values()].sort(compareLevels);
 }
 
+/**
+ * What a level's outlines say about it together. Only `level_index` and
+ * `level_name` reach levels.txt: a blank on one outline takes the value from
+ * another, and `conflicts` lists the fields they disagree on, with the values.
+ */
+export function combineLevelOutlines(areas: LevelEntity[]): {
+  level_index: string;
+  level_name: string;
+  conflicts: { field: 'level_index' | 'level_name'; values: string[] }[];
+} {
+  const distinct = (field: 'level_index' | 'level_name') => {
+    const values = areas.map(area => area.tags?.[field]?.trim() ?? '').filter(Boolean);
+    // 1 and 1.0 are the same level_index.
+    const key = (value: string) => (field === 'level_index' ? parseIndex(value) ?? value : value);
+    return values.filter((value, i) => values.findIndex(other => key(other) === key(value)) === i);
+  };
+  const [indexes, names] = [distinct('level_index'), distinct('level_name')];
+  const conflicts = ([['level_index', indexes], ['level_name', names]] as const)
+    .filter(([, values]) => values.length > 1)
+    .map(([field, values]) => ({ field, values: [...values] }));
+  return { level_index: indexes[0] ?? '', level_name: names[0] ?? '', conflicts };
+}
+
 /** Station stop_ids look like "STN_<code>" (e.g. STN_J02); level_ids build on the code. */
 export const STATION_ID_PREFIX = 'STN_';
 
@@ -229,6 +252,18 @@ export function renumberedLevelIndexes(order: Level[]): Map<string, number> {
 export function levelsLowestFirst(levels: Level[]): Level[] {
   const drawn = levels.filter(level => level.areaIds.length);
   const known = drawn.filter(level => level.index !== undefined).sort(compareLevels);
+  const unknown = drawn.filter(level => level.index === undefined);
+  return [...known, ...unknown, ...levels.filter(level => !level.areaIds.length)];
+}
+
+/**
+ * Orders levels top to bottom, as a station stacks: drawn levels highest first
+ * (above street level, then 0, then below it; unknown indexes after them), then
+ * levels only stops use.
+ */
+export function levelsHighestFirst(levels: Level[]): Level[] {
+  const drawn = levels.filter(level => level.areaIds.length);
+  const known = drawn.filter(level => level.index !== undefined).sort((a, b) => compareLevels(b, a));
   const unknown = drawn.filter(level => level.index === undefined);
   return [...known, ...unknown, ...levels.filter(level => !level.areaIds.length)];
 }
@@ -658,7 +693,7 @@ export function farStops<T extends LevelEntity & { loc?: [number, number] }>(
 
 /**
  * The stations (by stop_id) to highlight on the map: the one whose
- * "Street / No level" view is shown, those whose stops use the level shown,
+ * "No level" view is shown, those whose stops use the level shown,
  * and any station selected in the editor.
  */
 export function highlightedStationIds(

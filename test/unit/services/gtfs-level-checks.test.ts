@@ -139,3 +139,26 @@ describe('scoped as TDEI\'s validation checks them', () => {
     expect(subtypesOf([...entities, at('a4', 'A', [0.01, 0])], 'far_stop')).toEqual(['a4']); // ~1.1 km from the rest of A
   });
 });
+
+describe('repeated level outlines', () => {
+  const repeated = (entities: LevelEntity[]) => [...levelProblems(entities, () => undefined)]
+    .flatMap(([id, problems]) => problems.filter(p => p.subtype === 'repeated_outline').map(p => [id, p.message]));
+  const named = (id: string, index: string, name?: string): LevelEntity =>
+    ({ ...outline(id, 'L1', index), tags: { level_id: 'L1', level_index: index, ...(name ? { level_name: name } : {}) } });
+
+  it('accepts a level with one outline', () => {
+    expect(repeated([named('a1', '1')])).toEqual([]);
+  });
+
+  it('flags each outline of a level with several', () => {
+    expect(repeated([named('a1', '1'), named('a2', '1.0')])).toEqual([
+      ['a1', 'Level L1 has 2 outlines; a level should have one'],
+      ['a2', 'Level L1 has 2 outlines; a level should have one']
+    ]);
+  });
+
+  it('says when they disagree, which blocks exporting', () => {
+    const message = 'Level Up (L1) has 2 outlines that disagree on level_index (1, 2) and level_name (Up, Top), which blocks exporting it';
+    expect(repeated([named('a1', '1', 'Up'), named('a2', '2', 'Top')]).map(([, text]) => text)).toEqual([message, message]);
+  });
+});
