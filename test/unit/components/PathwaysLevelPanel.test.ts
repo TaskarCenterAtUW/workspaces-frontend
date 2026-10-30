@@ -231,6 +231,21 @@ describe('PathwaysLevelPanel', () => {
     expect(tools.showView).toHaveBeenLastCalledWith(undefined);
   });
 
+  // @test unit: "No station" expands to list the nodes and edges with no station and no level, and shows when only an edge is there
+  it('lists a pathway with no stops under No station, even with nothing else there', async () => {
+    const tools = stubTools();
+    tools.levelGroups.value = [{ station: undefined, levels: [] }];
+    tools.stopGroups.value = [];
+    tools.levelPathways.value = new Map([['', [{ id: 'w9', label: 'Walkway', stationIds: [] }]]]);
+    const wrapper = await mountPanel(tools);
+
+    expect(wrapper.findAll('[role="radio"]').map(option => option.text())).toEqual(['No station']);
+    await wrapper.find('.level-view-row button.level-expand').trigger('click');
+
+    expect(wrapper.text()).toContain('Walkway');
+    expect(wrapper.find('.level-view-row .level-zoom').exists()).toBe(false);
+  });
+
   it('hides No station when it has no levels and no stops outside a station', async () => {
     const tools = stubTools();
     tools.levelGroups.value = [{ station: undefined, levels: [] }];
@@ -336,19 +351,21 @@ describe('PathwaysLevelPanel', () => {
       ]);
     });
 
-    // @test unit: a row doesn't repeat a level_id that equals its level_index, or a level_name that equals its level_id
+    // @test unit: a row doesn't repeat a level_id or level_name that equals its level_index, or a level_name that equals its level_id
     it('doesn\'t repeat a level_id equal to the level_index, or a name equal to the level_id', async () => {
       const tools = stubTools();
       setLevels(tools, [
         { levelId: '2', index: 2, name: '', areaIds: ['a2'] },
         { levelId: '1.0', index: 1, name: 'Mezzanine', areaIds: ['a1'] },
         { levelId: 'B', index: 0, name: 'B', areaIds: ['a0'] },
-        { levelId: '-1', index: -2, name: '', areaIds: ['a3'] }
+        { levelId: '-1', index: -2, name: '', areaIds: ['a3'] },
+        { levelId: '-3', index: -3, name: '-3', areaIds: ['a4'] },
+        { levelId: 'L4', index: -4, name: '-4', areaIds: ['a5'] }
       ]);
       const wrapper = await mountPanel(tools);
 
       expect(wrapper.findAll('.level-row').map(r => [r.find('.level-index').text(), r.find('.level-title').exists() ? r.find('.level-title').text() : null]))
-        .toEqual([['2', null], ['1', 'Mezzanine'], ['0', 'B'], ['-2', '-1']]);
+        .toEqual([['2', null], ['1', 'Mezzanine'], ['0', 'B'], ['-2', '-1'], ['-3', null], ['-4', 'L4']]);
       // Tooltips and labels still name the level in full.
       expect(wrapper.findAll('.level-row')[0]!.find('button.level-handle').attributes('aria-label')).toContain('Move 2');
     });

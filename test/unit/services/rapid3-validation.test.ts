@@ -159,6 +159,15 @@ describe('installCloseNodesFilter', () => {
     expect(filtered([detached('n1', 's1')])).toEqual([]);
   });
 
+  it('drops it for points of the same type on different levels', () => {
+    const [up, down] = [{ id: 'u', type: 'node', tags: { location_type: '3', level_id: 'L1' } },
+      { id: 'd', type: 'node', tags: { location_type: '3', level_id: 'L0' } }];
+    const validators = new Map<string, any>([['close_nodes', () => ({ issues: [detached('u', 'd')] })]]);
+    installCloseNodesFilter({ systems: { validator: { _validators: validators } } });
+
+    expect(validators.get('close_nodes')(up, fakeGraph([up, down])).issues).toEqual([]);
+  });
+
   it('keeps it for points of the same type on the same level', () => {
     const issue = detached('n1', 'n2');
     expect(filtered([issue])).toEqual([issue]);
