@@ -167,9 +167,14 @@ test.describe('workspace member roles', () => {
     await expect(
       page.getByText('You need a TDEI POC role in this project group')
     ).toBeVisible();
-    await expect(
-      page.getByText('You do not have permission to view the member list.')
-    ).toHaveCount(3);
+
+    const permissionNotice = 'You do not have permission to view the member list.';
+    const content = page.locator('.workspace-setting-tab-column-right');
+    const sections = content.locator('.members-group');
+    await expect(content.getByText(permissionNotice)).toHaveCount(3);
+    await expect(sections.nth(0).getByText(permissionNotice)).toBeVisible();
+    await expect(sections.nth(1).getByText(permissionNotice)).toBeVisible();
+    await expect(sections.nth(2).getByText(permissionNotice)).toBeVisible();
   });
 
   // @test e2e: POCs should be displayed on this page, matching the results of the

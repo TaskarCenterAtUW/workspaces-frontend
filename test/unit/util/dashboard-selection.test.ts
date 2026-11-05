@@ -53,4 +53,30 @@ describe('dashboard selection persistence', () => {
     expect(resolveProjectGroupId(null, ['pg-1', 'pg-2'])).toBe('pg-1');
     expect(resolveProjectGroupId('pg-1', [])).toBeNull();
   });
+
+  it('returns an empty selection when storage.getItem throws', () => {
+    const throwingGetStorage = {
+      getItem: () => {
+        throw new Error('Storage access blocked');
+      },
+    } as unknown as Storage;
+
+    expect(readDashboardSelection(throwingGetStorage, userId)).toEqual({
+      projectGroupId: null,
+      workspaceByProjectGroup: {},
+    });
+  });
+
+  it('does not throw when storage.setItem fails', () => {
+    const throwingSetStorage = {
+      setItem: () => {
+        throw new Error('QuotaExceededError');
+      },
+    } as unknown as Storage;
+
+    expect(() => writeDashboardSelection(throwingSetStorage, userId, {
+      projectGroupId: 'pg-1',
+      workspaceByProjectGroup: { 'pg-1': 1 },
+    })).not.toThrow();
+  });
 });

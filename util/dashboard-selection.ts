@@ -7,18 +7,22 @@ export interface DashboardSelection {
   workspaceByProjectGroup: Record<string, WorkspaceId>;
 }
 
+/** Returns an empty dashboard selection state. */
 function emptySelection(): DashboardSelection {
   return { projectGroupId: null, workspaceByProjectGroup: {} };
 }
 
+/** Checks whether a value is a positive integer workspace ID. */
 function isWorkspaceId(value: unknown): value is WorkspaceId {
   return typeof value === 'number' && Number.isInteger(value) && value > 0;
 }
 
+/** Returns the user-scoped storage key for dashboard selection state. */
 export function getDashboardSelectionStorageKey(userId: string): string {
   return `${STORAGE_KEY_PREFIX}:${userId}`;
 }
 
+/** Reads the saved dashboard selection for a user, or returns an empty selection on failure. */
 export function readDashboardSelection(storage: Storage, userId: string): DashboardSelection {
   try {
     const value: unknown = JSON.parse(
@@ -48,6 +52,7 @@ export function readDashboardSelection(storage: Storage, userId: string): Dashbo
   }
 }
 
+/** Persists the dashboard selection for a user when storage is available. */
 export function writeDashboardSelection(
   storage: Storage,
   userId: string,
@@ -61,7 +66,7 @@ export function writeDashboardSelection(
   }
 }
 
-// Use the saved project group if still accessible, otherwise fall back to the first.
+/** Returns the remembered project group if still accessible, otherwise the first available group. */
 export function resolveProjectGroupId(
   rememberedId: string | null | undefined,
   availableIds: string[]

@@ -69,7 +69,11 @@
         show
       >
         <app-icon variant="info" />
-        You do not have permission to view the member list.
+        {{
+          accessDenied
+            ? 'You do not have permission to view the member list.'
+            : 'No one has a TDEI POC role in this project group.'
+        }}
       </b-alert>
     </div>
 

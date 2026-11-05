@@ -407,7 +407,7 @@ watch(currentProjectGroup, (projectGroupId) => {
 watch(currentWorkspace, (workspace) => {
   if (workspace) {
     dashboardSelection.workspaceByProjectGroup[workspace.tdeiProjectGroupId] = workspace.id;
-    saveDashboardSelection();
+    saveDashboardSelection(workspace.tdeiProjectGroupId, workspace.id);
   }
 });
 
@@ -434,6 +434,7 @@ onMounted(() => {
   }
 });
 
+/** Synchronizes the active workspace with the currently selected project group. */
 function syncSelectedWorkspace(
   availableWorkspaces: Workspace[]
 ): void {
@@ -460,7 +461,7 @@ function syncSelectedWorkspace(
   selectWorkspace(selectedWorkspace ?? availableWorkspaces[0]!);
 }
 
-// Clear stale `?workspace=` param when switching to an empty project group.
+/** Clears a stale `?workspace=` query parameter when switching to an empty project group. */
 function clearWorkspaceQuery(): void {
   if (route.query.workspace == null) {
     return;
@@ -625,22 +626,47 @@ function onCenterLoaded(center: WorkspaceCenter): void {
   }
 }
 
+/** Loads the saved dashboard project group and workspace selection for the current user. */
 function loadDashboardSelection(): DashboardSelection {
   if (import.meta.server || !tdeiAuth.subject) {
     return { projectGroupId: null, workspaceByProjectGroup: {} };
   }
 
-  return readDashboardSelection(localStorage, tdeiAuth.subject);
+  try {
+    return readDashboardSelection(localStorage, tdeiAuth.subject);
+  }
+  catch {
+    return { projectGroupId: null, workspaceByProjectGroup: {} };
+  }
 }
 
-function saveDashboardSelection(): void {
+/** Re-reads stored selection, merges the latest update, and writes back to localStorage. */
+function saveDashboardSelection(updatedGroupId?: string, updatedWorkspaceId?: number): void {
   if (import.meta.server || !tdeiAuth.subject) {
     return;
   }
 
-  writeDashboardSelection(localStorage, tdeiAuth.subject, dashboardSelection);
+  try {
+    const latest = readDashboardSelection(localStorage, tdeiAuth.subject);
+    const workspaceByProjectGroup = {
+      ...latest.workspaceByProjectGroup,
+      ...dashboardSelection.workspaceByProjectGroup,
+    };
+    if (updatedGroupId && updatedWorkspaceId !== undefined) {
+      workspaceByProjectGroup[updatedGroupId] = updatedWorkspaceId;
+    }
+    dashboardSelection.workspaceByProjectGroup = workspaceByProjectGroup;
+    writeDashboardSelection(localStorage, tdeiAuth.subject, {
+      projectGroupId: dashboardSelection.projectGroupId,
+      workspaceByProjectGroup,
+    });
+  }
+  catch {
+    // Browsers can disable storage; selection persistence is optional.
+  }
 }
 
+/** Reads the legacy session-scoped project group selection as a fallback. */
 function getLegacyProjectGroupId(): string | null {
   if (import.meta.server) {
     return null;
