@@ -3,6 +3,11 @@ import { RapidManager } from '~/services/rapid';
 
 import type { TdeiAuthStore } from '~/services/tdei';
 
+// Rapid chooses its background for the workspace's extent, which loads the real clients otherwise.
+vi.mock('~/services/index', () => ({
+  workspacesClient: { getWorkspaceBbox: async () => undefined }
+}));
+
 describe('RapidManager subscriptions', () => {
   it('stops notifying page callbacks after their cleanup functions run', async () => {
     let stableChangeHandler: (() => void) | undefined;

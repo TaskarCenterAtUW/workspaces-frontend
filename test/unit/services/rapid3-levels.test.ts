@@ -520,6 +520,61 @@ describe('Rapid3LevelTools', () => {
       expect(context.systems.editor.commit).toHaveBeenCalledTimes(1);
     });
 
+    describe('when settled', () => {
+      function settledTools(editorProps: object = {}) {
+        const context = fakeContext(stops()); // L0 and L1, neither outlined
+        Object.assign(context.systems.editor, editorProps);
+        const tools = new Rapid3LevelTools(context);
+        tools.workspaceLoad.value = 'loaded';
+        return { context, tools };
+      }
+
+      it('outlines once the whole workspace has loaded', () => {
+        const { tools } = settledTools();
+        tools.workspaceLoad.value = 'loading';
+        expect(tools.outlineMissingLevelsWhenSettled()).toBe(0);
+
+        tools.workspaceLoad.value = 'loaded';
+        expect(tools.outlineMissingLevelsWhenSettled()).toBe(2);
+      });
+
+      it('waits while Rapid offers a restore, then outlines when it is dismissed', () => {
+        const editorProps = {
+          canRestoreBackup: true,
+          dismissRestore() {
+            this.canRestoreBackup = false;
+          }
+        };
+        const { context, tools } = settledTools(editorProps);
+        expect(tools.outlineMissingLevelsWhenSettled()).toBe(0);
+        expect(context.systems.editor.commit).not.toHaveBeenCalled();
+
+        (context.systems.editor as any).dismissRestore();
+        expect(context.systems.editor.commit).toHaveBeenCalledTimes(1);
+      });
+
+      it('waits for a restore to finish, including when it fails', async () => {
+        let finish!: () => void;
+        const restoreSessionAsync = vi.fn(() => new Promise<void>((resolve) => {
+          finish = resolve;
+        }));
+        const { context, tools } = settledTools({ restoreSessionAsync });
+        const editor = context.systems.editor as any;
+
+        const restoring = editor.restoreSessionAsync('s1');
+        expect(restoreSessionAsync).toHaveBeenCalledWith('s1');
+        expect(tools.outlineMissingLevelsWhenSettled()).toBe(0);
+
+        finish();
+        await restoring;
+        expect(editor.commit).toHaveBeenCalledTimes(1);
+
+        restoreSessionAsync.mockRejectedValueOnce(new Error('bad backup'));
+        await expect(editor.restoreSessionAsync('s2')).rejects.toThrow('bad backup');
+        expect(tools.outlineMissingLevelsWhenSettled()).toBe(0); // nothing left, but no longer waiting
+      });
+    });
+
     it('changes nothing for an outline without a level_id, or a level with no located stops', () => {
       const context = fakeContext([
         ...stops(),
@@ -544,6 +599,15 @@ describe('Rapid3LevelTools', () => {
     ]));
     expect(tools.levelPathways.value.get('')!.map(pathway => pathway.label)).toEqual(['Exit Gate: Main → NODE_1']);
     expect(tools.levelPathways.value.get('L1')!.map(pathway => pathway.id)).toEqual(['p1']);
+  });
+
+  it('groups a pathway with no stops at its ends under ""', () => {
+    const tools = new Rapid3LevelTools(fakeContext([
+      node('a'),
+      node('b'),
+      way('p1', ['a', 'b'], { pathway_mode: '1' })
+    ]));
+    expect(tools.levelPathways.value.get('')!.map(pathway => pathway.id)).toEqual(['p1']);
   });
 
   it('counts the pathways touching each level, with their stations', () => {

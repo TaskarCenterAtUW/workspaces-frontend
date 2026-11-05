@@ -4,6 +4,6 @@
 - text: From TDEI Create a workspace by importing an asset stored in the TDEI.
 - link "Create From TDEI ":
   - /url: /workspace/create/tdei
-- text: From File Create a workspace from an OpenSidewalks data file on your computer.
+- text: From File Create a workspace from an OpenSidewalks or GTFS Pathways data file on your computer.
 - link "Create From File ":
   - /url: /workspace/create/file

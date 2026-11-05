@@ -175,7 +175,7 @@ test.describe('create landing page', () => {
 
     await page.getByLabel('Workspace Title').fill('My File Workspace');
     // Select the dataset type included in the multipart upload.
-    await page.getByText('GTFS Pathways').click();
+    await page.getByText('GTFS Pathways', { exact: true }).click();
     await page.getByLabel('Dataset File').setInputFiles({
       name: 'data.zip',
       mimeType: 'application/zip',
@@ -227,7 +227,7 @@ test.describe('create landing page', () => {
     await expect(page.getByRole('heading', { name: 'Create a Workspace from a File' })).toBeVisible();
 
     await page.getByLabel('Workspace Title').fill('Will Fail');
-    await page.getByText('GTFS Pathways').click();
+    await page.getByText('GTFS Pathways', { exact: true }).click();
     await page.getByLabel('Dataset File').setInputFiles({
       name: 'data.zip',
       mimeType: 'application/zip',

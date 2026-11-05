@@ -65,6 +65,7 @@ export const COMPLETENESS_SEVERITY: Record<CompletenessSubtype, TdeiSeverity> = 
 export const LEVEL_CHECK_SEVERITY: Record<LevelCheckSubtype, TdeiSeverity> = {
   missing_level: 'WARNING', // tdei_missing_level_id
   level_area_no_id: 'WARNING', // editor only
+  repeated_outline: 'WARNING', // editor only
   large_outline: 'WARNING', // editor only
   far_stop: 'WARNING', // tdei_stop_far_from_level
   station_level_order: 'WARNING', // tdei_level_index_repeated, tdei_level_index_far_from_street

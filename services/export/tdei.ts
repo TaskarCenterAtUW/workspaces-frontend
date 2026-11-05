@@ -1,7 +1,7 @@
 import parseOsmChangeXml from '@osmcha/osmchange-parser';
 import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js';
 import type { OsmApiClient } from '~/services/osm';
-import { buildPathwaysCsvArchive, fetchDerivedPathwaysDataset } from '~/services/pathways';
+import { buildPathwaysCsvArchive, fetchDerivedPathwaysDataset, LevelOutlinesConflictError } from '~/services/pathways';
 import type { TdeiClient } from '~/services/tdei';
 import { TdeiClientError, TdeiConversionError } from '~/services/tdei';
 import type { TdeiDatasetMetadataDatasetDetail } from '~/types/tdei';
@@ -98,7 +98,7 @@ export class TdeiExporter {
     } catch (e: any) {
       // The message shown keeps only e.toString(); log the error for its stack.
       console.error(`TDEI export failed while: ${this._context.status}`, e);
-      if (e instanceof TdeiExporterValidationError) {
+      if (e instanceof TdeiExporterValidationError || e instanceof LevelOutlinesConflictError) {
         this._context.error = e.message;
       } else {
         if (this._context.status === status.collectChangesets) {

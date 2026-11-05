@@ -8,6 +8,7 @@ import { TYPE_NAMES } from '~/services/gtfs-references';
 import {
   buildStationIndex,
   collectLevels,
+  combineLevelOutlines,
   farStops,
   isLevelArea,
   isPathway,
@@ -21,7 +22,7 @@ import {
 import type { LevelEntity } from '~/services/pathways-levels';
 
 export type LevelCheckSubtype
-  = 'missing_level' | 'level_area_no_id' | 'large_outline' | 'far_stop' | 'station_level_order' | 'outside_level';
+  = 'missing_level' | 'level_area_no_id' | 'repeated_outline' | 'large_outline' | 'far_stop' | 'station_level_order' | 'outside_level';
 
 export interface LevelProblem {
   subtype: LevelCheckSubtype;
@@ -104,6 +105,23 @@ export function levelProblems(
 
   for (const area of levelAreasMissingId(entities)) {
     add(area.id, { subtype: 'level_area_no_id', message: 'This level outline has no level_id', hash: 'level_area_no_id' });
+  }
+
+  // A level is one row in levels.txt, so it should be one outline.
+  for (const level of levels.filter(level => level.areaIds.length > 1)) {
+    const areas = entities.filter(entity => level.areaIds.includes(entity.id));
+    const { conflicts } = combineLevelOutlines(areas);
+    const conflict = conflicts.map(({ field, values }) => `${field} (${values.join(', ')})`).join(' and ');
+    const name = label(level.levelId, level.name);
+    for (const area of areas) {
+      add(area.id, {
+        subtype: 'repeated_outline',
+        message: conflict
+          ? `Level ${name} has ${areas.length} outlines that disagree on ${conflict}, which blocks exporting it`
+          : `Level ${name} has ${areas.length} outlines; a level should have one`,
+        hash: `repeated_outline:${level.levelId}:${conflict}`
+      });
+    }
   }
 
   for (const { area, meters, stopsMeters, oversized } of largeLevelAreas(entities, locOf)) {

@@ -4,27 +4,47 @@
     class="position-relative dataset-picker"
     @focusout="onFocusOut"
   >
-    <input
-      :id="props.id"
-      v-model="searchText"
-      type="text"
-      class="form-select"
-      :disabled="props.disabled"
-      :required="props.required"
-      placeholder="Search released and accessible datasets..."
-      aria-label="Dataset Selection"
-      role="combobox"
-      aria-autocomplete="list"
-      :aria-expanded="isOpen"
-      :aria-controls="listboxId"
-      :aria-activedescendant="activeOptionId"
-      :aria-required="props.required"
-      autocomplete="off"
-      @focus="onFocus"
-      @click="isOpen = true"
-      @input="onInput"
-      @keydown="onKeydown"
-    >
+    <div class="position-relative">
+      <input
+        :id="props.id"
+        ref="inputRef"
+        v-model="searchText"
+        type="text"
+        class="form-select dataset-input"
+        :class="{ 'dataset-input-has-clear': showClearButton }"
+        :disabled="props.disabled"
+        :required="props.required"
+        placeholder="Search released and accessible datasets..."
+        aria-label="Dataset Selection"
+        role="combobox"
+        aria-autocomplete="list"
+        :aria-expanded="isOpen"
+        :aria-controls="listboxId"
+        :aria-activedescendant="activeOptionId"
+        :aria-required="props.required"
+        autocomplete="off"
+        @focus="onFocus"
+        @click="isOpen = true"
+        @input="onInput"
+        @keydown="onKeydown"
+      >
+      <button
+        v-if="showClearButton"
+        type="button"
+        class="btn dataset-clear-button"
+        aria-label="Clear dataset"
+        :disabled="props.disabled"
+        tabindex="-1"
+        @mousedown.prevent
+        @click.stop="clearSelection"
+      >
+        <app-icon
+          variant="close"
+          size="16"
+          no-margin
+        />
+      </button>
+    </div>
 
     <div
       v-if="isOpen"
@@ -120,6 +140,7 @@ const { canCreateInProjectGroup, getEligibleProjectGroupsForType, load: loadCapa
 
 const generatedId = useId();
 const listboxId = computed(() => `${props.id || `dataset-picker-${generatedId}`}-options`);
+const inputRef = ref<HTMLInputElement | null>(null);
 const pickerRef = ref<HTMLElement | null>(null);
 const searchText = ref('');
 const selectedText = ref('');
@@ -128,6 +149,21 @@ const isOpen = ref(false);
 const loading = ref(false);
 const activeIndex = ref(-1);
 const errorMessage = ref('');
+let hasUnfilteredResults = false;
+
+const showClearButton = computed(() => !props.disabled && (searchText.value.length > 0 || model.value !== null));
+
+function clearSelection() {
+  model.value = null;
+  selectedText.value = '';
+  searchText.value = '';
+  isOpen.value = true;
+  activeIndex.value = -1;
+  void loadDatasets('');
+  nextTick(() => {
+    inputRef.value?.focus();
+  });
+}
 
 const datasetOptions = computed<DatasetOption[]>(() => datasets.value.map(dataset => ({
   ...dataset,
@@ -184,9 +220,24 @@ watch(
     if (dataset && dataset.id === model.value) {
       selectedText.value = formatDataset(dataset);
       searchText.value = selectedText.value;
+    } else if (!dataset && !model.value) {
+      selectedText.value = '';
+      searchText.value = '';
     }
   },
   { immediate: true }
+);
+
+watch(
+  model,
+  (val) => {
+    if (!val) {
+      selectedText.value = '';
+      if (!isOpen.value) {
+        searchText.value = '';
+      }
+    }
+  }
 );
 
 async function loadDatasets(name: string) {
@@ -214,6 +265,7 @@ async function loadDatasets(name: string) {
         return canCreateInProjectGroup(pgId, raw.data_type);
       });
       hasLoaded.value = true;
+      hasUnfilteredResults = name.trim() === '';
     }
   }
   catch (error) {
@@ -256,15 +308,24 @@ function selectDataset(dataset: TdeiDatasetSummary) {
 
 function onFocus(event: FocusEvent) {
   isOpen.value = true;
-  if (!hasLoaded.value && !loading.value) {
-    void loadDatasets('');
+  if (!loading.value && (!hasLoaded.value || !hasUnfilteredResults || datasets.value.length === 0)) {
+    if (searchText.value === selectedText.value || searchText.value === '') {
+      void loadDatasets('');
+    }
   }
   (event.target as HTMLInputElement).select();
 }
 
 function closeDropdown() {
   isOpen.value = false;
-  searchText.value = model.value ? selectedText.value : '';
+  if (!model.value) {
+    searchText.value = '';
+    if (!hasUnfilteredResults || datasets.value.length === 0) {
+      void loadDatasets('');
+    }
+  } else {
+    searchText.value = selectedText.value;
+  }
 }
 
 function onFocusOut(event: FocusEvent) {
@@ -357,5 +418,32 @@ $dataset-picker-list-max-height: 16.25rem;
 .list-group-item.highlighted {
   background-color: $dropdown-active-bg;
   color: inherit;
+}
+
+.dataset-clear-button {
+  position: absolute;
+  top: 50%;
+  right: 2.25rem;
+  transform: translateY(-50%);
+  padding: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $gray-500;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  z-index: 2;
+
+  &:hover {
+    color: $gray-800;
+    background-color: $gray-200;
+  }
+}
+
+.dataset-input-has-clear {
+  padding-right: 3.75rem;
 }
 </style>

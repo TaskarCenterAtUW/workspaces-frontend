@@ -1,7 +1,7 @@
 import { workspacesClient } from '~/services/index';
 
 import type { Ref } from 'vue';
-import type { WorkspaceType } from '~/types/workspaces';
+import type { WorkspaceCreateCheck, WorkspaceType } from '~/types/workspaces';
 
 // Asks the backend's check-create whether this workspace could be created, so
 // the create pages show the rules the backend actually enforces. `reason` is
@@ -14,9 +14,10 @@ export function useWorkspaceCreateCheck(
   tdeiRecordId?: Ref<string | null>
 ) {
   const reason = ref<string | null>(null);
+  const checking = ref<boolean>(false);
   let requestId = 0;
 
-  async function check() {
+  async function check(): Promise<WorkspaceCreateCheck | null> {
     const currentRequestId = ++requestId;
     reason.value = null;
 
@@ -24,22 +25,33 @@ export function useWorkspaceCreateCheck(
     const currentProjectGroupId = projectGroupId.value;
     const currentRecordId = tdeiRecordId?.value;
     if (!currentType || !currentProjectGroupId || (tdeiRecordId && !currentRecordId)) {
-      return;
+      checking.value = false;
+      return null;
     }
 
+    checking.value = true;
     try {
       const result = await workspacesClient.checkWorkspaceCreate({
         type: currentType as WorkspaceType,
         tdeiProjectGroupId: currentProjectGroupId,
         ...(currentRecordId ? { tdeiRecordId: currentRecordId } : {}),
       });
-      if (currentRequestId === requestId && !result.canCreate) {
-        reason.value = result.reason || 'You do not have permission to create this workspace.';
+      if (currentRequestId === requestId) {
+        if (!result.canCreate) {
+          reason.value = result.reason || 'You do not have permission to create this workspace.';
+        }
+        return result;
       }
     }
     catch (e) {
       console.warn('Workspace create pre-check failed; the create call will enforce permissions', e);
     }
+    finally {
+      if (currentRequestId === requestId) {
+        checking.value = false;
+      }
+    }
+    return null;
   }
 
   watch(
@@ -52,5 +64,5 @@ export function useWorkspaceCreateCheck(
     ++requestId;
   });
 
-  return { reason };
+  return { reason, checking, check };
 }

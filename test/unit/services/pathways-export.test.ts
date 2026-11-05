@@ -3,6 +3,7 @@ import { TdeiExporter, TdeiExporterContext } from '~/services/export/tdei';
 import {
   buildPathwaysCsvArchive,
   fetchDerivedPathwaysDataset,
+  LevelOutlinesConflictError,
   mergeIntoAgencyFeed,
   missingFeedFiles,
   openAgencyFeed,
@@ -286,6 +287,34 @@ describe('buildPathwaysCsvArchive levels', () => {
       { level_id: 'L1', level_index: '0', level_name: 'Street' },
       { level_id: 'L2', level_index: '-1', level_name: 'Concourse' }
     ]);
+  });
+
+  it('writes one row for outlines sharing a level_id, filling blanks from each other', async () => {
+    const { levels } = await exportFeed([
+      ...levelBox(5, { level_id: 'L1', level_index: '1' }),
+      ...levelBox(6, { level_id: 'L1', level_index: '1.0', level_name: 'Upper' })
+    ]);
+
+    expect(levels).toEqual([{ level_id: 'L1', level_index: '1', level_name: 'Upper' }]);
+  });
+
+  it('refuses to export outlines that disagree, rather than drop a value', async () => {
+    const build = buildPathwaysCsvArchive([
+      ...levelBox(5, { level_id: 'L1', level_index: '1', level_name: 'Upper' }),
+      ...levelBox(6, { level_id: 'L1', level_index: '2', level_name: 'Upper' })
+    ], undefined);
+
+    await expect(build).rejects.toBeInstanceOf(LevelOutlinesConflictError);
+    await expect(build).rejects.toThrow('L1 has outlines with different level_index (1, 2)');
+  });
+
+  it('keeps the original level_index and level_name when an outline has none', async () => {
+    const { levels } = await exportFeed(
+      levelBox(5, { level_id: 'L1' }),
+      new Map([['levels.txt', 'level_id,level_index,level_name\nL1,3,Old\n']])
+    );
+
+    expect(levels).toEqual([{ level_id: 'L1', level_index: '3', level_name: 'Old' }]);
   });
 
   it('writes no levels.txt when there are no levels', async () => {

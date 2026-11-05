@@ -86,7 +86,7 @@
             >
             <div class="card-title">From File</div>
             <div class="card-text">
-              Create a workspace from an OpenSidewalks data file on your computer.
+              Create a workspace from an OpenSidewalks or GTFS Pathways data file on your computer.
             </div>
           </div>
           <div class="card-footer">
