@@ -167,6 +167,9 @@ test.describe('workspace member roles', () => {
     await expect(
       page.getByText('You need a TDEI POC role in this project group')
     ).toBeVisible();
+    await expect(
+      page.getByText('You do not have permission to view the member list.')
+    ).toHaveCount(3);
   });
 
   // @test e2e: POCs should be displayed on this page, matching the results of the
