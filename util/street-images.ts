@@ -42,4 +42,3 @@ export function resolveStreetImageUrl(url: string): string {
   const base64 = btoa(binaryStr).replace(/=+$/, '');
   return `${KARTAVIEW_CDN_PREFIX}${base64}`;
 }
-
