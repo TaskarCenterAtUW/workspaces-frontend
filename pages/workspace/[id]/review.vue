@@ -129,7 +129,7 @@ status API and refreshes the list (assert() the request body and that the item l
 import { toast } from 'vue3-toastify';
 
 import { rapid3Manager, reviewManager, tdeiClient, workspacesClient } from '~/services/index';
-import { kartaViewImageUrl, convertKartaViewUrl } from '~/util/kartaview';
+import { streetImageUrl, resolveStreetImageUrl } from '~/util/street-images';
 import { parsePositiveIntegerQuery } from '~/util/route-query';
 import type ReviewMap from '~/components/review/Map.vue';
 import type AppImageViewer from '~/components/AppImageViewer.vue';
@@ -173,9 +173,9 @@ const changesetNotFound = computed(() => {
   );
 });
 const currentImageUrl = computed(() => {
-  const raw = kartaViewImageUrl(currentDiff.value?.new?.tags)
-    ?? kartaViewImageUrl(currentDiff.value?.old?.tags);
-  return raw ? convertKartaViewUrl(raw) : undefined;
+  const raw = streetImageUrl(currentDiff.value?.new?.tags)
+    ?? streetImageUrl(currentDiff.value?.old?.tags);
+  return raw ? resolveStreetImageUrl(raw) : undefined;
 });
 
 await refresh();
