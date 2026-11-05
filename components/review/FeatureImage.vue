@@ -40,7 +40,7 @@
           rel="noopener noreferrer"
           class="feature-image__link"
         >
-          KartaView
+          Street Image
           <app-icon variant="open_in_new" />
         </a>
       </div>
