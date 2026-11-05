@@ -6,6 +6,7 @@ export const KARTAVIEW_URL_TAG = 'ext:kartaview_url';
 const KARTAVIEW_CDN_PREFIX = 'https://cdn.kartaview.org/pr:sharp/';
 const LEGACY_KARTAVIEW_HOSTS = ['kartaview.org', 'openstreetcam.org'];
 
+/** Checks whether a URL points to a legacy KartaView or OpenStreetCam host. */
 function isLegacyKartaViewUrl(url: string): boolean {
   try {
     const { hostname } = new URL(url);

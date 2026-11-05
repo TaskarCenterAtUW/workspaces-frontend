@@ -304,19 +304,24 @@ import {
   keepOnePinPerProjectGroup,
   writeWorkspacePins,
 } from '~/util/workspace-pins';
+import {
+  readDashboardSelection,
+  resolveProjectGroupId,
+  writeDashboardSelection,
+} from '~/util/dashboard-selection';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 import { parsePositiveIntegerQuery } from '~/util/route-query';
 import { findFailedImportJob } from '~/util/workspace-jobs';
 
 import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
+import type { DashboardSelection } from '~/util/dashboard-selection';
 
 type JobFailureDialog = {
   show: (workspaceId: number) => Promise<void>;
 };
 
-const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
-const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
+const LEGACY_STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
 const route = useRoute();
 const router = useRouter();
 const requestedWorkspaceNotFound = ref(false);
@@ -346,8 +351,12 @@ const workspacesByProjectGroup = computed(() =>
   Map.groupBy(workspaces.value, workspace => workspace.tdeiProjectGroupId)
 );
 
+const dashboardSelection = loadDashboardSelection();
 const currentProjectGroup = ref<string | null>(
-  getLastProjectGroupId() ?? myProjectGroups[0]?.tdei_project_group_id ?? null
+  resolveProjectGroupId(
+    dashboardSelection.projectGroupId ?? getLegacyProjectGroupId(),
+    myProjectGroups.map(projectGroup => projectGroup.tdei_project_group_id)
+  )
 );
 const currentWorkspace = ref<Workspace>();
 const workspaceSearch = ref('');
@@ -391,9 +400,14 @@ const workspaceUpdatedTime = computed(() =>
     ? formatElapsed(currentWorkspace.value.updatedAt ?? currentWorkspace.value.createdAt)
     : ''
 );
+watch(currentProjectGroup, (projectGroupId) => {
+  dashboardSelection.projectGroupId = projectGroupId;
+  saveDashboardSelection();
+}, { immediate: true });
 watch(currentWorkspace, (workspace) => {
   if (workspace) {
-    setLastWorkspaceId(workspace.id);
+    dashboardSelection.workspaceByProjectGroup[workspace.tdeiProjectGroupId] = workspace.id;
+    saveDashboardSelection(workspace.tdeiProjectGroupId, workspace.id);
   }
 });
 
@@ -414,19 +428,13 @@ watch(
 
 onMounted(() => {
   loadWorkspacePins();
-  if (route.query.workspace == null) {
-    const lastWorkspace = workspaces.value.find(workspace => workspace.id === getLastWorkspaceId());
-    if (lastWorkspace) {
-      currentProjectGroup.value = lastWorkspace.tdeiProjectGroupId;
-      selectWorkspace(lastWorkspace, false);
-    }
-  }
   applyWorkspaceFromRoute();
   if (!requestedWorkspaceNotFound.value) {
     syncSelectedWorkspace(currentWorkspaces.value);
   }
 });
 
+/** Synchronizes the active workspace with the currently selected project group. */
 function syncSelectedWorkspace(
   availableWorkspaces: Workspace[]
 ): void {
@@ -436,14 +444,32 @@ function syncSelectedWorkspace(
 
   if (availableWorkspaces.length === 0) {
     currentWorkspace.value = undefined;
+    clearWorkspaceQuery();
     return;
   }
 
+  // Restore the last selected workspace for this project group, or fall back to the first.
+  const rememberedWorkspaceId = currentProjectGroup.value
+    ? dashboardSelection.workspaceByProjectGroup[currentProjectGroup.value]
+    : undefined;
   const selectedWorkspace = availableWorkspaces.find(
     workspace => workspace.id === currentWorkspace.value?.id
+  ) ?? availableWorkspaces.find(
+    workspace => workspace.id === rememberedWorkspaceId
   );
 
   selectWorkspace(selectedWorkspace ?? availableWorkspaces[0]!);
+}
+
+/** Clears a stale `?workspace=` query parameter when switching to an empty project group. */
+function clearWorkspaceQuery(): void {
+  if (route.query.workspace == null) {
+    return;
+  }
+
+  const query = { ...route.query };
+  delete query.workspace;
+  void router.replace({ path: '/dashboard', query });
 }
 
 function applyWorkspaceFromRoute(): void {
@@ -600,13 +626,54 @@ function onCenterLoaded(center: WorkspaceCenter): void {
   }
 }
 
-function getLastProjectGroupId(): string | null {
+/** Loads the saved dashboard project group and workspace selection for the current user. */
+function loadDashboardSelection(): DashboardSelection {
+  if (import.meta.server || !tdeiAuth.subject) {
+    return { projectGroupId: null, workspaceByProjectGroup: {} };
+  }
+
+  try {
+    return readDashboardSelection(localStorage, tdeiAuth.subject);
+  }
+  catch {
+    return { projectGroupId: null, workspaceByProjectGroup: {} };
+  }
+}
+
+/** Re-reads stored selection, merges the latest update, and writes back to localStorage. */
+function saveDashboardSelection(updatedGroupId?: string, updatedWorkspaceId?: number): void {
+  if (import.meta.server || !tdeiAuth.subject) {
+    return;
+  }
+
+  try {
+    const latest = readDashboardSelection(localStorage, tdeiAuth.subject);
+    const workspaceByProjectGroup = {
+      ...latest.workspaceByProjectGroup,
+      ...dashboardSelection.workspaceByProjectGroup,
+    };
+    if (updatedGroupId && updatedWorkspaceId !== undefined) {
+      workspaceByProjectGroup[updatedGroupId] = updatedWorkspaceId;
+    }
+    dashboardSelection.workspaceByProjectGroup = workspaceByProjectGroup;
+    writeDashboardSelection(localStorage, tdeiAuth.subject, {
+      projectGroupId: dashboardSelection.projectGroupId,
+      workspaceByProjectGroup,
+    });
+  }
+  catch {
+    // Browsers can disable storage; selection persistence is optional.
+  }
+}
+
+/** Reads the legacy session-scoped project group selection as a fallback. */
+function getLegacyProjectGroupId(): string | null {
   if (import.meta.server) {
     return null;
   }
 
   try {
-    const rawSelection = sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP);
+    const rawSelection = sessionStorage.getItem(LEGACY_STORAGE_KEY_PROJECT_GROUP);
     if (!rawSelection) {
       return null;
     }
@@ -616,35 +683,6 @@ function getLastProjectGroupId(): string | null {
   }
   catch {
     return null;
-  }
-}
-
-function getLastWorkspaceId(): number | null {
-  if (import.meta.server) {
-    return null;
-  }
-
-  try {
-    const storedWorkspaceId = Number(sessionStorage.getItem(STORAGE_KEY_WORKSPACE));
-    return Number.isFinite(storedWorkspaceId) && storedWorkspaceId > 0
-      ? storedWorkspaceId
-      : null;
-  }
-  catch {
-    return null;
-  }
-}
-
-function setLastWorkspaceId(workspaceId: number): void {
-  if (import.meta.server) {
-    return;
-  }
-
-  try {
-    sessionStorage.setItem(STORAGE_KEY_WORKSPACE, String(workspaceId));
-  }
-  catch {
-    // Browsers can disable storage. Selection persistence is optional.
   }
 }
 </script>
