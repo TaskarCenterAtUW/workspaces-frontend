@@ -110,7 +110,7 @@ import 'vue3-toastify/dist/index.css';
 const downloading = reactive(new LoadingContext());
 const route = useRoute();
 const workspaceId = Number(route.params.id);
-const workspace = await workspacesClient.getWorkspace(workspaceId);
+const workspace = await loadWorkspace(workspaceId);
 const downloadUrl = ref<string | null>(null);
 const downloadFilename = computed(() => `workspace-${workspaceId}-${workspace.type}-export.zip`);
 

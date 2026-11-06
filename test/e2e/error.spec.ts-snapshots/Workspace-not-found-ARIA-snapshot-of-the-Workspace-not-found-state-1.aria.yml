@@ -1,0 +1,5 @@
+- alert:
+  - heading "Workspace not found" [level=1]
+  - paragraph: This workspace does not exist or you do not have permission to access it.
+  - link "View my workspaces":
+    - /url: /dashboard

@@ -276,6 +276,7 @@ interface SelectOption {
   value: string;
 }
 
+const nuxtApp = useNuxtApp();
 const route = useRoute();
 const workspaceId = Number(route.params.id);
 const projectsLoading = reactive(new LoadingContext());
@@ -434,7 +435,7 @@ async function loadInitialData(): Promise<void> {
 
   try {
     const [loadedWorkspace, { items }] = await Promise.all([
-      workspacesClient.clone(controller.signal).getWorkspace(workspaceId),
+      loadWorkspace(workspaceId, workspacesClient.clone(controller.signal)),
       tdeiUserClient.clone(controller.signal).getMyProjectGroups(1, '', 10000),
     ]);
 
@@ -444,6 +445,13 @@ async function loadInitialData(): Promise<void> {
   }
   catch (error: unknown) {
     if (isAbortError(error)) {
+      return;
+    }
+
+    // "Workspace not found": a retry won't help, so show the error page.
+    // This runs after mount, outside setup, so it needs the app's context.
+    if (isNuxtError(error)) {
+      nuxtApp.runWithContext(() => showError(error));
       return;
     }
 

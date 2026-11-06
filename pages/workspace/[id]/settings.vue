@@ -45,14 +45,12 @@
 </template>
 
 <script setup lang="ts">
-import { workspacesClient } from '~/services/index';
-
 const route = useRoute();
 const workspaceId = Number(route.params.id);
 const workspaceRoute = `/dashboard`;
 // reactive so child panels (e.g. the External Apps publish toggle) can react to
 // changes to the provided workspace.
-const workspace = reactive(await workspacesClient.getWorkspace(workspaceId));
+const workspace = reactive(await loadWorkspace(workspaceId));
 
 provide('workspace', workspace);
 </script>

@@ -98,7 +98,7 @@ import { toast } from 'vue3-toastify';
 
 import { resolveHttpErrorMessage } from '~/services/http';
 import { applyResolutions } from '~/services/merge';
-import { workspacesClient, workspaceMergerFactory } from '~/services/index';
+import { workspaceMergerFactory } from '~/services/index';
 import { editorRoute, mapHash } from '~/util/osm';
 
 import type ConflictDetail from '~/components/merge/ConflictDetail.vue';
@@ -122,7 +122,7 @@ const {
   leaveMerge
 } = useMergeExit(workspaceId);
 
-const workspace = await workspacesClient.getWorkspace(workspaceId);
+const workspace = await loadWorkspace(workspaceId);
 
 // For child components, which reach it through `useWorkspaceRole`. This page
 // reads the role directly: `inject` resolves against the parent's provides, so
