@@ -13,6 +13,11 @@ conventions established for it; see `README.md` for app setup.
   `import.meta.env.VITE_*` URLs.
 - Types in `types/`; the workspace API shapes mirror the backend OpenAPI spec
   (integer `id`, `title` not `name`, uuid `tdeiProjectGroupId`, etc.).
+- A page that can't render without its workspace loads it with
+  `loadWorkspace(id)` ([composables/loadWorkspace.ts](composables/loadWorkspace.ts)),
+  not `workspacesClient.getWorkspace`. The API's 404 (no such workspace, or one
+  outside the user's project groups) then shows "Workspace not found"
+  ([error.vue](error.vue)) instead of a 500.
 
 ## Testing
 

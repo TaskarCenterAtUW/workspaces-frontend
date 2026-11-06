@@ -496,7 +496,7 @@ import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 import { useProjectEditActions } from '~/composables/useProjectEditActions';
 import { useProjectEditMembers } from '~/composables/useProjectEditMembers';
-import { tdeiUserClient, workspaceProjectsClient, workspacesClient } from '~/services/index';
+import { tdeiUserClient, workspaceProjectsClient } from '~/services/index';
 import { resolveHttpErrorMessage } from '~/services/http';
 import { validateProjectCustomImagery } from '~/services/project-custom-imagery';
 
@@ -551,7 +551,7 @@ const BASE_SECTIONS: ProjectEditSection[] = [
 ];
 
 const hourOptions = Array.from({ length: 24 }, (_, index) => index + 1);
-const workspace = await workspacesClient.getWorkspace(workspaceId);
+const workspace = await loadWorkspace(workspaceId);
 const myTdeiRoles = await tdeiUserClient.getMyRolesForProjectGroupById(
   workspace.tdeiProjectGroupId
 );

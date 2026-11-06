@@ -242,7 +242,7 @@
 </template>
 
 <script setup lang="ts">
-import { osmClient, tdeiClient, tdeiUserClient, workspacesClient } from '~/services/index';
+import { osmClient, tdeiClient, tdeiUserClient } from '~/services/index';
 import { TdeiExporter, TdeiExporterContext } from '~/services/export/tdei'
 import { missingFeedFiles, openAgencyFeed } from '~/services/pathways';
 import type { TdeiDatasetMetadataDatasetDetail } from '~/types/tdei';
@@ -256,7 +256,7 @@ const route = useRoute();
 const workspaceId = Number(route.params.id);
 
 const [workspaceData, { items: myProjectGroups }] = await Promise.all([
-  workspacesClient.getWorkspace(workspaceId),
+  loadWorkspace(workspaceId),
   tdeiUserClient.getMyProjectGroups(1, '', 10000),
 ]);
 
