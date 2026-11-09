@@ -41,6 +41,7 @@ const RAPID2_SCRIPT = (route: Route) => route.fulfill({
         embed() {}
         async resetAsync() {}
         async initAsync() {
+          window.__fakeRapidInitStarted = true;
           await window.__holdEditorInit;
           if (window.__failEditorInit) throw new Error('fake editor failed to start');
           this.containerNode.innerHTML =
@@ -408,6 +409,12 @@ test.describe('workspace edit (editor host)', () => {
     await page.goto('/workspace/1/edit?datatype=osw');
     const loading = page.locator('.edit-page .editor-loading');
     await expect(loading.getByRole('status')).toBeVisible();
+    // The spinner is rendered before the editor script necessarily loads. Wait
+    // until initAsync is actually held so this test exercises navigation during
+    // editor startup instead of racing the script-load callback.
+    await expect.poll(() => page.evaluate(() =>
+      (window as any).__fakeRapidInitStarted
+    )).toBe(true);
 
     // Leave for another workspace's editor in the app (no reload), while the editor is still starting.
     await page.evaluate(() => (document.querySelector('#__nuxt') as any).__vue_app__
