@@ -69,7 +69,11 @@
         show
       >
         <app-icon variant="info" />
-        No one has a TDEI POC role in this project group.
+        {{
+          accessDenied
+            ? 'You do not have permission to view the member list.'
+            : 'No one has a TDEI POC role in this project group.'
+        }}
       </b-alert>
     </div>
 
@@ -127,7 +131,11 @@
         show
       >
         <app-icon variant="info" />
-        No one has a TDEI data generator role in this project group.
+        {{
+          accessDenied
+            ? 'You do not have permission to view the member list.'
+            : 'No one has a TDEI data generator role in this project group.'
+        }}
       </b-alert>
     </div>
 
@@ -229,7 +237,11 @@
         show
       >
         <app-icon variant="info" />
-        There are no unprivileged members in this project group.
+        {{
+          accessDenied
+            ? 'You do not have permission to view the member list.'
+            : 'There are no unprivileged members in this project group.'
+        }}
       </b-alert>
     </div>
   </b-col>
