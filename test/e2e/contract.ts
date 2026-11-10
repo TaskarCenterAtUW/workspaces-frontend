@@ -4,13 +4,13 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import type { Page, Request } from '@playwright/test';
 
-// Shared OpenAPI contract validator. Records the new-API traffic a page makes
+// Shared OpenAPI contract validator. Records the workspaces API traffic a page makes
 // and validates each request/response body against the vendored spec
 // (test/contract/openapi.json). Used by the per-page "API calls match the
 // Swagger spec" outlines.
 //
-// Scope: only requests to the new-API host are checked. In E2E the new API base
-// is http://api.test/ (playwright.config.ts), and the spec paths are prefixed
+// Scope: only requests to the workspaces API are checked. In E2E its base is
+// http://api.test/ (playwright.config.ts), and the spec paths are prefixed
 // /api/v1/, so a recorded path like `workspaces/mine` maps to the spec key
 // `/api/v1/workspaces/mine`. TDEI/OSM calls (other hosts/prefixes) aren't in
 // this spec and are ignored.
@@ -67,7 +67,7 @@ interface RecordedCall {
   contentType: string;
 }
 
-function isNewApiRequest(req: Request): boolean {
+function isWorkspacesApiRequest(req: Request): boolean {
   try {
     const url = new URL(req.url());
     return url.hostname === 'api.test' && !STATIC_SCHEMA_PATHS.has(url.pathname)
@@ -91,7 +91,7 @@ export function recordContract(
 
   page.on('response', async (response) => {
     const req = response.request();
-    if (!isNewApiRequest(req)) return;
+    if (!isWorkspacesApiRequest(req)) return;
     const url = new URL(req.url());
     let resText = '';
     try {

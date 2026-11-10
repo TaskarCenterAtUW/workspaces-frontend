@@ -7,6 +7,7 @@
       :workspace-type="workspaceType"
       @edit="props.onEdit"
       @resolve="$emit('resolve')"
+      @resolve-feedback="emit('resolve-feedback')"
       @back="emit('back')"
     />
 
@@ -36,7 +37,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits(['back', 'resolve']);
+const emit = defineEmits(['back', 'resolve', 'resolve-feedback']);
 
 const showDetails = ref(false);
 const showDiscussion = ref(false);

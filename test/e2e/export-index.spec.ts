@@ -13,7 +13,7 @@ import { aWorkspace, projectGroups } from '../mocks/fixtures';
 //
 // The Download flow goes through workspacesClient.exportWorkspaceArchive(workspace),
 // which branches on workspace.type:
-//   - pathways: osmClient.getWorkspaceData(id) = GET new-api/workspaces/{id}/bbox
+//   - pathways: osmClient.getWorkspaceData(id) = GET workspaces/{id}/bbox
 //               then GET osm/.../map.json?bbox=... -> {elements:[]} -> buildPathwaysCsvArchive
 //               (pure client-side zip; NO tdei host, NO polling).
 //   - osw:      osm export XML + tdeiClient.convertDataset (4s job polling).
@@ -37,7 +37,7 @@ async function stubGetWorkspace(page: import('@playwright/test').Page, overrides
 }
 
 // Stubs the calls the pathways download flow makes:
-//   GET new-api/workspaces/{id}/bbox -> a bbox, then GET osm/.../map.json -> elements.
+//   GET workspaces/{id}/bbox -> a bbox, then GET osm/.../map.json -> elements.
 // `gate` (if provided) holds the map.json response open so the loading state can
 // be observed before the archive is built.
 async function stubPathwaysDownloadOk(
@@ -152,7 +152,7 @@ test.describe('workspace export landing page', () => {
     await stubGetWorkspace(page, { type: 'pathways' });
 
     // Fail the first call in the download flow so exportWorkspaceArchive throws.
-    // The bbox lookup now hits the new API; the map fetch stays on the OSM base.
+    // The bbox lookup hits the workspaces API; the map fetch stays on the OSM base.
     await page.route('**/workspaces/1/bbox', route =>
       route.fulfill({ status: 500, body: 'boom' })
     );
@@ -171,8 +171,8 @@ test.describe('workspace export landing page', () => {
   });
 
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
-  //            (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
-  test('makes only Swagger-conformant new-API calls during the export + download flow', async ({ page }) => {
+  //            (https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+  test('makes only Swagger-conformant API calls during the export + download flow', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await stubGetWorkspace(page, { type: 'pathways' });
     await stubPathwaysDownloadOk(page);
@@ -180,7 +180,7 @@ test.describe('workspace export landing page', () => {
     const contract = recordContract(page);
 
     await page.goto(EXPORT_URL);
-    // Drive the download flow (the only new-API call is GET workspaces/1; the OSM
+    // Drive the download flow (the only workspaces API call is GET workspaces/1; the OSM
     // calls are on the /osm host and are ignored by the contract recorder).
     await page.getByRole('button', { name: /Start Preparing File for Download/ }).click();
     await expect(page.getByRole('link', { name: /Save/ })).toBeVisible();

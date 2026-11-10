@@ -1,4 +1,4 @@
-import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
+import { BlobReader, BlobWriter, TextWriter, ZipReader } from '@zip.js/zip.js';
 import type { FileEntry } from '@zip.js/zip.js';
 
 import {
@@ -11,6 +11,7 @@ import {
 import type { ICancelableClient } from '~/services/loading';
 import type {
   TdeiFeedback,
+  TdeiFeedbackStatusUpdate,
   TdeiProjectGroupApiResponse,
   TdeiServiceApiResponse,
   TdeiDatasetApiResponse,
@@ -366,7 +367,8 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
         id: d.tdei_dataset_id,
         name: d.metadata?.dataset_detail?.name ?? d.tdei_dataset_id,
         version: d.metadata?.dataset_detail?.version,
-        projectGroupName: d.project_group?.name
+        projectGroupName: d.project_group?.name,
+        raw: d
       }));
   }
 
@@ -376,6 +378,59 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     });
 
     return (await response.blob());
+  }
+
+  /**
+   * Reference data a TDEI job stored, as JSON: e.g. pathways-converter's drawing of
+   * a level, whose outline names it in `ext:reference_url` as a TDEI API path like
+   * `/api/v1/job/download/4521?file=beacon_hill/reference/platform.geojson`. Only
+   * TDEI API paths are fetched, so the user's sign-in isn't sent anywhere else.
+   */
+  async getReferenceData(path: string): Promise<unknown> {
+    const match = /^\/api\/v1\/(.+)$/.exec(path.trim());
+    if (!match) {
+      throw new Error(`Not a TDEI API path: ${path}`);
+    }
+
+    const response = await this._get(match[1]!, { headers: { Accept: 'application/json, */*' } });
+    const data = await response.blob();
+
+    // Until TDEI serves `?file=` (TDEI-osw-datasvc-ts#400), a job download returns the
+    // job's zip of all its output instead, which holds the file at that same path.
+    const file = new URL(match[1]!, 'http://tdei.invalid/').searchParams.get('file');
+    const head = new Uint8Array(await data.slice(0, 2).arrayBuffer());
+    if (file && head[0] === 0x50 && head[1] === 0x4b) { // "PK": a zip
+      const reader = new ZipReader(new BlobReader(data));
+      try {
+        const entry = (await reader.getEntries()).find(e => !e.directory && e.filename === file) as FileEntry | undefined;
+        if (!entry) {
+          throw new Error(`The job's files don't include ${file}`);
+        }
+        return JSON.parse(await entry.getData(new TextWriter()));
+      }
+      finally {
+        await reader.close();
+      }
+    }
+
+    return JSON.parse(await data.text());
+  }
+
+  /**
+   * A pathways level's reference data, from its outline's `ext:reference_url`:
+   * a full https URL (e.g. a blob storage link) is fetched as is, without the
+   * user's sign-in; a TDEI API path goes through `getReferenceData`.
+   */
+  async getLevelReference(url: string): Promise<unknown> {
+    if (!/^https:\/\//i.test(url.trim())) {
+      return await this.getReferenceData(url);
+    }
+
+    const response = await fetch(url.trim(), { credentials: 'omit' });
+    if (!response.ok) {
+      throw new Error(`${response.status} ${response.statusText} loading ${url}`);
+    }
+    return await response.json();
   }
 
   async downloadPathwaysDataset(tdeiDatasetId: string): Promise<Blob> {
@@ -517,7 +572,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
   ): Promise<TdeiFeedback[]> {
     const feedback = [];
     const pageSize = 50;
-    const pageNum = 1;
+    let pageNum = 1;
     let items;
 
     const params = new URLSearchParams();
@@ -530,6 +585,7 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
 
     do {
       params.set('page_no', pageNum.toString());
+      pageNum += 1;
       const response = await this._get(`osw/dataset-viewer/feedbacks?${params}`);
       items = (await response.json()) ?? [];
 
@@ -542,6 +598,26 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
     } while (items.length === pageSize);
 
     return feedback;
+  }
+
+  /**
+   * Resolves (or reopens) dataset-viewer feedback, all of it from one project
+   * group's dataset. TDEI reports each item's outcome; a failed item throws.
+   */
+  async updateFeedbackStatus(
+    tdeiProjectGroupId: string,
+    tdeiDatasetId: string,
+    updates: TdeiFeedbackStatusUpdate[],
+  ): Promise<void> {
+    const response = await this._put(
+      `osw/dataset-viewer/feedbacks/${encodeURIComponent(tdeiProjectGroupId)}/${encodeURIComponent(tdeiDatasetId)}`,
+      updates
+    );
+    const report = (await response.json()) as { id: number; message: string; status: 'Success' | 'Failed' }[];
+    const failed = report.filter(item => item.status !== 'Success');
+    if (failed.length) {
+      throw new Error(failed.map(item => `Feedback ${item.id}: ${item.message}`).join('; '));
+    }
   }
 
   #setAuth(username: string, body: any) {
@@ -652,6 +728,28 @@ export class TdeiClient extends BaseHttpClient implements ICancelableClient {
 
     // Re-login worked, so retry with the new token.
     return await this.#sendWithAccessToken(send);
+  }
+
+  /**
+   * Restores the session after an API rejected its access token: refreshes the
+   * token, and if the refresh is rejected too (or the refresh token has
+   * expired), asks the user to sign in again, like `sendProtectedRequest`.
+   * Other failures (e.g. offline) are thrown, for the caller to retry later.
+   */
+  async recoverSession(): Promise<void> {
+    if (!this.#auth.refreshTokenExpired) {
+      try {
+        await this.refreshToken();
+        return;
+      }
+      catch (error: unknown) {
+        if (!this.#isUnauthorized(error)) {
+          throw error;
+        }
+      }
+    }
+
+    await this.#requestSessionReauthentication();
   }
 
   async #sendWithAccessToken(

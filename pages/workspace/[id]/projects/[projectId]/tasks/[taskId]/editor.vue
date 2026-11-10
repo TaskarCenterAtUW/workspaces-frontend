@@ -77,7 +77,7 @@ const taskEditorSidebarId = 'task-editor-sidebar';
 const editorLoadErrorMessage = ref('');
 const showUnsavedEditsDialog = ref(false);
 const pendingUnsavedAction = ref<'route' | 'skip' | null>(null);
-const newApiUrl = import.meta.env.VITE_NEW_API_URL;
+const apiUrl = import.meta.env.VITE_API_URL;
 let allowNextRouteLeave = false;
 let resolvePendingRouteLeave: ((shouldLeave: boolean) => void) | null = null;
 
@@ -422,7 +422,7 @@ function generateInitialHash() {
   const zoom = 17;
   const boundaryUrl = new URL(
     `workspaces/${workspaceId}/tasking/projects/${projectId}/tasks/${task.taskNumber}/boundary.geojson`,
-    newApiUrl,
+    apiUrl,
   ).toString();
   const dataUrl = boundaryUrl;
   const customImagerySource = project.customImagery || null;

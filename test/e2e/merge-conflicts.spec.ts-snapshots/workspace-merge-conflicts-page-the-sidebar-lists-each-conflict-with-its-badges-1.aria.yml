@@ -1,0 +1,4 @@
+- complementary:
+  - button " node 1 geometry"
+  - button "Cancel"
+  - button "Commit Merge " [disabled]

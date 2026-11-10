@@ -4,6 +4,34 @@
 // style (sources, layers, attribution) from this single URL.
 export const OPENFREEMAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
 
+export function bingImageryStyle(): import('maplibre-gl').StyleSpecification {
+  return {
+    version: 8,
+    sources: {
+      bing: {
+        type: 'raster',
+        scheme: 'xyz',
+        tiles: [
+          'https://ecn.t0.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=587&mkt=en-gb&n=z',
+          'https://ecn.t1.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=587&mkt=en-gb&n=z',
+          'https://ecn.t2.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=587&mkt=en-gb&n=z',
+          'https://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=587&mkt=en-gb&n=z'
+        ],
+        tileSize: 256,
+        maxzoom: 20,
+        attribution: 'Imagery © Microsoft Corporation'
+      }
+    },
+    layers: [
+      {
+        id: 'imagery',
+        type: 'raster',
+        source: 'bing'
+      }
+    ]
+  };
+}
+
 export interface MaplibreMapHandle {
   maplibregl: typeof import('maplibre-gl');
   map: import('maplibre-gl').Map;
@@ -25,13 +53,13 @@ export async function createMaplibreMap(
     controlPosition?: import('maplibre-gl').ControlPosition;
   }
 ): Promise<MaplibreMapHandle> {
-  const maplibregl = await import('maplibre-gl');
+  const [maplibregl] = await Promise.all([import('maplibre-gl'), import('~/util/maplibre-worker')]);
 
   const map = new maplibregl.Map({
     container,
     style: OPENFREEMAP_STYLE_URL,
     center: options.center,
-    zoom: options.zoom,
+    zoom: options.zoom
   });
 
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), options.controlPosition ?? 'top-right');

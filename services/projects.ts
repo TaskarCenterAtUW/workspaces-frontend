@@ -206,8 +206,6 @@ export class WorkspaceProjectsClient extends BaseHttpClient implements ICancelab
   constructor(taskingApiUrl: string, tdeiClient: TdeiClient, signal?: AbortSignal) {
     super(taskingApiUrl, signal);
     this.#tdeiClient = tdeiClient;
-    // All methods in this client target tasking/project endpoints, so keep one canonical
-    // tasking base URL and do not bounce between legacy and new backends internally.
     this.#taskingApiUrl = taskingApiUrl;
   }
 

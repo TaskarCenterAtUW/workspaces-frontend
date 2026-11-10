@@ -49,6 +49,13 @@ jobs:
                 touch .env
                 echo '${{ vars.ENV_CONFIG }}' | jq -r 'to_entries | map("\(.key)=\(.value)") | .[]' > .env
                 echo CI=false >> .env
+                # ENV names the deploy, e.g. for Sentry's environment.
+                case "${{ inputs.environment }}" in
+                    production) echo ENV=production >> .env ;;
+                    staging)    echo ENV=stage >> .env ;;
+                    develop)    echo ENV=dev >> .env ;;
+                    testing)    echo ENV=testing >> .env ;;
+                esac
             - name: Build Project
               run: npm run generate
             - name: Copy WebApp Config

@@ -9,9 +9,11 @@
 // @test e2e: submitting the form with a dataset version that already exists in the TDEI for that service shows an error message, and allows the
 //            user to change the version and try again (playwright snapshot this)
 // @test e2e: submitting the form with an API error shows an error message
-// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://new-api.workspaces-stage.sidewalks.washington.edu/openapi.json)
+// @test e2e: validate that all the API calls used on this page match the Swagger spec (https://api.workspaces-stage.sidewalks.washington.edu/openapi.json)
 // @test e2e: ensure that the service selector and project group selector display something meaningful even when there are no services or project groups to display to
 //            the user, e.g. "No services available" or "No project groups available" (playwright snapshot this)
+// @test e2e: a GTFS Pathways workspace not made from a TDEI dataset asks for the agency's GTFS feed (.zip), explaining why; the form can't be submitted without it
+// @test e2e: choosing an agency feed that lacks a file TDEI's validation needs (agency, routes, trips, stop times, stops, calendar) names the missing files and isn't accepted
 <template>
   <app-page>
     <div class="text-center mt-5">
@@ -39,30 +41,6 @@
             </p>
             <p class="mb-0">
               Contact your TDEI project group POC to request the appropriate role.
-            </p>
-          </div>
-          <div class="card-footer">
-            <nuxt-link
-              to="../export"
-              class="btn btn-primary"
-            >
-              <app-icon
-                variant="arrow_circle_left"
-                no-margin
-              />
-              Go back
-            </nuxt-link>
-          </div>
-        </div>
-
-        <div
-          v-else-if="workspace.type === 'pathways' && !workspace.tdeiRecordId"
-          class="card"
-        >
-          <div class="card-body">
-            <p>
-              This GTFS Pathways workspace is not derived from a TDEI dataset and
-              lacks information needed to pass TDEI validaion.
             </p>
           </div>
           <div class="card-footer">
@@ -126,6 +104,34 @@
                 required
               >
             </label>
+            <div
+              v-if="needsAgencyFeed"
+              class="mt-3"
+            >
+              <label class="d-block">
+                Agency GTFS Feed
+                <input
+                  type="file"
+                  class="form-control"
+                  accept=".zip"
+                  required
+                  @change="onAgencyFeedChange"
+                >
+              </label>
+              <div class="form-text mt-1">
+                This workspace wasn't made from a TDEI dataset, so the export needs the rest of the
+                agency's GTFS feed (agency, routes, trips, stop times and calendar) to pass TDEI's
+                validation. Choose the agency's GTFS zip: the export keeps its files and other stops,
+                and adds this workspace's stops, pathways and levels.
+              </div>
+              <div
+                v-if="agencyFeedError"
+                class="text-danger mt-1"
+                role="alert"
+              >
+                {{ agencyFeedError }}
+              </div>
+            </div>
             <div class="form-check form-switch mt-3">
               <label class="form-check-label">
                 <input
@@ -238,6 +244,7 @@
 <script setup lang="ts">
 import { osmClient, tdeiClient, tdeiUserClient, workspacesClient } from '~/services/index';
 import { TdeiExporter, TdeiExporterContext } from '~/services/export/tdei'
+import { missingFeedFiles, openAgencyFeed } from '~/services/pathways';
 import type { TdeiDatasetMetadataDatasetDetail } from '~/types/tdei';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
@@ -277,6 +284,39 @@ const includeAdaCertification = ref(false);
 const certifiedByName = osmClient.auth.displayName ?? '';
 const certifiedAt = new Date().toISOString().slice(0, 10);
 
+// A pathways workspace not made from a TDEI dataset has only stops, pathways and
+// levels; TDEI's validation needs a whole GTFS feed, so the agency's supplies the rest.
+const needsAgencyFeed = workspace.type === 'pathways' && !workspace.tdeiRecordId;
+const agencyFeed = shallowRef<Map<string, string>>();
+const agencyFeedError = ref('');
+// Counts feed choices, so a read that finishes after a newer choice is ignored.
+let agencyFeedChoice = 0;
+
+async function onAgencyFeedChange(event: Event) {
+  const choice = ++agencyFeedChoice;
+  const file = (event.target as HTMLInputElement).files?.[0];
+  agencyFeed.value = undefined;
+  agencyFeedError.value = '';
+  if (!file) return;
+
+  let feed: Map<string, string> | undefined;
+  let error = '';
+  try {
+    feed = await openAgencyFeed(file);
+    const missing = missingFeedFiles(feed);
+    if (missing.length) {
+      error = `This feed is missing ${missing.join(', ')}, which TDEI's validation needs.`;
+    }
+  }
+  catch {
+    error = 'This file couldn\'t be read as a GTFS zip.';
+  }
+
+  if (choice !== agencyFeedChoice) return; // another file was chosen meanwhile
+  agencyFeedError.value = error;
+  agencyFeed.value = error ? undefined : feed;
+}
+
 async function upload() {
   const allFieldsProvided = String(datasetName.value ?? '').trim()
     && workspace.tdeiProjectGroupId
@@ -285,6 +325,11 @@ async function upload() {
 
   if (!allFieldsProvided) {
     toast.error('All fields are required: Dataset Name, Project Group, Service, and Dataset Version.');
+    return;
+  }
+
+  if (needsAgencyFeed && !agencyFeed.value) {
+    toast.error('Choose the agency\'s GTFS feed to export with.');
     return;
   }
 
@@ -311,6 +356,7 @@ async function upload() {
           certifiedAt,
         }
       : undefined,
+    agencyFeed: agencyFeed.value
   });
 
   if (jobId) {

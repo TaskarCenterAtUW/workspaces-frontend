@@ -2,7 +2,7 @@ import { test, expect, seedAuthenticatedSession } from './fixtures';
 import { recordContract } from './contract';
 
 // @test e2e: validate that all the API calls used on this page match the Swagger spec
-test('makes no new-API calls that violate the OpenAPI spec', async ({ page }) => {
+test('makes no API calls that violate the OpenAPI spec', async ({ page }) => {
   const contract = recordContract(page);
   await page.goto('/signin');
   await expect(page.getByRole('heading', { name: 'Welcome!' })).toBeVisible();

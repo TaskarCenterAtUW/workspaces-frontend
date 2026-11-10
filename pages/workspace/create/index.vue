@@ -86,7 +86,7 @@
             >
             <div class="card-title">From File</div>
             <div class="card-text">
-              Create a workspace from an OpenSidewalks data file on your computer.
+              Create a workspace from an OpenSidewalks or GTFS Pathways data file on your computer.
             </div>
           </div>
           <div class="card-footer">
@@ -112,6 +112,13 @@ import createIcon from '~/assets/img/create-icon.svg';
 import createBlankIcon from '~/assets/img/create_blank.svg';
 import createTdeiIcon from '~/assets/img/create_tdei.svg';
 import createFileIcon from '~/assets/img/create_file.svg';
+
+const { canCreateAnyWorkspace, load: loadCapabilities } = useUserCapabilities();
+await loadCapabilities();
+
+if (!canCreateAnyWorkspace.value) {
+  await navigateTo('/dashboard');
+}
 </script>
 
 <style lang="scss" scoped>

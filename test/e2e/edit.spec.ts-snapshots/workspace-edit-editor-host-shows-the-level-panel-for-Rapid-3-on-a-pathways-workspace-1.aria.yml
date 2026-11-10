@@ -1,0 +1,4 @@
+- complementary "Stations":
+  - heading "Stations In View" [level=2]
+  - paragraph: No levels yet. Levels appear here once stops have a level_id.
+  - radiogroup "Show level"

@@ -42,7 +42,14 @@ test.describe('dashboard', () => {
     test.beforeEach(async ({ page }) => {
       await seedAuthenticatedSession(page);
       await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
-      await page.route(`${TEST_API_BASE}workspaces/mine`, route => route.fulfill({ json: workspaces }));
+      // As the backend sends them: /mine leaves out tdeiMetadata, which the
+      // dashboard reads from the selected workspace's own GET.
+      await page.route(`${TEST_API_BASE}workspaces/mine`, route => route.fulfill({
+        json: workspaces.map(({ tdeiMetadata: _metadata, ...listed }) => listed)
+      }));
+      for (const workspace of workspaces) {
+        await page.route(`${TEST_API_BASE}workspaces/${workspace.id}`, route => route.fulfill({ json: workspace }));
+      }
       await page.route(`${TEST_API_BASE}tdei-user/project-group-roles/**`, route => route.fulfill({ json: projectGroups }));
       // Empty map data keeps these metadata tests independent of WebGL.
       await page.route(`${TEST_API_BASE}workspaces/{1926,2207}/bbox{,?*}`, route =>
@@ -113,9 +120,9 @@ test.describe('dashboard', () => {
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
   // Use the empty case so no workspace is auto-selected and the maplibre map
   // never mounts (WebGL is unreliable headless). The recorder still sees the
-  // new-API call (GET workspaces/mine) and validates its response shape.
+  // workspaces API call (GET workspaces/mine) and validates its response shape.
   // (The populated WorkspaceResponse shape is also asserted at the unit level.)
-  test('makes no new-API calls that violate the OpenAPI spec', async ({ page }) => {
+  test('makes no API calls that violate the OpenAPI spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await page.route(`${TEST_API_BASE}workspaces/mine`, EMPTY);
     await page.route(`${TEST_API_BASE}tdei-user/project-group-roles/**`, EMPTY);
@@ -322,11 +329,12 @@ test.describe('dashboard', () => {
 
     await seedAuthenticatedSession(page);
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
-    await page.route('**/workspaces/mine', route => route.fulfill({
-      json: [{
+    await page.route('**/workspaces/mine', route => route.fulfill({ json: [aWorkspace] }));
+    await page.route('**/workspaces/1', route => route.fulfill({
+      json: {
         ...aWorkspace,
         tdeiMetadata: { metadata: { dataset_detail: { dataset_area: reversedDatasetArea } } },
-      }],
+      },
     }));
     await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
     await page.route('**/workspaces/1/bbox', (route) => {
@@ -338,6 +346,31 @@ test.describe('dashboard', () => {
 
     await expect(page.getByText('This workspace is empty.', { exact: true })).toBeVisible();
     expect(bboxRequestCount).toBe(1);
+  });
+
+  test('outlines nothing when the bbox API finds no data, even if the metadata names an area', async ({ page }) => {
+    // A broad default dataset area, as an empty workspace's TDEI metadata may carry.
+    const broadDatasetArea = {
+      type: 'Polygon',
+      coordinates: [[[-170, -60], [170, -60], [170, 75], [-170, 75], [-170, -60]]],
+    };
+
+    await seedAuthenticatedSession(page);
+    await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
+    await page.route('**/workspaces/mine', route => route.fulfill({ json: [aWorkspace] }));
+    await page.route('**/workspaces/1', route => route.fulfill({
+      json: {
+        ...aWorkspace,
+        tdeiMetadata: { metadata: { dataset_detail: { dataset_area: broadDatasetArea } } },
+      },
+    }));
+    await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
+    await page.route('**/workspaces/1/bbox', route => route.fulfill({ status: 204 }));
+
+    await page.goto('/dashboard');
+
+    await expect(page.getByText('This workspace is empty.', { exact: true })).toBeVisible();
+    await expect(page.locator('.workspace-map-surface')).toBeHidden();
   });
 
   test('treats a completed import with an unsuccessful response as failed', async ({ page }) => {

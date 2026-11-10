@@ -77,6 +77,17 @@ export interface WorkspaceTitleAvailability {
   available: boolean;
 }
 
+export interface WorkspaceCreateCheckRequest {
+  type: WorkspaceType;
+  tdeiProjectGroupId: string;
+  tdeiRecordId?: string;
+}
+
+export interface WorkspaceCreateCheck {
+  canCreate: boolean;
+  reason?: string | null;
+}
+
 export interface WorkspacePatch {
   title?: string;
   description?: string;

@@ -17,6 +17,7 @@
       </div>
 
       <nuxt-link
+        v-if="canCreateInCurrentProjectGroup"
         class="btn btn-primary dashboard-create-button"
         to="/workspace/create"
       >
@@ -27,6 +28,31 @@
         />
         Create Workspace
       </nuxt-link>
+      <div
+        v-else-if="canCreateAnyWorkspace"
+        class="dashboard-create-button-wrapper"
+        tabindex="0"
+      >
+        <button
+          type="button"
+          class="btn btn-primary dashboard-create-button disabled"
+          disabled
+          aria-disabled="true"
+        >
+          <app-icon
+            variant="add"
+            size="22"
+            no-margin
+          />
+          Create Workspace
+        </button>
+        <span
+          class="dashboard-disabled-tooltip"
+          role="tooltip"
+        >
+          You do not have permission to create workspaces in this project group
+        </span>
+      </div>
     </header>
     <section
       v-if="requestedWorkspaceNotFound"
@@ -63,6 +89,7 @@
       <h2>No workspaces yet</h2>
       <p>No workspaces exist in the selected project group.</p>
       <nuxt-link
+        v-if="canCreateInCurrentProjectGroup"
         class="btn btn-primary"
         to="/workspace/create"
       >
@@ -268,6 +295,7 @@
 <script setup lang="ts">
 import timelineIcon from '~/assets/img/timeline.svg';
 import { tdeiAuth, tdeiUserClient, workspacesClient } from '~/services/index';
+import { clearWorkspaceMetadata } from '~/services/workspace-metadata';
 import { compareWorkspaceCreatedAtDesc } from '~/services/workspaces';
 import { formatElapsed } from '~/util/time';
 import { ROLE_LABELS } from '~/util/roles';
@@ -276,28 +304,45 @@ import {
   keepOnePinPerProjectGroup,
   writeWorkspacePins,
 } from '~/util/workspace-pins';
+import {
+  readDashboardSelection,
+  resolveProjectGroupId,
+  writeDashboardSelection,
+} from '~/util/dashboard-selection';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 import { parsePositiveIntegerQuery } from '~/util/route-query';
 import { findFailedImportJob } from '~/util/workspace-jobs';
 
 import type { Workspace, WorkspaceCenter } from '~/types/workspaces';
+import type { DashboardSelection } from '~/util/dashboard-selection';
 
 type JobFailureDialog = {
   show: (workspaceId: number) => Promise<void>;
 };
 
-const STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
-const STORAGE_KEY_WORKSPACE = 'tdei-selected-workspace';
+const LEGACY_STORAGE_KEY_PROJECT_GROUP = 'tdei-selected-project-group';
 const route = useRoute();
 const router = useRouter();
 const requestedWorkspaceNotFound = ref(false);
+
+// Fresh metadata on every visit (an export may have changed it). Done here, in
+// setup, because the map and information panel mount, and start loading it,
+// before this page's onMounted runs.
+clearWorkspaceMetadata();
 
 const [initialWorkspaces, { items: myProjectGroups }] = await Promise.all([
   workspacesClient.getMyWorkspaces().then(items => items.sort(compareWorkspaceCreatedAtDesc)),
   tdeiUserClient.getMyProjectGroups(1, '', 10000)
 ]);
 const workspaces = ref<Workspace[]>(initialWorkspaces);
+
+const { setProjectGroups, canCreateInProjectGroup, canCreateAnyWorkspace } = useUserCapabilities();
+setProjectGroups(myProjectGroups);
+
+const canCreateInCurrentProjectGroup = computed(() =>
+  canCreateInProjectGroup(currentProjectGroup.value)
+);
 
 const rolesByProjectGroup = new Map(
   myProjectGroups.map(projectGroup => [projectGroup.tdei_project_group_id, projectGroup.roles])
@@ -306,8 +351,12 @@ const workspacesByProjectGroup = computed(() =>
   Map.groupBy(workspaces.value, workspace => workspace.tdeiProjectGroupId)
 );
 
+const dashboardSelection = loadDashboardSelection();
 const currentProjectGroup = ref<string | null>(
-  getLastProjectGroupId() ?? myProjectGroups[0]?.tdei_project_group_id ?? null
+  resolveProjectGroupId(
+    dashboardSelection.projectGroupId ?? getLegacyProjectGroupId(),
+    myProjectGroups.map(projectGroup => projectGroup.tdei_project_group_id)
+  )
 );
 const currentWorkspace = ref<Workspace>();
 const workspaceSearch = ref('');
@@ -351,9 +400,14 @@ const workspaceUpdatedTime = computed(() =>
     ? formatElapsed(currentWorkspace.value.updatedAt ?? currentWorkspace.value.createdAt)
     : ''
 );
+watch(currentProjectGroup, (projectGroupId) => {
+  dashboardSelection.projectGroupId = projectGroupId;
+  saveDashboardSelection();
+}, { immediate: true });
 watch(currentWorkspace, (workspace) => {
   if (workspace) {
-    setLastWorkspaceId(workspace.id);
+    dashboardSelection.workspaceByProjectGroup[workspace.tdeiProjectGroupId] = workspace.id;
+    saveDashboardSelection(workspace.tdeiProjectGroupId, workspace.id);
   }
 });
 
@@ -374,19 +428,13 @@ watch(
 
 onMounted(() => {
   loadWorkspacePins();
-  if (route.query.workspace == null) {
-    const lastWorkspace = workspaces.value.find(workspace => workspace.id === getLastWorkspaceId());
-    if (lastWorkspace) {
-      currentProjectGroup.value = lastWorkspace.tdeiProjectGroupId;
-      selectWorkspace(lastWorkspace, false);
-    }
-  }
   applyWorkspaceFromRoute();
   if (!requestedWorkspaceNotFound.value) {
     syncSelectedWorkspace(currentWorkspaces.value);
   }
 });
 
+/** Synchronizes the active workspace with the currently selected project group. */
 function syncSelectedWorkspace(
   availableWorkspaces: Workspace[]
 ): void {
@@ -396,14 +444,32 @@ function syncSelectedWorkspace(
 
   if (availableWorkspaces.length === 0) {
     currentWorkspace.value = undefined;
+    clearWorkspaceQuery();
     return;
   }
 
+  // Restore the last selected workspace for this project group, or fall back to the first.
+  const rememberedWorkspaceId = currentProjectGroup.value
+    ? dashboardSelection.workspaceByProjectGroup[currentProjectGroup.value]
+    : undefined;
   const selectedWorkspace = availableWorkspaces.find(
     workspace => workspace.id === currentWorkspace.value?.id
+  ) ?? availableWorkspaces.find(
+    workspace => workspace.id === rememberedWorkspaceId
   );
 
   selectWorkspace(selectedWorkspace ?? availableWorkspaces[0]!);
+}
+
+/** Clears a stale `?workspace=` query parameter when switching to an empty project group. */
+function clearWorkspaceQuery(): void {
+  if (route.query.workspace == null) {
+    return;
+  }
+
+  const query = { ...route.query };
+  delete query.workspace;
+  void router.replace({ path: '/dashboard', query });
 }
 
 function applyWorkspaceFromRoute(): void {
@@ -521,6 +587,7 @@ async function refreshWorkspaces(): Promise<void> {
   refreshingWorkspaces.value = true;
 
   try {
+    clearWorkspaceMetadata();
     const refreshedWorkspaces = await workspacesClient.getMyWorkspaces();
     verifiedCompletedImports.clear();
     const existingWorkspaces = new Map(
@@ -559,13 +626,54 @@ function onCenterLoaded(center: WorkspaceCenter): void {
   }
 }
 
-function getLastProjectGroupId(): string | null {
+/** Loads the saved dashboard project group and workspace selection for the current user. */
+function loadDashboardSelection(): DashboardSelection {
+  if (import.meta.server || !tdeiAuth.subject) {
+    return { projectGroupId: null, workspaceByProjectGroup: {} };
+  }
+
+  try {
+    return readDashboardSelection(localStorage, tdeiAuth.subject);
+  }
+  catch {
+    return { projectGroupId: null, workspaceByProjectGroup: {} };
+  }
+}
+
+/** Re-reads stored selection, merges the latest update, and writes back to localStorage. */
+function saveDashboardSelection(updatedGroupId?: string, updatedWorkspaceId?: number): void {
+  if (import.meta.server || !tdeiAuth.subject) {
+    return;
+  }
+
+  try {
+    const latest = readDashboardSelection(localStorage, tdeiAuth.subject);
+    const workspaceByProjectGroup = {
+      ...latest.workspaceByProjectGroup,
+      ...dashboardSelection.workspaceByProjectGroup,
+    };
+    if (updatedGroupId && updatedWorkspaceId !== undefined) {
+      workspaceByProjectGroup[updatedGroupId] = updatedWorkspaceId;
+    }
+    dashboardSelection.workspaceByProjectGroup = workspaceByProjectGroup;
+    writeDashboardSelection(localStorage, tdeiAuth.subject, {
+      projectGroupId: dashboardSelection.projectGroupId,
+      workspaceByProjectGroup,
+    });
+  }
+  catch {
+    // Browsers can disable storage; selection persistence is optional.
+  }
+}
+
+/** Reads the legacy session-scoped project group selection as a fallback. */
+function getLegacyProjectGroupId(): string | null {
   if (import.meta.server) {
     return null;
   }
 
   try {
-    const rawSelection = sessionStorage.getItem(STORAGE_KEY_PROJECT_GROUP);
+    const rawSelection = sessionStorage.getItem(LEGACY_STORAGE_KEY_PROJECT_GROUP);
     if (!rawSelection) {
       return null;
     }
@@ -575,35 +683,6 @@ function getLastProjectGroupId(): string | null {
   }
   catch {
     return null;
-  }
-}
-
-function getLastWorkspaceId(): number | null {
-  if (import.meta.server) {
-    return null;
-  }
-
-  try {
-    const storedWorkspaceId = Number(sessionStorage.getItem(STORAGE_KEY_WORKSPACE));
-    return Number.isFinite(storedWorkspaceId) && storedWorkspaceId > 0
-      ? storedWorkspaceId
-      : null;
-  }
-  catch {
-    return null;
-  }
-}
-
-function setLastWorkspaceId(workspaceId: number): void {
-  if (import.meta.server) {
-    return;
-  }
-
-  try {
-    sessionStorage.setItem(STORAGE_KEY_WORKSPACE, String(workspaceId));
-  }
-  catch {
-    // Browsers can disable storage. Selection persistence is optional.
   }
 }
 </script>
@@ -688,6 +767,50 @@ $dashboard-create-button-radius: 0.375rem;
   border-radius: $dashboard-create-button-radius;
   box-shadow: $control-shadow;
   white-space: nowrap;
+}
+
+.dashboard-create-button-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: not-allowed;
+
+  .dashboard-create-button.disabled {
+    pointer-events: none;
+  }
+
+  .dashboard-disabled-tooltip {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    z-index: $zindex-tooltip;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.75rem;
+    color: $text-tooltip;
+    background: $surface-tooltip;
+    border-radius: $border-radius;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    pointer-events: none;
+    box-shadow: $box-shadow-sm;
+
+    &::after {
+      content: "";
+      position: absolute;
+      bottom: 100%;
+      right: 1.5rem;
+      border: 0.3rem solid transparent;
+      border-bottom-color: $surface-tooltip;
+    }
+  }
+
+  &:hover .dashboard-disabled-tooltip,
+  &:focus-within .dashboard-disabled-tooltip {
+    opacity: 1;
+    visibility: visible;
+  }
 }
 
 .dashboard-empty-state {

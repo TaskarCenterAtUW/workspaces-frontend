@@ -131,8 +131,9 @@ async function stubReviewApis(page: Page, opts: {
   changesets?: object;
   notes?: object;
   feedback?: object;
+  fixmes?: object;
 } = {}) {
-  // New-API: GET workspaces/{id} (called twice on load).
+  // GET workspaces/{id} (called twice on load).
   await page.route('**/api.test/workspaces/1', route =>
     route.fulfill({ json: opts.workspace ?? reviewWorkspace })
   );
@@ -152,6 +153,11 @@ async function stubReviewApis(page: Page, opts: {
   // OSM: changeset OSC download (text/xml) for items scrolled into view.
   await page.route('**/osm/api/0.6/changeset/*/download**', route =>
     route.fulfill({ contentType: 'application/xml', body: osmChangeXml })
+  );
+
+  // Elements with a fixme tag (none unless a test passes some).
+  await page.route('**/workspaces/1/fixmes', route =>
+    route.fulfill({ json: opts.fixmes ?? [] })
   );
 
   // TDEI: dataset feedback list.
@@ -477,6 +483,29 @@ test.describe('workspace review', () => {
     expect(lon).toBeCloseTo(selectedFeedback.location_longitude);
   });
 
+  test('editing a pathways workspace opens Rapid 3, as from the dashboard', async ({ page }) => {
+    await seedAuthenticatedSession(page);
+    await stubReviewApis(page, { workspace: { ...reviewWorkspace, type: 'pathways' } });
+    await page.route('https://ecn.*.tiles.virtualearth.net/**', route => route.abort());
+
+    await page.goto('/workspace/1/review');
+
+    const feedbackItem = sidebar(page)
+      .locator('.review-item', { hasText: 'This crossing is hard to navigate' });
+    await feedbackItem.click();
+    await expect(page.locator('.map-loading-overlay')).toBeHidden();
+
+    await page.locator('.review-toolbar').getByRole('button', { name: /Edit Here/ }).click();
+
+    await expect.poll(() => {
+      const url = new URL(page.url());
+      return url.pathname === '/workspace/1/edit'
+        && url.searchParams.get('datatype') === 'pathways'
+        && url.searchParams.get('editor') === 'rapid3'
+        && /^#map=[^/]+\/[^/]+\/[^/]+$/.test(url.hash);
+    }, { timeout: 30_000 }).toBe(true);
+  });
+
   // @test e2e: while the data is loading on the map a spinner appears (assert() this is true)
   test('shows a spinner on the map while data is loading', async ({ page }) => {
     await seedAuthenticatedSession(page);
@@ -536,6 +565,61 @@ test.describe('workspace review', () => {
     await expect(items.first()).toContainText('Feedback');
     await expect(items.first())
       .toContainText('This crossing is hard to navigate in a wheelchair');
+  });
+
+  // @test e2e: fixme entries (elements with a fixme tag, from the workspaces API) display in the sidebar with their note;
+  // clicking one draws its element on the map and shows its details, and "Edit" opens the editor with that element selected (assert() the hash selects it, e.g. id=n5);
+  // the "gear" menu's "Fixmes" switch hides them
+  test('lists elements with a fixme tag, opens one selected in the editor, and filters them', async ({ page }) => {
+    const fixme = {
+      type: 'node',
+      id: 5,
+      version: 2,
+      changeset: 4242,
+      timestamp: '2026-06-15T09:00:00',
+      key: 'fixme',
+      note: 'set stop_id to the agency\'s platform stop',
+      lat: 47.605,
+      lon: -122.335,
+      tags: { stop_name: 'Platform A', fixme: 'set stop_id to the agency\'s platform stop' }
+    };
+    await seedAuthenticatedSession(page);
+    await stubReviewApis(page, { fixmes: [fixme] });
+    await page.route('https://ecn.*.tiles.virtualearth.net/**', route => route.abort());
+    // The element is fetched to draw it.
+    const elementRequest = page.waitForRequest('**/osm/api/0.6/node/5.json');
+    await page.route('**/osm/api/0.6/node/5.json', route => route.fulfill({
+      json: { elements: [{ type: 'node', id: 5, lat: fixme.lat, lon: fixme.lon, version: 2, tags: fixme.tags }] }
+    }));
+
+    await page.goto('/workspace/1/review');
+
+    const items = sidebar(page).locator('.review-item');
+    await expect(items).toHaveCount(4);
+    const fixmeItem = items.filter({ hasText: 'Fixme' });
+    await expect(fixmeItem).toContainText(fixme.note);
+    await expect(fixmeItem).toContainText('Platform A (node)');
+
+    await fixmeItem.click();
+    await elementRequest;
+    await expect(page.locator('.maplibregl-popup')).toContainText(fixme.note);
+    await expect(page.getByText('Could not display')).toHaveCount(0);
+    // The details (info) button: the toolbar's first popup toggle (its icon gives it no accessible name).
+    await page.locator('.review-toolbar button[aria-haspopup="true"]').first().click();
+    await expect(page.locator('.review-details')).toContainText('node 5');
+
+    await page.locator('.review-toolbar').getByRole('button', { name: /Edit Here/ }).click();
+    await expect.poll(() => new URL(page.url()).hash, { timeout: 30_000 }).toMatch(/^#map=[^&]+&id=n5$/);
+    expect(new URL(page.url()).pathname).toBe('/workspace/1/edit');
+
+    // Back on the review page, the gear menu's "Fixmes" switch hides them.
+    await page.goto('/workspace/1/review');
+    await expect(items).toHaveCount(4);
+    await sidebar(page).getByRole('button', { name: /Settings/ }).click();
+    await page.getByRole('checkbox', { name: 'Fixmes' }).uncheck();
+    await page.getByRole('button', { name: 'Apply' }).click();
+    await expect(items).toHaveCount(3);
+    await expect(items.filter({ hasText: 'Fixme' })).toHaveCount(0);
   });
 
   // @test e2e: clicking the "refresh" button in the sidebar refreshes the data in the sidebar and on the map (playwright snapshot this)
@@ -834,14 +918,14 @@ test.describe('workspace review', () => {
   });
 
   // @test e2e: validate that all the API calls used on this page match the Swagger spec
-  test('new-API calls conform to the OpenAPI spec', async ({ page }) => {
+  test('API calls conform to the OpenAPI spec', async ({ page }) => {
     await seedAuthenticatedSession(page);
     const contract = recordContract(page);
     await stubReviewApis(page);
 
     await page.goto('/workspace/1/review');
 
-    // Drive enough of the page to exercise its new-API surface.
+    // Drive enough of the page to exercise its API surface.
     await expect(sidebar(page).getByText('Seattle Sidewalks')).toBeVisible();
     await expect(sidebar(page).locator('.review-item')).toHaveCount(3);
 

@@ -37,8 +37,11 @@ export function getDatasetArchiveWarning(
     return 'This ZIP contains metadata.json and may be a direct TDEI dataset download. Upload the dataset ZIP contained inside it instead.';
   }
 
-  if (datasetType === 'pathways' && !inspection.filenames.some(name => name.endsWith('.txt'))) {
-    return 'This ZIP does not contain any .txt files expected for a GTFS Pathways dataset.';
+  // GTFS Pathways come as GTFS .txt files, or as POSM GeoJSON (stops, pathways and
+  // level outlines tagged with their GTFS columns, e.g. from pathways-converter).
+  if (datasetType === 'pathways'
+    && !inspection.filenames.some(name => name.endsWith('.txt') || name.endsWith('.geojson'))) {
+    return 'This ZIP does not contain the GTFS .txt files or POSM .geojson files expected for a GTFS Pathways dataset.';
   }
 
   if (datasetType === 'osw' && !inspection.filenames.some(name => name.endsWith('.geojson'))) {

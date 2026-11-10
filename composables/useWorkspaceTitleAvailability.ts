@@ -58,6 +58,9 @@ export function useWorkspaceTitleAvailability(
     }
   }
 
+  // Immediate so a pre-filled title is checked too: the merge page opens with
+  // "Merged: <name>" already in the field. An empty title still short-circuits
+  // below, so the create pages are unaffected.
   watch([title, projectGroupId], () => {
     ++requestId;
     reset();
@@ -70,7 +73,7 @@ export function useWorkspaceTitleAvailability(
     checkTimer = setTimeout(() => {
       void check();
     }, CHECK_DELAY);
-  });
+  }, { immediate: true });
 
   onUnmounted(() => {
     ++requestId;

@@ -2,15 +2,16 @@ import type { ChangesetManager } from '~/services/changesets';
 import type { OsmApiClient } from '~/services/osm';
 import type { TdeiClient } from '~/services/tdei';
 import type { WorkspacesClient } from '~/services/workspaces';
-import type { OsmChange, OsmChangeset, OsmNote } from '~/types/osm';
+import type { OsmChange, OsmChangeset, OsmFixme, OsmNote } from '~/types/osm';
 import type { TdeiFeedback } from '~/types/tdei';
 import type { Workspace } from '~/types/workspaces';
 
 export const $CHANGESET = Symbol('changeset');
 export const $FEEDBACK = Symbol('feedback');
 export const $NOTE = Symbol('note');
+export const $FIXME = Symbol('fixme');
 
-export type ReviewItemData = OsmChangeset | OsmNote | TdeiFeedback;
+export type ReviewItemData = OsmChangeset | OsmNote | TdeiFeedback | OsmFixme;
 
 export class ReviewListItem {
   readonly type: symbol;
@@ -42,6 +43,19 @@ export class ReviewListItem {
     return this.type === $NOTE;
   }
 
+  get isFixme(): boolean {
+    return this.type === $FIXME;
+  }
+
+  /** For a fixme: its element as the editor names it, e.g. "n5" or "w20". */
+  get elementRef(): string | undefined {
+    if (!this.isFixme) {
+      return undefined;
+    }
+    const fixme = this.data as OsmFixme;
+    return `${fixme.type[0]}${fixme.id}`;
+  }
+
   get isResolved(): boolean {
     switch (this.type) {
       case $CHANGESET:
@@ -52,6 +66,7 @@ export class ReviewListItem {
         return (this.data as OsmNote).status !== 'open';
     }
 
+    // A fixme is open while its tag is there; removing the tag resolves it.
     return false;
   }
 
@@ -67,6 +82,8 @@ export class ReviewListItem {
         return 'Feedback';
       case $NOTE:
         return 'Note';
+      case $FIXME:
+        return 'Fixme';
     }
 
     return 'Unknown';
@@ -80,6 +97,8 @@ export class ReviewListItem {
         return (this.data as TdeiFeedback).feedback_text;
       case $NOTE:
         return (this.data as OsmNote).comments[0]?.text;
+      case $FIXME:
+        return (this.data as OsmFixme).note;
     }
 
     return undefined;
@@ -93,6 +112,12 @@ export class ReviewListItem {
         return (this.data as TdeiFeedback).customer_email;
       case $NOTE:
         return (this.data as OsmNote).comments[0]?.user ?? 'Anonymous';
+      case $FIXME: {
+        // The element it's on: its name if it has one, e.g. "Platform A", else "way 20".
+        const fixme = this.data as OsmFixme;
+        const name = fixme.tags.name || fixme.tags.stop_name || fixme.tags.level_name;
+        return name ? `${name} (${fixme.type})` : `${fixme.type} ${fixme.id}`;
+      }
     }
 
     return 'Unknown';
@@ -127,13 +152,22 @@ export class ReviewListItem {
         return 'bg-danger';
       case $NOTE:
         return 'bg-info';
+      case $FIXME:
+        return 'bg-primary';
     }
 
     return 'bg-secondary';
   }
 
   get badgeIcon(): string {
-    return this.type === $CHANGESET ? 'commit' : 'chat_bubble';
+    switch (this.type) {
+      case $CHANGESET:
+        return 'commit';
+      case $FIXME:
+        return 'flag';
+    }
+
+    return 'chat_bubble';
   }
 
   get changesetCounts() {
@@ -163,6 +197,7 @@ export class ReviewListFilter {
   includeChangesets: boolean = true;
   includeFeedback: boolean = true;
   includeNotes: boolean = true;
+  includeFixmes: boolean = true;
   includeResolved: boolean = false;
   includeNeedsReview: boolean = false;
   startDate: Date | undefined;
@@ -221,6 +256,17 @@ export class ReviewListFilter {
 
     return true;
   }
+
+  testFixme(fixme: OsmFixme) {
+    if (!this.testDates(fixme)) {
+      return false;
+    }
+    if (this.text && !fixme.note.includes(this.text)) {
+      return false;
+    }
+
+    return true;
+  }
 }
 
 function compareCreatedAtDesc(a: ReviewListItem, b: ReviewListItem) {
@@ -254,7 +300,7 @@ export class ReviewList {
 
   async refresh(filter: ReviewListFilter) {
     this.items.length = 0;
-    const [changesets, feedback, notes] = await this.#fetchLists(filter);
+    const [changesets, feedback, notes, fixmes] = await this.#fetchLists(filter);
 
     for (const changeset of changesets) {
       if (filter.testChangeset(changeset)) {
@@ -271,6 +317,12 @@ export class ReviewList {
     for (const note of notes) {
       if (filter.testNote(note)) {
         this.items.push(new ReviewListItem($NOTE, note));
+      }
+    }
+
+    for (const fixme of fixmes) {
+      if (filter.testFixme(fixme)) {
+        this.items.push(new ReviewListItem($FIXME, fixme));
       }
     }
 
@@ -298,6 +350,9 @@ export class ReviewList {
     const notePromise = filter.includeNotes
       ? this.#osmClient.getNotes(this.workspaceId, filter.includeResolved)
       : Promise.resolve([]);
+    const fixmePromise = filter.includeFixmes
+      ? this.#workspacesClient.getFixmes(this.workspaceId)
+      : Promise.resolve([]);
 
     if (!this.workspace) {
       this.workspace = await this.#workspacesClient.getWorkspace(this.workspaceId);
@@ -311,6 +366,7 @@ export class ReviewList {
       changesetPromise,
       feedbackPromise,
       notePromise,
+      fixmePromise,
     ]);
   }
 }

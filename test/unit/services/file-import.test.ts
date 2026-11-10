@@ -34,6 +34,23 @@ describe('dataset archive inspection', () => {
     expect(getDatasetArchiveWarning(inspection, 'pathways')).toBeNull();
   });
 
+  it('accepts a Pathways archive containing POSM geojson files', async () => {
+    const inspection = await inspectDatasetArchive(await createArchive({
+      'beacon_hill/beacon_hill.nodes.geojson': '{"type":"FeatureCollection","features":[]}',
+      'beacon_hill/beacon_hill.edges.geojson': '{"type":"FeatureCollection","features":[]}'
+    }));
+
+    expect(getDatasetArchiveWarning(inspection, 'pathways')).toBeNull();
+  });
+
+  it('warns when a Pathways archive has neither txt nor geojson files', async () => {
+    const inspection = await inspectDatasetArchive(await createArchive({
+      'readme.md': 'nothing here'
+    }));
+
+    expect(getDatasetArchiveWarning(inspection, 'pathways')).toContain('POSM .geojson');
+  });
+
   it('accepts an OpenSidewalks archive containing geojson files', async () => {
     const inspection = await inspectDatasetArchive(await createArchive({
       'network.geojson': '{"type":"FeatureCollection","features":[]}'

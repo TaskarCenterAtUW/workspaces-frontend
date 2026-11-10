@@ -107,6 +107,7 @@ export interface TdeiDatasetApiResponse {
   tdei_dataset_id: string;
   data_type: string;
   status: string;
+  is_released?: boolean;
   project_group: TdeiProjectGroupItem;
   service?: {
     tdei_service_id: string;
@@ -132,6 +133,7 @@ export interface TdeiDatasetSummary {
   name: string;
   version?: string;
   projectGroupName?: string;
+  raw?: TdeiDatasetApiResponse;
 }
 
 export interface TdeiUserItem {
@@ -142,6 +144,17 @@ export interface TdeiUserItem {
   username: string;
   phone: string;
   roles: TdeiRoleAssignment[];
+}
+
+/** How a dataset-viewer feedback item was resolved (TDEI's `resolution_status`). */
+export type TdeiFeedbackResolution = 'fixed' | 'wont_fix' | 'not_an_issue';
+
+/** One item in a TDEI feedback status update. */
+export interface TdeiFeedbackStatusUpdate {
+  id: number;
+  status: 'open' | 'resolved';
+  resolution_status?: TdeiFeedbackResolution;
+  resolution_description?: string;
 }
 
 export interface TdeiFeedback {

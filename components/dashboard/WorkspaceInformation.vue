@@ -65,6 +65,7 @@
 
 <script setup lang="ts">
 import projectsIcon from '~/assets/img/projects.svg';
+import { loadWorkspaceMetadata } from '~/services/workspace-metadata';
 import { formatShort } from '~/util/time';
 import { isRecord, parseMetadata } from '~/util/metadata';
 
@@ -102,7 +103,23 @@ const projectCountValue = computed(() =>
 const projectCountNoun = computed(() =>
   props.workspace.projectsCount === 1 ? 'Project' : 'Projects'
 );
-const parsedMetadata = computed(() => parseMetadata(props.workspace.tdeiMetadata));
+const parsedMetadata = ref<Record<string, unknown> | null>(null);
+let metadataRequestId = 0;
+
+watch(() => props.workspace.id, async (id) => {
+  const requestId = ++metadataRequestId;
+  parsedMetadata.value = null;
+
+  try {
+    const metadata = parseMetadata(await loadWorkspaceMetadata(id));
+    if (requestId === metadataRequestId) {
+      parsedMetadata.value = metadata;
+    }
+  }
+  catch {
+    // Without metadata the panel just omits the dataset version and area.
+  }
+}, { immediate: true });
 const datasetVersion = computed(() => getDatasetVersion(parsedMetadata.value));
 const hasDatasetArea = computed(() => {
   const metadataDetails = parsedMetadata.value?.metadata;
