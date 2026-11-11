@@ -11,6 +11,13 @@
       aria-live="polite"
     >
       <loading-spinner v-if="mapState === 'loading'" />
+      <template v-else-if="mapState === 'setup'">
+        <app-icon
+          variant="hourglass_empty"
+          size="48"
+        />
+        <div>Workspace setup is in progress.</div>
+      </template>
       <template v-else>
         <app-icon
           :variant="mapState === 'error' ? 'error_outline' : 'info'"
@@ -46,7 +53,7 @@ interface Props {
   workspace: Workspace;
 }
 
-type MapState = 'loading' | 'ready' | 'empty' | 'error';
+type MapState = 'loading' | 'ready' | 'empty' | 'error' | 'setup';
 type Bounds = [[number, number], [number, number]];
 
 interface WorkspaceArea {
@@ -68,7 +75,9 @@ const emit = defineEmits<{
 
 const loadingBbox = reactive(new LoadingContext());
 const mapElement = ref<HTMLElement | null>(null);
-const mapState = ref<MapState>('loading');
+const mapState = ref<MapState>(
+  props.workspace.importStatus === 'in-progress' ? 'setup' : 'loading'
+);
 
 let maplibregl: typeof import('maplibre-gl') | null = null;
 let map: import('maplibre-gl').Map | null = null;
@@ -153,8 +162,8 @@ onMounted(() => {
   }
 
   watch(
-    () => props.workspace,
-    workspace => void updateMapPreview(workspace),
+    () => [props.workspace, props.workspace.importStatus] as const,
+    ([workspace]) => void updateMapPreview(workspace),
     { immediate: true }
   );
 });
@@ -220,6 +229,15 @@ async function updateMapPreview(workspace: Workspace) {
   loadingBbox.abort();
 
   currentAreaBounds = null;
+
+  // The import pipeline can expose a provisional/default bbox before it has
+  // replaced it with the dataset's real extent. Do not request or render an
+  // area until the workspace reports that setup has finished.
+  if (workspace.importStatus === 'in-progress') {
+    mapState.value = 'setup';
+    return;
+  }
+
   mapState.value = 'loading';
 
   try {
