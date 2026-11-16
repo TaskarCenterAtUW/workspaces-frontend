@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  CHANGESET_LIST_LIMIT,
   ReviewList,
   ReviewListFilter,
   endOfDateInput,
@@ -22,14 +23,13 @@ function changeset(id: number, uid: number, user: string, createdAt: string): Os
     user,
     created_at: new Date(createdAt),
     tags: { comment: `changeset ${id}` },
-  } as OsmChangeset;
+  } as unknown as OsmChangeset;
 }
 
 function member(id: number, displayName: string): User {
   return { id, auth_uid: `auth-${id}`, email: `${id}@example.com`, display_name: displayName };
 }
 
-// Display names differ from the OSM user names on purpose: matching is by id.
 const changesets = [
   changeset(1, 7, 'mapper_jane', '2026-06-01T10:00:00'),
   changeset(2, 8, 'mapper_bob', '2026-06-05T10:00:00'),
@@ -68,7 +68,7 @@ function makeList(overrides: Partial<Record<'getTeams' | 'getTeamMembers', unkno
     1,
   );
 
-  return { list, workspacesClient };
+  return { list, osmClient, workspacesClient };
 }
 
 function changesetFilter(): ReviewListFilter {
@@ -123,7 +123,7 @@ describe('ReviewListFilter', () => {
 
   it('matches contributors by uid, not by name', () => {
     const filter = new ReviewListFilter();
-    filter.contributorIds = [7];
+    filter.contributorId = 7;
     expect(filter.testChangeset(changeset(1, 7, 'renamed', '2026-06-01T10:00:00'))).toBe(true);
     expect(filter.testChangeset(changeset(2, 8, 'mapper_jane', '2026-06-01T10:00:00'))).toBe(false);
   });
@@ -137,18 +137,28 @@ describe('ReviewListFilter', () => {
 
 describe('ReviewList changeset filters', () => {
   it('shows every changeset with no filters set', async () => {
-    const { list } = makeList();
+    const { list, osmClient } = makeList();
     await list.refresh(changesetFilter());
     expect(ids(list)).toEqual([1, 2, 3, 4]);
+    expect(osmClient.listChangesets).toHaveBeenCalledWith(1, {
+      from: undefined,
+      to: undefined,
+      limit: CHANGESET_LIST_LIMIT,
+    });
   });
 
   it('filters by a date range that includes both end days', async () => {
-    const { list } = makeList();
+    const { list, osmClient } = makeList();
     const filter = changesetFilter();
     filter.startDate = startOfDateInput('2026-06-05');
     filter.endDate = endOfDateInput('2026-06-10');
     await list.refresh(filter);
     expect(ids(list)).toEqual([2, 3]);
+    expect(osmClient.listChangesets).toHaveBeenCalledWith(1, {
+      from: new Date('2026-06-05T00:00:00Z'),
+      to: new Date('2026-06-10T23:59:59Z'),
+      limit: CHANGESET_LIST_LIMIT,
+    });
   });
 
   it('filters by only a From or only a To date', async () => {
@@ -164,22 +174,29 @@ describe('ReviewList changeset filters', () => {
     expect(ids(list)).toEqual([1]);
   });
 
-  it('filters by one or more contributors', async () => {
-    const { list } = makeList();
+  it('filters by one contributor', async () => {
+    const { list, osmClient } = makeList();
     const filter = changesetFilter();
-    filter.contributorIds = [7];
+    filter.contributorId = 7;
     await list.refresh(filter);
     expect(ids(list)).toEqual([1, 4]);
+    expect(osmClient.listChangesets).toHaveBeenLastCalledWith(1, {
+      from: undefined,
+      to: undefined,
+      limit: CHANGESET_LIST_LIMIT,
+      user: 7,
+    });
 
-    filter.contributorIds = [7, 9];
+    filter.contributorId = 9;
     await list.refresh(filter);
-    expect(ids(list)).toEqual([1, 3, 4]);
+    expect(ids(list)).toEqual([3]);
+    expect(osmClient.listChangesets).toHaveBeenCalledWith(1, expect.objectContaining({ user: 9 }));
   });
 
   it('keeps listing every contributor while filtered by one', async () => {
     const { list } = makeList();
     const filter = changesetFilter();
-    filter.contributorIds = [9];
+    filter.contributorId = 9;
     await list.refresh(filter);
     expect(list.contributors.map(c => c.uid)).toEqual([8, 9, 7]);
   });
@@ -210,7 +227,7 @@ describe('ReviewList changeset filters', () => {
     const { list } = makeList();
     const filter = changesetFilter();
     filter.teamIds = [1];
-    filter.contributorIds = [7];
+    filter.contributorId = 7;
     filter.startDate = startOfDateInput('2026-06-10');
     await list.refresh(filter);
     expect(ids(list)).toEqual([4]);

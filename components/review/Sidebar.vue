@@ -8,7 +8,7 @@
         v-model="filter"
         :contributors="contributors"
         :teams="teams"
-        @apply="refresh"
+        @apply="refreshAfterFilter"
       />
     </header>
 
@@ -67,13 +67,14 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits(['refresh']);
+const emit = defineEmits<{
+  refresh: [reason: 'filter' | 'manual'];
+}>();
 const currentItem = defineModel<ReviewListItem>('item');
 const filter = defineModel<ReviewListFilter>('filter', { required: true });
 const reviewListGroup = useTemplateRef<HTMLDivElement>('reviewListGroup');
 const items = reactive(props.reviewList.items);
 
-// The list fills these in place as it loads; copy them once it has finished.
 const contributors = ref<ReviewContributor[]>([]);
 const teams = ref<WorkspaceTeam[]>([]);
 watch(() => props.loading, (loading) => {
@@ -99,10 +100,6 @@ onUnmounted(() => {
   changesetObserver.value?.disconnect();
 });
 
-onUnmounted(() => {
-  changesetObserver.value?.disconnect();
-});
-
 function onChangesetObserved(entries: IntersectionObserverEntry[]) {
   for (const entry of entries) {
     if (entry.isIntersecting) {
@@ -114,7 +111,11 @@ function onChangesetObserved(entries: IntersectionObserverEntry[]) {
 }
 
 function refresh() {
-  emit('refresh');
+  emit('refresh', 'manual');
+}
+
+function refreshAfterFilter() {
+  emit('refresh', 'filter');
 }
 </script>
 

@@ -135,7 +135,6 @@ async function stubReviewApis(page: Page, opts: {
   teams?: object[];
   teamMembers?: Record<number, object[]>;
 } = {}) {
-  // Workspace teams and their members, for the gear menu's team filter.
   await page.route('**/workspaces/1/teams', route =>
     route.fulfill({ json: opts.teams ?? [] })
   );
@@ -578,10 +577,6 @@ test.describe('workspace review', () => {
       .toContainText('This crossing is hard to navigate in a wheelchair');
   });
 
-  // @test e2e: the "gear" menu filters changesets by creation date (From/To, inclusive of both days), by one or more
-  // contributors (listed from the loaded changesets' user/uid), and by one or more workspace teams (the union of each
-  // selected team's members, matched by member id == changeset uid); "From" after "To" disables Apply; the filters
-  // apply only to the changesets the OSM API returned
   test.describe('gear menu changeset filters', () => {
     function filterChangeset(id: number, uid: number, user: string, createdAt: string) {
       return {
@@ -604,7 +599,6 @@ test.describe('workspace review', () => {
       ]
     };
 
-    // Display names deliberately differ from the OSM user names: teams match by id.
     const teams = [
       { id: 1, name: 'North Team', member_count: 2 },
       { id: 2, name: 'South Team', member_count: 1 }
@@ -619,16 +613,19 @@ test.describe('workspace review', () => {
       ]
     };
 
-    async function openFilters(page: Page) {
+    async function openFilters(page: Page, url: string = '/workspace/1/review') {
       await seedAuthenticatedSession(page);
       await stubReviewApis(page, { changesets: filterChangesets, teams, teamMembers });
-      await page.goto('/workspace/1/review');
+      await page.goto(url);
       await expect(sidebar(page).locator('.review-item')).toHaveCount(6);
 
       await sidebar(page).getByRole('button', { name: /Settings/ }).click();
-      // Only changesets, so the counts below are the changeset filters' alone.
       await page.getByRole('checkbox', { name: 'Feedback' }).uncheck();
       await page.getByRole('checkbox', { name: 'Notes' }).uncheck();
+    }
+
+    async function reopenFilters(page: Page) {
+      await sidebar(page).getByRole('button', { name: /Settings/ }).click();
     }
 
     async function expectChangesets(page: Page, ids: number[]) {
@@ -645,8 +642,10 @@ test.describe('workspace review', () => {
       await page.getByLabel('From', { exact: true }).fill('2026-06-05');
       await page.getByLabel('To', { exact: true }).fill('2026-06-10');
       await page.getByRole('button', { name: 'Apply' }).click();
+      await expect(page.locator('.review-filter-menu')).toBeHidden();
       await expectChangesets(page, [102, 103]);
 
+      await reopenFilters(page);
       await page.getByLabel('From', { exact: true }).fill('');
       await page.getByRole('button', { name: 'Apply' }).click();
       await expectChangesets(page, [101, 102, 103]);
@@ -661,21 +660,67 @@ test.describe('workspace review', () => {
       await expect(page.getByRole('button', { name: 'Apply' })).toBeDisabled();
     });
 
-    test('filters by one or more contributors from the loaded changesets', async ({ page }) => {
+    test('filters by one contributor from the loaded changesets', async ({ page }) => {
+      const pageErrors: string[] = [];
+      page.on('pageerror', error => pageErrors.push(error.message));
       await openFilters(page);
 
       const contributors = page.locator('fieldset').filter({ hasText: 'Contributors' });
-      await expect(contributors.getByRole('checkbox')).toHaveCount(3);
+      await expect(contributors.getByRole('radio')).toHaveCount(4);
 
-      await contributors.getByRole('checkbox', { name: 'mapper_jane' }).check();
+      await contributors.getByRole('radio', { name: 'mapper_jane' }).check();
       await page.getByRole('button', { name: 'Apply' }).click();
       await expectChangesets(page, [101, 104]);
 
-      // Every contributor stays listed while filtered.
-      await expect(contributors.getByRole('checkbox')).toHaveCount(3);
-      await contributors.getByRole('checkbox', { name: 'mapper_cy' }).check();
+      await reopenFilters(page);
+      await expect(contributors.getByRole('radio')).toHaveCount(4);
+      await contributors.getByRole('radio', { name: 'mapper_cy' }).check();
       await page.getByRole('button', { name: 'Apply' }).click();
-      await expectChangesets(page, [101, 103, 104]);
+      await expectChangesets(page, [103]);
+      expect(pageErrors).toEqual([]);
+    });
+
+    test('filtering out the selected changeset clears its URL query', async ({ page }) => {
+      await openFilters(page, '/workspace/1/review?source=shared&changeset=102');
+      await expect(sidebar(page).locator('.review-item.active')).toContainText('#102');
+
+      const contributors = page.locator('fieldset').filter({ hasText: 'Contributors' });
+      await contributors.getByRole('radio', { name: 'mapper_jane' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+
+      await expectChangesets(page, [101, 104]);
+      await expect.poll(() => new URL(page.url()).searchParams.has('changeset')).toBe(false);
+      expect(new URL(page.url()).searchParams.get('source')).toBe('shared');
+      await expect(sidebar(page).locator('.review-item.active')).toHaveCount(0);
+      await expect(page.getByRole('alert')).toHaveCount(0);
+    });
+
+    test('persists applied filters in the URL and restores them on reload', async ({ page }) => {
+      await openFilters(page);
+
+      await page.getByLabel('From', { exact: true }).fill('2026-06-05');
+      await page.getByLabel('To', { exact: true }).fill('2026-06-10');
+      await page.locator('fieldset').filter({ hasText: 'Contributors' })
+        .getByRole('radio', { name: 'mapper_bob' }).check();
+      await page.locator('fieldset').filter({ hasText: 'Teams' })
+        .getByRole('checkbox', { name: 'North Team' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [102]);
+
+      const query = new URL(page.url()).searchParams;
+      expect(query.get('types')).toBe('changesets,fixmes');
+      expect(query.get('from')).toBe('2026-06-05');
+      expect(query.get('to')).toBe('2026-06-10');
+      expect(query.get('user')).toBe('8');
+      expect(query.get('teams')).toBe('1');
+
+      await page.reload();
+      await expectChangesets(page, [102]);
+      await reopenFilters(page);
+      await expect(page.getByLabel('From', { exact: true })).toHaveValue('2026-06-05');
+      await expect(page.getByLabel('To', { exact: true })).toHaveValue('2026-06-10');
+      await expect(page.getByRole('radio', { name: 'mapper_bob' })).toBeChecked();
+      await expect(page.getByRole('checkbox', { name: 'North Team' })).toBeChecked();
     });
 
     test('filters by the combined members of one or more teams', async ({ page }) => {
@@ -686,10 +731,12 @@ test.describe('workspace review', () => {
       await page.getByRole('button', { name: 'Apply' }).click();
       await expectChangesets(page, [103]);
 
+      await reopenFilters(page);
       await teamSet.getByRole('checkbox', { name: 'North Team' }).check();
       await page.getByRole('button', { name: 'Apply' }).click();
       await expectChangesets(page, [101, 102, 103, 104]);
 
+      await reopenFilters(page);
       await teamSet.getByRole('checkbox', { name: 'South Team' }).uncheck();
       await page.getByRole('button', { name: 'Apply' }).click();
       await expectChangesets(page, [101, 102, 104]);
@@ -699,15 +746,19 @@ test.describe('workspace review', () => {
       await openFilters(page);
 
       await page.locator('fieldset').filter({ hasText: 'Contributors' })
-        .getByRole('checkbox', { name: 'mapper_bob' }).check();
+        .getByRole('radio', { name: 'mapper_bob' }).check();
       await page.getByLabel('From', { exact: true }).fill('2026-06-01');
       await page.getByRole('button', { name: 'Apply' }).click();
       await expectChangesets(page, [102]);
 
+      await reopenFilters(page);
       await page.getByRole('button', { name: 'Clear changeset filters' }).click();
-      await expect(page.getByLabel('From', { exact: true })).toHaveValue('');
-      await page.getByRole('button', { name: 'Apply' }).click();
+      await expect(page.locator('.review-filter-menu')).toBeHidden();
       await expectChangesets(page, [101, 102, 103, 104]);
+
+      await reopenFilters(page);
+      await expect(page.getByLabel('From', { exact: true })).toHaveValue('');
+      await expect(page.getByRole('radio', { name: 'All contributors' })).toBeChecked();
     });
 
     test('team filter API calls conform to the OpenAPI spec', async ({ page }) => {

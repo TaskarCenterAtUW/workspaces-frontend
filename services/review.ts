@@ -11,10 +11,6 @@ export const $FEEDBACK = Symbol('feedback');
 export const $NOTE = Symbol('note');
 export const $FIXME = Symbol('fixme');
 
-/**
- * The most changesets the OSM API returns from one list call. Review filters
- * apply within these, so they can't find older changesets (see AB#3776).
- */
 export const CHANGESET_LIST_LIMIT = 100;
 
 export type ReviewItemData = OsmChangeset | OsmNote | TdeiFeedback | OsmFixme;
@@ -209,9 +205,7 @@ export class ReviewListFilter {
   startDate: Date | undefined;
   endDate: Date | undefined;
   text: string | undefined;
-  /** OSM uids of the contributors whose changesets to show; empty shows all. */
-  contributorIds: number[] = [];
-  /** Workspace teams whose members' changesets to show; empty shows all. */
+  contributorId: number | undefined;
   teamIds: number[] = [];
 
   get hasDateRangeError(): boolean {
@@ -229,15 +223,11 @@ export class ReviewListFilter {
     return true;
   }
 
-  /**
-   * @param teamMemberIds the OSM uids of the members of the selected teams,
-   *   which ReviewList resolves from `teamIds` before filtering.
-   */
   testChangeset(changeset: OsmChangeset, teamMemberIds?: ReadonlySet<number>) {
     if (!this.testDates(changeset)) {
       return false;
     }
-    if (this.contributorIds.length && !this.contributorIds.includes(changeset.uid)) {
+    if (this.contributorId !== undefined && this.contributorId !== changeset.uid) {
       return false;
     }
     if (this.teamIds.length && !teamMemberIds?.has(changeset.uid)) {
@@ -293,7 +283,6 @@ export class ReviewListFilter {
   }
 }
 
-/** "YYYY-MM-DD" for a date input, in local time. */
 export function toDateInputValue(date: Date | undefined): string {
   if (!date) {
     return '';
@@ -302,7 +291,6 @@ export function toDateInputValue(date: Date | undefined): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-/** The local start of the day a date input names, or undefined when empty. */
 export function startOfDateInput(value: string): Date | undefined {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   return match
@@ -310,7 +298,6 @@ export function startOfDateInput(value: string): Date | undefined {
     : undefined;
 }
 
-/** The local end of the day a date input names, so the range includes that day. */
 export function endOfDateInput(value: string): Date | undefined {
   const start = startOfDateInput(value);
   return start
@@ -323,7 +310,6 @@ export interface ReviewContributor {
   user: string;
 }
 
-/** The distinct contributors of some changesets, sorted by name. */
 export function listContributors(changesets: OsmChangeset[]): ReviewContributor[] {
   const byUid = new Map<number, ReviewContributor>();
   for (const { uid, user } of changesets) {
@@ -348,9 +334,7 @@ export class ReviewList {
 
   readonly workspaceId: number;
   readonly items: ReviewListItem[] = [];
-  /** Everyone with a changeset in the last list fetched, to filter by. */
   readonly contributors: ReviewContributor[] = [];
-  /** The workspace's teams, to filter by. */
   readonly teams: WorkspaceTeam[] = [];
 
   workspace?: Workspace;
@@ -378,8 +362,10 @@ export class ReviewList {
       this.#loadTeams(),
     ]);
 
-    // From every changeset fetched, so a contributor stays selectable while filtered.
-    this.contributors.splice(0, this.contributors.length, ...listContributors(changesets));
+    // A filtered response only contains the selected contributor.
+    if (filter.contributorId === undefined || !this.contributors.length) {
+      this.contributors.splice(0, this.contributors.length, ...listContributors(changesets));
+    }
 
     for (const changeset of changesets) {
       if (filter.testChangeset(changeset, teamMemberIds)) {
@@ -433,24 +419,22 @@ export class ReviewList {
       this.#teamsLoaded = true;
     }
     catch (error: unknown) {
-      // The list still works without team filtering; try again next refresh.
       console.warn('Could not load the workspace teams.', error);
     }
   }
 
-  /** The OSM uids of everyone on the given teams. */
   async #fetchTeamMemberIds(teamIds: number[]): Promise<Set<number>> {
     const memberLists = await Promise.all(
       teamIds.map(teamId => this.#workspacesClient.getTeamMembers(this.workspaceId, teamId))
     );
 
-    // Team members are users in the OSM DB, so their id is the changeset's uid.
+    // Workspace user IDs match changeset uids.
     return new Set(memberLists.flat().map(member => member.id));
   }
 
   async #fetchLists(filter: ReviewListFilter) {
     const changesetPromise = filter.includeChangesets
-      ? this.#osmClient.listChangesets(this.workspaceId)
+      ? this.#fetchChangesets(filter)
       : Promise.resolve([]);
     const notePromise = filter.includeNotes
       ? this.#osmClient.getNotes(this.workspaceId, filter.includeResolved)
@@ -474,6 +458,35 @@ export class ReviewList {
       fixmePromise,
     ]);
   }
+
+  async #fetchChangesets(filter: ReviewListFilter): Promise<OsmChangeset[]> {
+    const params = {
+      from: filter.startDate ? toChangesetApiDate(filter.startDate) : undefined,
+      to: filter.endDate ? toChangesetApiDate(filter.endDate) : undefined,
+      limit: CHANGESET_LIST_LIMIT,
+    };
+
+    if (filter.contributorId === undefined) {
+      return await this.#osmClient.listChangesets(this.workspaceId, params);
+    }
+
+    return await this.#osmClient.listChangesets(this.workspaceId, {
+      ...params,
+      user: filter.contributorId,
+    });
+  }
+}
+
+// Keep the selected local date when building the UTC API value.
+function toChangesetApiDate(date: Date): Date {
+  return new Date(Date.UTC(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    date.getHours(),
+    date.getMinutes(),
+    date.getSeconds(),
+  ));
 }
 
 export class ReviewManager {

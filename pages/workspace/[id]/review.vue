@@ -7,10 +7,6 @@ snapshot this and assert() the URL has the proper hash for the map view)
 // @test e2e: while the data is loading on the map a spinner appears (assert() this is true)
 // @test e2e: the "gear" menu allows filtering of the elements in the sidebar--make sure the simulated response and the
 display on the UI matches (playright snapshot or assert() this)
-// @test e2e: the "gear" menu filters changesets by creation date (From/To, inclusive of both days), by one or more
-contributors (listed from the loaded changesets' user/uid), and by one or more workspace teams (the union of each
-selected team's members, matched by member id == changeset uid); "From" after "To" disables Apply; the filters apply
-only to the changesets the OSM API returned (assert() the sidebar matches the simulated responses)
 // @test e2e: clicking the "refresh" button in the sidebar refreshes the data in the sidebar and on the map (playwright
 snapshot this)
 // @test e2e: check that both changeset entries and feedback entries display in the sidebar, and that clicking on each
@@ -137,7 +133,12 @@ import { streetImageUrl, resolveStreetImageUrl } from '~/util/street-images';
 import { parsePositiveIntegerQuery } from '~/util/route-query';
 import type ReviewMap from '~/components/review/Map.vue';
 import type AppImageViewer from '~/components/AppImageViewer.vue';
-import type { ReviewListItem } from '~/services/review.ts';
+import {
+  endOfDateInput,
+  startOfDateInput,
+  toDateInputValue,
+} from '~/services/review';
+import type { ReviewListFilter, ReviewListItem } from '~/services/review';
 import type { AdiffAction } from '~/types/adiff';
 import type { OsmChangeset } from '~/types/osm';
 import type { TdeiFeedback, TdeiFeedbackResolution } from '~/types/tdei';
@@ -149,8 +150,16 @@ const workspaceId = Number(route.params.id);
 const workspace = await workspacesClient.getWorkspace(workspaceId);
 provide('workspace', workspace);
 
+const FILTER_TYPES = {
+  changesets: 'includeChangesets',
+  feedback: 'includeFeedback',
+  notes: 'includeNotes',
+  fixmes: 'includeFixmes',
+} as const;
+
 const reviewList = reviewManager.getList(workspaceId);
 const filter = reactive(reviewManager.getFilter());
+applyFiltersFromRoute(filter);
 if (getRequestedChangesetId()) {
   filter.includeResolved = true;
 }
@@ -275,7 +284,7 @@ async function updateChangesetQuery(
   await router.push({ query });
 }
 
-async function refresh() {
+async function refresh(reason: 'filter' | 'manual' | 'initial' = 'initial') {
   if (loading.value) {
     return;
   }
@@ -284,7 +293,23 @@ async function refresh() {
 
   try {
     await reviewList.refresh(filter);
-    applyChangesetFromRoute();
+    const requestedChangesetId = getRequestedChangesetId();
+    const clearRequestedChangeset = Boolean(
+      reason === 'filter'
+      && requestedChangesetId
+      && !findChangeset(requestedChangesetId)
+    );
+
+    if (reason === 'filter') {
+      await persistFiltersInRoute(clearRequestedChangeset);
+    }
+
+    if (clearRequestedChangeset) {
+      currentItem.value = undefined;
+    }
+    else {
+      applyChangesetFromRoute();
+    }
   }
   catch (error: unknown) {
     console.error('Failed to load the review list', error);
@@ -292,6 +317,98 @@ async function refresh() {
   }
   finally {
     loading.value = false;
+  }
+}
+
+function applyFiltersFromRoute(target: ReviewListFilter): void {
+  const types = getQueryString(route.query.types);
+  if (types !== undefined) {
+    const selectedTypes = new Set(types.split(',').filter(Boolean));
+    const hasKnownType = !types || Object.keys(FILTER_TYPES).some(type => selectedTypes.has(type));
+
+    if (hasKnownType) {
+      for (const [type, property] of Object.entries(FILTER_TYPES)) {
+        target[property] = selectedTypes.has(type);
+      }
+    }
+  }
+
+  target.includeResolved = getQueryString(route.query.resolved) === '1';
+  target.includeNeedsReview = getQueryString(route.query.needsReview) === '1';
+
+  const from = getQueryString(route.query.from);
+  const to = getQueryString(route.query.to);
+  target.startDate = parseRouteDate(from, startOfDateInput);
+  target.endDate = parseRouteDate(to, endOfDateInput);
+  target.contributorId = route.query.user === undefined
+    ? undefined
+    : parsePositiveIntegerQuery(route.query.user);
+  target.teamIds = parsePositiveIntegerList(getQueryString(route.query.teams));
+}
+
+async function persistFiltersInRoute(clearChangeset: boolean): Promise<void> {
+  const query = { ...route.query };
+  const selectedTypes = Object.entries(FILTER_TYPES)
+    .filter(([, property]) => filter[property])
+    .map(([type]) => type);
+
+  setOptionalQuery(
+    query,
+    'types',
+    selectedTypes.length === Object.keys(FILTER_TYPES).length
+      ? undefined
+      : selectedTypes.join(','),
+  );
+  setOptionalQuery(query, 'resolved', filter.includeResolved ? '1' : undefined);
+  setOptionalQuery(query, 'needsReview', filter.includeNeedsReview ? '1' : undefined);
+  setOptionalQuery(query, 'from', filter.startDate ? toDateInputValue(filter.startDate) : undefined);
+  setOptionalQuery(query, 'to', filter.endDate ? toDateInputValue(filter.endDate) : undefined);
+  setOptionalQuery(query, 'user', filter.contributorId?.toString());
+  setOptionalQuery(query, 'teams', filter.teamIds.length ? filter.teamIds.join(',') : undefined);
+
+  if (clearChangeset) {
+    delete query.changeset;
+  }
+
+  await router.replace({ query });
+}
+
+function getQueryString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function parseRouteDate(
+  value: string | undefined,
+  parse: (value: string) => Date | undefined,
+): Date | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = parse(value);
+  return date && toDateInputValue(date) === value ? date : undefined;
+}
+
+function parsePositiveIntegerList(value: string | undefined): number[] {
+  if (!value) {
+    return [];
+  }
+
+  return [...new Set(value.split(',')
+    .map(Number)
+    .filter(id => Number.isSafeInteger(id) && id > 0))];
+}
+
+function setOptionalQuery(
+  query: typeof route.query,
+  key: string,
+  value: string | undefined,
+): void {
+  if (value === undefined) {
+    Reflect.deleteProperty(query, key);
+  }
+  else {
+    query[key] = value;
   }
 }
 

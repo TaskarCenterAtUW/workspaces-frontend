@@ -1,5 +1,6 @@
 <template>
   <b-dropdown
+    v-model="dropdownOpen"
     class="ms-auto"
     toggle-class="border"
     variant="light"
@@ -8,6 +9,7 @@
     auto-close="outside"
     menu-class="review-filter-menu"
     no-caret
+    @hidden="onDropdownHidden"
   >
     <template #button-content>
       <app-icon
@@ -129,6 +131,17 @@
           v-if="props.contributors.length"
           class="review-filter-options"
         >
+          <div class="form-check">
+            <label class="form-check-label">
+              <input
+                v-model="filter.contributorId"
+                type="radio"
+                class="form-check-input"
+                :value="undefined"
+              >
+              All contributors
+            </label>
+          </div>
           <div
             v-for="contributor in props.contributors"
             :key="contributor.uid"
@@ -136,8 +149,8 @@
           >
             <label class="form-check-label">
               <input
-                v-model="filter.contributorIds"
-                type="checkbox"
+                v-model="filter.contributorId"
+                type="radio"
                 class="form-check-input"
                 :value="contributor.uid"
               >
@@ -186,8 +199,8 @@
       </fieldset>
 
       <p class="text-body-secondary small mb-0">
-        These filters apply to changesets, within the most recent
-        {{ CHANGESET_LIST_LIMIT }} the server returns.
+        Date and contributor filters are sent to the server. Team filters apply
+        to the matching {{ CHANGESET_LIST_LIMIT }} changesets it returns.
       </p>
     </div>
 
@@ -234,6 +247,8 @@ const props = withDefaults(defineProps<Props>(), {
 });
 const filter = defineModel<ReviewListFilter>({ required: true });
 const emit = defineEmits(['apply']);
+const dropdownOpen = ref(false);
+let applyAfterClose = false;
 
 const fromDate = computed({
   get: () => toDateInputValue(filter.value.startDate),
@@ -250,7 +265,7 @@ const toDate = computed({
 const hasChangesetFilters = computed(() => Boolean(
   filter.value.startDate
   || filter.value.endDate
-  || filter.value.contributorIds.length
+  || filter.value.contributorId !== undefined
   || filter.value.teamIds.length
 ));
 
@@ -258,20 +273,39 @@ function apply() {
   if (filter.value.hasDateRangeError) {
     return;
   }
-  emit('apply');
+  closeAndApply();
 }
 
 function clearChangesetFilters() {
   filter.value.startDate = undefined;
   filter.value.endDate = undefined;
-  filter.value.contributorIds = [];
+  filter.value.contributorId = undefined;
   filter.value.teamIds = [];
+  closeAndApply();
+}
+
+function closeAndApply() {
+  if (!dropdownOpen.value) {
+    emit('apply');
+    return;
+  }
+
+  applyAfterClose = true;
+  dropdownOpen.value = false;
+}
+
+function onDropdownHidden() {
+  if (!applyAfterClose) {
+    return;
+  }
+
+  applyAfterClose = false;
+  emit('apply');
 }
 </script>
 
 <style lang="scss">
 .review-filter-menu {
-  // Taller than a short window; scroll inside rather than off the page.
   max-height: calc(100vh - 9rem);
   overflow-y: auto;
 }
@@ -301,7 +335,6 @@ function clearChangesetFilters() {
   max-height: 8rem;
   overflow-y: auto;
 
-  // Long names wrap; the sidebar otherwise keeps labels on one line.
   .form-check-label {
     white-space: normal;
     overflow-wrap: anywhere;
