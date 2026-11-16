@@ -48,6 +48,12 @@ export default defineNuxtConfig({
     }
   },
   sourcemap: { client: 'hidden' },
+  // These directories contain generated coverage data and auxiliary worktrees.
+  // Watching them can exhaust macOS file descriptors before Vite finishes.
+  ignore: [
+    '**/.claude',
+    '**/.nyc_output',
+  ],
   devServer: {
     host: '0.0.0.0',
   },
