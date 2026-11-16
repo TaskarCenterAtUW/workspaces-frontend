@@ -7,6 +7,10 @@ snapshot this and assert() the URL has the proper hash for the map view)
 // @test e2e: while the data is loading on the map a spinner appears (assert() this is true)
 // @test e2e: the "gear" menu allows filtering of the elements in the sidebar--make sure the simulated response and the
 display on the UI matches (playright snapshot or assert() this)
+// @test e2e: the "gear" menu filters changesets by creation date (From/To, inclusive of both days), by one or more
+contributors (listed from the loaded changesets' user/uid), and by one or more workspace teams (the union of each
+selected team's members, matched by member id == changeset uid); "From" after "To" disables Apply; the filters apply
+only to the changesets the OSM API returned (assert() the sidebar matches the simulated responses)
 // @test e2e: clicking the "refresh" button in the sidebar refreshes the data in the sidebar and on the map (playwright
 snapshot this)
 // @test e2e: check that both changeset entries and feedback entries display in the sidebar, and that clicking on each
@@ -281,6 +285,10 @@ async function refresh() {
   try {
     await reviewList.refresh(filter);
     applyChangesetFromRoute();
+  }
+  catch (error: unknown) {
+    console.error('Failed to load the review list', error);
+    toast.error('Could not load the review list.');
   }
   finally {
     loading.value = false;

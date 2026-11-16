@@ -6,6 +6,7 @@
     size="sm"
     placement="bottom-end"
     auto-close="outside"
+    menu-class="review-filter-menu"
     no-caret
   >
     <template #button-content>
@@ -84,26 +85,226 @@
       </div>
     </div>
 
-    <div class="dropdown-divider" />
+    <b-dropdown-divider />
 
-    <div class="px-3 py-2">
+    <div class="px-3 py-2 review-filter-changesets">
+      <fieldset class="mb-2">
+        <legend class="review-filter-legend">
+          Created
+        </legend>
+        <div class="d-flex gap-2">
+          <label class="review-filter-date">
+            From
+            <input
+              v-model="fromDate"
+              type="date"
+              class="form-control form-control-sm"
+              :max="toDate || undefined"
+            >
+          </label>
+          <label class="review-filter-date">
+            To
+            <input
+              v-model="toDate"
+              type="date"
+              class="form-control form-control-sm"
+              :min="fromDate || undefined"
+            >
+          </label>
+        </div>
+        <p
+          v-if="filter.hasDateRangeError"
+          class="text-danger small mb-0 mt-1"
+          role="alert"
+        >
+          "From" must be on or before "To".
+        </p>
+      </fieldset>
+
+      <fieldset class="mb-2">
+        <legend class="review-filter-legend">
+          Contributors
+        </legend>
+        <div
+          v-if="props.contributors.length"
+          class="review-filter-options"
+        >
+          <div
+            v-for="contributor in props.contributors"
+            :key="contributor.uid"
+            class="form-check"
+          >
+            <label class="form-check-label">
+              <input
+                v-model="filter.contributorIds"
+                type="checkbox"
+                class="form-check-input"
+                :value="contributor.uid"
+              >
+              {{ contributor.user }}
+            </label>
+          </div>
+        </div>
+        <p
+          v-else
+          class="text-body-secondary small mb-0"
+        >
+          No contributors in the loaded changesets.
+        </p>
+      </fieldset>
+
+      <fieldset class="mb-2">
+        <legend class="review-filter-legend">
+          Teams
+        </legend>
+        <div
+          v-if="props.teams.length"
+          class="review-filter-options"
+        >
+          <div
+            v-for="team in props.teams"
+            :key="team.id"
+            class="form-check"
+          >
+            <label class="form-check-label">
+              <input
+                v-model="filter.teamIds"
+                type="checkbox"
+                class="form-check-input"
+                :value="team.id"
+              >
+              {{ team.name }}
+            </label>
+          </div>
+        </div>
+        <p
+          v-else
+          class="text-body-secondary small mb-0"
+        >
+          This workspace has no teams.
+        </p>
+      </fieldset>
+
+      <p class="text-body-secondary small mb-0">
+        These filters apply to changesets, within the most recent
+        {{ CHANGESET_LIST_LIMIT }} the server returns.
+      </p>
+    </div>
+
+    <b-dropdown-divider />
+
+    <div class="px-3 py-2 d-flex gap-2">
       <button
         class="btn btn-primary btn-sm"
+        :disabled="filter.hasDateRangeError"
         @click="apply"
       >
         Apply
+      </button>
+      <button
+        class="btn btn-light border btn-sm"
+        type="button"
+        :disabled="!hasChangesetFilters"
+        @click="clearChangesetFilters"
+      >
+        Clear changeset filters
       </button>
     </div>
   </b-dropdown>
 </template>
 
 <script setup lang="ts">
-import type { ReviewListFilter } from '~/services/review';
+import {
+  CHANGESET_LIST_LIMIT,
+  endOfDateInput,
+  startOfDateInput,
+  toDateInputValue,
+} from '~/services/review';
+import type { ReviewContributor, ReviewListFilter } from '~/services/review';
+import type { WorkspaceTeam } from '~/types/workspaces';
 
+interface Props {
+  contributors?: ReviewContributor[];
+  teams?: WorkspaceTeam[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  contributors: () => [],
+  teams: () => []
+});
 const filter = defineModel<ReviewListFilter>({ required: true });
 const emit = defineEmits(['apply']);
 
+const fromDate = computed({
+  get: () => toDateInputValue(filter.value.startDate),
+  set: (value: string) => {
+    filter.value.startDate = startOfDateInput(value);
+  }
+});
+const toDate = computed({
+  get: () => toDateInputValue(filter.value.endDate),
+  set: (value: string) => {
+    filter.value.endDate = endOfDateInput(value);
+  }
+});
+const hasChangesetFilters = computed(() => Boolean(
+  filter.value.startDate
+  || filter.value.endDate
+  || filter.value.contributorIds.length
+  || filter.value.teamIds.length
+));
+
 function apply() {
+  if (filter.value.hasDateRangeError) {
+    return;
+  }
   emit('apply');
 }
+
+function clearChangesetFilters() {
+  filter.value.startDate = undefined;
+  filter.value.endDate = undefined;
+  filter.value.contributorIds = [];
+  filter.value.teamIds = [];
+}
 </script>
+
+<style lang="scss">
+.review-filter-menu {
+  // Taller than a short window; scroll inside rather than off the page.
+  max-height: calc(100vh - 9rem);
+  overflow-y: auto;
+}
+
+.review-filter-changesets {
+  width: 21rem;
+  max-width: calc(100vw - 2rem);
+
+  fieldset {
+    min-width: 0;
+  }
+}
+
+.review-filter-legend {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.review-filter-date {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.875rem;
+}
+
+.review-filter-options {
+  max-height: 8rem;
+  overflow-y: auto;
+
+  // Long names wrap; the sidebar otherwise keeps labels on one line.
+  .form-check-label {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+</style>

@@ -4,12 +4,18 @@ import type { TdeiClient } from '~/services/tdei';
 import type { WorkspacesClient } from '~/services/workspaces';
 import type { OsmChange, OsmChangeset, OsmFixme, OsmNote } from '~/types/osm';
 import type { TdeiFeedback } from '~/types/tdei';
-import type { Workspace } from '~/types/workspaces';
+import type { Workspace, WorkspaceTeam } from '~/types/workspaces';
 
 export const $CHANGESET = Symbol('changeset');
 export const $FEEDBACK = Symbol('feedback');
 export const $NOTE = Symbol('note');
 export const $FIXME = Symbol('fixme');
+
+/**
+ * The most changesets the OSM API returns from one list call. Review filters
+ * apply within these, so they can't find older changesets (see AB#3776).
+ */
+export const CHANGESET_LIST_LIMIT = 100;
 
 export type ReviewItemData = OsmChangeset | OsmNote | TdeiFeedback | OsmFixme;
 
@@ -203,6 +209,14 @@ export class ReviewListFilter {
   startDate: Date | undefined;
   endDate: Date | undefined;
   text: string | undefined;
+  /** OSM uids of the contributors whose changesets to show; empty shows all. */
+  contributorIds: number[] = [];
+  /** Workspace teams whose members' changesets to show; empty shows all. */
+  teamIds: number[] = [];
+
+  get hasDateRangeError(): boolean {
+    return !!(this.startDate && this.endDate && this.startDate > this.endDate);
+  }
 
   testDates(item: ReviewItemData): boolean {
     if (this.startDate && item.created_at < this.startDate) {
@@ -215,8 +229,18 @@ export class ReviewListFilter {
     return true;
   }
 
-  testChangeset(changeset: OsmChangeset) {
+  /**
+   * @param teamMemberIds the OSM uids of the members of the selected teams,
+   *   which ReviewList resolves from `teamIds` before filtering.
+   */
+  testChangeset(changeset: OsmChangeset, teamMemberIds?: ReadonlySet<number>) {
     if (!this.testDates(changeset)) {
+      return false;
+    }
+    if (this.contributorIds.length && !this.contributorIds.includes(changeset.uid)) {
+      return false;
+    }
+    if (this.teamIds.length && !teamMemberIds?.has(changeset.uid)) {
       return false;
     }
     if (this.text && !changeset.tags?.comment?.includes(this.text)) {
@@ -269,6 +293,49 @@ export class ReviewListFilter {
   }
 }
 
+/** "YYYY-MM-DD" for a date input, in local time. */
+export function toDateInputValue(date: Date | undefined): string {
+  if (!date) {
+    return '';
+  }
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** The local start of the day a date input names, or undefined when empty. */
+export function startOfDateInput(value: string): Date | undefined {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match
+    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : undefined;
+}
+
+/** The local end of the day a date input names, so the range includes that day. */
+export function endOfDateInput(value: string): Date | undefined {
+  const start = startOfDateInput(value);
+  return start
+    ? new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 59, 999)
+    : undefined;
+}
+
+export interface ReviewContributor {
+  uid: number;
+  user: string;
+}
+
+/** The distinct contributors of some changesets, sorted by name. */
+export function listContributors(changesets: OsmChangeset[]): ReviewContributor[] {
+  const byUid = new Map<number, ReviewContributor>();
+  for (const { uid, user } of changesets) {
+    if (!byUid.has(uid)) {
+      byUid.set(uid, { uid, user });
+    }
+  }
+
+  return [...byUid.values()]
+    .sort((a, b) => a.user.localeCompare(b.user) || a.uid - b.uid);
+}
+
 function compareCreatedAtDesc(a: ReviewListItem, b: ReviewListItem) {
   return b.data.created_at.getTime() - a.data.created_at.getTime();
 }
@@ -281,8 +348,13 @@ export class ReviewList {
 
   readonly workspaceId: number;
   readonly items: ReviewListItem[] = [];
+  /** Everyone with a changeset in the last list fetched, to filter by. */
+  readonly contributors: ReviewContributor[] = [];
+  /** The workspace's teams, to filter by. */
+  readonly teams: WorkspaceTeam[] = [];
 
   workspace?: Workspace;
+  #teamsLoaded = false;
 
   constructor(
     changesets: ChangesetManager,
@@ -300,10 +372,17 @@ export class ReviewList {
 
   async refresh(filter: ReviewListFilter) {
     this.items.length = 0;
-    const [changesets, feedback, notes, fixmes] = await this.#fetchLists(filter);
+    const [[changesets, feedback, notes, fixmes], teamMemberIds] = await Promise.all([
+      this.#fetchLists(filter),
+      this.#fetchTeamMemberIds(filter.teamIds),
+      this.#loadTeams(),
+    ]);
+
+    // From every changeset fetched, so a contributor stays selectable while filtered.
+    this.contributors.splice(0, this.contributors.length, ...listContributors(changesets));
 
     for (const changeset of changesets) {
-      if (filter.testChangeset(changeset)) {
+      if (filter.testChangeset(changeset, teamMemberIds)) {
         this.items.push(new ReviewListItem($CHANGESET, changeset));
       }
     }
@@ -341,6 +420,32 @@ export class ReviewList {
     catch (error: unknown) {
       console.warn('Could not preload the changeset details.', error);
     }
+  }
+
+  async #loadTeams() {
+    if (this.#teamsLoaded) {
+      return;
+    }
+
+    try {
+      const teams = await this.#workspacesClient.getTeams(this.workspaceId);
+      this.teams.splice(0, this.teams.length, ...teams);
+      this.#teamsLoaded = true;
+    }
+    catch (error: unknown) {
+      // The list still works without team filtering; try again next refresh.
+      console.warn('Could not load the workspace teams.', error);
+    }
+  }
+
+  /** The OSM uids of everyone on the given teams. */
+  async #fetchTeamMemberIds(teamIds: number[]): Promise<Set<number>> {
+    const memberLists = await Promise.all(
+      teamIds.map(teamId => this.#workspacesClient.getTeamMembers(this.workspaceId, teamId))
+    );
+
+    // Team members are users in the OSM DB, so their id is the changeset's uid.
+    return new Set(memberLists.flat().map(member => member.id));
   }
 
   async #fetchLists(filter: ReviewListFilter) {

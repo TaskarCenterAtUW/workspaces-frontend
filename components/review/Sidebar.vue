@@ -6,6 +6,8 @@
       </h2>
       <review-filter-dropdown
         v-model="filter"
+        :contributors="contributors"
+        :teams="teams"
         @apply="refresh"
       />
     </header>
@@ -52,10 +54,12 @@
 <script setup lang="ts">
 import type { ItemElement } from '~/components/review/Item.vue';
 import type {
+  ReviewContributor,
   ReviewList,
   ReviewListFilter,
   ReviewListItem,
 } from '~/services/review';
+import type { WorkspaceTeam } from '~/types/workspaces';
 
 interface Props {
   reviewList: ReviewList;
@@ -68,6 +72,16 @@ const currentItem = defineModel<ReviewListItem>('item');
 const filter = defineModel<ReviewListFilter>('filter', { required: true });
 const reviewListGroup = useTemplateRef<HTMLDivElement>('reviewListGroup');
 const items = reactive(props.reviewList.items);
+
+// The list fills these in place as it loads; copy them once it has finished.
+const contributors = ref<ReviewContributor[]>([]);
+const teams = ref<WorkspaceTeam[]>([]);
+watch(() => props.loading, (loading) => {
+  if (!loading) {
+    contributors.value = [...props.reviewList.contributors];
+    teams.value = [...props.reviewList.teams];
+  }
+}, { immediate: true });
 
 const changesetObserver = shallowRef<IntersectionObserver>();
 

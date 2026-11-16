@@ -132,7 +132,18 @@ async function stubReviewApis(page: Page, opts: {
   notes?: object;
   feedback?: object;
   fixmes?: object;
+  teams?: object[];
+  teamMembers?: Record<number, object[]>;
 } = {}) {
+  // Workspace teams and their members, for the gear menu's team filter.
+  await page.route('**/workspaces/1/teams', route =>
+    route.fulfill({ json: opts.teams ?? [] })
+  );
+  await page.route('**/workspaces/1/teams/*/members', (route) => {
+    const teamId = Number(new URL(route.request().url()).pathname.split('/').at(-2));
+    return route.fulfill({ json: opts.teamMembers?.[teamId] ?? [] });
+  });
+
   // GET workspaces/{id} (called twice on load).
   await page.route('**/api.test/workspaces/1', route =>
     route.fulfill({ json: opts.workspace ?? reviewWorkspace })
@@ -565,6 +576,151 @@ test.describe('workspace review', () => {
     await expect(items.first()).toContainText('Feedback');
     await expect(items.first())
       .toContainText('This crossing is hard to navigate in a wheelchair');
+  });
+
+  // @test e2e: the "gear" menu filters changesets by creation date (From/To, inclusive of both days), by one or more
+  // contributors (listed from the loaded changesets' user/uid), and by one or more workspace teams (the union of each
+  // selected team's members, matched by member id == changeset uid); "From" after "To" disables Apply; the filters
+  // apply only to the changesets the OSM API returned
+  test.describe('gear menu changeset filters', () => {
+    function filterChangeset(id: number, uid: number, user: string, createdAt: string) {
+      return {
+        ...changesets.changesets[0]!,
+        id,
+        uid,
+        user,
+        created_at: createdAt,
+        closed_at: createdAt,
+        tags: { comment: `Changeset ${id} by ${user}` }
+      };
+    }
+
+    const filterChangesets = {
+      changesets: [
+        filterChangeset(101, 7, 'mapper_jane', '2026-06-01T12:00:00.000Z'),
+        filterChangeset(102, 8, 'mapper_bob', '2026-06-05T12:00:00.000Z'),
+        filterChangeset(103, 9, 'mapper_cy', '2026-06-10T12:00:00.000Z'),
+        filterChangeset(104, 7, 'mapper_jane', '2026-06-15T12:00:00.000Z')
+      ]
+    };
+
+    // Display names deliberately differ from the OSM user names: teams match by id.
+    const teams = [
+      { id: 1, name: 'North Team', member_count: 2 },
+      { id: 2, name: 'South Team', member_count: 1 }
+    ];
+    const teamMembers = {
+      1: [
+        { id: 7, auth_uid: 'auth-7', email: 'jane@example.com', display_name: 'Jane D.' },
+        { id: 8, auth_uid: 'auth-8', email: 'bob@example.com', display_name: 'Bob B.' }
+      ],
+      2: [
+        { id: 9, auth_uid: 'auth-9', email: 'cy@example.com', display_name: 'Cy C.' }
+      ]
+    };
+
+    async function openFilters(page: Page) {
+      await seedAuthenticatedSession(page);
+      await stubReviewApis(page, { changesets: filterChangesets, teams, teamMembers });
+      await page.goto('/workspace/1/review');
+      await expect(sidebar(page).locator('.review-item')).toHaveCount(6);
+
+      await sidebar(page).getByRole('button', { name: /Settings/ }).click();
+      // Only changesets, so the counts below are the changeset filters' alone.
+      await page.getByRole('checkbox', { name: 'Feedback' }).uncheck();
+      await page.getByRole('checkbox', { name: 'Notes' }).uncheck();
+    }
+
+    async function expectChangesets(page: Page, ids: number[]) {
+      const items = sidebar(page).locator('.review-item');
+      await expect(items).toHaveCount(ids.length);
+      for (const id of ids) {
+        await expect(items.filter({ hasText: `Changeset ${id} by` })).toHaveCount(1);
+      }
+    }
+
+    test('filters by a From/To date range, inclusive of both days', async ({ page }) => {
+      await openFilters(page);
+
+      await page.getByLabel('From', { exact: true }).fill('2026-06-05');
+      await page.getByLabel('To', { exact: true }).fill('2026-06-10');
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [102, 103]);
+
+      await page.getByLabel('From', { exact: true }).fill('');
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [101, 102, 103]);
+    });
+
+    test('a From date after the To date disables Apply', async ({ page }) => {
+      await openFilters(page);
+
+      await page.getByLabel('From', { exact: true }).fill('2026-06-10');
+      await page.getByLabel('To', { exact: true }).fill('2026-06-05');
+      await expect(page.getByRole('alert').filter({ hasText: 'must be on or before' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Apply' })).toBeDisabled();
+    });
+
+    test('filters by one or more contributors from the loaded changesets', async ({ page }) => {
+      await openFilters(page);
+
+      const contributors = page.locator('fieldset').filter({ hasText: 'Contributors' });
+      await expect(contributors.getByRole('checkbox')).toHaveCount(3);
+
+      await contributors.getByRole('checkbox', { name: 'mapper_jane' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [101, 104]);
+
+      // Every contributor stays listed while filtered.
+      await expect(contributors.getByRole('checkbox')).toHaveCount(3);
+      await contributors.getByRole('checkbox', { name: 'mapper_cy' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [101, 103, 104]);
+    });
+
+    test('filters by the combined members of one or more teams', async ({ page }) => {
+      await openFilters(page);
+
+      const teamSet = page.locator('fieldset').filter({ hasText: 'Teams' });
+      await teamSet.getByRole('checkbox', { name: 'South Team' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [103]);
+
+      await teamSet.getByRole('checkbox', { name: 'North Team' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [101, 102, 103, 104]);
+
+      await teamSet.getByRole('checkbox', { name: 'South Team' }).uncheck();
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [101, 102, 104]);
+    });
+
+    test('clearing the changeset filters shows every changeset again', async ({ page }) => {
+      await openFilters(page);
+
+      await page.locator('fieldset').filter({ hasText: 'Contributors' })
+        .getByRole('checkbox', { name: 'mapper_bob' }).check();
+      await page.getByLabel('From', { exact: true }).fill('2026-06-01');
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [102]);
+
+      await page.getByRole('button', { name: 'Clear changeset filters' }).click();
+      await expect(page.getByLabel('From', { exact: true })).toHaveValue('');
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [101, 102, 103, 104]);
+    });
+
+    test('team filter API calls conform to the OpenAPI spec', async ({ page }) => {
+      const contract = recordContract(page);
+      await openFilters(page);
+
+      await page.locator('fieldset').filter({ hasText: 'Teams' })
+        .getByRole('checkbox', { name: 'North Team' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [101, 102, 104]);
+
+      expect(contract.violations()).toEqual([]);
+    });
   });
 
   // @test e2e: fixme entries (elements with a fixme tag, from the workspaces API) display in the sidebar with their note;
