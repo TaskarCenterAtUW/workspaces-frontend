@@ -552,12 +552,26 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return feature ? noteFeatureToEntity(feature) : undefined;
   }
 
-  async getNotes(workspaceId: WorkspaceId, includeClosed: boolean): Promise<OsmNote[]> {
+  async getNotes(
+    workspaceId: WorkspaceId,
+    includeClosed: boolean,
+    filters: { from?: Date; to?: Date; user?: number } = {},
+  ): Promise<OsmNote[]> {
     const params = new URLSearchParams();
     // Fetch the maximum number of notes:
     params.append('limit', '10000');
     // -1: all, 0: open only, > 0: days closed:
     params.append('closed', includeClosed ? '-1' : '0');
+
+    if (filters.from) {
+      params.set('from', filters.from.toISOString().replace(/\.\d{3}Z$/, 'Z'));
+    }
+    if (filters.to) {
+      params.set('to', filters.to.toISOString().replace(/\.\d{3}Z$/, 'Z'));
+    }
+    if (filters.user !== undefined) {
+      params.set('user', String(filters.user));
+    }
 
     const response = await this._get(`notes/search.json?${params}`, {
       headers: {

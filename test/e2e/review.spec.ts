@@ -742,6 +742,23 @@ test.describe('workspace review', () => {
       await expectChangesets(page, [101, 102, 104]);
     });
 
+    test('hides unrelated review item types while a team filter is active', async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubReviewApis(page, { changesets: filterChangesets, teams, teamMembers });
+      await page.goto('/workspace/1/review');
+      await expect(sidebar(page).locator('.review-item')).toHaveCount(6);
+
+      await reopenFilters(page);
+      await page.locator('fieldset').filter({ hasText: 'Teams' })
+        .getByRole('checkbox', { name: 'North Team' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+
+      await expectChangesets(page, [101, 102, 104]);
+      await expect(sidebar(page).locator('.review-item').filter({ hasText: 'Feedback' })).toHaveCount(0);
+      await expect(sidebar(page).locator('.review-item').filter({ hasText: 'Note' })).toHaveCount(0);
+      await expect(sidebar(page).getByText('Anonymous')).toHaveCount(0);
+    });
+
     test('clearing the changeset filters shows every changeset again', async ({ page }) => {
       await openFilters(page);
 
@@ -752,7 +769,7 @@ test.describe('workspace review', () => {
       await expectChangesets(page, [102]);
 
       await reopenFilters(page);
-      await page.getByRole('button', { name: 'Clear changeset filters' }).click();
+      await page.getByRole('button', { name: 'Clear filters' }).click();
       await expect(page.locator('.review-filter-menu')).toBeHidden();
       await expectChangesets(page, [101, 102, 103, 104]);
 

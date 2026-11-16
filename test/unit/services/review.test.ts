@@ -13,7 +13,7 @@ import type { ChangesetManager } from '~/services/changesets';
 import type { OsmApiClient } from '~/services/osm';
 import type { TdeiClient } from '~/services/tdei';
 import type { WorkspacesClient } from '~/services/workspaces';
-import type { OsmChangeset } from '~/types/osm';
+import type { OsmChangeset, OsmNote } from '~/types/osm';
 import type { User, WorkspaceTeam } from '~/types/workspaces';
 
 function changeset(id: number, uid: number, user: string, createdAt: string): OsmChangeset {
@@ -28,6 +28,24 @@ function changeset(id: number, uid: number, user: string, createdAt: string): Os
 
 function member(id: number, displayName: string): User {
   return { id, auth_uid: `auth-${id}`, email: `${id}@example.com`, display_name: displayName };
+}
+
+function note(uid?: number): OsmNote {
+  return {
+    id: 10,
+    status: 'open',
+    lat: 0,
+    lon: 0,
+    created_at: new Date('2026-06-05T10:00:00'),
+    comments: [{
+      action: 'opened',
+      date: new Date('2026-06-05T10:00:00'),
+      user: uid === undefined ? undefined : `mapper_${uid}`,
+      uid,
+      text: 'note',
+      html: '<p>note</p>',
+    }],
+  };
 }
 
 const changesets = [
@@ -133,6 +151,17 @@ describe('ReviewListFilter', () => {
     filter.teamIds = [1];
     expect(filter.testChangeset(changesets[0]!)).toBe(false);
   });
+
+  it('matches notes by contributor and team member uid', () => {
+    const filter = new ReviewListFilter();
+    filter.contributorId = 7;
+    filter.teamIds = [1];
+    const teamMemberIds = new Set([7, 8]);
+
+    expect(filter.testNote(note(7), teamMemberIds)).toBe(true);
+    expect(filter.testNote(note(9), teamMemberIds)).toBe(false);
+    expect(filter.testNote(note(), teamMemberIds)).toBe(false);
+  });
 });
 
 describe('ReviewList changeset filters', () => {
@@ -237,6 +266,21 @@ describe('ReviewList changeset filters', () => {
     const { list, workspacesClient } = makeList();
     await list.refresh(changesetFilter());
     expect(workspacesClient.getTeamMembers).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch feedback or fixmes while an OSM filter is active', async () => {
+    const { list, osmClient, workspacesClient } = makeList();
+    const filter = new ReviewListFilter();
+    filter.teamIds = [1];
+
+    await list.refresh(filter);
+
+    expect(workspacesClient.getFixmes).not.toHaveBeenCalled();
+    expect(osmClient.getNotes).toHaveBeenCalledWith(1, false, {
+      from: undefined,
+      to: undefined,
+      user: undefined,
+    });
   });
 
   it('loads the workspace teams once', async () => {

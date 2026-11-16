@@ -212,6 +212,15 @@ export class ReviewListFilter {
     return !!(this.startDate && this.endDate && this.startDate > this.endDate);
   }
 
+  get hasOsmFilters(): boolean {
+    return Boolean(
+      this.startDate
+      || this.endDate
+      || this.contributorId !== undefined
+      || this.teamIds.length
+    );
+  }
+
   testDates(item: ReviewItemData): boolean {
     if (this.startDate && item.created_at < this.startDate) {
       return false;
@@ -260,8 +269,15 @@ export class ReviewListFilter {
     return true;
   }
 
-  testNote(note: OsmNote) {
+  testNote(note: OsmNote, teamMemberIds?: ReadonlySet<number>) {
     if (!this.testDates(note)) {
+      return false;
+    }
+    const uid = note.comments[0]?.uid;
+    if (this.contributorId !== undefined && this.contributorId !== uid) {
+      return false;
+    }
+    if (this.teamIds.length && (uid === undefined || !teamMemberIds?.has(uid))) {
       return false;
     }
     if (this.text && !note.comments[0]?.text.includes(this.text)) {
@@ -380,7 +396,7 @@ export class ReviewList {
     }
 
     for (const note of notes) {
-      if (filter.testNote(note)) {
+      if (filter.testNote(note, teamMemberIds)) {
         this.items.push(new ReviewListItem($NOTE, note));
       }
     }
@@ -433,13 +449,18 @@ export class ReviewList {
   }
 
   async #fetchLists(filter: ReviewListFilter) {
+    const osmParams = {
+      from: filter.startDate ? toChangesetApiDate(filter.startDate) : undefined,
+      to: filter.endDate ? toChangesetApiDate(filter.endDate) : undefined,
+      user: filter.contributorId,
+    };
     const changesetPromise = filter.includeChangesets
       ? this.#fetchChangesets(filter)
       : Promise.resolve([]);
     const notePromise = filter.includeNotes
-      ? this.#osmClient.getNotes(this.workspaceId, filter.includeResolved)
+      ? this.#osmClient.getNotes(this.workspaceId, filter.includeResolved, osmParams)
       : Promise.resolve([]);
-    const fixmePromise = filter.includeFixmes
+    const fixmePromise = filter.includeFixmes && !filter.hasOsmFilters
       ? this.#workspacesClient.getFixmes(this.workspaceId)
       : Promise.resolve([]);
 
@@ -447,7 +468,9 @@ export class ReviewList {
       this.workspace = await this.#workspacesClient.getWorkspace(this.workspaceId);
     }
 
-    const feedbackPromise = filter.includeFeedback && this.workspace?.tdeiRecordId
+    const feedbackPromise = filter.includeFeedback
+      && !filter.hasOsmFilters
+      && this.workspace?.tdeiRecordId
       ? this.#tdeiClient.getDatasetFeedback(this.workspace.tdeiRecordId, filter.includeResolved)
       : Promise.resolve([]);
 

@@ -199,8 +199,8 @@
       </fieldset>
 
       <p class="text-body-secondary small mb-0">
-        Date and contributor filters are sent to the server. Team filters apply
-        to the matching {{ CHANGESET_LIST_LIMIT }} changesets it returns.
+        These filters apply to Changesets and Notes. Feedback and Fixmes are
+        hidden while a filter is active.
       </p>
     </div>
 
@@ -217,10 +217,10 @@
       <button
         class="btn btn-light border btn-sm"
         type="button"
-        :disabled="!hasChangesetFilters"
+        :disabled="!hasOsmFilters"
         @click="clearChangesetFilters"
       >
-        Clear changeset filters
+        Clear filters
       </button>
     </div>
   </b-dropdown>
@@ -228,7 +228,6 @@
 
 <script setup lang="ts">
 import {
-  CHANGESET_LIST_LIMIT,
   endOfDateInput,
   startOfDateInput,
   toDateInputValue,
@@ -262,12 +261,7 @@ const toDate = computed({
     filter.value.endDate = endOfDateInput(value);
   }
 });
-const hasChangesetFilters = computed(() => Boolean(
-  filter.value.startDate
-  || filter.value.endDate
-  || filter.value.contributorId !== undefined
-  || filter.value.teamIds.length
-));
+const hasOsmFilters = computed(() => filter.value.hasOsmFilters);
 
 function apply() {
   if (filter.value.hasDateRangeError) {

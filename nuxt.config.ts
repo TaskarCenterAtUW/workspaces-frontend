@@ -48,11 +48,6 @@ export default defineNuxtConfig({
     }
   },
   sourcemap: { client: 'hidden' },
-  // Avoid watching generated files.
-  ignore: [
-    '**/.claude',
-    '**/.nyc_output',
-  ],
   devServer: {
     host: '0.0.0.0',
   },
