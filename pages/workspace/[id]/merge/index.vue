@@ -187,7 +187,6 @@ import { toast } from 'vue3-toastify';
 import { resolveHttpErrorMessage } from '~/services/http';
 import {
   tdeiUserClient,
-  workspacesClient,
   workspaceMergerFactory
 } from '~/services/index';
 import { editorHashFor, editorRoute } from '~/util/osm';
@@ -198,7 +197,7 @@ import 'vue3-toastify/dist/index.css';
 
 const route = useRoute();
 const workspaceId = Number(route.params.id);
-const workspace = await workspacesClient.getWorkspace(workspaceId);
+const workspace = await loadWorkspace(workspaceId);
 
 // For child components, which reach it through `useWorkspaceRole`. This page
 // reads the role directly: `inject` resolves against the parent's provides, so

@@ -142,7 +142,7 @@ const route = useRoute();
 const router = useRouter();
 const workspaceId = Number(route.params.id);
 
-const workspace = await workspacesClient.getWorkspace(workspaceId);
+const workspace = await loadWorkspace(workspaceId);
 provide('workspace', workspace);
 
 const reviewList = reviewManager.getList(workspaceId);
