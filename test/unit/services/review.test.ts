@@ -184,14 +184,14 @@ describe('ReviewList changeset filters', () => {
     await list.refresh(filter);
     expect(ids(list)).toEqual([2, 3]);
     expect(osmClient.listChangesets).toHaveBeenCalledWith(1, {
-      from: new Date('2026-06-05T00:00:00Z'),
-      to: new Date('2026-06-10T23:59:59Z'),
+      from: startOfDateInput('2026-06-05'),
+      to: endOfDateInput('2026-06-10'),
       limit: CHANGESET_LIST_LIMIT,
     });
   });
 
   it('filters by only a From or only a To date', async () => {
-    const { list } = makeList();
+    const { list, osmClient } = makeList();
     const filter = changesetFilter();
     filter.startDate = startOfDateInput('2026-06-10');
     await list.refresh(filter);
@@ -201,6 +201,25 @@ describe('ReviewList changeset filters', () => {
     filter.endDate = endOfDateInput('2026-06-04');
     await list.refresh(filter);
     expect(ids(list)).toEqual([1]);
+    expect(osmClient.listChangesets).toHaveBeenLastCalledWith(1, {
+      from: new Date(0),
+      to: endOfDateInput('2026-06-04'),
+      limit: CHANGESET_LIST_LIMIT,
+    });
+  });
+
+  it('gives Notes an epoch lower bound when only a To date is set', async () => {
+    const { list, osmClient } = makeList();
+    const filter = new ReviewListFilter();
+    filter.endDate = endOfDateInput('2026-06-04');
+
+    await list.refresh(filter);
+
+    expect(osmClient.getNotes).toHaveBeenCalledWith(1, false, {
+      from: new Date(0),
+      to: endOfDateInput('2026-06-04'),
+      user: undefined,
+    });
   });
 
   it('filters by one contributor', async () => {

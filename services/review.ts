@@ -450,8 +450,8 @@ export class ReviewList {
 
   async #fetchLists(filter: ReviewListFilter) {
     const osmParams = {
-      from: filter.startDate ? toChangesetApiDate(filter.startDate) : undefined,
-      to: filter.endDate ? toChangesetApiDate(filter.endDate) : undefined,
+      from: filter.startDate ?? (filter.endDate ? new Date(0) : undefined),
+      to: filter.endDate,
       user: filter.contributorId,
     };
     const changesetPromise = filter.includeChangesets
@@ -484,8 +484,8 @@ export class ReviewList {
 
   async #fetchChangesets(filter: ReviewListFilter): Promise<OsmChangeset[]> {
     const params = {
-      from: filter.startDate ? toChangesetApiDate(filter.startDate) : undefined,
-      to: filter.endDate ? toChangesetApiDate(filter.endDate) : undefined,
+      from: filter.startDate ?? (filter.endDate ? new Date(0) : undefined),
+      to: filter.endDate,
       limit: CHANGESET_LIST_LIMIT,
     };
 
@@ -498,18 +498,6 @@ export class ReviewList {
       user: filter.contributorId,
     });
   }
-}
-
-// Keep the selected local date when building the UTC API value.
-function toChangesetApiDate(date: Date): Date {
-  return new Date(Date.UTC(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-    date.getHours(),
-    date.getMinutes(),
-    date.getSeconds(),
-  ));
 }
 
 export class ReviewManager {

@@ -167,6 +167,8 @@ const map = useTemplateRef<InstanceType<typeof ReviewMap>>('map');
 const imageViewer = useTemplateRef<InstanceType<typeof AppImageViewer>>('imageViewer');
 
 const loading = ref(false);
+type RefreshReason = 'filter' | 'manual' | 'initial';
+let pendingRefreshReason: Exclude<RefreshReason, 'initial'> | undefined;
 const loadingMap = ref(false);
 const emptyChangeset = ref(false);
 const mapError = ref<string | null>(null);
@@ -284,8 +286,11 @@ async function updateChangesetQuery(
   await router.push({ query });
 }
 
-async function refresh(reason: 'filter' | 'manual' | 'initial' = 'initial') {
+async function refresh(reason: RefreshReason = 'initial') {
   if (loading.value) {
+    if (reason !== 'initial' && (reason === 'filter' || !pendingRefreshReason)) {
+      pendingRefreshReason = reason;
+    }
     return;
   }
 
@@ -317,6 +322,12 @@ async function refresh(reason: 'filter' | 'manual' | 'initial' = 'initial') {
   }
   finally {
     loading.value = false;
+
+    const pendingReason = pendingRefreshReason;
+    pendingRefreshReason = undefined;
+    if (pendingReason) {
+      await refresh(pendingReason);
+    }
   }
 }
 

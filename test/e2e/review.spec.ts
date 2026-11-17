@@ -759,6 +759,44 @@ test.describe('workspace review', () => {
       await expect(sidebar(page).getByText('Anonymous')).toHaveCount(0);
     });
 
+    test('applies a filter requested while a refresh is in progress', async ({ page }) => {
+      await openFilters(page);
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [101, 102, 103, 104]);
+
+      const requests: string[] = [];
+      let markRefreshStarted!: () => void;
+      let releaseRefresh!: () => void;
+      const refreshStarted = new Promise<void>(resolve => markRefreshStarted = resolve);
+      const refreshReleased = new Promise<void>(resolve => releaseRefresh = resolve);
+
+      await page.route('**/osm/api/0.6/changesets.json**', async (route) => {
+        requests.push(route.request().url());
+        if (requests.length === 1) {
+          markRefreshStarted();
+          await refreshReleased;
+        }
+        await route.fulfill({ json: filterChangesets });
+      });
+
+      await sidebar(page).getByRole('button', { name: 'Refresh' }).click();
+      await refreshStarted;
+
+      try {
+        await reopenFilters(page);
+        await page.getByLabel('From', { exact: true }).fill('2026-06-10');
+        await page.getByRole('button', { name: 'Apply' }).click();
+      }
+      finally {
+        releaseRefresh();
+      }
+
+      await expect.poll(() => requests.length).toBe(2);
+      expect(new URL(requests[1]!).searchParams.has('from')).toBe(true);
+      await expectChangesets(page, [103, 104]);
+      await expect.poll(() => new URL(page.url()).searchParams.get('from')).toBe('2026-06-10');
+    });
+
     test('clearing the changeset filters shows every changeset again', async ({ page }) => {
       await openFilters(page);
 
