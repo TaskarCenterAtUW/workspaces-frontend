@@ -550,7 +550,6 @@ test.describe('workspace review', () => {
       .toBeVisible();
   });
 
-  // @test e2e: the "gear" menu allows filtering of the elements in the sidebar--make sure the simulated response and the display on the UI matches (playright snapshot or assert() this)
   test('the gear menu filters which item types appear in the sidebar', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await stubReviewApis(page);
@@ -563,22 +562,34 @@ test.describe('workspace review', () => {
     const gear = sidebar(page).getByRole('button', { name: /Settings/ });
     await gear.click();
 
-    // Turn OFF changesets and notes, leaving only feedback, then Apply.
     await page.getByRole('checkbox', { name: 'Changesets' }).uncheck();
     await page.getByRole('checkbox', { name: 'Notes' }).uncheck();
-    await page.getByRole('button', { name: 'Apply' }).click();
+    await expect(page.locator('.review-filter-menu')).toBeVisible();
 
-    // The simulated response is filtered client-side: only the feedback item
-    // remains, and it matches the feedback fixture text.
     const items = sidebar(page).locator('.review-item');
     await expect(items).toHaveCount(1);
     await expect(items.first()).toContainText('Feedback');
     await expect(items.first())
       .toContainText('This crossing is hard to navigate in a wheelchair');
+    await expect.poll(() => new URL(page.url()).searchParams.get('types'))
+      .toBe('feedback,fixmes');
+
+    await page.getByRole('checkbox', { name: 'Feedback' }).uncheck();
+    await expect(page.getByRole('checkbox', { name: 'Show Resolved' })).toBeDisabled();
+    await expect(page.getByText(
+      'Date, contributor, and team filters are available when Changesets or Notes are enabled.'
+    )).toBeVisible();
+    await expect.poll(() => new URL(page.url()).searchParams.get('types')).toBe('fixmes');
   });
 
   test.describe('gear menu changeset filters', () => {
-    function filterChangeset(id: number, uid: number, user: string, createdAt: string) {
+    function filterChangeset(
+      id: number,
+      uid: number,
+      user: string,
+      createdAt: string,
+      needsReview: boolean = false,
+    ) {
       return {
         ...changesets.changesets[0]!,
         id,
@@ -586,7 +597,10 @@ test.describe('workspace review', () => {
         user,
         created_at: createdAt,
         closed_at: createdAt,
-        tags: { comment: `Changeset ${id} by ${user}` }
+        tags: {
+          comment: `Changeset ${id} by ${user}`,
+          ...(needsReview ? { review_requested: 'yes' } : {})
+        }
       };
     }
 
@@ -594,7 +608,7 @@ test.describe('workspace review', () => {
       changesets: [
         filterChangeset(101, 7, 'mapper_jane', '2026-06-01T12:00:00.000Z'),
         filterChangeset(102, 8, 'mapper_bob', '2026-06-05T12:00:00.000Z'),
-        filterChangeset(103, 9, 'mapper_cy', '2026-06-10T12:00:00.000Z'),
+        filterChangeset(103, 9, 'mapper_cy', '2026-06-10T12:00:00.000Z', true),
         filterChangeset(104, 7, 'mapper_jane', '2026-06-15T12:00:00.000Z')
       ]
     };
@@ -660,13 +674,109 @@ test.describe('workspace review', () => {
       await expect(page.getByRole('button', { name: 'Apply' })).toBeDisabled();
     });
 
+    test('Needs Review Only shows matching Changesets and excludes other types', async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubReviewApis(page, { changesets: filterChangesets });
+      await page.goto('/workspace/1/review');
+      await expect(sidebar(page).locator('.review-item')).toHaveCount(6);
+
+      await sidebar(page).getByRole('button', { name: /Settings/ }).click();
+      await page.getByRole('checkbox', { name: 'Show Resolved' }).check();
+      await page.getByRole('checkbox', { name: 'Needs Review Only' }).check();
+
+      await expectChangesets(page, [103]);
+      await expect(page.getByText(
+        'Shows only unresolved Changesets marked as needing review.'
+      )).toBeVisible();
+      await expect(page.getByRole('checkbox', { name: 'Show Resolved' })).not.toBeChecked();
+      await expect(page.getByRole('checkbox', { name: 'Show Resolved' })).toBeDisabled();
+      await expect(page.getByRole('checkbox', { name: 'Changesets' })).toBeChecked();
+      await expect(page.getByRole('checkbox', { name: 'Feedback' })).toBeDisabled();
+      await expect(page.getByRole('checkbox', { name: 'Notes' })).toBeDisabled();
+      await expect(page.getByRole('checkbox', { name: 'Fixmes' })).toBeDisabled();
+      await expect.poll(() => {
+        const query = new URL(page.url()).searchParams;
+        return {
+          types: query.get('types'),
+          needsReview: query.get('needsReview'),
+          resolved: query.get('resolved')
+        };
+      }).toEqual({ types: 'changesets', needsReview: '1', resolved: null });
+
+      await page.reload();
+      await expectChangesets(page, [103]);
+    });
+
+    test('normalizes contradictory Needs Review URL parameters', async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubReviewApis(page, { changesets: filterChangesets });
+      await page.goto(
+        '/workspace/1/review?types=changesets,notes&resolved=1&needsReview=1'
+      );
+
+      await expectChangesets(page, [103]);
+      await expect.poll(() => {
+        const query = new URL(page.url()).searchParams;
+        return {
+          types: query.get('types'),
+          needsReview: query.get('needsReview'),
+          resolved: query.get('resolved')
+        };
+      }).toEqual({ types: 'changesets', needsReview: '1', resolved: null });
+    });
+
+    test('removes unsupported filters when the URL selects Fixmes only', async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubReviewApis(page);
+      await page.goto(
+        '/workspace/1/review?types=fixmes&resolved=1&from=2026-06-01'
+        + '&to=2026-06-10&user=7&teams=1'
+      );
+
+      await expect.poll(() => {
+        const query = new URL(page.url()).searchParams;
+        return {
+          types: query.get('types'),
+          resolved: query.get('resolved'),
+          from: query.get('from'),
+          to: query.get('to'),
+          user: query.get('user'),
+          teams: query.get('teams')
+        };
+      }).toEqual({
+        types: 'fixmes',
+        resolved: null,
+        from: null,
+        to: null,
+        user: null,
+        teams: null
+      });
+
+      await sidebar(page).getByRole('button', { name: /Settings/ }).click();
+      await expect(page.getByRole('checkbox', { name: 'Show Resolved' })).toBeDisabled();
+    });
+
+    test('removes an invalid date range restored from the URL', async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubReviewApis(page, { changesets: filterChangesets });
+      await page.goto(
+        '/workspace/1/review?types=changesets&from=2026-06-10&to=2026-06-05'
+      );
+
+      await expectChangesets(page, [101, 102, 103, 104]);
+      await expect.poll(() => {
+        const query = new URL(page.url()).searchParams;
+        return { from: query.get('from'), to: query.get('to') };
+      }).toEqual({ from: null, to: null });
+    });
+
     test('filters by one contributor from the loaded changesets', async ({ page }) => {
       const pageErrors: string[] = [];
       page.on('pageerror', error => pageErrors.push(error.message));
       await openFilters(page);
 
       const contributors = page.locator('fieldset').filter({ hasText: 'Contributors' });
-      await expect(contributors.getByRole('radio')).toHaveCount(4);
+      await expect(contributors.getByRole('radio')).toHaveCount(5);
 
       await contributors.getByRole('radio', { name: 'mapper_jane' }).check();
       await page.getByRole('button', { name: 'Apply' }).click();
@@ -678,6 +788,65 @@ test.describe('workspace review', () => {
       await page.getByRole('button', { name: 'Apply' }).click();
       await expectChangesets(page, [103]);
       expect(pageErrors).toEqual([]);
+    });
+
+    test('lists Note openers when only Notes are enabled', async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubReviewApis(page);
+      await page.goto('/workspace/1/review?types=changesets');
+      await expect(sidebar(page).locator('.review-item')).toHaveCount(1);
+
+      await sidebar(page).getByRole('button', { name: /Settings/ }).click();
+      await expect(page.getByRole('radio', { name: 'note_author' })).toHaveCount(0);
+      await page.getByRole('radio', { name: 'mapper_jane' }).check();
+
+      await page.getByRole('checkbox', { name: 'Notes' }).check();
+      await expect(page.getByRole('radio', { name: 'All contributors' })).toBeChecked();
+      await expect(page.getByRole('radio', { name: 'mapper_jane' })).toBeVisible();
+      await expect(page.getByRole('radio', { name: 'note_author' })).toBeVisible();
+
+      await page.getByRole('checkbox', { name: 'Changesets' }).uncheck();
+
+      await expect(sidebar(page).locator('.review-item')).toHaveCount(1);
+      await expect.poll(() => new URL(page.url()).searchParams.get('types')).toBe('notes');
+      await expect(page.getByRole('radio', { name: 'All contributors' })).toBeChecked();
+      await expect(page.getByRole('radio', { name: 'note_author' })).toBeVisible();
+      await expect(page.getByRole('radio', { name: 'mapper_jane' })).toHaveCount(0);
+
+      await page.reload();
+      await expect(sidebar(page).locator('.review-item')).toHaveCount(1);
+      await sidebar(page).getByRole('button', { name: /Settings/ }).click();
+      await expect(page.getByRole('radio', { name: 'note_author' })).toBeVisible();
+      await expect(page.getByText('No contributors in the loaded Changesets or Notes.')).toHaveCount(0);
+    });
+
+    test('clears OSM-only filters when switching to Feedback only', async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubReviewApis(page, { changesets: filterChangesets, teams, teamMembers });
+      await page.goto(
+        '/workspace/1/review?types=changesets&from=2026-06-01&user=7&teams=1'
+      );
+      await expectChangesets(page, [101, 104]);
+
+      await sidebar(page).getByRole('button', { name: /Settings/ }).click();
+      await page.getByRole('checkbox', { name: 'Feedback' }).check();
+      await page.getByRole('checkbox', { name: 'Changesets' }).uncheck();
+
+      await expect(sidebar(page).locator('.review-item')).toHaveCount(1);
+      await expect(sidebar(page).locator('.review-item').first()).toContainText('Feedback');
+      await expect(page.getByText(
+        'Date, contributor, and team filters are available when Changesets or Notes are enabled.'
+      )).toBeVisible();
+      await expect(page.getByRole('checkbox', { name: 'Needs Review Only' })).toBeDisabled();
+      await expect.poll(() => {
+        const query = new URL(page.url()).searchParams;
+        return {
+          types: query.get('types'),
+          from: query.get('from'),
+          user: query.get('user'),
+          teams: query.get('teams'),
+        };
+      }).toEqual({ types: 'feedback', from: null, user: null, teams: null });
     });
 
     test('filtering out the selected changeset clears its URL query', async ({ page }) => {
@@ -797,7 +966,7 @@ test.describe('workspace review', () => {
       await expect.poll(() => new URL(page.url()).searchParams.get('from')).toBe('2026-06-10');
     });
 
-    test('clearing the changeset filters shows every changeset again', async ({ page }) => {
+    test('Clear filters restores the initial state and removes filter query parameters', async ({ page }) => {
       await openFilters(page);
 
       await page.locator('fieldset').filter({ hasText: 'Contributors' })
@@ -809,11 +978,24 @@ test.describe('workspace review', () => {
       await reopenFilters(page);
       await page.getByRole('button', { name: 'Clear filters' }).click();
       await expect(page.locator('.review-filter-menu')).toBeHidden();
-      await expectChangesets(page, [101, 102, 103, 104]);
+      await expect(sidebar(page).locator('.review-item')).toHaveCount(6);
+
+      await expect.poll(() => {
+        const query = new URL(page.url()).searchParams;
+        return ['types', 'resolved', 'needsReview', 'from', 'to', 'user', 'teams']
+          .filter(name => query.has(name));
+      }).toEqual([]);
+
+      await page.reload();
+      await expect(sidebar(page).locator('.review-item')).toHaveCount(6);
 
       await reopenFilters(page);
       await expect(page.getByLabel('From', { exact: true })).toHaveValue('');
       await expect(page.getByRole('radio', { name: 'All contributors' })).toBeChecked();
+      await expect(page.getByRole('checkbox', { name: 'Changesets' })).toBeChecked();
+      await expect(page.getByRole('checkbox', { name: 'Feedback' })).toBeChecked();
+      await expect(page.getByRole('checkbox', { name: 'Notes' })).toBeChecked();
+      await expect(page.getByRole('checkbox', { name: 'Fixmes' })).toBeChecked();
     });
 
     test('team filter API calls conform to the OpenAPI spec', async ({ page }) => {
