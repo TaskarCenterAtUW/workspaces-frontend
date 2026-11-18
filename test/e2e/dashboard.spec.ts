@@ -287,6 +287,36 @@ test.describe('dashboard', () => {
     await expect(page.getByText('No dataset area has been set for this workspace.')).toBeVisible();
   });
 
+  test('does not request or show a provisional bbox while workspace setup is in progress', async ({ page }) => {
+    const importingWorkspace = {
+      ...aWorkspace,
+      importStatus: 'in-progress'
+    };
+    let bboxRequestCount = 0;
+
+    await seedAuthenticatedSession(page);
+    await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });
+    await page.route('**/workspaces/mine', route =>
+      route.fulfill({ json: [importingWorkspace] })
+    );
+    await page.route('**/workspaces/1', route =>
+      route.fulfill({ json: importingWorkspace })
+    );
+    await page.route('**/project-group-roles/**', route => route.fulfill({ json: projectGroups }));
+    await page.route('**/workspaces/1/bbox', (route) => {
+      bboxRequestCount++;
+      return route.fulfill({
+        json: { min_lat: -90, min_lon: -180, max_lat: 90, max_lon: 180 }
+      });
+    });
+
+    await page.goto('/dashboard');
+
+    await expect(page.getByText('Workspace setup is in progress.', { exact: true })).toBeVisible();
+    await expect(page.locator('.workspace-map-surface')).toBeHidden();
+    expect(bboxRequestCount).toBe(0);
+  });
+
   test('shows the empty-workspace notice when bbox returns HTTP 200 with null coordinates', async ({ page }) => {
     await seedAuthenticatedSession(page);
     await seedProjectGroupSelection(page, { id: PROJECT_GROUP_ID, name: 'Puget Sound' });

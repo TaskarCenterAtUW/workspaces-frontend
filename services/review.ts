@@ -4,12 +4,14 @@ import type { TdeiClient } from '~/services/tdei';
 import type { WorkspacesClient } from '~/services/workspaces';
 import type { OsmChange, OsmChangeset, OsmFixme, OsmNote } from '~/types/osm';
 import type { TdeiFeedback } from '~/types/tdei';
-import type { Workspace } from '~/types/workspaces';
+import type { Workspace, WorkspaceTeam } from '~/types/workspaces';
 
 export const $CHANGESET = Symbol('changeset');
 export const $FEEDBACK = Symbol('feedback');
 export const $NOTE = Symbol('note');
 export const $FIXME = Symbol('fixme');
+
+export const CHANGESET_LIST_LIMIT = 100;
 
 export type ReviewItemData = OsmChangeset | OsmNote | TdeiFeedback | OsmFixme;
 
@@ -203,6 +205,21 @@ export class ReviewListFilter {
   startDate: Date | undefined;
   endDate: Date | undefined;
   text: string | undefined;
+  contributorId: number | undefined;
+  teamIds: number[] = [];
+
+  get hasDateRangeError(): boolean {
+    return !!(this.startDate && this.endDate && this.startDate > this.endDate);
+  }
+
+  get hasOsmFilters(): boolean {
+    return Boolean(
+      this.startDate
+      || this.endDate
+      || this.contributorId !== undefined
+      || this.teamIds.length
+    );
+  }
 
   testDates(item: ReviewItemData): boolean {
     if (this.startDate && item.created_at < this.startDate) {
@@ -215,14 +232,20 @@ export class ReviewListFilter {
     return true;
   }
 
-  testChangeset(changeset: OsmChangeset) {
+  testChangeset(changeset: OsmChangeset, teamMemberIds?: ReadonlySet<number>) {
     if (!this.testDates(changeset)) {
+      return false;
+    }
+    if (this.contributorId !== undefined && this.contributorId !== changeset.uid) {
+      return false;
+    }
+    if (this.teamIds.length && !teamMemberIds?.has(changeset.uid)) {
       return false;
     }
     if (this.text && !changeset.tags?.comment?.includes(this.text)) {
       return false;
     }
-    if (!this.includeResolved && changeset.tags?.reviewed_by) {
+    if ((!this.includeResolved || this.includeNeedsReview) && changeset.tags?.reviewed_by) {
       return false;
     }
     if (this.includeNeedsReview && changeset.tags?.review_requested !== 'yes') {
@@ -246,8 +269,15 @@ export class ReviewListFilter {
     return true;
   }
 
-  testNote(note: OsmNote) {
+  testNote(note: OsmNote, teamMemberIds?: ReadonlySet<number>) {
     if (!this.testDates(note)) {
+      return false;
+    }
+    const uid = note.comments[0]?.uid;
+    if (this.contributorId !== undefined && this.contributorId !== uid) {
+      return false;
+    }
+    if (this.teamIds.length && (uid === undefined || !teamMemberIds?.has(uid))) {
       return false;
     }
     if (this.text && !note.comments[0]?.text.includes(this.text)) {
@@ -269,6 +299,54 @@ export class ReviewListFilter {
   }
 }
 
+export function toDateInputValue(date: Date | undefined): string {
+  if (!date) {
+    return '';
+  }
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+export function startOfDateInput(value: string): Date | undefined {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match
+    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : undefined;
+}
+
+export function endOfDateInput(value: string): Date | undefined {
+  const start = startOfDateInput(value);
+  return start
+    ? new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 59, 999)
+    : undefined;
+}
+
+export interface ReviewContributor {
+  uid: number;
+  user: string;
+}
+
+export function listContributors(
+  changesets: OsmChangeset[],
+  notes: OsmNote[] = [],
+): ReviewContributor[] {
+  const byUid = new Map<number, ReviewContributor>();
+  for (const { uid, user } of changesets) {
+    if (!byUid.has(uid)) {
+      byUid.set(uid, { uid, user });
+    }
+  }
+  for (const note of notes) {
+    const { uid, user } = note.comments[0] ?? {};
+    if (uid !== undefined && user && !byUid.has(uid)) {
+      byUid.set(uid, { uid, user });
+    }
+  }
+
+  return [...byUid.values()]
+    .sort((a, b) => a.user.localeCompare(b.user) || a.uid - b.uid);
+}
+
 function compareCreatedAtDesc(a: ReviewListItem, b: ReviewListItem) {
   return b.data.created_at.getTime() - a.data.created_at.getTime();
 }
@@ -281,8 +359,11 @@ export class ReviewList {
 
   readonly workspaceId: number;
   readonly items: ReviewListItem[] = [];
+  readonly contributors: ReviewContributor[] = [];
+  readonly teams: WorkspaceTeam[] = [];
 
   workspace?: Workspace;
+  #teamsLoaded = false;
 
   constructor(
     changesets: ChangesetManager,
@@ -300,10 +381,19 @@ export class ReviewList {
 
   async refresh(filter: ReviewListFilter) {
     this.items.length = 0;
-    const [changesets, feedback, notes, fixmes] = await this.#fetchLists(filter);
+    const [[changesets, feedback, notes, fixmes], teamMemberIds] = await Promise.all([
+      this.#fetchLists(filter),
+      this.#fetchTeamMemberIds(filter.teamIds),
+      this.#loadTeams(),
+    ]);
+
+    // A filtered response only contains the selected contributor.
+    if (filter.contributorId === undefined || !this.contributors.length) {
+      this.contributors.splice(0, this.contributors.length, ...listContributors(changesets, notes));
+    }
 
     for (const changeset of changesets) {
-      if (filter.testChangeset(changeset)) {
+      if (filter.testChangeset(changeset, teamMemberIds)) {
         this.items.push(new ReviewListItem($CHANGESET, changeset));
       }
     }
@@ -315,7 +405,7 @@ export class ReviewList {
     }
 
     for (const note of notes) {
-      if (filter.testNote(note)) {
+      if (filter.testNote(note, teamMemberIds)) {
         this.items.push(new ReviewListItem($NOTE, note));
       }
     }
@@ -343,14 +433,45 @@ export class ReviewList {
     }
   }
 
+  async #loadTeams() {
+    if (this.#teamsLoaded) {
+      return;
+    }
+
+    try {
+      const teams = await this.#workspacesClient.getTeams(this.workspaceId);
+      this.teams.splice(0, this.teams.length, ...teams);
+      this.#teamsLoaded = true;
+    }
+    catch (error: unknown) {
+      console.warn('Could not load the workspace teams.', error);
+    }
+  }
+
+  async #fetchTeamMemberIds(teamIds: number[]): Promise<Set<number>> {
+    const memberLists = await Promise.all(
+      teamIds.map(teamId => this.#workspacesClient.getTeamMembers(this.workspaceId, teamId))
+    );
+
+    // Workspace user IDs match changeset uids.
+    return new Set(memberLists.flat().map(member => member.id));
+  }
+
   async #fetchLists(filter: ReviewListFilter) {
+    const osmParams = {
+      from: filter.startDate ?? (filter.endDate ? new Date(0) : undefined),
+      to: filter.endDate,
+      user: filter.contributorId,
+    };
     const changesetPromise = filter.includeChangesets
-      ? this.#osmClient.listChangesets(this.workspaceId)
+      ? this.#fetchChangesets(filter)
       : Promise.resolve([]);
-    const notePromise = filter.includeNotes
-      ? this.#osmClient.getNotes(this.workspaceId, filter.includeResolved)
+    const notePromise = filter.includeNotes && !filter.includeNeedsReview
+      ? this.#osmClient.getNotes(this.workspaceId, filter.includeResolved, osmParams)
       : Promise.resolve([]);
     const fixmePromise = filter.includeFixmes
+      && !filter.includeNeedsReview
+      && !filter.hasOsmFilters
       ? this.#workspacesClient.getFixmes(this.workspaceId)
       : Promise.resolve([]);
 
@@ -358,7 +479,10 @@ export class ReviewList {
       this.workspace = await this.#workspacesClient.getWorkspace(this.workspaceId);
     }
 
-    const feedbackPromise = filter.includeFeedback && this.workspace?.tdeiRecordId
+    const feedbackPromise = filter.includeFeedback
+      && !filter.includeNeedsReview
+      && !filter.hasOsmFilters
+      && this.workspace?.tdeiRecordId
       ? this.#tdeiClient.getDatasetFeedback(this.workspace.tdeiRecordId, filter.includeResolved)
       : Promise.resolve([]);
 
@@ -368,6 +492,23 @@ export class ReviewList {
       notePromise,
       fixmePromise,
     ]);
+  }
+
+  async #fetchChangesets(filter: ReviewListFilter): Promise<OsmChangeset[]> {
+    const params = {
+      from: filter.startDate ?? (filter.endDate ? new Date(0) : undefined),
+      to: filter.endDate,
+      limit: CHANGESET_LIST_LIMIT,
+    };
+
+    if (filter.contributorId === undefined) {
+      return await this.#osmClient.listChangesets(this.workspaceId, params);
+    }
+
+    return await this.#osmClient.listChangesets(this.workspaceId, {
+      ...params,
+      user: filter.contributorId,
+    });
   }
 }
 

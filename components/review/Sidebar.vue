@@ -6,7 +6,9 @@
       </h2>
       <review-filter-dropdown
         v-model="filter"
-        @apply="refresh"
+        :contributors="contributors"
+        :teams="teams"
+        @apply="refreshAfterFilter"
       />
     </header>
 
@@ -52,10 +54,12 @@
 <script setup lang="ts">
 import type { ItemElement } from '~/components/review/Item.vue';
 import type {
+  ReviewContributor,
   ReviewList,
   ReviewListFilter,
   ReviewListItem,
 } from '~/services/review';
+import type { WorkspaceTeam } from '~/types/workspaces';
 
 interface Props {
   reviewList: ReviewList;
@@ -63,11 +67,22 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits(['refresh']);
+const emit = defineEmits<{
+  refresh: [reason: 'filter' | 'manual'];
+}>();
 const currentItem = defineModel<ReviewListItem>('item');
 const filter = defineModel<ReviewListFilter>('filter', { required: true });
 const reviewListGroup = useTemplateRef<HTMLDivElement>('reviewListGroup');
 const items = reactive(props.reviewList.items);
+
+const contributors = ref<ReviewContributor[]>([]);
+const teams = ref<WorkspaceTeam[]>([]);
+watch(() => props.loading, (loading) => {
+  if (!loading) {
+    contributors.value = [...props.reviewList.contributors];
+    teams.value = [...props.reviewList.teams];
+  }
+}, { immediate: true });
 
 const changesetObserver = shallowRef<IntersectionObserver>();
 
@@ -85,10 +100,6 @@ onUnmounted(() => {
   changesetObserver.value?.disconnect();
 });
 
-onUnmounted(() => {
-  changesetObserver.value?.disconnect();
-});
-
 function onChangesetObserved(entries: IntersectionObserverEntry[]) {
   for (const entry of entries) {
     if (entry.isIntersecting) {
@@ -100,7 +111,11 @@ function onChangesetObserved(entries: IntersectionObserverEntry[]) {
 }
 
 function refresh() {
-  emit('refresh');
+  emit('refresh', 'manual');
+}
+
+function refreshAfterFilter() {
+  emit('refresh', 'filter');
 }
 </script>
 

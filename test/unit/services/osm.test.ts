@@ -39,6 +39,55 @@ function stubDownload(xml: string = OSM_CHANGE_XML) {
   );
 }
 
+describe('OsmApiClient.listChangesets', () => {
+  it('sends date, contributor, and limit filters as query parameters', async () => {
+    let requestedUrl = '';
+    server.use(
+      http.get(`${OSM_API_BASE}changesets.json`, ({ request }) => {
+        requestedUrl = request.url;
+        return HttpResponse.json({ changesets: [] });
+      })
+    );
+
+    await makeClient().listChangesets(1, {
+      from: new Date('2026-11-01T00:00:00Z'),
+      to: new Date('2026-11-12T23:59:59Z'),
+      user: 18247,
+      limit: 100,
+    });
+
+    const query = new URL(requestedUrl).searchParams;
+    expect(query.get('from')).toBe('2026-11-01T00:00:00Z');
+    expect(query.get('to')).toBe('2026-11-12T23:59:59Z');
+    expect(query.get('user')).toBe('18247');
+    expect(query.get('limit')).toBe('100');
+  });
+});
+
+describe('OsmApiClient.getNotes', () => {
+  it('sends date and contributor filters as query parameters', async () => {
+    let requestedUrl = '';
+    server.use(
+      http.get(`${OSM_API_BASE}notes/search.json`, ({ request }) => {
+        requestedUrl = request.url;
+        return HttpResponse.json({ type: 'FeatureCollection', features: [] });
+      })
+    );
+
+    await makeClient().getNotes(1, false, {
+      from: new Date('2026-11-01T00:00:00Z'),
+      to: new Date('2026-11-12T23:59:59Z'),
+      user: 18247,
+    });
+
+    const query = new URL(requestedUrl).searchParams;
+    expect(query.get('closed')).toBe('0');
+    expect(query.get('from')).toBe('2026-11-01T00:00:00Z');
+    expect(query.get('to')).toBe('2026-11-12T23:59:59Z');
+    expect(query.get('user')).toBe('18247');
+  });
+});
+
 describe('OsmApiClient.getOsmChange', () => {
   // Regression: parseOsmChangeXml is async (it resolves a Promise once the
   // streaming sax parse completes). Using it without `await` left a Promise

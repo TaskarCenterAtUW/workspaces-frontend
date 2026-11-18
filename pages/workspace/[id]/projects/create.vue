@@ -192,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { projectWizardClient, tdeiUserClient, workspacesClient } from '~/services/index';
+import { projectWizardClient, tdeiUserClient } from '~/services/index';
 import { resolveHttpErrorMessage } from '~/services/http';
 import { validateProjectCustomImagery } from '~/services/project-custom-imagery';
 import { calculateProjectWizardAoiAreaSquareKilometers } from '~/services/project-wizard-aoi';
@@ -212,12 +212,11 @@ import type {
 const route = useRoute();
 const workspaceId = Number(route.params.id);
 
-if (!Number.isInteger(workspaceId) || workspaceId <= 0) {
-  throw createError({ statusCode: 404, statusMessage: 'Workspace not found.' });
-}
-
-const workspace = await workspacesClient.getWorkspace(workspaceId).catch((error) => {
-  throw createError({ statusCode: 500, statusMessage: 'Failed to load workspace.', data: error });
+const workspace = await loadWorkspace(workspaceId).catch((error) => {
+  // Keep "Workspace not found" as is; anything else is a failure to load.
+  throw isNuxtError(error)
+    ? error
+    : createError({ statusCode: 500, statusMessage: 'Failed to load workspace.', data: error });
 });
 
 const myTdeiRoles = await tdeiUserClient.getMyRolesForProjectGroupById(
