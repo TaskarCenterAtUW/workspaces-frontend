@@ -159,9 +159,16 @@ const FILTER_TYPES = {
 
 const reviewList = reviewManager.getList(workspaceId);
 const filter = reactive(reviewManager.getFilter());
-applyFiltersFromRoute(filter);
+let normalizeFilterRoute = applyFiltersFromRoute(filter);
 if (getRequestedChangesetId()) {
+  if (filter.includeNeedsReview) {
+    filter.includeNeedsReview = false;
+    normalizeFilterRoute = true;
+  }
   filter.includeResolved = true;
+}
+if (normalizeFilterRoute) {
+  await persistFiltersInRoute(false);
 }
 const map = useTemplateRef<InstanceType<typeof ReviewMap>>('map');
 const imageViewer = useTemplateRef<InstanceType<typeof AppImageViewer>>('imageViewer');
@@ -331,7 +338,8 @@ async function refresh(reason: RefreshReason = 'initial') {
   }
 }
 
-function applyFiltersFromRoute(target: ReviewListFilter): void {
+function applyFiltersFromRoute(target: ReviewListFilter): boolean {
+  let normalized = false;
   const types = getQueryString(route.query.types);
   if (types !== undefined) {
     const selectedTypes = new Set(types.split(',').filter(Boolean));
@@ -355,6 +363,44 @@ function applyFiltersFromRoute(target: ReviewListFilter): void {
     ? undefined
     : parsePositiveIntegerQuery(route.query.user);
   target.teamIds = parsePositiveIntegerList(getQueryString(route.query.teams));
+
+  if (target.includeNeedsReview) {
+    normalized = !target.includeChangesets
+      || target.includeFeedback
+      || target.includeNotes
+      || target.includeFixmes
+      || target.includeResolved;
+    target.includeChangesets = true;
+    target.includeFeedback = false;
+    target.includeNotes = false;
+    target.includeFixmes = false;
+    target.includeResolved = false;
+  }
+
+  const hasOsmTypes = target.includeChangesets || target.includeNotes;
+  if (!hasOsmTypes && target.hasOsmFilters) {
+    target.startDate = undefined;
+    target.endDate = undefined;
+    target.contributorId = undefined;
+    target.teamIds = [];
+    normalized = true;
+  }
+
+  const hasResolvableTypes = target.includeChangesets
+    || target.includeFeedback
+    || target.includeNotes;
+  if (!hasResolvableTypes && target.includeResolved) {
+    target.includeResolved = false;
+    normalized = true;
+  }
+
+  if (target.hasDateRangeError) {
+    target.startDate = undefined;
+    target.endDate = undefined;
+    normalized = true;
+  }
+
+  return normalized;
 }
 
 async function persistFiltersInRoute(clearChangeset: boolean): Promise<void> {
@@ -439,7 +485,7 @@ async function resolveCurrentChangeset() {
 
     toast.success('Changeset marked as reviewed.');
 
-    await refresh();
+    await refresh('filter');
   }
   catch {
     toast.error('Failed to resolve changeset.');

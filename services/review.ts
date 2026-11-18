@@ -245,7 +245,7 @@ export class ReviewListFilter {
     if (this.text && !changeset.tags?.comment?.includes(this.text)) {
       return false;
     }
-    if (!this.includeResolved && changeset.tags?.reviewed_by) {
+    if ((!this.includeResolved || this.includeNeedsReview) && changeset.tags?.reviewed_by) {
       return false;
     }
     if (this.includeNeedsReview && changeset.tags?.review_requested !== 'yes') {
@@ -326,10 +326,19 @@ export interface ReviewContributor {
   user: string;
 }
 
-export function listContributors(changesets: OsmChangeset[]): ReviewContributor[] {
+export function listContributors(
+  changesets: OsmChangeset[],
+  notes: OsmNote[] = [],
+): ReviewContributor[] {
   const byUid = new Map<number, ReviewContributor>();
   for (const { uid, user } of changesets) {
     if (!byUid.has(uid)) {
+      byUid.set(uid, { uid, user });
+    }
+  }
+  for (const note of notes) {
+    const { uid, user } = note.comments[0] ?? {};
+    if (uid !== undefined && user && !byUid.has(uid)) {
       byUid.set(uid, { uid, user });
     }
   }
@@ -380,7 +389,7 @@ export class ReviewList {
 
     // A filtered response only contains the selected contributor.
     if (filter.contributorId === undefined || !this.contributors.length) {
-      this.contributors.splice(0, this.contributors.length, ...listContributors(changesets));
+      this.contributors.splice(0, this.contributors.length, ...listContributors(changesets, notes));
     }
 
     for (const changeset of changesets) {
@@ -457,10 +466,12 @@ export class ReviewList {
     const changesetPromise = filter.includeChangesets
       ? this.#fetchChangesets(filter)
       : Promise.resolve([]);
-    const notePromise = filter.includeNotes
+    const notePromise = filter.includeNotes && !filter.includeNeedsReview
       ? this.#osmClient.getNotes(this.workspaceId, filter.includeResolved, osmParams)
       : Promise.resolve([]);
-    const fixmePromise = filter.includeFixmes && !filter.hasOsmFilters
+    const fixmePromise = filter.includeFixmes
+      && !filter.includeNeedsReview
+      && !filter.hasOsmFilters
       ? this.#workspacesClient.getFixmes(this.workspaceId)
       : Promise.resolve([]);
 
@@ -469,6 +480,7 @@ export class ReviewList {
     }
 
     const feedbackPromise = filter.includeFeedback
+      && !filter.includeNeedsReview
       && !filter.hasOsmFilters
       && this.workspace?.tdeiRecordId
       ? this.#tdeiClient.getDatasetFeedback(this.workspace.tdeiRecordId, filter.includeResolved)

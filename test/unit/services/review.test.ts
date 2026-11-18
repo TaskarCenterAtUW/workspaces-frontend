@@ -119,8 +119,9 @@ describe('date input helpers', () => {
 });
 
 describe('listContributors', () => {
-  it('lists each uid once, sorted by name', () => {
-    expect(listContributors(changesets)).toEqual([
+  it('lists Changeset and Note contributors once, sorted by name', () => {
+    expect(listContributors(changesets, [note(11), note(7), note()])).toEqual([
+      { uid: 11, user: 'mapper_11' },
       { uid: 8, user: 'mapper_bob' },
       { uid: 9, user: 'mapper_cy' },
       { uid: 7, user: 'mapper_jane' },
@@ -161,6 +162,19 @@ describe('ReviewListFilter', () => {
     expect(filter.testNote(note(7), teamMemberIds)).toBe(true);
     expect(filter.testNote(note(9), teamMemberIds)).toBe(false);
     expect(filter.testNote(note(), teamMemberIds)).toBe(false);
+  });
+
+  it('never includes reviewed changesets in Needs Review Only', () => {
+    const filter = new ReviewListFilter();
+    filter.includeResolved = true;
+    filter.includeNeedsReview = true;
+    const item = changeset(1, 7, 'mapper_jane', '2026-06-01T10:00:00');
+    item.tags = { review_requested: 'yes', reviewed_by: 'reviewer' };
+
+    expect(filter.testChangeset(item)).toBe(false);
+
+    delete item.tags.reviewed_by;
+    expect(filter.testChangeset(item)).toBe(true);
   });
 });
 

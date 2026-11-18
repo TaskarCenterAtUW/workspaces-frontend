@@ -26,6 +26,8 @@
             v-model="filter.includeChangesets"
             type="checkbox"
             class="form-check-input"
+            :disabled="filter.includeNeedsReview"
+            @change="onOsmTypesChanged"
           >
           Changesets
         </label>
@@ -36,6 +38,8 @@
             v-model="filter.includeFeedback"
             type="checkbox"
             class="form-check-input"
+            :disabled="filter.includeNeedsReview"
+            @change="applyTypes"
           >
           Feedback
         </label>
@@ -46,6 +50,8 @@
             v-model="filter.includeNotes"
             type="checkbox"
             class="form-check-input"
+            :disabled="filter.includeNeedsReview"
+            @change="onOsmTypesChanged"
           >
           Notes
         </label>
@@ -56,6 +62,8 @@
             v-model="filter.includeFixmes"
             type="checkbox"
             class="form-check-input"
+            :disabled="filter.includeNeedsReview"
+            @change="applyTypes"
           >
           Fixmes
         </label>
@@ -71,6 +79,7 @@
             v-model="filter.includeResolved"
             type="checkbox"
             class="form-check-input"
+            :disabled="!hasResolvableTypes || filter.includeNeedsReview"
           >
           Show Resolved
         </label>
@@ -81,15 +90,23 @@
             v-model="filter.includeNeedsReview"
             type="checkbox"
             class="form-check-input"
+            :disabled="!filter.includeChangesets"
+            @change="onNeedsReviewChanged"
           >
           Needs Review Only
         </label>
       </div>
+      <p class="text-body-secondary small mb-0 mt-1">
+        Shows only unresolved Changesets marked as needing review.
+      </p>
     </div>
 
     <b-dropdown-divider />
 
-    <div class="px-3 py-2 review-filter-changesets">
+    <div
+      v-if="hasOsmTypes"
+      class="px-3 py-2 review-filter-changesets"
+    >
       <fieldset class="mb-2">
         <legend class="review-filter-legend">
           Created
@@ -162,7 +179,7 @@
           v-else
           class="text-body-secondary small mb-0"
         >
-          No contributors in the loaded changesets.
+          No contributors in the loaded Changesets or Notes.
         </p>
       </fieldset>
 
@@ -203,6 +220,12 @@
         hidden while a filter is active.
       </p>
     </div>
+    <p
+      v-else
+      class="text-body-secondary small px-3 py-2 mb-0 review-filter-changesets"
+    >
+      Date, contributor, and team filters are available when Changesets or Notes are enabled.
+    </p>
 
     <b-dropdown-divider />
 
@@ -217,8 +240,8 @@
       <button
         class="btn btn-light border btn-sm"
         type="button"
-        :disabled="!hasOsmFilters"
-        @click="clearChangesetFilters"
+        :disabled="!hasActiveFilters"
+        @click="clearFilters"
       >
         Clear filters
       </button>
@@ -229,10 +252,11 @@
 <script setup lang="ts">
 import {
   endOfDateInput,
+  ReviewListFilter,
   startOfDateInput,
   toDateInputValue,
 } from '~/services/review';
-import type { ReviewContributor, ReviewListFilter } from '~/services/review';
+import type { ReviewContributor } from '~/services/review';
 import type { WorkspaceTeam } from '~/types/workspaces';
 
 interface Props {
@@ -261,7 +285,56 @@ const toDate = computed({
     filter.value.endDate = endOfDateInput(value);
   }
 });
-const hasOsmFilters = computed(() => filter.value.hasOsmFilters);
+const hasActiveFilters = computed(() => Boolean(
+  !filter.value.includeChangesets
+  || !filter.value.includeFeedback
+  || !filter.value.includeNotes
+  || !filter.value.includeFixmes
+  || filter.value.includeResolved
+  || filter.value.includeNeedsReview
+  || filter.value.hasOsmFilters
+));
+const hasOsmTypes = computed(() => filter.value.includeChangesets || filter.value.includeNotes);
+const hasResolvableTypes = computed(() => Boolean(
+  filter.value.includeChangesets
+  || filter.value.includeFeedback
+  || filter.value.includeNotes
+));
+
+function applyTypes() {
+  if (!filter.value.includeChangesets) {
+    filter.value.includeNeedsReview = false;
+  }
+  if (!hasResolvableTypes.value) {
+    filter.value.includeResolved = false;
+  }
+  if (filter.value.hasDateRangeError) {
+    return;
+  }
+  emit('apply');
+}
+
+function onOsmTypesChanged() {
+  filter.value.contributorId = undefined;
+  if (!filter.value.includeChangesets && !filter.value.includeNotes) {
+    filter.value.startDate = undefined;
+    filter.value.endDate = undefined;
+    filter.value.teamIds = [];
+  }
+  applyTypes();
+}
+
+function onNeedsReviewChanged() {
+  if (filter.value.includeNeedsReview) {
+    filter.value.includeChangesets = true;
+    filter.value.includeFeedback = false;
+    filter.value.includeNotes = false;
+    filter.value.includeFixmes = false;
+    filter.value.includeResolved = false;
+    filter.value.contributorId = undefined;
+  }
+  applyTypes();
+}
 
 function apply() {
   if (filter.value.hasDateRangeError) {
@@ -270,11 +343,8 @@ function apply() {
   closeAndApply();
 }
 
-function clearChangesetFilters() {
-  filter.value.startDate = undefined;
-  filter.value.endDate = undefined;
-  filter.value.contributorId = undefined;
-  filter.value.teamIds = [];
+function clearFilters() {
+  Object.assign(filter.value, new ReviewListFilter());
   closeAndApply();
 }
 
