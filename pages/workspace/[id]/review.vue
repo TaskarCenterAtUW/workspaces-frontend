@@ -133,7 +133,12 @@ import { streetImageUrl, resolveStreetImageUrl } from '~/util/street-images';
 import { parsePositiveIntegerQuery } from '~/util/route-query';
 import type ReviewMap from '~/components/review/Map.vue';
 import type AppImageViewer from '~/components/AppImageViewer.vue';
-import type { ReviewListItem } from '~/services/review.ts';
+import {
+  endOfDateInput,
+  startOfDateInput,
+  toDateInputValue,
+} from '~/services/review';
+import type { ReviewListFilter, ReviewListItem } from '~/services/review';
 import type { AdiffAction } from '~/types/adiff';
 import type { OsmChangeset } from '~/types/osm';
 import type { TdeiFeedback, TdeiFeedbackResolution } from '~/types/tdei';
@@ -145,8 +150,16 @@ const workspaceId = Number(route.params.id);
 const workspace = await loadWorkspace(workspaceId);
 provide('workspace', workspace);
 
+const FILTER_TYPES = {
+  changesets: 'includeChangesets',
+  feedback: 'includeFeedback',
+  notes: 'includeNotes',
+  fixmes: 'includeFixmes',
+} as const;
+
 const reviewList = reviewManager.getList(workspaceId);
 const filter = reactive(reviewManager.getFilter());
+applyFiltersFromRoute(filter);
 if (getRequestedChangesetId()) {
   filter.includeResolved = true;
 }
@@ -154,6 +167,8 @@ const map = useTemplateRef<InstanceType<typeof ReviewMap>>('map');
 const imageViewer = useTemplateRef<InstanceType<typeof AppImageViewer>>('imageViewer');
 
 const loading = ref(false);
+type RefreshReason = 'filter' | 'manual' | 'initial';
+let pendingRefreshReason: Exclude<RefreshReason, 'initial'> | undefined;
 const loadingMap = ref(false);
 const emptyChangeset = ref(false);
 const mapError = ref<string | null>(null);
@@ -271,8 +286,11 @@ async function updateChangesetQuery(
   await router.push({ query });
 }
 
-async function refresh() {
+async function refresh(reason: RefreshReason = 'initial') {
   if (loading.value) {
+    if (reason !== 'initial' && (reason === 'filter' || !pendingRefreshReason)) {
+      pendingRefreshReason = reason;
+    }
     return;
   }
 
@@ -280,10 +298,128 @@ async function refresh() {
 
   try {
     await reviewList.refresh(filter);
-    applyChangesetFromRoute();
+    const requestedChangesetId = getRequestedChangesetId();
+    const clearRequestedChangeset = Boolean(
+      reason === 'filter'
+      && requestedChangesetId
+      && !findChangeset(requestedChangesetId)
+    );
+
+    if (reason === 'filter') {
+      await persistFiltersInRoute(clearRequestedChangeset);
+    }
+
+    if (clearRequestedChangeset) {
+      currentItem.value = undefined;
+    }
+    else {
+      applyChangesetFromRoute();
+    }
+  }
+  catch (error: unknown) {
+    console.error('Failed to load the review list', error);
+    toast.error('Could not load the review list.');
   }
   finally {
     loading.value = false;
+
+    const pendingReason = pendingRefreshReason;
+    pendingRefreshReason = undefined;
+    if (pendingReason) {
+      await refresh(pendingReason);
+    }
+  }
+}
+
+function applyFiltersFromRoute(target: ReviewListFilter): void {
+  const types = getQueryString(route.query.types);
+  if (types !== undefined) {
+    const selectedTypes = new Set(types.split(',').filter(Boolean));
+    const hasKnownType = !types || Object.keys(FILTER_TYPES).some(type => selectedTypes.has(type));
+
+    if (hasKnownType) {
+      for (const [type, property] of Object.entries(FILTER_TYPES)) {
+        target[property] = selectedTypes.has(type);
+      }
+    }
+  }
+
+  target.includeResolved = getQueryString(route.query.resolved) === '1';
+  target.includeNeedsReview = getQueryString(route.query.needsReview) === '1';
+
+  const from = getQueryString(route.query.from);
+  const to = getQueryString(route.query.to);
+  target.startDate = parseRouteDate(from, startOfDateInput);
+  target.endDate = parseRouteDate(to, endOfDateInput);
+  target.contributorId = route.query.user === undefined
+    ? undefined
+    : parsePositiveIntegerQuery(route.query.user);
+  target.teamIds = parsePositiveIntegerList(getQueryString(route.query.teams));
+}
+
+async function persistFiltersInRoute(clearChangeset: boolean): Promise<void> {
+  const query = { ...route.query };
+  const selectedTypes = Object.entries(FILTER_TYPES)
+    .filter(([, property]) => filter[property])
+    .map(([type]) => type);
+
+  setOptionalQuery(
+    query,
+    'types',
+    selectedTypes.length === Object.keys(FILTER_TYPES).length
+      ? undefined
+      : selectedTypes.join(','),
+  );
+  setOptionalQuery(query, 'resolved', filter.includeResolved ? '1' : undefined);
+  setOptionalQuery(query, 'needsReview', filter.includeNeedsReview ? '1' : undefined);
+  setOptionalQuery(query, 'from', filter.startDate ? toDateInputValue(filter.startDate) : undefined);
+  setOptionalQuery(query, 'to', filter.endDate ? toDateInputValue(filter.endDate) : undefined);
+  setOptionalQuery(query, 'user', filter.contributorId?.toString());
+  setOptionalQuery(query, 'teams', filter.teamIds.length ? filter.teamIds.join(',') : undefined);
+
+  if (clearChangeset) {
+    delete query.changeset;
+  }
+
+  await router.replace({ query });
+}
+
+function getQueryString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function parseRouteDate(
+  value: string | undefined,
+  parse: (value: string) => Date | undefined,
+): Date | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = parse(value);
+  return date && toDateInputValue(date) === value ? date : undefined;
+}
+
+function parsePositiveIntegerList(value: string | undefined): number[] {
+  if (!value) {
+    return [];
+  }
+
+  return [...new Set(value.split(',')
+    .map(Number)
+    .filter(id => Number.isSafeInteger(id) && id > 0))];
+}
+
+function setOptionalQuery(
+  query: typeof route.query,
+  key: string,
+  value: string | undefined,
+): void {
+  if (value === undefined) {
+    Reflect.deleteProperty(query, key);
+  }
+  else {
+    query[key] = value;
   }
 }
 

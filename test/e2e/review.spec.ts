@@ -132,7 +132,17 @@ async function stubReviewApis(page: Page, opts: {
   notes?: object;
   feedback?: object;
   fixmes?: object;
+  teams?: object[];
+  teamMembers?: Record<number, object[]>;
 } = {}) {
+  await page.route('**/workspaces/1/teams', route =>
+    route.fulfill({ json: opts.teams ?? [] })
+  );
+  await page.route('**/workspaces/1/teams/*/members', (route) => {
+    const teamId = Number(new URL(route.request().url()).pathname.split('/').at(-2));
+    return route.fulfill({ json: opts.teamMembers?.[teamId] ?? [] });
+  });
+
   // GET workspaces/{id} (called twice on load).
   await page.route('**/api.test/workspaces/1', route =>
     route.fulfill({ json: opts.workspace ?? reviewWorkspace })
@@ -565,6 +575,258 @@ test.describe('workspace review', () => {
     await expect(items.first()).toContainText('Feedback');
     await expect(items.first())
       .toContainText('This crossing is hard to navigate in a wheelchair');
+  });
+
+  test.describe('gear menu changeset filters', () => {
+    function filterChangeset(id: number, uid: number, user: string, createdAt: string) {
+      return {
+        ...changesets.changesets[0]!,
+        id,
+        uid,
+        user,
+        created_at: createdAt,
+        closed_at: createdAt,
+        tags: { comment: `Changeset ${id} by ${user}` }
+      };
+    }
+
+    const filterChangesets = {
+      changesets: [
+        filterChangeset(101, 7, 'mapper_jane', '2026-06-01T12:00:00.000Z'),
+        filterChangeset(102, 8, 'mapper_bob', '2026-06-05T12:00:00.000Z'),
+        filterChangeset(103, 9, 'mapper_cy', '2026-06-10T12:00:00.000Z'),
+        filterChangeset(104, 7, 'mapper_jane', '2026-06-15T12:00:00.000Z')
+      ]
+    };
+
+    const teams = [
+      { id: 1, name: 'North Team', member_count: 2 },
+      { id: 2, name: 'South Team', member_count: 1 }
+    ];
+    const teamMembers = {
+      1: [
+        { id: 7, auth_uid: 'auth-7', email: 'jane@example.com', display_name: 'Jane D.' },
+        { id: 8, auth_uid: 'auth-8', email: 'bob@example.com', display_name: 'Bob B.' }
+      ],
+      2: [
+        { id: 9, auth_uid: 'auth-9', email: 'cy@example.com', display_name: 'Cy C.' }
+      ]
+    };
+
+    async function openFilters(page: Page, url: string = '/workspace/1/review') {
+      await seedAuthenticatedSession(page);
+      await stubReviewApis(page, { changesets: filterChangesets, teams, teamMembers });
+      await page.goto(url);
+      await expect(sidebar(page).locator('.review-item')).toHaveCount(6);
+
+      await sidebar(page).getByRole('button', { name: /Settings/ }).click();
+      await page.getByRole('checkbox', { name: 'Feedback' }).uncheck();
+      await page.getByRole('checkbox', { name: 'Notes' }).uncheck();
+    }
+
+    async function reopenFilters(page: Page) {
+      await sidebar(page).getByRole('button', { name: /Settings/ }).click();
+    }
+
+    async function expectChangesets(page: Page, ids: number[]) {
+      const items = sidebar(page).locator('.review-item');
+      await expect(items).toHaveCount(ids.length);
+      for (const id of ids) {
+        await expect(items.filter({ hasText: `Changeset ${id} by` })).toHaveCount(1);
+      }
+    }
+
+    test('filters by a From/To date range, inclusive of both days', async ({ page }) => {
+      await openFilters(page);
+
+      await page.getByLabel('From', { exact: true }).fill('2026-06-05');
+      await page.getByLabel('To', { exact: true }).fill('2026-06-10');
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expect(page.locator('.review-filter-menu')).toBeHidden();
+      await expectChangesets(page, [102, 103]);
+
+      await reopenFilters(page);
+      await page.getByLabel('From', { exact: true }).fill('');
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [101, 102, 103]);
+    });
+
+    test('a From date after the To date disables Apply', async ({ page }) => {
+      await openFilters(page);
+
+      await page.getByLabel('From', { exact: true }).fill('2026-06-10');
+      await page.getByLabel('To', { exact: true }).fill('2026-06-05');
+      await expect(page.getByRole('alert').filter({ hasText: 'must be on or before' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Apply' })).toBeDisabled();
+    });
+
+    test('filters by one contributor from the loaded changesets', async ({ page }) => {
+      const pageErrors: string[] = [];
+      page.on('pageerror', error => pageErrors.push(error.message));
+      await openFilters(page);
+
+      const contributors = page.locator('fieldset').filter({ hasText: 'Contributors' });
+      await expect(contributors.getByRole('radio')).toHaveCount(4);
+
+      await contributors.getByRole('radio', { name: 'mapper_jane' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [101, 104]);
+
+      await reopenFilters(page);
+      await expect(contributors.getByRole('radio')).toHaveCount(4);
+      await contributors.getByRole('radio', { name: 'mapper_cy' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [103]);
+      expect(pageErrors).toEqual([]);
+    });
+
+    test('filtering out the selected changeset clears its URL query', async ({ page }) => {
+      await openFilters(page, '/workspace/1/review?source=shared&changeset=102');
+      await expect(sidebar(page).locator('.review-item.active')).toContainText('#102');
+
+      const contributors = page.locator('fieldset').filter({ hasText: 'Contributors' });
+      await contributors.getByRole('radio', { name: 'mapper_jane' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+
+      await expectChangesets(page, [101, 104]);
+      await expect.poll(() => new URL(page.url()).searchParams.has('changeset')).toBe(false);
+      expect(new URL(page.url()).searchParams.get('source')).toBe('shared');
+      await expect(sidebar(page).locator('.review-item.active')).toHaveCount(0);
+      await expect(page.getByRole('alert')).toHaveCount(0);
+    });
+
+    test('persists applied filters in the URL and restores them on reload', async ({ page }) => {
+      await openFilters(page);
+
+      await page.getByLabel('From', { exact: true }).fill('2026-06-05');
+      await page.getByLabel('To', { exact: true }).fill('2026-06-10');
+      await page.locator('fieldset').filter({ hasText: 'Contributors' })
+        .getByRole('radio', { name: 'mapper_bob' }).check();
+      await page.locator('fieldset').filter({ hasText: 'Teams' })
+        .getByRole('checkbox', { name: 'North Team' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [102]);
+
+      const query = new URL(page.url()).searchParams;
+      expect(query.get('types')).toBe('changesets,fixmes');
+      expect(query.get('from')).toBe('2026-06-05');
+      expect(query.get('to')).toBe('2026-06-10');
+      expect(query.get('user')).toBe('8');
+      expect(query.get('teams')).toBe('1');
+
+      await page.reload();
+      await expectChangesets(page, [102]);
+      await reopenFilters(page);
+      await expect(page.getByLabel('From', { exact: true })).toHaveValue('2026-06-05');
+      await expect(page.getByLabel('To', { exact: true })).toHaveValue('2026-06-10');
+      await expect(page.getByRole('radio', { name: 'mapper_bob' })).toBeChecked();
+      await expect(page.getByRole('checkbox', { name: 'North Team' })).toBeChecked();
+    });
+
+    test('filters by the combined members of one or more teams', async ({ page }) => {
+      await openFilters(page);
+
+      const teamSet = page.locator('fieldset').filter({ hasText: 'Teams' });
+      await teamSet.getByRole('checkbox', { name: 'South Team' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [103]);
+
+      await reopenFilters(page);
+      await teamSet.getByRole('checkbox', { name: 'North Team' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [101, 102, 103, 104]);
+
+      await reopenFilters(page);
+      await teamSet.getByRole('checkbox', { name: 'South Team' }).uncheck();
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [101, 102, 104]);
+    });
+
+    test('hides unrelated review item types while a team filter is active', async ({ page }) => {
+      await seedAuthenticatedSession(page);
+      await stubReviewApis(page, { changesets: filterChangesets, teams, teamMembers });
+      await page.goto('/workspace/1/review');
+      await expect(sidebar(page).locator('.review-item')).toHaveCount(6);
+
+      await reopenFilters(page);
+      await page.locator('fieldset').filter({ hasText: 'Teams' })
+        .getByRole('checkbox', { name: 'North Team' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+
+      await expectChangesets(page, [101, 102, 104]);
+      await expect(sidebar(page).locator('.review-item').filter({ hasText: 'Feedback' })).toHaveCount(0);
+      await expect(sidebar(page).locator('.review-item').filter({ hasText: 'Note' })).toHaveCount(0);
+      await expect(sidebar(page).getByText('Anonymous')).toHaveCount(0);
+    });
+
+    test('applies a filter requested while a refresh is in progress', async ({ page }) => {
+      await openFilters(page);
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [101, 102, 103, 104]);
+
+      const requests: string[] = [];
+      let markRefreshStarted!: () => void;
+      let releaseRefresh!: () => void;
+      const refreshStarted = new Promise<void>(resolve => markRefreshStarted = resolve);
+      const refreshReleased = new Promise<void>(resolve => releaseRefresh = resolve);
+
+      await page.route('**/osm/api/0.6/changesets.json**', async (route) => {
+        requests.push(route.request().url());
+        if (requests.length === 1) {
+          markRefreshStarted();
+          await refreshReleased;
+        }
+        await route.fulfill({ json: filterChangesets });
+      });
+
+      await sidebar(page).getByRole('button', { name: 'Refresh' }).click();
+      await refreshStarted;
+
+      try {
+        await reopenFilters(page);
+        await page.getByLabel('From', { exact: true }).fill('2026-06-10');
+        await page.getByRole('button', { name: 'Apply' }).click();
+      }
+      finally {
+        releaseRefresh();
+      }
+
+      await expect.poll(() => requests.length).toBe(2);
+      expect(new URL(requests[1]!).searchParams.has('from')).toBe(true);
+      await expectChangesets(page, [103, 104]);
+      await expect.poll(() => new URL(page.url()).searchParams.get('from')).toBe('2026-06-10');
+    });
+
+    test('clearing the changeset filters shows every changeset again', async ({ page }) => {
+      await openFilters(page);
+
+      await page.locator('fieldset').filter({ hasText: 'Contributors' })
+        .getByRole('radio', { name: 'mapper_bob' }).check();
+      await page.getByLabel('From', { exact: true }).fill('2026-06-01');
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [102]);
+
+      await reopenFilters(page);
+      await page.getByRole('button', { name: 'Clear filters' }).click();
+      await expect(page.locator('.review-filter-menu')).toBeHidden();
+      await expectChangesets(page, [101, 102, 103, 104]);
+
+      await reopenFilters(page);
+      await expect(page.getByLabel('From', { exact: true })).toHaveValue('');
+      await expect(page.getByRole('radio', { name: 'All contributors' })).toBeChecked();
+    });
+
+    test('team filter API calls conform to the OpenAPI spec', async ({ page }) => {
+      const contract = recordContract(page);
+      await openFilters(page);
+
+      await page.locator('fieldset').filter({ hasText: 'Teams' })
+        .getByRole('checkbox', { name: 'North Team' }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+      await expectChangesets(page, [101, 102, 104]);
+
+      expect(contract.violations()).toEqual([]);
+    });
   });
 
   // @test e2e: fixme entries (elements with a fixme tag, from the workspaces API) display in the sidebar with their note;

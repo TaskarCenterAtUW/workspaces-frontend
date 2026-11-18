@@ -363,9 +363,27 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
 
   async listChangesets(
     workspaceId: WorkspaceId,
-    params: { order?: 'oldest' | 'newest'; limit?: number } = { }
+    params: {
+      from?: Date;
+      to?: Date;
+      user?: number;
+      order?: 'oldest' | 'newest';
+      limit?: number;
+    } = { }
   ): Promise<OsmChangeset[]> {
     const query = new URLSearchParams();
+
+    if (params.from) {
+      query.set('from', params.from.toISOString().replace(/\.\d{3}Z$/, 'Z'));
+    }
+
+    if (params.to) {
+      query.set('to', params.to.toISOString().replace(/\.\d{3}Z$/, 'Z'));
+    }
+
+    if (params.user !== undefined) {
+      query.set('user', String(params.user));
+    }
 
     if (params.order) {
       query.set('order', params.order);
@@ -534,12 +552,26 @@ export class OsmApiClient extends BaseHttpClient implements ICancelableClient {
     return feature ? noteFeatureToEntity(feature) : undefined;
   }
 
-  async getNotes(workspaceId: WorkspaceId, includeClosed: boolean): Promise<OsmNote[]> {
+  async getNotes(
+    workspaceId: WorkspaceId,
+    includeClosed: boolean,
+    filters: { from?: Date; to?: Date; user?: number } = {},
+  ): Promise<OsmNote[]> {
     const params = new URLSearchParams();
     // Fetch the maximum number of notes:
     params.append('limit', '10000');
     // -1: all, 0: open only, > 0: days closed:
     params.append('closed', includeClosed ? '-1' : '0');
+
+    if (filters.from) {
+      params.set('from', filters.from.toISOString().replace(/\.\d{3}Z$/, 'Z'));
+    }
+    if (filters.to) {
+      params.set('to', filters.to.toISOString().replace(/\.\d{3}Z$/, 'Z'));
+    }
+    if (filters.user !== undefined) {
+      params.set('user', String(filters.user));
+    }
 
     const response = await this._get(`notes/search.json?${params}`, {
       headers: {
