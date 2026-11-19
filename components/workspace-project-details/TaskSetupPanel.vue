@@ -116,8 +116,49 @@
       />
       <div>
         <strong>Tasks created</strong>
-        <p>This project will be created with <strong>{{ generatedSummary.totalTasks }} tasks</strong>.</p>
+        <p>This project will be created with <strong>{{ taskCountToSave }} tasks</strong>.</p>
         <p>The size of each task is approximately <strong>{{ formattedTaskArea }}</strong></p>
+      </div>
+    </section>
+
+    <section
+      v-if="generatedSummary && !savedSummary && smallTaskCount > 0"
+      class="project-task-setup-callout project-task-setup-callout-warning"
+      data-testid="small-task-warning"
+    >
+      <app-icon
+        variant="warning"
+        size="18"
+        no-margin
+      />
+      <div>
+        <strong>{{ smallTaskSummary }}</strong>
+        <p>These are cut off by the project boundary and are highlighted in red on the map. Removing them leaves those slivers of the project area without a task.</p>
+        <fieldset class="project-task-setup-small-task-choice">
+          <legend class="visually-hidden">
+            Small tasks
+          </legend>
+          <label>
+            <input
+              type="radio"
+              name="project-task-setup-small-tasks"
+              :checked="discardSmallTasks"
+              :disabled="saving"
+              @change="emit('update:discard-small-tasks', true)"
+            >
+            Remove {{ smallTaskCount === 1 ? 'it' : 'them' }} (recommended)
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="project-task-setup-small-tasks"
+              :checked="!discardSmallTasks"
+              :disabled="saving"
+              @change="emit('update:discard-small-tasks', false)"
+            >
+            Keep {{ smallTaskCount === 1 ? 'it' : 'them' }}
+          </label>
+        </fieldset>
       </div>
     </section>
 
@@ -201,6 +242,8 @@ import { formatArea } from '~/util/area';
 interface Props {
   /** Whether the Generate button should be enabled (AOI exists, no in-flight request, etc.). */
   canGenerate: boolean;
+  /** Whether tasks below the small-task threshold will be removed before saving. */
+  discardSmallTasks: boolean;
   /** Whether the Save button should be enabled (grid generated but not yet saved). */
   canSave: boolean;
   /** Set by the composable once the server has returned a generated task grid. Null before generation. */
@@ -220,6 +263,12 @@ interface Props {
   savedSummary: ProjectWizardTaskSaveSummary | null;
   /** True while the save API request is in-flight. */
   saving: boolean;
+  /** Number of generated tasks below the small-task threshold. */
+  smallTaskCount: number;
+  /** Small-task threshold (km²), shown in the warning. */
+  smallTaskThresholdSquareKilometers: number;
+  /** Number of tasks that will be saved, after any small-task removal. */
+  taskCountToSave: number;
   /** Current slider value (km² per task). Controlled by the parent via `update:task-area`. */
   taskAreaSquareKilometers: number;
   /** Step increment for the range slider. */
@@ -231,6 +280,7 @@ const emit = defineEmits<{
   'generate': [];
   'reset': [];
   'save': [];
+  'update:discard-small-tasks': [value: boolean];
   'update:task-area': [value: number];
 }>();
 
@@ -253,6 +303,17 @@ const formattedMaximumTaskArea = computed(() =>
 const formattedTaskArea = computed(() =>
   formatArea(props.taskAreaSquareKilometers, areaUnit.value)
 );
+const smallTaskSummary = computed(() => {
+  const threshold = formatArea(
+    props.smallTaskThresholdSquareKilometers,
+    areaUnit.value,
+    { maximumSignificantDigits: 2 },
+  );
+
+  return props.smallTaskCount === 1
+    ? `1 task is smaller than ${threshold}`
+    : `${props.smallTaskCount} tasks are smaller than ${threshold}`;
+});
 const taskGenerationActionLabel = computed(() =>
   props.generatedSummary ? 'Generate Again' : 'Generate Tasks'
 );
@@ -285,6 +346,22 @@ function onTaskAreaInput(event: Event) {
 
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
+
+.project-task-setup-small-task-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  border: 0;
+
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+  }
+}
 
 .project-task-setup-card {
   display: grid;

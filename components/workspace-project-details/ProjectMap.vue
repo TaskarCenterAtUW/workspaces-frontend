@@ -398,8 +398,9 @@ function ensureLayers() {
     source: TASK_GRID_SOURCE_ID,
     filter: ['==', ['geometry-type'], 'Polygon'],
     paint: {
-      'fill-color': '#fde9aa',
-      'fill-opacity': 0.4,
+      // Small tasks (slivers clipped by the boundary) are flagged by useProjectTasking.
+      'fill-color': ['case', ['==', ['get', 'smallTask'], true], '#e05b5b', '#fde9aa'],
+      'fill-opacity': ['case', ['==', ['get', 'smallTask'], true], 0.7, 0.4],
       'fill-outline-color': '#8f9ab1',
     },
   };

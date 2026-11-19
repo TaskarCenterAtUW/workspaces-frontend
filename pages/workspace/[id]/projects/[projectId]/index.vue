@@ -158,6 +158,7 @@
               v-if="showTaskSetup"
               :can-generate="canGenerateTasks"
               :can-save="canSaveTasks"
+              :discard-small-tasks="discardSmallTasks"
               :generated-summary="generatedTaskSummary"
               :generating="generatingTasks"
               :has-aoi="Boolean(mapAoi)"
@@ -167,11 +168,15 @@
               :project-name="project.name"
               :saved-summary="savedTaskSummary"
               :saving="savingTasks"
+              :small-task-count="smallTaskCount"
+              :small-task-threshold-square-kilometers="PROJECT_WIZARD_SMALL_TASK_AREA_THRESHOLD"
+              :task-count-to-save="taskCountToSave"
               :task-area-square-kilometers="currentTaskAreaSquareKilometers"
               :task-area-step="PROJECT_WIZARD_TASK_AREA_STEP"
               @generate="handleGenerateTasks"
               @reset="resetTasking"
               @save="handleSaveTasks"
+              @update:discard-small-tasks="discardSmallTasks = $event"
               @update:task-area="updateTaskAreaSquareKilometers"
             />
 
@@ -259,6 +264,7 @@ import 'vue3-toastify/dist/index.css';
 import { listProjectGroupUsers } from '~/services/project-wizard-users';
 import { normalizeProjectWizardAoiInput } from '~/services/project-wizard-aoi';
 import {
+  PROJECT_WIZARD_SMALL_TASK_AREA_THRESHOLD,
   PROJECT_WIZARD_TASK_AREA_MAXIMUM,
   PROJECT_WIZARD_TASK_AREA_MINIMUM,
   PROJECT_WIZARD_TASK_AREA_STEP,
@@ -404,8 +410,9 @@ const {
   canGenerateTasks,
   canSaveTasks,
   currentTaskAreaSquareKilometers,
+  discardSmallTasks,
   generateTasks,
-  generatedTaskGrid,
+  generatedTaskGridForDisplay,
   generatedTaskSummary,
   generatingTasks,
   resetTasking,
@@ -413,6 +420,8 @@ const {
   savedTaskGrid,
   savedTaskSummary,
   savingTasks,
+  smallTaskCount,
+  taskCountToSave,
   taskPreviewGrid,
   taskPreviewSummary,
   updateTaskAreaSquareKilometers,
@@ -447,7 +456,7 @@ const displayedTaskGrid = computed<
   // before the follow-up project refresh completes.
   if (showTaskSetup.value) {
     return savedTaskGrid.value
-      ?? generatedTaskGrid.value
+      ?? generatedTaskGridForDisplay.value
       ?? taskPreviewGrid.value;
   }
 

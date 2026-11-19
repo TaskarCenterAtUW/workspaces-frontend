@@ -4,6 +4,7 @@ import { getProjectWizardAoiVertices } from '~/services/project-wizard-aoi';
 
 import type {
   ProjectWizardAreaFeature,
+  ProjectWizardGeneratedTaskFeature,
   ProjectWizardGeneratedTaskFeatureCollection,
   ProjectWizardTaskGenerationSummary,
   ProjectWizardTaskPreviewCellFeature,
@@ -19,6 +20,61 @@ export const PROJECT_WIZARD_TASK_AREA_MINIMUM = 0.25;
 export const PROJECT_WIZARD_TASK_AREA_MAXIMUM = 1;
 export const PROJECT_WIZARD_TASK_AREA_DEFAULT = 0.45;
 export const PROJECT_WIZARD_TASK_AREA_STEP = 0.05;
+
+/**
+ * Tasks smaller than this are slivers left where the grid is clipped by the project boundary.
+ * Matches the warning threshold used by the HOT Tasking Manager.
+ */
+export const PROJECT_WIZARD_SMALL_TASK_AREA_THRESHOLD = 0.002;
+
+export interface ProjectWizardSmallTaskPartition {
+  /** Tasks at or above the threshold. */
+  regularTasks: ProjectWizardGeneratedTaskFeature[];
+  /** Tasks below the threshold. */
+  smallTasks: ProjectWizardGeneratedTaskFeature[];
+}
+
+/**
+ * Approximate area of a polygon (outer ring minus holes) in square kilometres, using a local
+ * equirectangular projection centred on the polygon. Accurate to well under a percent at
+ * task scale, which is all the small-task threshold needs.
+ */
+export function getPolygonAreaSquareKilometers(polygon: Polygon): number {
+  const [outerRing, ...holes] = polygon.coordinates;
+
+  if (!outerRing || outerRing.length < 4) {
+    return 0;
+  }
+
+  const latitudeReferenceRadians = averageLatitudeRadians(outerRing);
+  const ringArea = (ring: Position[]) =>
+    projectedRingAreaSquareMeters(ring.map(coordinate => projectCoordinate(coordinate, latitudeReferenceRadians)));
+  const areaSquareMeters = holes.reduce(
+    (area, hole) => area - ringArea(hole),
+    ringArea(outerRing),
+  );
+
+  return Math.max(0, areaSquareMeters) / SQUARE_METERS_PER_SQUARE_KILOMETER;
+}
+
+/** Split a generated task grid into tasks below and at-or-above the small-task threshold. */
+export function partitionSmallTasks(
+  taskGrid: ProjectWizardGeneratedTaskFeatureCollection | null,
+  thresholdSquareKilometers = PROJECT_WIZARD_SMALL_TASK_AREA_THRESHOLD,
+): ProjectWizardSmallTaskPartition {
+  const partition: ProjectWizardSmallTaskPartition = { regularTasks: [], smallTasks: [] };
+
+  for (const feature of taskGrid?.features ?? []) {
+    if (feature.geometry.type !== 'Polygon') {
+      continue;
+    }
+
+    const isSmall = getPolygonAreaSquareKilometers(feature.geometry) < thresholdSquareKilometers;
+    (isSmall ? partition.smallTasks : partition.regularTasks).push(feature);
+  }
+
+  return partition;
+}
 
 export function convertTaskAreaSquareKilometersToCellSizeMeters(value: number): number {
   const normalizedArea = normalizeTaskAreaSquareKilometers(value);
@@ -229,6 +285,18 @@ function buildRectanglePolygon(
     [leftX, topY],
     [leftX, bottomY],
   ] as const;
+}
+
+function projectedRingAreaSquareMeters(ring: ProjectedCoordinate[]): number {
+  let twiceArea = 0;
+
+  for (let index = 0; index < ring.length - 1; index += 1) {
+    const [x1, y1] = ring[index]!;
+    const [x2, y2] = ring[index + 1]!;
+    twiceArea += (x1 * y2) - (x2 * y1);
+  }
+
+  return Math.abs(twiceArea) / 2;
 }
 
 function getProjectedBounds(projectedRing: ProjectedCoordinate[]): ProjectWizardProjectedBounds {

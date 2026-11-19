@@ -10,17 +10,20 @@ export const AREA_UNIT_OPTIONS: ReadonlyArray<{
   { label: 'mi²', value: 'square_miles' },
 ];
 
+/**
+ * Format an area in the given unit. Values round to two decimal places by default; pass
+ * `numberFormatOptions` (e.g. `{ maximumSignificantDigits: 2 }`) for very small areas that
+ * would otherwise round to zero.
+ */
 export function formatArea(
   squareKilometers: number,
   displayUnit: AreaDisplayUnit,
+  numberFormatOptions: Intl.NumberFormatOptions = { maximumFractionDigits: 2, minimumFractionDigits: 0 },
 ): string {
   const convertedValue = displayUnit === 'square_miles'
     ? squareKilometers * SQUARE_MILES_PER_SQUARE_KILOMETER
     : squareKilometers;
-  const formattedValue = new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 0,
-  }).format(convertedValue);
+  const formattedValue = new Intl.NumberFormat(undefined, numberFormatOptions).format(convertedValue);
 
   return `${formattedValue} ${displayUnit === 'square_miles' ? 'mi²' : 'km²'}`;
 }
