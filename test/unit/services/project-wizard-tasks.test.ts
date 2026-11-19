@@ -7,10 +7,10 @@ import {
 } from '~/services/project-wizard-tasks';
 import type { ProjectWizardGeneratedTaskFeatureCollection } from '~/types/project-wizard';
 
-// ~1 degree of latitude in metres on the mean-radius sphere used by the projection.
+// One degree of latitude on the mean-radius sphere used by the projection, in metres.
 const METERS_PER_DEGREE_LATITUDE = 111_195.08;
 
-/** A square of `sideMeters` with its south-west corner at (lon, lat). */
+/** Build a square whose south-west corner is at (lon, lat). */
 function square(lon: number, lat: number, sideMeters: number): Polygon {
   const dLat = sideMeters / METERS_PER_DEGREE_LATITUDE;
   const dLon = sideMeters / (METERS_PER_DEGREE_LATITUDE * Math.cos((lat + (dLat / 2)) * Math.PI / 180));
@@ -69,9 +69,9 @@ describe('partitionSmallTasks', () => {
   });
 
   it('separates tasks below the threshold from the rest', () => {
-    const big = square(-122.3, 47.6, 670); // ~0.45 km²
-    const sliver = square(-122.29, 47.6, 30); // ~0.0009 km²
-    const justOver = square(-122.28, 47.6, 46); // ~0.0021 km²
+    const big = square(-122.3, 47.6, 670); // About 0.45 km²
+    const sliver = square(-122.29, 47.6, 30); // About 0.0009 km²
+    const justOver = square(-122.28, 47.6, 46); // About 0.0021 km²
     const result = partitionSmallTasks(grid(big, sliver, justOver));
 
     expect(result.smallTasks.map(feature => feature.properties?.index)).toEqual([1]);

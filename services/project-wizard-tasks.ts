@@ -22,22 +22,21 @@ export const PROJECT_WIZARD_TASK_AREA_DEFAULT = 0.45;
 export const PROJECT_WIZARD_TASK_AREA_STEP = 0.05;
 
 /**
- * Tasks smaller than this are slivers left where the grid is clipped by the project boundary.
- * Matches the warning threshold used by the HOT Tasking Manager.
+ * Grid cells below this size are usually slivers created along the project boundary.
+ * This is the same cutoff used by HOT Tasking Manager.
  */
 export const PROJECT_WIZARD_SMALL_TASK_AREA_THRESHOLD = 0.002;
 
 export interface ProjectWizardSmallTaskPartition {
-  /** Tasks at or above the threshold. */
+  /** Tasks large enough to keep by default. */
   regularTasks: ProjectWizardGeneratedTaskFeature[];
-  /** Tasks below the threshold. */
+  /** Tiny tasks that users may want to remove. */
   smallTasks: ProjectWizardGeneratedTaskFeature[];
 }
 
 /**
- * Approximate area of a polygon (outer ring minus holes) in square kilometres, using a local
- * equirectangular projection centred on the polygon. Accurate to well under a percent at
- * task scale, which is all the small-task threshold needs.
+ * Estimate a polygon's area in square kilometres, subtracting any holes. A local projection
+ * keeps the calculation comfortably accurate for task-sized polygons.
  */
 export function getPolygonAreaSquareKilometers(polygon: Polygon): number {
   const [outerRing, ...holes] = polygon.coordinates;
@@ -57,7 +56,7 @@ export function getPolygonAreaSquareKilometers(polygon: Polygon): number {
   return Math.max(0, areaSquareMeters) / SQUARE_METERS_PER_SQUARE_KILOMETER;
 }
 
-/** Split a generated task grid into tasks below and at-or-above the small-task threshold. */
+/** Split a generated grid into tiny tasks and tasks large enough to keep by default. */
 export function partitionSmallTasks(
   taskGrid: ProjectWizardGeneratedTaskFeatureCollection | null,
   thresholdSquareKilometers = PROJECT_WIZARD_SMALL_TASK_AREA_THRESHOLD,

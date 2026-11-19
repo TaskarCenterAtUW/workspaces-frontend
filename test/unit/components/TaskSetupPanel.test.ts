@@ -19,6 +19,7 @@ const generatedSummary: ProjectWizardTaskGenerationSummary = {
 async function mountPanel(overrides: Record<string, unknown> = {}) {
   return await mountSuspended(TaskSetupPanel, {
     props: {
+      activeSmallTaskIndex: null,
       canGenerate: true,
       canSave: true,
       discardSmallTasks: true,
@@ -51,16 +52,28 @@ describe('TaskSetupPanel small tasks', () => {
     expect(wrapper.text()).toMatch(/created with 7 tasks/);
   });
 
-  it('emits the keep/remove choice', async () => {
+  it('starts the map review with the first small task', async () => {
     const wrapper = await mountPanel();
+
+    await wrapper.find('.project-task-setup-review-button').trigger('click');
+
+    expect(wrapper.emitted('review-small-task')).toEqual([[0]]);
+  });
+
+  it('navigates individual tasks while keeping one collective choice', async () => {
+    const wrapper = await mountPanel({ activeSmallTaskIndex: 1 });
+    const navigation = wrapper.findAll('.project-task-setup-small-task-navigation-button');
     const [remove, keep] = wrapper.findAll('[data-testid="small-task-warning"] input[type="radio"]');
 
     expect((remove!.element as HTMLInputElement).checked).toBe(true);
 
     await keep!.trigger('change');
     await remove!.trigger('change');
+    await navigation[0]!.trigger('click');
+    await navigation[1]!.trigger('click');
 
     expect(wrapper.emitted('update:discard-small-tasks')).toEqual([[false], [true]]);
+    expect(wrapper.emitted('review-small-task')).toEqual([[0], [2]]);
   });
 
   it('shows no warning when there are no small tasks', async () => {

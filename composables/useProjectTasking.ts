@@ -10,10 +10,9 @@
  *   2. `taskPreviewGrid` updates reactively, showing a live grid preview on the map.
  *   3. User clicks "Generate Tasks" → `generateTasks()` calls the API to create a server-side grid.
  *   4. `generatedTaskSummary` is populated → map switches to showing the API grid.
- *   5. If the clipped grid has tasks below the small-task threshold (slivers at the boundary),
- *      the user chooses to remove (default) or keep them via `discardSmallTasks`.
- *   6. User clicks "Save Tasks" → `saveTasks()` commits the grid (minus any removed small
- *      tasks) to the project permanently.
+ *   5. If clipping the grid creates tiny tasks along the boundary, the user can remove them
+ *      (the default) or keep them.
+ *   6. User clicks "Save Tasks" → `saveTasks()` commits the chosen tasks to the project.
  *   7. `savedTaskSummary` is populated → the setup UI hides and the real task list appears.
  *
  * State invalidation:
@@ -58,7 +57,7 @@ export function useProjectTasking(options: UseProjectTaskingOptions) {
   const generatedTaskSummary = ref<ProjectWizardTaskGenerationSummary | null>(null);
   /** Populated after a successful `saveTasks()` call. Once set, the workflow is complete. */
   const savedTaskSummary = ref<ProjectWizardTaskSaveSummary | null>(null);
-  /** Whether tasks below the small-task threshold are dropped before saving. Reset on each generate. */
+  /** Remove every small task before saving. Each new grid resets this choice. */
   const discardSmallTasks = ref(true);
 
   /** The task area value clamped/snapped to valid bounds. Always use this rather than the raw ref. */
@@ -100,11 +99,13 @@ export function useProjectTasking(options: UseProjectTaskingOptions) {
 
   /** Convenience accessor: the task grid from the generate API response. */
   const generatedTaskGrid = computed(() => generatedTaskSummary.value?.taskGrid ?? null);
-  /** The generated tasks split into small slivers and regular-sized tasks. */
+  /** Split the grid into tiny boundary slivers and regular tasks. */
   const generatedTaskPartition = computed(() => partitionSmallTasks(generatedTaskGrid.value));
-  /** Tasks in the generated grid below the small-task threshold. */
-  const smallTaskCount = computed(() => generatedTaskPartition.value.smallTasks.length);
-  /** The grid that `saveTasks()` will send: small tasks are left out when `discardSmallTasks` is on. */
+  /** Small task features in the same order used by the review controls. */
+  const smallTasks = computed(() => generatedTaskPartition.value.smallTasks);
+  /** Number of tiny tasks in the generated grid. */
+  const smallTaskCount = computed(() => smallTasks.value.length);
+  /** The grid to save, with small tasks removed when the user chooses to discard them. */
   const taskGridToSave = computed<ProjectWizardGeneratedTaskFeatureCollection | null>(() => {
     const grid = generatedTaskGrid.value;
 
@@ -114,13 +115,12 @@ export function useProjectTasking(options: UseProjectTaskingOptions) {
 
     return { ...grid, features: generatedTaskPartition.value.regularTasks };
   });
-  /** How many tasks will be saved, after any small-task removal. */
+  /** Number of tasks that will actually be saved. */
   const taskCountToSave = computed(() =>
     taskGridToSave.value?.features.filter(feature => feature.geometry.type === 'Polygon').length ?? 0,
   );
   /**
-   * The generated grid for the map, with small tasks flagged (`smallTask: true`) so they can be
-   * highlighted whether they are being kept or removed.
+   * Keep every task on the preview map and flag the tiny ones so the map can highlight them.
    */
   const generatedTaskGridForDisplay = computed<ProjectWizardGeneratedTaskFeatureCollection | null>(() => {
     const grid = generatedTaskGrid.value;
@@ -129,15 +129,19 @@ export function useProjectTasking(options: UseProjectTaskingOptions) {
       return grid;
     }
 
-    const smallTasks = new Set(generatedTaskPartition.value.smallTasks);
+    const smallTaskIndexes = new Map(
+      generatedTaskPartition.value.smallTasks.map((feature, index) => [feature, index]),
+    );
 
     return {
       ...grid,
-      features: grid.features.map(feature =>
-        smallTasks.has(feature)
-          ? { ...feature, properties: { ...feature.properties, smallTask: true } }
-          : feature,
-      ),
+      features: grid.features.map((feature) => {
+        const smallTaskIndex = smallTaskIndexes.get(feature);
+
+        return smallTaskIndex === undefined
+          ? feature
+          : { ...feature, properties: { ...feature.properties, smallTask: true, smallTaskIndex } };
+      }),
     };
   });
   /** Convenience accessor: the task grid from the save API response (includes persisted IDs). */
@@ -265,6 +269,7 @@ export function useProjectTasking(options: UseProjectTaskingOptions) {
     savedTaskSummary,
     savingTasks,
     smallTaskCount,
+    smallTasks,
     taskCountToSave,
     taskGridToSave,
     taskPreviewGrid,

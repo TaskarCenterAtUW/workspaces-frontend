@@ -11,9 +11,8 @@ export const AREA_UNIT_OPTIONS: ReadonlyArray<{
 ];
 
 /**
- * Format an area in the given unit. Values round to two decimal places by default; pass
- * `numberFormatOptions` (e.g. `{ maximumSignificantDigits: 2 }`) for very small areas that
- * would otherwise round to zero.
+ * Format an area in the requested unit. By default, values are rounded to two decimal places.
+ * Callers can pass number-format options when they need to preserve very small values.
  */
 export function formatArea(
   squareKilometers: number,

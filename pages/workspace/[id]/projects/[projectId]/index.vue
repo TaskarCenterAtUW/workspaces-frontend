@@ -156,6 +156,7 @@
           >
             <workspace-project-details-task-setup-panel
               v-if="showTaskSetup"
+              :active-small-task-index="activeSmallTaskIndex"
               :can-generate="canGenerateTasks"
               :can-save="canSaveTasks"
               :discard-small-tasks="discardSmallTasks"
@@ -174,7 +175,8 @@
               :task-area-square-kilometers="currentTaskAreaSquareKilometers"
               :task-area-step="PROJECT_WIZARD_TASK_AREA_STEP"
               @generate="handleGenerateTasks"
-              @reset="resetTasking"
+              @reset="handleResetTasking"
+              @review-small-task="handleReviewSmallTask"
               @save="handleSaveTasks"
               @update:discard-small-tasks="discardSmallTasks = $event"
               @update:task-area="updateTaskAreaSquareKilometers"
@@ -223,6 +225,7 @@
         </section>
 
         <workspace-project-details-project-map
+          ref="projectMapRef"
           :aoi="projectAoi"
           :selected-task-id="selectedTaskId"
           :task-grid="showTaskSetup ? displayedTaskGrid : persistedTaskGrid"
@@ -284,6 +287,7 @@ import type {
 } from '~/types/projects';
 import type {
   ProjectWizardAreaFeature,
+  ProjectWizardGeneratedTaskFeature,
   ProjectWizardGeneratedTaskFeatureCollection,
   ProjectWizardTaskPreviewFeatureCollection,
   ProjectWizardTaskSaveSummary,
@@ -324,6 +328,9 @@ const {
   myTdeiRoles,
 );
 const project = ref(await loadProjectDetail());
+const projectMapRef = useTemplateRef<{
+  focusSmallTask: (task: ProjectWizardGeneratedTaskFeature) => void;
+}>('projectMapRef');
 const projectAoi = ref(await loadProjectAoi());
 const projectTasks = ref<WorkspaceProjectTaskListItem[] | null>(await loadProjectTasks());
 const projectContributors = ref<WorkspaceProjectContributor[]>(await loadProjectContributors());
@@ -421,6 +428,7 @@ const {
   savedTaskSummary,
   savingTasks,
   smallTaskCount,
+  smallTasks,
   taskCountToSave,
   taskPreviewGrid,
   taskPreviewSummary,
@@ -430,6 +438,8 @@ const {
   projectId: computed(() => String(project.value.id)),
   workspaceId,
 });
+
+const activeSmallTaskIndex = ref<number | null>(null);
 
 const activeTab = computed<WorkspaceProjectDetailTab>(() => {
   const requestedTab = route.query.tab;
@@ -645,11 +655,28 @@ onMounted(() => {
 async function handleGenerateTasks() {
   try {
     selectedTaskId.value = null;
+    activeSmallTaskIndex.value = null;
     await generateTasks();
   }
   catch (error) {
     await openTaskGenerationErrorDialog(error);
   }
+}
+
+function handleResetTasking() {
+  activeSmallTaskIndex.value = null;
+  resetTasking();
+}
+
+function handleReviewSmallTask(index: number) {
+  const task = smallTasks.value[index];
+
+  if (!task) {
+    return;
+  }
+
+  activeSmallTaskIndex.value = index;
+  projectMapRef.value?.focusSmallTask(task);
 }
 
 async function handleSaveTasks() {
