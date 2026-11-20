@@ -139,7 +139,7 @@
           v-if="activeSmallTaskIndex === null"
           class="btn project-task-setup-review-button"
           type="button"
-          :disabled="saving"
+          :disabled="generating || saving"
           @click="emit('review-small-task', 0)"
         >
           <app-icon
@@ -159,7 +159,7 @@
               class="btn project-task-setup-small-task-navigation-button"
               type="button"
               aria-label="Review previous small task"
-              :disabled="saving || activeSmallTaskIndex === 0"
+              :disabled="generating || saving || activeSmallTaskIndex === 0"
               @click="emit('review-small-task', activeSmallTaskIndex - 1)"
             >
               <app-icon
@@ -173,7 +173,7 @@
               class="btn project-task-setup-small-task-navigation-button"
               type="button"
               aria-label="Review next small task"
-              :disabled="saving || activeSmallTaskIndex === smallTaskCount - 1"
+              :disabled="generating || saving || activeSmallTaskIndex === smallTaskCount - 1"
               @click="emit('review-small-task', activeSmallTaskIndex + 1)"
             >
               <app-icon
@@ -185,7 +185,7 @@
             <button
               class="btn project-task-setup-review-button"
               type="button"
-              :disabled="saving"
+              :disabled="generating || saving"
               @click="emit('review-small-task', activeSmallTaskIndex)"
             >
               <app-icon

@@ -229,7 +229,7 @@
           :aoi="projectAoi"
           :selected-task-id="selectedTaskId"
           :task-grid="showTaskSetup ? displayedTaskGrid : persistedTaskGrid"
-          :tasks="showTaskSetup ? [] : displayedTasks"
+          :tasks="showTaskSetup ? EMPTY_PROJECT_TASKS : displayedTasks"
           class="project-detail-map-column"
           @select-task="selectTask"
         />
@@ -335,6 +335,7 @@ const projectAoi = ref(await loadProjectAoi());
 const projectTasks = ref<WorkspaceProjectTaskListItem[] | null>(await loadProjectTasks());
 const projectContributors = ref<WorkspaceProjectContributor[]>(await loadProjectContributors());
 const projectGroupUsers = ref<ProjectWizardWorkspaceUser[]>([]);
+const EMPTY_PROJECT_TASKS: WorkspaceProjectTaskListItem[] = [];
 
 // Resolve the user's effective project role (workspace lead always wins).
 // This is awaited so the tabs and action guards are correct on first render.
@@ -655,8 +656,11 @@ onMounted(() => {
 async function handleGenerateTasks() {
   try {
     selectedTaskId.value = null;
-    activeSmallTaskIndex.value = null;
-    await generateTasks();
+    const generatedSummary = await generateTasks();
+
+    if (generatedSummary) {
+      activeSmallTaskIndex.value = null;
+    }
   }
   catch (error) {
     await openTaskGenerationErrorDialog(error);
@@ -669,6 +673,10 @@ function handleResetTasking() {
 }
 
 function handleReviewSmallTask(index: number) {
+  if (generatingTasks.value) {
+    return;
+  }
+
   const task = smallTasks.value[index];
 
   if (!task) {

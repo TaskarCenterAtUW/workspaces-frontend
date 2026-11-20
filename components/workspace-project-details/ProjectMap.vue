@@ -524,16 +524,16 @@ function focusSmallTask(task: ProjectWizardGeneratedTaskFeature) {
     return;
   }
 
-  const center = getPolygonCenter(task.geometry);
+  const bounds = getFeatureBounds(task.geometry);
 
-  if (!center) {
+  if (!bounds) {
     return;
   }
 
-  detailMap.easeTo({
-    center,
-    zoom: Math.max(detailMap.getZoom(), 18),
+  detailMap.fitBounds(bounds, {
+    padding: 96,
     duration: 600,
+    maxZoom: 18,
     essential: true,
   });
 }

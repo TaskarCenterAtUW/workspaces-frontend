@@ -60,6 +60,12 @@ describe('TaskSetupPanel small tasks', () => {
     expect(wrapper.emitted('review-small-task')).toEqual([[0]]);
   });
 
+  it('disables map review while a replacement grid is being generated', async () => {
+    const wrapper = await mountPanel({ generating: true });
+
+    expect(wrapper.find('.project-task-setup-review-button').attributes('disabled')).toBeDefined();
+  });
+
   it('navigates individual tasks while keeping one collective choice', async () => {
     const wrapper = await mountPanel({ activeSmallTaskIndex: 1 });
     const navigation = wrapper.findAll('.project-task-setup-small-task-navigation-button');
