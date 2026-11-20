@@ -25,3 +25,10 @@ describe('area utilities', () => {
     expect(isUnitedStatesLocale('not_a_locale')).toBe(false);
   });
 });
+
+describe('formatArea number options', () => {
+  it('keeps very small areas readable with significant digits', () => {
+    expect(formatArea(0.002, 'square_kilometers', { maximumSignificantDigits: 2 })).toBe('0.002 km²');
+    expect(formatArea(0.002, 'square_miles', { maximumSignificantDigits: 2 })).toBe('0.00077 mi²');
+  });
+});
