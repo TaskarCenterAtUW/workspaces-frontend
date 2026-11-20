@@ -237,18 +237,19 @@ test.describe('create landing page', () => {
     await page.getByRole('button', { name: 'Create Workspace' }).click();
 
     // Error UI: alert + "Try again".
-    const alert = page.getByRole('alert');
+    const footer = page.locator('.create-workspace-file-page .card-footer');
+    const alert = footer.getByRole('alert');
     await expect(alert).toBeVisible();
     await expect(alert).toContainText('An error occurred:');
     const tryAgain = page.getByRole('button', { name: 'Try again' });
     await expect(tryAgain).toBeVisible();
 
     // Snapshot the error state.
-    await expect(page.locator('.create-workspace-file-page .card-footer')).toMatchAriaSnapshot();
+    await expect(footer).toMatchAriaSnapshot();
 
     // Clicking "Try again" resets the form back to the editable Create button.
     await tryAgain.click();
-    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(alert).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Create Workspace' })).toBeVisible();
   });
 
