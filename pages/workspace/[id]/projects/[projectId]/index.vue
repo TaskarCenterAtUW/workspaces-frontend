@@ -263,7 +263,7 @@ import {
   PROJECT_WIZARD_TASK_AREA_MINIMUM,
   PROJECT_WIZARD_TASK_AREA_STEP,
 } from '~/services/project-wizard-tasks';
-import { tdeiUserClient, workspaceProjectsClient, workspacesClient } from '~/services/index';
+import { tdeiUserClient, workspaceProjectsClient } from '~/services/index';
 import { resolveHttpErrorMessage } from '~/services/http';
 import { isTaskSelfValidation } from '~/util/task-access';
 import { resolveWorkspaceProjectTaskStatusLabel } from '~/util/task-status';
@@ -302,7 +302,7 @@ const BASE_TABS: ProjectDetailTabOption[] = [
   { id: 'contributions', label: 'Contributions' },
 ];
 
-const workspace = await workspacesClient.getWorkspace(workspaceId);
+const workspace = await loadWorkspace(workspaceId);
 let projectGroupRolesLoadFailed = false;
 const myTdeiRoles = await tdeiUserClient.getMyRolesForProjectGroupById(
   workspace.tdeiProjectGroupId,
