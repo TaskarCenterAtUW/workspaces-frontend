@@ -116,8 +116,113 @@
       />
       <div>
         <strong>Tasks created</strong>
-        <p>This project will be created with <strong>{{ generatedSummary.totalTasks }} tasks</strong>.</p>
+        <p>This project will be created with <strong>{{ taskCountToSave }} tasks</strong>.</p>
         <p>The size of each task is approximately <strong>{{ formattedTaskArea }}</strong></p>
+      </div>
+    </section>
+
+    <section
+      v-if="generatedSummary && !savedSummary && smallTaskCount > 0"
+      class="project-task-setup-callout project-task-setup-callout-warning"
+      data-testid="small-task-warning"
+    >
+      <app-icon
+        variant="warning"
+        size="18"
+        no-margin
+      />
+      <div>
+        <strong>{{ smallTaskSummary }}</strong>
+        <p>Review each task on the map, then decide whether to remove or keep all small tasks.</p>
+
+        <button
+          v-if="activeSmallTaskIndex === null"
+          class="btn project-task-setup-review-button"
+          type="button"
+          :disabled="generating || saving"
+          @click="emit('review-small-task', 0)"
+        >
+          <app-icon
+            variant="zoom_in"
+            size="18"
+            no-margin
+          />
+          Review {{ smallTaskCount === 1 ? 'task' : 'tasks' }} on map
+        </button>
+
+        <div
+          v-else
+          class="project-task-setup-small-task-review"
+        >
+          <div class="project-task-setup-small-task-navigation">
+            <button
+              class="btn project-task-setup-small-task-navigation-button"
+              type="button"
+              aria-label="Review previous small task"
+              :disabled="generating || saving || activeSmallTaskIndex === 0"
+              @click="emit('review-small-task', activeSmallTaskIndex - 1)"
+            >
+              <app-icon
+                variant="chevron_left"
+                size="18"
+                no-margin
+              />
+            </button>
+            <strong>Task {{ activeSmallTaskIndex + 1 }} of {{ smallTaskCount }}</strong>
+            <button
+              class="btn project-task-setup-small-task-navigation-button"
+              type="button"
+              aria-label="Review next small task"
+              :disabled="generating || saving || activeSmallTaskIndex === smallTaskCount - 1"
+              @click="emit('review-small-task', activeSmallTaskIndex + 1)"
+            >
+              <app-icon
+                variant="chevron_right"
+                size="18"
+                no-margin
+              />
+            </button>
+            <button
+              class="btn project-task-setup-review-button"
+              type="button"
+              :disabled="generating || saving"
+              @click="emit('review-small-task', activeSmallTaskIndex)"
+            >
+              <app-icon
+                variant="zoom_in"
+                size="18"
+                no-margin
+              />
+              Show on map
+            </button>
+          </div>
+        </div>
+
+        <fieldset class="project-task-setup-small-task-choice">
+          <legend class="visually-hidden">
+            Choose whether to remove all small tasks
+          </legend>
+          <label>
+            <input
+              type="radio"
+              name="project-task-setup-small-tasks"
+              :checked="discardSmallTasks"
+              :disabled="saving"
+              @change="emit('update:discard-small-tasks', true)"
+            >
+            Remove {{ smallTaskCount === 1 ? 'this small task' : `all ${smallTaskCount} small tasks` }} (recommended)
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="project-task-setup-small-tasks"
+              :checked="!discardSmallTasks"
+              :disabled="saving"
+              @change="emit('update:discard-small-tasks', false)"
+            >
+            Keep {{ smallTaskCount === 1 ? 'this small task' : `all ${smallTaskCount} small tasks` }}
+          </label>
+        </fieldset>
       </div>
     </section>
 
@@ -199,10 +304,14 @@ import type {
 import { formatArea } from '~/util/area';
 
 interface Props {
+  /** Small task currently being reviewed on the map. */
+  activeSmallTaskIndex: number | null;
   /** Whether the Generate button should be enabled (AOI exists, no in-flight request, etc.). */
   canGenerate: boolean;
   /** Whether the Save button should be enabled (grid generated but not yet saved). */
   canSave: boolean;
+  /** Remove all small boundary tasks before saving. */
+  discardSmallTasks: boolean;
   /** Set by the composable once the server has returned a generated task grid. Null before generation. */
   generatedSummary: ProjectWizardTaskGenerationSummary | null;
   /** True while the generate API request is in-flight. Disables the button and shows a spinner. */
@@ -220,6 +329,12 @@ interface Props {
   savedSummary: ProjectWizardTaskSaveSummary | null;
   /** True while the save API request is in-flight. */
   saving: boolean;
+  /** Number of generated tasks that fall below the size limit. */
+  smallTaskCount: number;
+  /** Size limit shown in the warning, in km². */
+  smallTaskThresholdSquareKilometers: number;
+  /** Number of tasks left to save after the user's choice is applied. */
+  taskCountToSave: number;
   /** Current slider value (km² per task). Controlled by the parent via `update:task-area`. */
   taskAreaSquareKilometers: number;
   /** Step increment for the range slider. */
@@ -230,7 +345,9 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
   'generate': [];
   'reset': [];
+  'review-small-task': [index: number];
   'save': [];
+  'update:discard-small-tasks': [value: boolean];
   'update:task-area': [value: number];
 }>();
 
@@ -253,6 +370,17 @@ const formattedMaximumTaskArea = computed(() =>
 const formattedTaskArea = computed(() =>
   formatArea(props.taskAreaSquareKilometers, areaUnit.value)
 );
+const smallTaskSummary = computed(() => {
+  const threshold = formatArea(
+    props.smallTaskThresholdSquareKilometers,
+    areaUnit.value,
+    { maximumSignificantDigits: 2 },
+  );
+
+  return props.smallTaskCount === 1
+    ? `1 task is smaller than ${threshold}`
+    : `${props.smallTaskCount} tasks are smaller than ${threshold}`;
+});
 const taskGenerationActionLabel = computed(() =>
   props.generatedSummary ? 'Generate Again' : 'Generate Tasks'
 );
@@ -285,6 +413,68 @@ function onTaskAreaInput(event: Event) {
 
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
+
+.project-task-setup-small-task-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  border: 0;
+
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+  }
+}
+
+.project-task-setup-small-task-review {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.project-task-setup-small-task-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.project-task-setup-small-task-navigation > strong {
+  min-width: 6.5rem;
+  text-align: center;
+}
+
+.project-task-setup-small-task-navigation-button,
+.project-task-setup-review-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.35rem;
+  color: #8a3d18;
+  background: #ffffff;
+  border: 1px solid rgba(207, 104, 58, 0.5);
+  border-radius: 0.45rem;
+}
+
+.project-task-setup-small-task-navigation-button {
+  width: 2.35rem;
+  padding: 0;
+}
+
+.project-task-setup-review-button {
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.75rem;
+}
+
+.project-task-setup-small-task-navigation .project-task-setup-review-button {
+  margin-top: 0;
+  margin-left: 0.25rem;
+}
 
 .project-task-setup-card {
   display: grid;

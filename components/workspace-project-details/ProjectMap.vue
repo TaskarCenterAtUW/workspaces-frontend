@@ -93,6 +93,7 @@ import type {
   WorkspaceProjectTaskListItem,
 } from '~/types/projects';
 import type {
+  ProjectWizardGeneratedTaskFeature,
   ProjectWizardGeneratedTaskFeatureCollection,
   ProjectWizardTaskPreviewFeatureCollection,
 } from '~/types/project-wizard';
@@ -106,6 +107,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+defineExpose({ focusSmallTask });
 const emit = defineEmits<{
   'select-task': [taskId: string];
 }>();
@@ -122,6 +124,7 @@ const TASK_FILL_ID = 'project-detail-task-fill';
 const TASK_LINE_ID = 'project-detail-task-line';
 const TASK_GRID_FILL_ID = 'project-detail-task-grid-fill';
 const TASK_GRID_LINE_ID = 'project-detail-task-grid-line';
+const SMALL_TASK_GRID_LINE_ID = 'project-detail-small-task-grid-line';
 const DEFAULT_CENTER: [number, number] = [-122.3321, 47.6062];
 
 /**
@@ -398,8 +401,9 @@ function ensureLayers() {
     source: TASK_GRID_SOURCE_ID,
     filter: ['==', ['geometry-type'], 'Polygon'],
     paint: {
-      'fill-color': '#fde9aa',
-      'fill-opacity': 0.4,
+      // Highlight the tiny slivers created where the grid meets the project boundary.
+      'fill-color': ['case', ['==', ['get', 'smallTask'], true], '#e05b5b', '#fde9aa'],
+      'fill-opacity': ['case', ['==', ['get', 'smallTask'], true], 0.7, 0.4],
       'fill-outline-color': '#8f9ab1',
     },
   };
@@ -415,12 +419,25 @@ function ensureLayers() {
     },
   };
 
+  const smallTaskGridLineLayer: LineLayerSpecification = {
+    id: SMALL_TASK_GRID_LINE_ID,
+    type: 'line',
+    source: TASK_GRID_SOURCE_ID,
+    filter: ['==', ['get', 'smallTask'], true],
+    paint: {
+      'line-color': '#d83b3b',
+      'line-width': 6,
+      'line-opacity': 1,
+    },
+  };
+
   detailMap.addLayer(aoiFillLayer);
   detailMap.addLayer(taskGridFillLayer);
   detailMap.addLayer(taskFillLayer);
   detailMap.addLayer(taskLineLayer);
   detailMap.addLayer(taskGridLineLayer);
   detailMap.addLayer(aoiLineLayer);
+  detailMap.addLayer(smallTaskGridLineLayer);
 }
 
 function bindInteractionHandlers() {
@@ -500,6 +517,25 @@ function fitMapToData() {
   });
 
   hasFittedInitialBounds = true;
+}
+
+function focusSmallTask(task: ProjectWizardGeneratedTaskFeature) {
+  if (!detailMap) {
+    return;
+  }
+
+  const bounds = getFeatureBounds(task.geometry);
+
+  if (!bounds) {
+    return;
+  }
+
+  detailMap.fitBounds(bounds, {
+    padding: 96,
+    duration: 600,
+    maxZoom: 18,
+    essential: true,
+  });
 }
 
 function resolvePadding(): PaddingOptions {

@@ -156,8 +156,10 @@
           >
             <workspace-project-details-task-setup-panel
               v-if="showTaskSetup"
+              :active-small-task-index="activeSmallTaskIndex"
               :can-generate="canGenerateTasks"
               :can-save="canSaveTasks"
+              :discard-small-tasks="discardSmallTasks"
               :generated-summary="generatedTaskSummary"
               :generating="generatingTasks"
               :has-aoi="Boolean(mapAoi)"
@@ -167,11 +169,16 @@
               :project-name="project.name"
               :saved-summary="savedTaskSummary"
               :saving="savingTasks"
+              :small-task-count="smallTaskCount"
+              :small-task-threshold-square-kilometers="PROJECT_WIZARD_SMALL_TASK_AREA_THRESHOLD"
+              :task-count-to-save="taskCountToSave"
               :task-area-square-kilometers="currentTaskAreaSquareKilometers"
               :task-area-step="PROJECT_WIZARD_TASK_AREA_STEP"
               @generate="handleGenerateTasks"
-              @reset="resetTasking"
+              @reset="handleResetTasking"
+              @review-small-task="handleReviewSmallTask"
               @save="handleSaveTasks"
+              @update:discard-small-tasks="discardSmallTasks = $event"
               @update:task-area="updateTaskAreaSquareKilometers"
             />
 
@@ -218,10 +225,11 @@
         </section>
 
         <workspace-project-details-project-map
+          ref="projectMapRef"
           :aoi="projectAoi"
           :selected-task-id="selectedTaskId"
           :task-grid="showTaskSetup ? displayedTaskGrid : persistedTaskGrid"
-          :tasks="showTaskSetup ? [] : displayedTasks"
+          :tasks="showTaskSetup ? EMPTY_PROJECT_TASKS : displayedTasks"
           class="project-detail-map-column"
           @select-task="selectTask"
         />
@@ -259,6 +267,7 @@ import 'vue3-toastify/dist/index.css';
 import { listProjectGroupUsers } from '~/services/project-wizard-users';
 import { normalizeProjectWizardAoiInput } from '~/services/project-wizard-aoi';
 import {
+  PROJECT_WIZARD_SMALL_TASK_AREA_THRESHOLD,
   PROJECT_WIZARD_TASK_AREA_MAXIMUM,
   PROJECT_WIZARD_TASK_AREA_MINIMUM,
   PROJECT_WIZARD_TASK_AREA_STEP,
@@ -278,6 +287,7 @@ import type {
 } from '~/types/projects';
 import type {
   ProjectWizardAreaFeature,
+  ProjectWizardGeneratedTaskFeature,
   ProjectWizardGeneratedTaskFeatureCollection,
   ProjectWizardTaskPreviewFeatureCollection,
   ProjectWizardTaskSaveSummary,
@@ -318,10 +328,14 @@ const {
   myTdeiRoles,
 );
 const project = ref(await loadProjectDetail());
+const projectMapRef = useTemplateRef<{
+  focusSmallTask: (task: ProjectWizardGeneratedTaskFeature) => void;
+}>('projectMapRef');
 const projectAoi = ref(await loadProjectAoi());
 const projectTasks = ref<WorkspaceProjectTaskListItem[] | null>(await loadProjectTasks());
 const projectContributors = ref<WorkspaceProjectContributor[]>(await loadProjectContributors());
 const projectGroupUsers = ref<ProjectWizardWorkspaceUser[]>([]);
+const EMPTY_PROJECT_TASKS: WorkspaceProjectTaskListItem[] = [];
 
 // Resolve the user's effective project role (workspace lead always wins).
 // This is awaited so the tabs and action guards are correct on first render.
@@ -404,8 +418,9 @@ const {
   canGenerateTasks,
   canSaveTasks,
   currentTaskAreaSquareKilometers,
+  discardSmallTasks,
   generateTasks,
-  generatedTaskGrid,
+  generatedTaskGridForDisplay,
   generatedTaskSummary,
   generatingTasks,
   resetTasking,
@@ -413,6 +428,9 @@ const {
   savedTaskGrid,
   savedTaskSummary,
   savingTasks,
+  smallTaskCount,
+  smallTasks,
+  taskCountToSave,
   taskPreviewGrid,
   taskPreviewSummary,
   updateTaskAreaSquareKilometers,
@@ -421,6 +439,8 @@ const {
   projectId: computed(() => String(project.value.id)),
   workspaceId,
 });
+
+const activeSmallTaskIndex = ref<number | null>(null);
 
 const activeTab = computed<WorkspaceProjectDetailTab>(() => {
   const requestedTab = route.query.tab;
@@ -447,7 +467,7 @@ const displayedTaskGrid = computed<
   // before the follow-up project refresh completes.
   if (showTaskSetup.value) {
     return savedTaskGrid.value
-      ?? generatedTaskGrid.value
+      ?? generatedTaskGridForDisplay.value
       ?? taskPreviewGrid.value;
   }
 
@@ -636,11 +656,35 @@ onMounted(() => {
 async function handleGenerateTasks() {
   try {
     selectedTaskId.value = null;
-    await generateTasks();
+    const generatedSummary = await generateTasks();
+
+    if (generatedSummary) {
+      activeSmallTaskIndex.value = null;
+    }
   }
   catch (error) {
     await openTaskGenerationErrorDialog(error);
   }
+}
+
+function handleResetTasking() {
+  activeSmallTaskIndex.value = null;
+  resetTasking();
+}
+
+function handleReviewSmallTask(index: number) {
+  if (generatingTasks.value) {
+    return;
+  }
+
+  const task = smallTasks.value[index];
+
+  if (!task) {
+    return;
+  }
+
+  activeSmallTaskIndex.value = index;
+  projectMapRef.value?.focusSmallTask(task);
 }
 
 async function handleSaveTasks() {
