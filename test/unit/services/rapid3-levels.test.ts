@@ -14,7 +14,8 @@ import {
 
 // Rapid3LevelTools against a minimal fake of the Rapid 3 context: a two-layer
 // graph (base + local edits), an editor that applies the actions it's given,
-// and the FilterSystem methods the level filter wraps.
+// and the FilterSystem methods the level filter wraps. It's shaped like Rapid
+// 3.0.0-pre.3; `fakePre4Context` reshapes it like pre.4.
 
 type Entity = { id: string; type: string; tags?: Record<string, string>; nodes?: string[]; loc?: [number, number] };
 
@@ -57,8 +58,20 @@ function fakeContext(entities: Entity[]) {
       map: { fitEntitiesEase: vi.fn() },
       gfx: { immediateRedraw: vi.fn() }
     },
+    modes: { 'browse': {}, 'select-osm': {}, 'draw-area': {} } as Record<string, object>,
     enter: vi.fn()
   };
+}
+
+// Rapid 3.0.0-pre.4 keeps a graph's own edits behind `localEntities()` (it has
+// no `local`), and selects any data with one `select` mode, taking data IDs.
+function fakePre4Context(entities: Entity[]) {
+  const context = fakeContext(entities);
+  const graph: Record<string, unknown> = context.graph;
+  delete graph.local;
+  graph.localEntities = () => new Map(context.local);
+  context.modes = { 'browse': {}, 'select': {}, 'draw-area': {} };
+  return context;
 }
 
 const node = (id: string, tags?: Record<string, string>): Entity => ({ id, type: 'node', ...(tags ? { tags } : {}) });
@@ -1495,5 +1508,37 @@ describe('reference drawings', () => {
     const tools = new Rapid3LevelTools(fakeContext(withReference()));
     tools.showLevel('L0');
     expect(tools.referenceDrawing.value).toBeUndefined();
+  });
+});
+
+describe('with Rapid 3.0.0-pre.4', () => {
+  it('starts and lists the levels', () => {
+    const tools = new Rapid3LevelTools(fakePre4Context(station()));
+
+    expect(tools.levels.value.map(level => level.levelId)).toEqual(['L1', 'L0']);
+  });
+
+  it('lists loaded and locally added features, leaving out local deletions', () => {
+    const context = fakePre4Context(station());
+    context.local.set('n4', node('n4', { location_type: '3', level_id: 'L1' }));
+    context.local.set('n3', undefined);
+
+    const ids = graphEntities(context.graph).map(entity => entity.id);
+
+    expect(ids).toContain('a0');
+    expect(ids).toContain('n4');
+    expect(ids).not.toContain('n3');
+  });
+
+  it('selects features with the select mode, by entity ID', () => {
+    const context = fakePre4Context(station());
+    const tools = new Rapid3LevelTools(context);
+
+    tools.select('n1');
+    tools.selectLevelOutline('L0');
+
+    expect(context.enter).toHaveBeenCalledWith('select', { selection: ['n1'] });
+    expect(context.enter).toHaveBeenCalledWith('select', { selection: ['a0'] });
+    expect(context.enter).not.toHaveBeenCalledWith('select-osm', expect.anything());
   });
 });

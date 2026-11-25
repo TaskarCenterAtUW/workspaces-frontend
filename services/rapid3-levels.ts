@@ -195,7 +195,10 @@ export function installFarEndFading() {
 
 /** Every entity in a Rapid graph: loaded data plus local edits (minus local deletions). */
 export function graphEntities(graph: any): any[] {
-  const ids = new Set([...graph.base.entities.keys(), ...graph.local.entities.keys()]);
+  // Rapid 3.0.0-pre.4 replaced the graph's `local` cache with `localEntities()`;
+  // earlier builds have only `local`.
+  const local: Map<string, unknown> = graph.localEntities?.() ?? graph.local?.entities ?? new Map();
+  const ids = new Set([...graph.base.entities.keys(), ...local.keys()]);
   const entities: any[] = [];
   for (const id of ids) {
     const entity = graph.hasEntity(id); // undefined if deleted locally
@@ -1084,7 +1087,7 @@ export class Rapid3LevelTools {
     });
     this.refresh();
     if (wayIds.length === 1) {
-      this.#context.enter('select-osm', { selection: { osm: wayIds } });
+      this.#selectEntities(wayIds);
     }
     return wayIds;
   }
@@ -1280,7 +1283,7 @@ export class Rapid3LevelTools {
     if (levelId) {
       const level = this.levels.value.find(l => l.levelId === levelId);
       if (level?.areaIds.length) {
-        this.#context.enter('select-osm', { selection: { osm: level.areaIds.map(String) } });
+        this.#selectEntities(level.areaIds.map(String));
       }
       return;
     }
@@ -1307,7 +1310,21 @@ export class Rapid3LevelTools {
     if (!entity) return;
 
     this.#context.systems.map.fitEntitiesEase([entity]);
-    this.#context.enter('select-osm', { selection: { osm: [entityId] } });
+    this.#selectEntities([entityId]);
+  }
+
+  /**
+   * Selects OSM features in the editor. Rapid 3.0.0-pre.4 selects any data with
+   * one `select` mode, taking data IDs (a feature's is its entity ID); earlier
+   * builds select OSM features with `select-osm`.
+   */
+  #selectEntities(entityIds: string[]) {
+    if (this.#context.modes?.['select-osm']) {
+      this.#context.enter('select-osm', { selection: { osm: entityIds } });
+    }
+    else {
+      this.#context.enter('select', { selection: entityIds });
+    }
   }
 
   /** Sets level_id on the given stops, as one undoable edit. */
