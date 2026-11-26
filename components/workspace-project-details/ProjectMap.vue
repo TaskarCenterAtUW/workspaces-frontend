@@ -402,7 +402,12 @@ function ensureLayers() {
     filter: ['==', ['geometry-type'], 'Polygon'],
     paint: {
       // Highlight the tiny slivers created where the grid meets the project boundary.
-      'fill-color': ['case', ['==', ['get', 'smallTask'], true], '#e05b5b', '#fde9aa'],
+      'fill-color': [
+        'case',
+        ['==', ['get', 'smallTaskKept'], true], '#69b28d',
+        ['==', ['get', 'smallTask'], true], '#e05b5b',
+        '#fde9aa',
+      ],
       'fill-opacity': ['case', ['==', ['get', 'smallTask'], true], 0.7, 0.4],
       'fill-outline-color': '#8f9ab1',
     },
@@ -425,7 +430,7 @@ function ensureLayers() {
     source: TASK_GRID_SOURCE_ID,
     filter: ['==', ['get', 'smallTask'], true],
     paint: {
-      'line-color': '#d83b3b',
+      'line-color': ['case', ['==', ['get', 'smallTaskKept'], true], '#347c5b', '#d83b3b'],
       'line-width': 6,
       'line-opacity': 1,
     },

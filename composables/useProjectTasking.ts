@@ -10,8 +10,8 @@
  *   2. `taskPreviewGrid` updates reactively, showing a live grid preview on the map.
  *   3. User clicks "Generate Tasks" → `generateTasks()` calls the API to create a server-side grid.
  *   4. `generatedTaskSummary` is populated → map switches to showing the API grid.
- *   5. If clipping the grid creates tiny tasks along the boundary, the user can remove them
- *      (the default) or keep them.
+ *   5. If clipping the grid creates tiny tasks along the boundary, they are removed by
+ *      default and the user can keep individual exceptions while reviewing them on the map.
  *   6. User clicks "Save Tasks" → `saveTasks()` commits the chosen tasks to the project.
  *   7. `savedTaskSummary` is populated → the setup UI hides and the real task list appears.
  *
@@ -57,8 +57,8 @@ export function useProjectTasking(options: UseProjectTaskingOptions) {
   const generatedTaskSummary = ref<ProjectWizardTaskGenerationSummary | null>(null);
   /** Populated after a successful `saveTasks()` call. Once set, the workflow is complete. */
   const savedTaskSummary = ref<ProjectWizardTaskSaveSummary | null>(null);
-  /** Remove every small task before saving. Each new grid resets this choice. */
-  const discardSmallTasks = ref(true);
+  /** Indexes of tiny tasks the user explicitly chose to keep. Each new grid resets the set. */
+  const keptSmallTaskIndexes = ref<Set<number>>(new Set());
 
   /** The task area value clamped/snapped to valid bounds. Always use this rather than the raw ref. */
   const currentTaskAreaSquareKilometers = computed(() =>
@@ -105,15 +105,27 @@ export function useProjectTasking(options: UseProjectTaskingOptions) {
   const smallTasks = computed(() => generatedTaskPartition.value.smallTasks);
   /** Number of tiny tasks in the generated grid. */
   const smallTaskCount = computed(() => smallTasks.value.length);
-  /** The grid to save, with small tasks removed when the user chooses to discard them. */
+  /** Number of tiny tasks explicitly kept as exceptions. */
+  const keptSmallTaskCount = computed(() => keptSmallTaskIndexes.value.size);
+  /** The grid to save, with every unselected tiny task removed. */
   const taskGridToSave = computed<ProjectWizardGeneratedTaskFeatureCollection | null>(() => {
     const grid = generatedTaskGrid.value;
 
-    if (!grid || !discardSmallTasks.value || smallTaskCount.value === 0) {
+    if (!grid || smallTaskCount.value === 0) {
       return grid;
     }
 
-    return { ...grid, features: generatedTaskPartition.value.regularTasks };
+    const smallTaskIndexes = new Map(
+      smallTasks.value.map((feature, index) => [feature, index]),
+    );
+
+    return {
+      ...grid,
+      features: grid.features.filter((feature) => {
+        const smallTaskIndex = smallTaskIndexes.get(feature);
+        return smallTaskIndex === undefined || keptSmallTaskIndexes.value.has(smallTaskIndex);
+      }),
+    };
   });
   /** Number of tasks that will actually be saved. */
   const taskCountToSave = computed(() =>
@@ -140,7 +152,15 @@ export function useProjectTasking(options: UseProjectTaskingOptions) {
 
         return smallTaskIndex === undefined
           ? feature
-          : { ...feature, properties: { ...feature.properties, smallTask: true, smallTaskIndex } };
+          : {
+              ...feature,
+              properties: {
+                ...feature.properties,
+                smallTask: true,
+                smallTaskIndex,
+                smallTaskKept: keptSmallTaskIndexes.value.has(smallTaskIndex),
+              },
+            };
       }),
     };
   });
@@ -165,11 +185,26 @@ export function useProjectTasking(options: UseProjectTaskingOptions) {
     taskAreaSquareKilometers.value = normalizeTaskAreaSquareKilometers(value);
   }
 
+  function setSmallTaskKept(index: number, kept: boolean) {
+    if (!Number.isInteger(index) || index < 0 || index >= smallTaskCount.value) {
+      return;
+    }
+
+    const nextIndexes = new Set(keptSmallTaskIndexes.value);
+    if (kept) {
+      nextIndexes.add(index);
+    }
+    else {
+      nextIndexes.delete(index);
+    }
+    keptSmallTaskIndexes.value = nextIndexes;
+  }
+
   function resetTasking() {
     taskAreaSquareKilometers.value = PROJECT_WIZARD_TASK_AREA_DEFAULT;
     generatedTaskSummary.value = null;
     savedTaskSummary.value = null;
-    discardSmallTasks.value = true;
+    keptSmallTaskIndexes.value = new Set();
   }
 
   async function generateTasks() {
@@ -189,7 +224,7 @@ export function useProjectTasking(options: UseProjectTaskingOptions) {
       );
 
       generatedTaskSummary.value = nextGeneratedSummary;
-      discardSmallTasks.value = true;
+      keptSmallTaskIndexes.value = new Set();
       return nextGeneratedSummary;
     }
     finally {
@@ -257,17 +292,19 @@ export function useProjectTasking(options: UseProjectTaskingOptions) {
     canGenerateTasks,
     canSaveTasks,
     currentTaskAreaSquareKilometers,
-    discardSmallTasks,
     generateTasks,
     generatedTaskGrid,
     generatedTaskGridForDisplay,
     generatedTaskSummary,
     generatingTasks,
+    keptSmallTaskCount,
+    keptSmallTaskIndexes,
     resetTasking,
     saveTasks,
     savedTaskGrid,
     savedTaskSummary,
     savingTasks,
+    setSmallTaskKept,
     smallTaskCount,
     smallTasks,
     taskCountToSave,

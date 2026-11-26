@@ -20,12 +20,13 @@ async function mountPanel(overrides: Record<string, unknown> = {}) {
   return await mountSuspended(TaskSetupPanel, {
     props: {
       activeSmallTaskIndex: null,
+      activeSmallTaskKept: false,
       canGenerate: true,
       canSave: true,
-      discardSmallTasks: true,
       generatedSummary,
       generating: false,
       hasAoi: true,
+      keptSmallTaskCount: 0,
       maximumTaskAreaSquareKilometers: 1,
       minimumTaskAreaSquareKilometers: 0.25,
       previewTaskCount: 10,
@@ -66,20 +67,34 @@ describe('TaskSetupPanel small tasks', () => {
     expect(wrapper.find('.project-task-setup-review-button').attributes('disabled')).toBeDefined();
   });
 
-  it('navigates individual tasks while keeping one collective choice', async () => {
+  it('navigates individual tasks and lets the user keep the active exception', async () => {
     const wrapper = await mountPanel({ activeSmallTaskIndex: 1 });
     const navigation = wrapper.findAll('.project-task-setup-small-task-navigation-button');
-    const [remove, keep] = wrapper.findAll('[data-testid="small-task-warning"] input[type="radio"]');
+    const keep = wrapper.find('[data-testid="small-task-warning"] input[type="checkbox"]');
 
-    expect((remove!.element as HTMLInputElement).checked).toBe(true);
+    expect((keep.element as HTMLInputElement).checked).toBe(false);
 
-    await keep!.trigger('change');
-    await remove!.trigger('change');
+    await keep.setValue(true);
     await navigation[0]!.trigger('click');
     await navigation[1]!.trigger('click');
 
-    expect(wrapper.emitted('update:discard-small-tasks')).toEqual([[false], [true]]);
+    expect(wrapper.emitted('set-small-task-kept')).toEqual([[1, true]]);
     expect(wrapper.emitted('review-small-task')).toEqual([[0], [2]]);
+  });
+
+  it('summarizes kept and discarded tiny tasks', async () => {
+    const wrapper = await mountPanel({ keptSmallTaskCount: 1 });
+
+    expect(wrapper.text()).toContain('1 kept · 2 will be discarded');
+    expect(wrapper.text()).toContain('1 selected exception will be kept and the remaining 2 flagged tasks will be discarded');
+    expect(wrapper.find('.project-task-setup-action-save').text()).toContain('Discard Remaining & Save');
+  });
+
+  it('uses the standard save action when every tiny task is kept', async () => {
+    const wrapper = await mountPanel({ keptSmallTaskCount: 3, taskCountToSave: 10 });
+
+    expect(wrapper.find('.project-task-setup-action-save').text()).toContain('Save Tasks');
+    expect(wrapper.text()).not.toContain('Discard remaining tiny tasks and save');
   });
 
   it('shows no warning when there are no small tasks', async () => {

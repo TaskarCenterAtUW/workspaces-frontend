@@ -72,7 +72,7 @@ describe('useProjectTasking small tasks', () => {
     await tasking.generateTasks();
 
     expect(tasking.smallTaskCount.value).toBe(2);
-    expect(tasking.discardSmallTasks.value).toBe(true);
+    expect(tasking.keptSmallTaskCount.value).toBe(0);
     expect(tasking.taskCountToSave.value).toBe(1);
 
     await tasking.saveTasks();
@@ -81,17 +81,18 @@ describe('useProjectTasking small tasks', () => {
     expect(savedGrid.features.map(feature => feature.properties?.id)).toEqual(['big']);
   });
 
-  it('saves every small task when the user keeps the group', async () => {
+  it('saves only the individual small-task exceptions selected by the user', async () => {
     const tasking = setup();
     await tasking.generateTasks();
-    tasking.discardSmallTasks.value = false;
+    tasking.setSmallTaskKept(1, true);
 
-    expect(tasking.taskCountToSave.value).toBe(3);
+    expect(tasking.keptSmallTaskCount.value).toBe(1);
+    expect(tasking.taskCountToSave.value).toBe(2);
 
     await tasking.saveTasks();
 
     const savedGrid = saveProjectTasks.mock.calls[0]![2] as ProjectWizardGeneratedTaskFeatureCollection;
-    expect(savedGrid.features.map(feature => feature.properties?.id)).toEqual(['big', 'sliver', 'sliver-2']);
+    expect(savedGrid.features.map(feature => feature.properties?.id)).toEqual(['big', 'sliver-2']);
   });
 
   it('flags small tasks on the map grid without changing the saved features', async () => {
@@ -100,18 +101,20 @@ describe('useProjectTasking small tasks', () => {
 
     const flags = tasking.generatedTaskGridForDisplay.value!.features.map(feature => feature.properties?.smallTask);
     const indexes = tasking.generatedTaskGridForDisplay.value!.features.map(feature => feature.properties?.smallTaskIndex);
+    const kept = tasking.generatedTaskGridForDisplay.value!.features.map(feature => feature.properties?.smallTaskKept);
     expect(flags).toEqual([undefined, true, true]);
     expect(indexes).toEqual([undefined, 0, 1]);
+    expect(kept).toEqual([undefined, false, false]);
     expect(taskGrid.features[1]!.properties).toEqual({ id: 'sliver' });
     expect(taskGrid.features[2]!.properties).toEqual({ id: 'sliver-2' });
   });
 
-  it('goes back to removing small tasks after generating again', async () => {
+  it('clears kept exceptions after generating again', async () => {
     const tasking = setup();
     await tasking.generateTasks();
-    tasking.discardSmallTasks.value = false;
+    tasking.setSmallTaskKept(0, true);
     await tasking.generateTasks();
 
-    expect(tasking.discardSmallTasks.value).toBe(true);
+    expect(tasking.keptSmallTaskCount.value).toBe(0);
   });
 });
