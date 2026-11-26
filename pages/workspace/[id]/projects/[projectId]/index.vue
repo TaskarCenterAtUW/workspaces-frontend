@@ -157,12 +157,13 @@
             <workspace-project-details-task-setup-panel
               v-if="showTaskSetup"
               :active-small-task-index="activeSmallTaskIndex"
+              :active-small-task-kept="activeSmallTaskKept"
               :can-generate="canGenerateTasks"
               :can-save="canSaveTasks"
-              :discard-small-tasks="discardSmallTasks"
               :generated-summary="generatedTaskSummary"
               :generating="generatingTasks"
               :has-aoi="Boolean(mapAoi)"
+              :kept-small-task-count="keptSmallTaskCount"
               :maximum-task-area-square-kilometers="PROJECT_WIZARD_TASK_AREA_MAXIMUM"
               :minimum-task-area-square-kilometers="PROJECT_WIZARD_TASK_AREA_MINIMUM"
               :preview-task-count="taskPreviewSummary.totalTasks"
@@ -177,8 +178,8 @@
               @generate="handleGenerateTasks"
               @reset="handleResetTasking"
               @review-small-task="handleReviewSmallTask"
+              @set-small-task-kept="handleSetSmallTaskKept"
               @save="handleSaveTasks"
-              @update:discard-small-tasks="discardSmallTasks = $event"
               @update:task-area="updateTaskAreaSquareKilometers"
             />
 
@@ -418,16 +419,18 @@ const {
   canGenerateTasks,
   canSaveTasks,
   currentTaskAreaSquareKilometers,
-  discardSmallTasks,
   generateTasks,
   generatedTaskGridForDisplay,
   generatedTaskSummary,
   generatingTasks,
+  keptSmallTaskCount,
+  keptSmallTaskIndexes,
   resetTasking,
   saveTasks,
   savedTaskGrid,
   savedTaskSummary,
   savingTasks,
+  setSmallTaskKept,
   smallTaskCount,
   smallTasks,
   taskCountToSave,
@@ -441,6 +444,10 @@ const {
 });
 
 const activeSmallTaskIndex = ref<number | null>(null);
+const activeSmallTaskKept = computed(() =>
+  activeSmallTaskIndex.value !== null
+  && keptSmallTaskIndexes.value.has(activeSmallTaskIndex.value),
+);
 
 const activeTab = computed<WorkspaceProjectDetailTab>(() => {
   const requestedTab = route.query.tab;
@@ -685,6 +692,16 @@ function handleReviewSmallTask(index: number) {
 
   activeSmallTaskIndex.value = index;
   projectMapRef.value?.focusSmallTask(task);
+}
+
+async function handleSetSmallTaskKept(index: number, kept: boolean) {
+  setSmallTaskKept(index, kept);
+  await nextTick();
+
+  const task = smallTasks.value[index];
+  if (task) {
+    projectMapRef.value?.focusSmallTask(task);
+  }
 }
 
 async function handleSaveTasks() {

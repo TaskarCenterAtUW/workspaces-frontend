@@ -133,7 +133,7 @@
       />
       <div>
         <strong>{{ smallTaskSummary }}</strong>
-        <p>Review each task on the map, then decide whether to remove or keep all small tasks.</p>
+        <p>Review the flagged tasks on the map and select any valid exceptions to keep. All other tiny tasks will be discarded.</p>
 
         <button
           v-if="activeSmallTaskIndex === null"
@@ -196,33 +196,22 @@
               Show on map
             </button>
           </div>
+
+          <label class="project-task-setup-small-task-keep">
+            <input
+              type="checkbox"
+              :checked="activeSmallTaskKept"
+              :disabled="saving"
+              @change="emit('set-small-task-kept', activeSmallTaskIndex, ($event.target as HTMLInputElement).checked)"
+            >
+            Keep this task
+          </label>
         </div>
 
-        <fieldset class="project-task-setup-small-task-choice">
-          <legend class="visually-hidden">
-            Choose whether to remove all small tasks
-          </legend>
-          <label>
-            <input
-              type="radio"
-              name="project-task-setup-small-tasks"
-              :checked="discardSmallTasks"
-              :disabled="saving"
-              @change="emit('update:discard-small-tasks', true)"
-            >
-            Remove {{ smallTaskCount === 1 ? 'this small task' : `all ${smallTaskCount} small tasks` }} (recommended)
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="project-task-setup-small-tasks"
-              :checked="!discardSmallTasks"
-              :disabled="saving"
-              @change="emit('update:discard-small-tasks', false)"
-            >
-            Keep {{ smallTaskCount === 1 ? 'this small task' : `all ${smallTaskCount} small tasks` }}
-          </label>
-        </fieldset>
+        <p class="project-task-setup-small-task-result">
+          <strong>{{ keptSmallTaskCount }}</strong> kept ·
+          <strong>{{ smallTaskCount - keptSmallTaskCount }}</strong> will be discarded
+        </p>
       </div>
     </section>
 
@@ -232,8 +221,13 @@
     >
       <div class="project-task-setup-save-copy">
         <span class="project-task-setup-save-kicker">Step 02</span>
-        <strong>Save generated tasks</strong>
-        <p>Review the grid on the map, then save the trimmed task set to add it to this project.</p>
+        <strong>{{ hasSmallTasksToDiscard ? 'Discard remaining tiny tasks and save' : 'Save generated tasks' }}</strong>
+        <p v-if="hasSmallTasksToDiscard">
+          {{ smallTaskSaveSummary }}
+        </p>
+        <p v-else>
+          Review the grid on the map, then save the task set to add it to this project.
+        </p>
       </div>
 
       <button
@@ -252,7 +246,7 @@
             size="18"
             no-margin
           />
-          Save Tasks
+          {{ hasSmallTasksToDiscard ? 'Discard Remaining & Save' : 'Save Tasks' }}
         </template>
       </button>
     </section>
@@ -295,6 +289,8 @@
  *   - `generate`            → trigger task grid generation
  *   - `reset`               → clear the generated grid and go back to defaults
  *   - `save`                → commit the generated grid to the API
+ *   - `review-small-task`   → focus a flagged tiny task on the map
+ *   - `set-small-task-kept` → keep or discard an individual tiny-task exception
  *   - `update:task-area`    → user changed the range slider value
  */
 import type {
@@ -306,12 +302,12 @@ import { formatArea } from '~/util/area';
 interface Props {
   /** Small task currently being reviewed on the map. */
   activeSmallTaskIndex: number | null;
+  /** Whether the small task currently under review will be kept. */
+  activeSmallTaskKept: boolean;
   /** Whether the Generate button should be enabled (AOI exists, no in-flight request, etc.). */
   canGenerate: boolean;
   /** Whether the Save button should be enabled (grid generated but not yet saved). */
   canSave: boolean;
-  /** Remove all small boundary tasks before saving. */
-  discardSmallTasks: boolean;
   /** Set by the composable once the server has returned a generated task grid. Null before generation. */
   generatedSummary: ProjectWizardTaskGenerationSummary | null;
   /** True while the generate API request is in-flight. Disables the button and shows a spinner. */
@@ -329,6 +325,8 @@ interface Props {
   savedSummary: ProjectWizardTaskSaveSummary | null;
   /** True while the save API request is in-flight. */
   saving: boolean;
+  /** Number of tiny tasks explicitly selected to keep. */
+  keptSmallTaskCount: number;
   /** Number of generated tasks that fall below the size limit. */
   smallTaskCount: number;
   /** Size limit shown in the warning, in km². */
@@ -346,8 +344,8 @@ const emit = defineEmits<{
   'generate': [];
   'reset': [];
   'review-small-task': [index: number];
+  'set-small-task-kept': [index: number, kept: boolean];
   'save': [];
-  'update:discard-small-tasks': [value: boolean];
   'update:task-area': [value: number];
 }>();
 
@@ -384,6 +382,20 @@ const smallTaskSummary = computed(() => {
 const taskGenerationActionLabel = computed(() =>
   props.generatedSummary ? 'Generate Again' : 'Generate Tasks'
 );
+const smallTaskDiscardCount = computed(() =>
+  props.smallTaskCount - props.keptSmallTaskCount
+);
+const hasSmallTasksToDiscard = computed(() => smallTaskDiscardCount.value > 0);
+const smallTaskSaveSummary = computed(() => {
+  const discardedTasks = `${smallTaskDiscardCount.value} flagged ${smallTaskDiscardCount.value === 1 ? 'task' : 'tasks'}`;
+
+  if (props.keptSmallTaskCount === 0) {
+    return `The ${discardedTasks} will be discarded.`;
+  }
+
+  const keptTasks = `${props.keptSmallTaskCount} selected ${props.keptSmallTaskCount === 1 ? 'exception' : 'exceptions'}`;
+  return `The ${keptTasks} will be kept and the remaining ${discardedTasks} will be discarded.`;
+});
 
 /**
  * Percentage (0–100) of how far the slider thumb is from the left edge.
@@ -414,25 +426,22 @@ function onTaskAreaInput(event: Event) {
 <style lang="scss" scoped>
 @import "~/assets/scss/theme.scss";
 
-.project-task-setup-small-task-choice {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.25rem;
-  margin: 0.5rem 0 0;
-  padding: 0;
-  border: 0;
-
-  label {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    cursor: pointer;
-  }
-}
-
 .project-task-setup-small-task-review {
   display: grid;
   gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.project-task-setup-small-task-keep {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: fit-content;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.project-task-setup-small-task-result {
   margin-top: 0.75rem;
 }
 
